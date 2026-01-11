@@ -3,6 +3,13 @@
 ## 0) Goal
 Build a portable real-time stereo computer vision app that tracks baseball/softball pitches using two USB3 global-shutter cameras on a rigid mount and computes 3D trajectory + pitch metrics locally on a laptop with low latency.
 
+### Quick install
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
 ### Hard Constraints
 - Two cameras streaming simultaneously into ONE laptop via USB3
 - Target mode: 1920x1080 @ 60 fps per camera
