@@ -1,6 +1,7 @@
-"""Detection package implementing MODE_A and MODE_B pipelines."""
+"""Detection module."""
 
-from detect.config import DetectorConfig, FilterConfig, Mode
-from detect.detector import Detector
+from .detector import Detector, DetectorHealth
+from .lane import LaneGate, LaneRoi
+from .simple_detector import CenterDetector
 
-__all__ = ["Detector", "DetectorConfig", "FilterConfig", "Mode"]
+__all__ = ["Detector", "DetectorHealth", "LaneGate", "LaneRoi", "CenterDetector"]
