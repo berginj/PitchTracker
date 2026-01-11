@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Iterable, List
 
 from capture import CameraDevice, SimulatedCamera
+from capture.opencv_backend import OpenCVCamera
 from configs.settings import load_config
 from contracts import Detection
 from detect import LaneGate, LaneRoi
@@ -23,6 +24,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", type=Path, default=Path("configs/default.yaml"))
     parser.add_argument("--frames", type=int, default=5)
     parser.add_argument("--stereo", action="store_true", help="Enable stereo matching")
+    parser.add_argument(
+        "--backend",
+        choices=("opencv", "sim"),
+        default="sim",
+        help="Capture backend to use (opencv or sim).",
+    )
+    parser.add_argument("--left", default="left", help="Left camera ID or index.")
+    parser.add_argument("--right", default="right", help="Right camera ID or index.")
     return parser.parse_args()
 
 
@@ -72,16 +81,40 @@ def build_stereo_matches(
     return matches
 
 
-def run_pipeline(frames: int, enable_stereo: bool, config_path: Path) -> None:
+def configure_camera(camera: CameraDevice, config: object) -> None:
+    camera.set_mode(
+        config.camera.width,
+        config.camera.height,
+        config.camera.fps,
+        config.camera.pixfmt,
+    )
+    camera.set_controls(
+        config.camera.exposure_us,
+        config.camera.gain,
+        config.camera.wb_mode,
+        config.camera.wb,
+    )
+
+
+def run_pipeline(
+    frames: int,
+    enable_stereo: bool,
+    config_path: Path,
+    backend: str,
+    left_id: str,
+    right_id: str,
+) -> None:
     config = load_config(config_path)
-    left: CameraDevice = SimulatedCamera()
-    right: CameraDevice = SimulatedCamera()
-    left.open("left")
-    right.open("right")
-    left.set_mode(config.camera.width, config.camera.height, config.camera.fps, config.camera.pixfmt)
-    right.set_mode(config.camera.width, config.camera.height, config.camera.fps, config.camera.pixfmt)
-    left.set_controls(config.camera.exposure_us, config.camera.gain, config.camera.wb_mode, config.camera.wb)
-    right.set_controls(config.camera.exposure_us, config.camera.gain, config.camera.wb_mode, config.camera.wb)
+    if backend == "opencv":
+        left = OpenCVCamera()
+        right = OpenCVCamera()
+    else:
+        left = SimulatedCamera()
+        right = SimulatedCamera()
+    left.open(left_id)
+    right.open(right_id)
+    configure_camera(left, config)
+    configure_camera(right, config)
 
     detector = CenterDetector()
     lane_gate = build_lane_gate(config.camera.width, config.camera.height)
@@ -118,7 +151,7 @@ def run_pipeline(frames: int, enable_stereo: bool, config_path: Path) -> None:
 def main() -> None:
     args = parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    run_pipeline(args.frames, args.stereo, args.config)
+    run_pipeline(args.frames, args.stereo, args.config, args.backend, args.left, args.right)
 
 
 if __name__ == "__main__":
