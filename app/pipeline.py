@@ -35,7 +35,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_lane_gate(width: int, height: int) -> LaneGate:
+def build_lane_gate(width: int, height: int, left_id: str, right_id: str) -> LaneGate:
     roi = LaneRoi(
         polygon=[
             (width * 0.25, height * 0.25),
@@ -44,7 +44,7 @@ def build_lane_gate(width: int, height: int) -> LaneGate:
             (width * 0.25, height * 0.75),
         ]
     )
-    return LaneGate(roi_by_camera={"left": roi, "right": roi})
+    return LaneGate(roi_by_camera={left_id: roi, right_id: roi})
 
 
 def gate_detections(
@@ -117,7 +117,7 @@ def run_pipeline(
     configure_camera(right, config)
 
     detector = CenterDetector()
-    lane_gate = build_lane_gate(config.camera.width, config.camera.height)
+    lane_gate = build_lane_gate(config.camera.width, config.camera.height, left_id, right_id)
     stereo_gate = StereoLaneGate(lane_gate=lane_gate)
 
     try:
@@ -133,8 +133,8 @@ def run_pipeline(
                 len(gated),
             )
             if enable_stereo:
-                left_gated = [d for d in gated if d.camera_id == "left"]
-                right_gated = [d for d in gated if d.camera_id == "right"]
+                left_gated = [d for d in gated if d.camera_id == left_id]
+                right_gated = [d for d in gated if d.camera_id == right_id]
                 matches = build_stereo_matches(left_gated, right_gated)
                 gated_matches = stereo_gate.filter_matches(matches)
                 LOGGER.info(

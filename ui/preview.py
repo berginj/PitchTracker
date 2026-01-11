@@ -41,8 +41,13 @@ def run_preview(
     state: PreviewState,
 ) -> Dict[str, LaneRoi]:
     lane_rois = load_lane_rois(lane_path)
+    left_width = int(left_frame.shape[1])
     if left_id in lane_rois:
         state.points = [(int(x), int(y)) for x, y in lane_rois[left_id].polygon]
+    elif right_id in lane_rois:
+        state.points = [
+            (int(x + left_width), int(y)) for x, y in lane_rois[right_id].polygon
+        ]
 
     cv2.namedWindow(window_name)
     cv2.setMouseCallback(window_name, _mouse_callback, state)
@@ -54,8 +59,15 @@ def run_preview(
         key = cv2.waitKey(1) & 0xFF
         if key == ord("s"):
             if len(state.points) >= 3:
-                lane_rois[left_id] = LaneRoi(polygon=state.points)
-                lane_rois[right_id] = LaneRoi(polygon=state.points)
+                right_count = sum(1 for x, _ in state.points if x >= left_width)
+                if right_count >= len(state.points) / 2:
+                    base_points = [
+                        (int(x - left_width), int(y)) for x, y in state.points
+                    ]
+                else:
+                    base_points = [(int(x), int(y)) for x, y in state.points]
+                lane_rois[left_id] = LaneRoi(polygon=base_points)
+                lane_rois[right_id] = LaneRoi(polygon=base_points)
                 save_lane_rois(lane_path, lane_rois)
         if key == ord("c"):
             state.points = []

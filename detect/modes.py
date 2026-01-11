@@ -3,19 +3,19 @@ from __future__ import annotations
 import numpy as np
 
 from detect.config import DetectorConfig
-from detect.types import Detection
+from detect.types import BlobDetection
 from detect.utils import Component, connected_components, sobel_edges, to_grayscale
 
 
-def _components_to_detections(components: list[Component]) -> list[Detection]:
-    detections: list[Detection] = []
+def _components_to_detections(components: list[Component]) -> list[BlobDetection]:
+    detections: list[BlobDetection] = []
     for comp in components:
         if comp.perimeter == 0:
             circularity = 0.0
         else:
             circularity = 4 * np.pi * comp.area / (comp.perimeter**2)
         detections.append(
-            Detection(
+            BlobDetection(
                 centroid=comp.centroid,
                 area=comp.area,
                 perimeter=comp.perimeter,
@@ -31,7 +31,7 @@ def detect_mode_a(
     prev_frame: np.ndarray | None,
     background: np.ndarray | None,
     config: DetectorConfig,
-) -> tuple[list[Detection], np.ndarray]:
+) -> tuple[list[BlobDetection], np.ndarray]:
     gray = to_grayscale(frame)
     if prev_frame is None:
         return [], gray
@@ -55,7 +55,7 @@ def detect_mode_b(
     frame: np.ndarray,
     background: np.ndarray | None,
     config: DetectorConfig,
-) -> tuple[list[Detection], np.ndarray]:
+) -> tuple[list[BlobDetection], np.ndarray]:
     gray = to_grayscale(frame)
     if background is None:
         background = gray
