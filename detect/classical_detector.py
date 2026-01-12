@@ -21,6 +21,8 @@ class _CameraState:
     prev_frame: Optional[np.ndarray] = None
     background: Optional[np.ndarray] = None
     last_detection_ns: int = 0
+    last_centroid: Optional[tuple[float, float]] = None
+    consecutive_hits: int = 0
 
 
 class ClassicalDetector(Detector):
@@ -54,6 +56,11 @@ class ClassicalDetector(Detector):
             state.background = background
         state.prev_frame = cropped
 
+        for blob in blobs:
+            if state.last_centroid is not None:
+                dx = blob.centroid[0] - state.last_centroid[0]
+                dy = blob.centroid[1] - state.last_centroid[1]
+                blob.velocity = (dx * dx + dy * dy) ** 0.5
         filtered: List[BlobDetection] = apply_filters(
             blobs, self._config.filters, lanes=None
         )
@@ -73,6 +80,14 @@ class ClassicalDetector(Detector):
             )
         if detections:
             state.last_detection_ns = frame.t_capture_monotonic_ns
+            best = max(filtered, key=lambda det: det.area, default=None)
+            if best is not None:
+                state.last_centroid = best.centroid
+            state.consecutive_hits += 1
+        else:
+            state.consecutive_hits = 0
+        if state.consecutive_hits < self._config.min_consecutive:
+            return []
         return detections
 
     def health(self) -> DetectorHealth:

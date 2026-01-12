@@ -49,6 +49,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._replay_frame_index = 0
         self._replay_trail: deque[tuple[int, int]] = deque(maxlen=30)
         self._replay_detector: Optional[ClassicalDetector] = None
+        self._replay_paused = False
 
         self._left_input = QtWidgets.QComboBox()
         self._right_input = QtWidgets.QComboBox()
@@ -64,6 +65,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._stop_record_button = QtWidgets.QPushButton("Stop Recording")
         self._refresh_button = QtWidgets.QPushButton("Refresh Devices")
         self._replay_button = QtWidgets.QPushButton("Replay Video")
+        self._pause_button = QtWidgets.QPushButton("Pause")
+        self._step_button = QtWidgets.QPushButton("Step")
+        self._training_button = QtWidgets.QPushButton("Training Capture")
         self._record_settings_button = QtWidgets.QPushButton("Recording Settings")
         self._strike_settings_button = QtWidgets.QPushButton("Strike Zone Settings")
         self._detector_settings_button = QtWidgets.QPushButton("Detector Settings")
@@ -93,6 +97,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._save_strike_button = QtWidgets.QPushButton("Save Strike Zone")
         self._health_left = QtWidgets.QLabel("L: fps=0.0 jitter=0.0ms drops=0")
         self._health_right = QtWidgets.QLabel("R: fps=0.0 jitter=0.0ms drops=0")
+        self._calib_summary = QtWidgets.QLabel("Calib: baseline_ft=? f_px=?")
 
         self._left_view = RoiLabel(self._on_rect_update)
         self._right_view = QtWidgets.QLabel()
@@ -132,7 +137,10 @@ class MainWindow(QtWidgets.QMainWindow):
         controls.addWidget(self._restart_button)
         controls.addWidget(self._record_button)
         controls.addWidget(self._stop_record_button)
+        controls.addWidget(self._training_button)
         controls.addWidget(self._replay_button)
+        controls.addWidget(self._pause_button)
+        controls.addWidget(self._step_button)
         controls.addWidget(self._record_settings_button)
         controls.addWidget(self._strike_settings_button)
         controls.addWidget(self._detector_settings_button)
@@ -168,8 +176,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._restart_button.clicked.connect(self._restart_capture)
         self._record_button.clicked.connect(self._start_recording)
         self._stop_record_button.clicked.connect(self._stop_recording)
+        self._training_button.clicked.connect(self._start_training_capture)
         self._refresh_button.clicked.connect(self._refresh_devices)
         self._replay_button.clicked.connect(self._start_replay)
+        self._pause_button.clicked.connect(self._toggle_replay_pause)
+        self._step_button.clicked.connect(self._step_replay)
         self._checklist_button.clicked.connect(self._open_checklist)
         self._record_settings_button.clicked.connect(self._open_record_settings)
         self._strike_settings_button.clicked.connect(self._open_strike_settings)
@@ -201,6 +212,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._bottom_ratio.setValue(self._config.strike_zone.bottom_ratio)
         self._output_dir.setText(self._config.recording.output_dir)
         self._service.set_record_directory(Path(self._config.recording.output_dir))
+        self._update_calib_summary()
 
     def _start_capture(self) -> None:
         left = _current_serial(self._left_input)
@@ -230,7 +242,7 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             return
         session = self._session_name.text().strip() or None
-        self._service.start_recording(session_name=session)
+        self._service.start_recording(session_name=session, mode="review")
         self._status_label.setText("Recording...")
 
     def _browse_output(self) -> None:
@@ -256,6 +268,25 @@ class MainWindow(QtWidgets.QMainWindow):
     def _stop_recording(self) -> None:
         bundle = self._service.stop_recording()
         self._status_label.setText(f"Recorded frames: {len(list(bundle.frames))}")
+
+    def _start_training_capture(self) -> None:
+        if not self._health_ok():
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Health Check",
+                "Health check failed. Verify FPS and drops before recording.",
+            )
+            return
+        session = self._session_name.text().strip()
+        if not session:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Training Capture",
+                "Set a session name before starting training capture.",
+            )
+            return
+        self._service.start_recording(session_name=session, mode="training")
+        self._status_label.setText("Training capture...")
 
     def _update_preview(self) -> None:
         if self._replay_capture is not None:
@@ -353,6 +384,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._replay_frame_index = 0
         self._replay_trail.clear()
         self._init_replay_detector()
+        self._replay_paused = False
         self._status_label.setText("Replay mode.")
         self._timer.start(int(1000 / max(self._config.ui.refresh_hz, 1)))
 
@@ -381,6 +413,7 @@ class MainWindow(QtWidgets.QMainWindow):
             blob_threshold=cfg.blob_threshold,
             runtime_budget_ms=cfg.runtime_budget_ms,
             crop_padding_px=cfg.crop_padding_px,
+            min_consecutive=cfg.min_consecutive,
             filters=filter_cfg,
         )
         roi_by_camera = None
@@ -394,6 +427,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _update_replay(self) -> None:
         if self._replay_capture is None:
+            return
+        if self._replay_paused:
             return
         ok, frame = self._replay_capture.read()
         if not ok:
@@ -434,6 +469,18 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         self._left_view.setPixmap(pixmap)
         self._right_view.setPixmap(QtGui.QPixmap())
+
+    def _toggle_replay_pause(self) -> None:
+        if self._replay_capture is None:
+            return
+        self._replay_paused = not self._replay_paused
+        self._status_label.setText("Replay paused." if self._replay_paused else "Replay mode.")
+
+    def _step_replay(self) -> None:
+        if self._replay_capture is None:
+            return
+        self._replay_paused = True
+        self._update_replay()
 
     def _refresh_devices(self) -> None:
         self._left_input.clear()
@@ -538,6 +585,7 @@ class MainWindow(QtWidgets.QMainWindow):
             edge_threshold=self._edge_thresh.value(),
             blob_threshold=self._blob_thresh.value(),
             runtime_budget_ms=cfg.runtime_budget_ms,
+            min_consecutive=cfg.min_consecutive,
             filters=filter_cfg,
         )
         mode = Mode(self._mode_combo.currentText())
@@ -586,6 +634,7 @@ class MainWindow(QtWidgets.QMainWindow):
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self._health_left)
         layout.addWidget(self._health_right)
+        layout.addWidget(self._calib_summary)
         panel.setLayout(layout)
         return panel
 
@@ -626,6 +675,7 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog.exec()
         if dialog.updated:
             self._config = load_config(self._config_path())
+            self._update_calib_summary()
             if dialog.updates:
                 baseline = dialog.updates.get("baseline_ft")
                 focal = dialog.updates.get("focal_length_px")
@@ -637,6 +687,13 @@ class MainWindow(QtWidgets.QMainWindow):
                     self._status_label.setText("Calibration updated. Restart capture to apply.")
             else:
                 self._status_label.setText("Calibration updated. Restart capture to apply.")
+
+    def _update_calib_summary(self) -> None:
+        baseline = self._config.stereo.baseline_ft
+        focal = self._config.stereo.focal_length_px
+        self._calib_summary.setText(
+            f"Calib: baseline_ft={baseline:.3f} f_px={focal:.1f}"
+        )
 
     def _open_checklist(self) -> None:
         dialog = ChecklistDialog(self)

@@ -28,4 +28,5 @@ class DetectorConfig:
     blob_threshold: float = 22.0
     runtime_budget_ms: float = 4.0
     crop_padding_px: int = 20
+    min_consecutive: int = 1
     filters: FilterConfig = FilterConfig()

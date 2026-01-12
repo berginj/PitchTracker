@@ -39,6 +39,8 @@ ui:
 telemetry:
   latency_p95_ms_warn: 500
 detector:
+  type: classical
+  model_path: null
   mode: MODE_A
   frame_diff_threshold: 18.0
   bg_diff_threshold: 12.0
@@ -47,6 +49,7 @@ detector:
   blob_threshold: 22.0
   runtime_budget_ms: 4.0
   crop_padding_px: 20
+  min_consecutive: 1
   filters:
     min_area: 12
     max_area: null

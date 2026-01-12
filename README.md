@@ -19,3 +19,4 @@ If you only have an internal camera, use:
 ## Notes
 - Use the “Refresh Devices” button to populate cameras.
 - Configure ROIs and strike zone settings before recording.
+- Camera mount files are in `3d models/`.

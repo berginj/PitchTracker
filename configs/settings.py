@@ -82,6 +82,8 @@ class DetectorFiltersConfig:
 
 @dataclass(frozen=True)
 class DetectorConfig:
+    type: str
+    model_path: Optional[str]
     mode: str
     frame_diff_threshold: float
     bg_diff_threshold: float
@@ -90,6 +92,7 @@ class DetectorConfig:
     blob_threshold: float
     runtime_budget_ms: float
     crop_padding_px: int
+    min_consecutive: int
     filters: DetectorFiltersConfig
 
 
@@ -153,6 +156,8 @@ def load_config(path: Path) -> AppConfig:
     telemetry = TelemetryConfig(**data["telemetry"])
     detector_filters = DetectorFiltersConfig(**data["detector"]["filters"])
     detector = DetectorConfig(
+        type=data["detector"].get("type", "classical"),
+        model_path=data["detector"].get("model_path"),
         mode=data["detector"]["mode"],
         frame_diff_threshold=data["detector"]["frame_diff_threshold"],
         bg_diff_threshold=data["detector"]["bg_diff_threshold"],
@@ -161,6 +166,7 @@ def load_config(path: Path) -> AppConfig:
         blob_threshold=data["detector"]["blob_threshold"],
         runtime_budget_ms=data["detector"]["runtime_budget_ms"],
         crop_padding_px=data["detector"]["crop_padding_px"],
+        min_consecutive=data["detector"]["min_consecutive"],
         filters=detector_filters,
     )
     strike_zone = StrikeZoneConfig(**data["strike_zone"])

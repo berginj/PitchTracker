@@ -15,6 +15,7 @@ from configs.settings import load_config
 from contracts import Detection
 from detect import LaneGate, LaneRoi
 from detect.classical_detector import ClassicalDetector
+from detect.ml_detector import MlDetector
 from detect.config import DetectorConfig, FilterConfig, Mode
 from stereo import StereoLaneGate
 from stereo.association import StereoMatch
@@ -166,25 +167,29 @@ def run_pipeline(
         min_velocity=config.detector.filters.min_velocity,
         max_velocity=config.detector.filters.max_velocity,
     )
-    detector_cfg = DetectorConfig(
-        frame_diff_threshold=config.detector.frame_diff_threshold,
-        bg_diff_threshold=config.detector.bg_diff_threshold,
-        bg_alpha=config.detector.bg_alpha,
-        edge_threshold=config.detector.edge_threshold,
-        blob_threshold=config.detector.blob_threshold,
-        runtime_budget_ms=config.detector.runtime_budget_ms,
-        crop_padding_px=config.detector.crop_padding_px,
-        filters=filter_cfg,
-    )
-    detector = ClassicalDetector(
-        config=detector_cfg,
-        mode=Mode(config.detector.mode),
-        roi_by_camera=(
-            {left_id: lane_polygon, right_id: lane_polygon}
-            if lane_polygon
-            else None
-        ),
-    )
+    if config.detector.type == "ml":
+        detector = MlDetector(model_path=config.detector.model_path)
+    else:
+        detector_cfg = DetectorConfig(
+            frame_diff_threshold=config.detector.frame_diff_threshold,
+            bg_diff_threshold=config.detector.bg_diff_threshold,
+            bg_alpha=config.detector.bg_alpha,
+            edge_threshold=config.detector.edge_threshold,
+            blob_threshold=config.detector.blob_threshold,
+            runtime_budget_ms=config.detector.runtime_budget_ms,
+            crop_padding_px=config.detector.crop_padding_px,
+            min_consecutive=config.detector.min_consecutive,
+            filters=filter_cfg,
+        )
+        detector = ClassicalDetector(
+            config=detector_cfg,
+            mode=Mode(config.detector.mode),
+            roi_by_camera=(
+                {left_id: lane_polygon, right_id: lane_polygon}
+                if lane_polygon
+                else None
+            ),
+        )
     lane_polygon = load_lane_polygon(roi_path, left_id, right_id)
     lane_gate = build_lane_gate(
         config.camera.width,

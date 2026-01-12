@@ -21,6 +21,7 @@ from configs.roi_io import load_rois
 from contracts import Detection, Frame, PitchMetrics
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 from detect.classical_detector import ClassicalDetector
+from detect.ml_detector import MlDetector
 from detect.config import DetectorConfig as CvDetectorConfig
 from detect.config import FilterConfig, Mode
 from detect.lane import LaneGate, LaneRoi
@@ -58,7 +59,12 @@ class PipelineService(ABC):
         """Return the latest frames for UI preview."""
 
     @abstractmethod
-    def start_recording(self, pitch_id: Optional[str] = None, session_name: Optional[str] = None) -> None:
+    def start_recording(
+        self,
+        pitch_id: Optional[str] = None,
+        session_name: Optional[str] = None,
+        mode: Optional[str] = None,
+    ) -> None:
         """Begin recording frames and metadata."""
 
     @abstractmethod
@@ -141,6 +147,7 @@ class InProcessPipelineService(PipelineService):
         self._ball_type = "baseball"
         self._record_dir: Optional[Path] = None
         self._record_session: Optional[str] = None
+        self._record_mode: Optional[str] = None
         self._record_left_writer = None
         self._record_right_writer = None
         self._record_left_csv = None
@@ -182,7 +189,12 @@ class InProcessPipelineService(PipelineService):
             self._write_record_frame(left_frame, right_frame)
         return left_frame, right_frame
 
-    def start_recording(self, pitch_id: Optional[str] = None, session_name: Optional[str] = None) -> None:
+    def start_recording(
+        self,
+        pitch_id: Optional[str] = None,
+        session_name: Optional[str] = None,
+        mode: Optional[str] = None,
+    ) -> None:
         self._recording = True
         self._recorded_frames = []
         if pitch_id:
@@ -190,6 +202,7 @@ class InProcessPipelineService(PipelineService):
         else:
             self._pitch_id = time.strftime("pitch-%Y%m%d-%H%M%S", time.gmtime())
         self._record_session = session_name
+        self._record_mode = mode
         self._start_recording_io()
 
     def set_record_directory(self, path: Optional[Path]) -> None:
@@ -362,6 +375,7 @@ class InProcessPipelineService(PipelineService):
             "created_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "pitch_id": self._pitch_id,
             "session": self._record_session,
+            "mode": self._record_mode,
             "measured_speed_mph": self._manual_speed_mph,
             "left_video": "left.avi",
             "right_video": "right.avi",
@@ -452,6 +466,9 @@ class InProcessPipelineService(PipelineService):
 
     def _init_detector(self, config: AppConfig) -> None:
         cfg = config.detector
+        if cfg.type == "ml":
+            self._detector = MlDetector(model_path=cfg.model_path)
+            return
         filter_cfg = FilterConfig(
             min_area=cfg.filters.min_area,
             max_area=cfg.filters.max_area,
@@ -468,6 +485,7 @@ class InProcessPipelineService(PipelineService):
             blob_threshold=cfg.blob_threshold,
             runtime_budget_ms=cfg.runtime_budget_ms,
             crop_padding_px=cfg.crop_padding_px,
+            min_consecutive=cfg.min_consecutive,
             filters=filter_cfg,
         )
         mode = Mode(cfg.mode)
