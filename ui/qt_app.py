@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import time
 from collections import deque
 from pathlib import Path
 from typing import Optional
@@ -52,6 +53,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._replay_trail: deque[tuple[int, int]] = deque(maxlen=30)
         self._replay_detector: Optional[ClassicalDetector] = None
         self._replay_paused = False
+        self._pitcher_name: Optional[str] = None
 
         self._left_input = QtWidgets.QComboBox()
         self._right_input = QtWidgets.QComboBox()
@@ -251,6 +253,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._service.set_record_directory(Path(self._config.recording.output_dir))
         self._update_calib_summary()
         self._set_setup_mode(True)
+        self._prompt_pitcher_name()
 
     def _start_capture(self) -> None:
         left = _current_serial(self._left_input)
@@ -279,7 +282,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 "Health check failed. Verify FPS and drops before recording.",
             )
             return
-        session = self._session_name.text().strip() or None
+        session = self._session_name.text().strip() or self._default_session_name()
+        if session:
+            self._session_name.setText(session)
         self._service.start_recording(session_name=session, mode="review")
         self._status_label.setText("Recording...")
 
@@ -354,6 +359,7 @@ class MainWindow(QtWidgets.QMainWindow):
         apply_profile(profile, self._roi_path)
         self._load_rois()
         self._status_label.setText(f"Loaded profile '{name}'.")
+        self._enter_app()
 
     def _save_profile(self) -> None:
         name = self._profile_name.text().strip()
@@ -396,6 +402,21 @@ class MainWindow(QtWidgets.QMainWindow):
             "Hold the cue card in the lane and confirm detections appear.",
         )
 
+    def _prompt_pitcher_name(self) -> None:
+        name, ok = QtWidgets.QInputDialog.getText(
+            self,
+            "Select Pitcher",
+            "Enter pitcher name for this session:",
+        )
+        if ok:
+            name = name.strip()
+            self._pitcher_name = name if name else None
+
+    def _default_session_name(self) -> Optional[str]:
+        pitcher = self._pitcher_name or "pitcher"
+        timestamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
+        return f"{pitcher}-{timestamp}"
+
     def _start_training_capture(self) -> None:
         if not self._health_ok():
             QtWidgets.QMessageBox.warning(
@@ -404,7 +425,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 "Health check failed. Verify FPS and drops before recording.",
             )
             return
-        session = self._session_name.text().strip()
+        session = self._session_name.text().strip() or self._default_session_name()
+        if session:
+            self._session_name.setText(session)
         if not session:
             QtWidgets.QMessageBox.information(
                 self,
@@ -1438,7 +1461,26 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Detector Settings")
-        self.resize(420, 260)
+        self.resize(640, 460)
+        help_text = QtWidgets.QTextEdit()
+        help_text.setReadOnly(True)
+        help_text.setText(
+            "\n".join(
+                [
+                    "Detector Tuning Guide:",
+                    "",
+                    "- Mode: MODE_A uses frame differencing; MODE_B is more robust on busy backgrounds.",
+                    "- Frame diff / BG diff: Sensitivity thresholds; lower = more detections, more noise.",
+                    "- BG alpha: Background update rate; lower keeps older background longer.",
+                    "- Edge thresh: Canny edge strength for MODE_B.",
+                    "- Blob thresh: Threshold for blob candidate generation.",
+                    "- Min area: Rejects tiny blobs; increase to reduce noise.",
+                    "- Min circularity: 0..1; higher rejects non-circular shapes.",
+                    "",
+                    "Tip: Start with MODE_A and lower thresholds until the cue card is detected.",
+                ]
+            )
+        )
         self._mode = QtWidgets.QComboBox()
         self._mode.addItems([Mode.MODE_A.value, Mode.MODE_B.value])
         self._mode.setCurrentText(mode)
@@ -1489,6 +1531,7 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
         buttons.addWidget(cancel_button)
 
         layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(help_text)
         layout.addLayout(form)
         layout.addLayout(buttons)
         self.setLayout(layout)
