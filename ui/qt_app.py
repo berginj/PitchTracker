@@ -372,14 +372,14 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         left = _current_serial(self._left_input)
         right = _current_serial(self._right_input)
-        if not left or not right:
+        if not left and not right:
             QtWidgets.QMessageBox.information(
                 self,
                 "Save Profile",
-                "Select both devices before saving.",
+                "Select at least one device before saving.",
             )
             return
-        save_profile(name, left, right, self._roi_path)
+        save_profile(name, left or "", right or "", self._roi_path)
         self._refresh_profiles()
         self._profile_name.clear()
         self._status_label.setText(f"Saved profile '{name}'.")
