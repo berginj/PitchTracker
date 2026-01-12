@@ -43,6 +43,13 @@ Repository layout (required):
 - /tests
 - /configs
 
+### 1.2 App Architecture Commitment (UI + Service)
+- UI must be PySide6 (Qt) for v1.
+- The processing pipeline must run as a service layer with a stable API boundary.
+- The UI must call the service via explicit interfaces; avoid Qt types in core pipeline code.
+- Service must be usable in-process for v1 and swappable for IPC in future (D path).
+- Core contracts (data types + config) must be serializable (JSON/YAML) to enable non-Python engines.
+
 ### 1.1 Camera Abstraction
 Implement interface `CameraDevice` with:
 - open(serial: str) -> None
@@ -103,6 +110,50 @@ Backends (must support both):
 - confidence: float
 - diagnostics: dict
 - latency: dict (p50,p95, max)
+
+### 1.3 Service API (Pipeline)
+Provide a service interface that the UI uses (in-process for v1) with:
+- start_capture(config, left_serial, right_serial) -> None
+- stop_capture() -> None
+- get_preview_frames() -> (left Frame, right Frame)
+- start_recording(pitch_id: str | None) -> None
+- stop_recording() -> RecordingBundle
+- run_calibration(profile_id: str) -> CalibrationProfile
+- get_stats() -> dict (fps, jitter, drop rate, latency)
+
+### 1.4 Contract Versioning (Cross-Language Safe)
+- All serialized payloads must include a `schema_version` string (semver).
+- Contract changes that break compatibility must bump the MAJOR version.
+- Backward-compatible additions must bump MINOR; PATCH for bugfixes only.
+- UI must declare the supported schema range; service must reject unsupported versions.
+- Each persisted artifact (recordings, calibration profiles, metrics) must embed:
+  - `schema_version`
+  - `app_version`
+  - `rig_id` (if known)
+  - `created_utc` timestamp (ISO 8601)
+
+Example (recording manifest):
+```json
+{
+  "schema_version": "1.0.0",
+  "app_version": "0.2.0",
+  "rig_id": "rig-01",
+  "created_utc": "2026-01-11T17:05:00Z",
+  "pitch_id": "pitch-2026-01-11-001",
+  "left_video": "left.avi",
+  "right_video": "right.avi",
+  "left_timestamps": "left_timestamps.csv",
+  "right_timestamps": "right_timestamps.csv",
+  "config_path": "configs/default.yaml",
+  "calibration_profile_id": "profile-2026-01-11-01"
+}
+```
+
+### 1.5 Extensibility Requirements (Path to D)
+- Pipeline logic must live in non-UI modules; UI must not import cv2 directly.
+- All inputs/outputs that cross the UI boundary must be versioned and serializable.
+- Capture, detection, stereo, tracking, and metrics modules must be replaceable without UI changes.
+- Prefer pure functions for math-heavy code to ease porting to C++/Rust.
 
 ---
 
@@ -292,6 +343,7 @@ Flag as low-confidence if out of bounds:
 - Simple 3D trajectory visualization (can be basic)
 - Toggle UI refresh rate (e.g., 15 Hz) independent of processing rate
 - One-click "record pitch" and "replay last pitch"
+- Must be implemented in PySide6 and communicate with the pipeline service via interfaces.
 
 ---
 

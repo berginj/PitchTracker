@@ -26,6 +26,10 @@ class CameraConfig:
 class StereoConfig:
     pairing_tolerance_ms: int
     epipolar_epsilon_px: int
+    baseline_ft: float
+    focal_length_px: float
+    cx: Optional[float]
+    cy: Optional[float]
     z_min_ft: float
     z_max_ft: float
     max_jump_in: float
@@ -79,7 +83,18 @@ class AppConfig:
 def load_config(path: Path) -> AppConfig:
     data = yaml.safe_load(path.read_text())
     camera = CameraConfig(**data["camera"])
-    stereo = StereoConfig(**data["stereo"])
+    stereo_data = data["stereo"]
+    stereo = StereoConfig(
+        pairing_tolerance_ms=stereo_data["pairing_tolerance_ms"],
+        epipolar_epsilon_px=stereo_data["epipolar_epsilon_px"],
+        baseline_ft=stereo_data.get("baseline_ft", 1.0),
+        focal_length_px=stereo_data.get("focal_length_px", 1200.0),
+        cx=stereo_data.get("cx"),
+        cy=stereo_data.get("cy"),
+        z_min_ft=stereo_data["z_min_ft"],
+        z_max_ft=stereo_data["z_max_ft"],
+        max_jump_in=stereo_data["max_jump_in"],
+    )
     tracking = TrackingConfig(**data["tracking"])
     metrics = MetricsConfig(
         coordinate_system=data["metrics"]["coordinate_system"],

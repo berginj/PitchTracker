@@ -11,6 +11,10 @@ camera:
 stereo:
   pairing_tolerance_ms: 8
   epipolar_epsilon_px: 3
+  baseline_ft: 1.0
+  focal_length_px: 1200.0
+  cx: null
+  cy: null
   z_min_ft: 3
   z_max_ft: 80
   max_jump_in: 12

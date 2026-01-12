@@ -7,14 +7,17 @@ import logging
 from pathlib import Path
 from typing import Iterable, List
 
-from capture import CameraDevice, SimulatedCamera
+from capture import CameraDevice, SimulatedCamera, UvcCamera
 from capture.opencv_backend import OpenCVCamera
+from configs.lane_io import load_lane_rois
+from configs.roi_io import load_rois
 from configs.settings import load_config
 from contracts import Detection
 from detect import LaneGate, LaneRoi
 from detect.simple_detector import CenterDetector
 from stereo import StereoLaneGate
 from stereo.association import StereoMatch
+from metrics.simple_metrics import compute_plate_stub
 
 LOGGER = logging.getLogger(__name__)
 
@@ -22,12 +25,13 @@ LOGGER = logging.getLogger(__name__)
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a pitch pipeline with lane gating.")
     parser.add_argument("--config", type=Path, default=Path("configs/default.yaml"))
+    parser.add_argument("--roi", type=Path, default=Path("configs/roi.json"))
     parser.add_argument("--frames", type=int, default=5)
     parser.add_argument("--stereo", action="store_true", help="Enable stereo matching")
     parser.add_argument(
         "--backend",
-        choices=("opencv", "sim"),
-        default="sim",
+        choices=("uvc", "opencv", "sim"),
+        default="uvc",
         help="Capture backend to use (opencv or sim).",
     )
     parser.add_argument("--left", default="left", help="Left camera ID or index.")
@@ -35,16 +39,48 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_lane_gate(width: int, height: int, left_id: str, right_id: str) -> LaneGate:
-    roi = LaneRoi(
-        polygon=[
-            (width * 0.25, height * 0.25),
-            (width * 0.75, height * 0.25),
-            (width * 0.75, height * 0.75),
-            (width * 0.25, height * 0.75),
-        ]
-    )
+def build_lane_gate(
+    width: int,
+    height: int,
+    left_id: str,
+    right_id: str,
+    lane_polygon: list[tuple[float, float]] | None,
+) -> LaneGate:
+    if lane_polygon:
+        roi = LaneRoi(polygon=lane_polygon)
+    else:
+        roi = LaneRoi(
+            polygon=[
+                (width * 0.25, height * 0.25),
+                (width * 0.75, height * 0.25),
+                (width * 0.75, height * 0.75),
+                (width * 0.25, height * 0.75),
+            ]
+        )
     return LaneGate(roi_by_camera={left_id: roi, right_id: roi})
+
+
+def load_lane_polygon(
+    roi_path: Path, left_id: str, right_id: str
+) -> list[tuple[float, float]] | None:
+    rois = load_rois(roi_path)
+    lane = rois.get("lane")
+    if lane:
+        return [(float(x), float(y)) for x, y in lane]
+    legacy = load_lane_rois(Path("configs/lane_roi.json"))
+    if left_id in legacy:
+        return [(float(x), float(y)) for x, y in legacy[left_id].polygon]
+    if right_id in legacy:
+        return [(float(x), float(y)) for x, y in legacy[right_id].polygon]
+    return None
+
+
+def load_plate_polygon(roi_path: Path) -> list[tuple[float, float]] | None:
+    rois = load_rois(roi_path)
+    plate = rois.get("plate")
+    if plate:
+        return [(float(x), float(y)) for x, y in plate]
+    return None
 
 
 def gate_detections(
@@ -100,6 +136,7 @@ def run_pipeline(
     frames: int,
     enable_stereo: bool,
     config_path: Path,
+    roi_path: Path,
     backend: str,
     left_id: str,
     right_id: str,
@@ -109,15 +146,34 @@ def run_pipeline(
         left = OpenCVCamera()
         right = OpenCVCamera()
     else:
-        left = SimulatedCamera()
-        right = SimulatedCamera()
+        if backend == "uvc":
+            left = UvcCamera()
+            right = UvcCamera()
+        else:
+            left = SimulatedCamera()
+            right = SimulatedCamera()
     left.open(left_id)
     right.open(right_id)
     configure_camera(left, config)
     configure_camera(right, config)
 
     detector = CenterDetector()
-    lane_gate = build_lane_gate(config.camera.width, config.camera.height, left_id, right_id)
+    lane_polygon = load_lane_polygon(roi_path, left_id, right_id)
+    lane_gate = build_lane_gate(
+        config.camera.width,
+        config.camera.height,
+        left_id,
+        right_id,
+        lane_polygon,
+    )
+    plate_polygon = load_plate_polygon(roi_path)
+    plate_gate = None
+    if plate_polygon:
+        plate_roi = LaneRoi(polygon=plate_polygon)
+        plate_gate = LaneGate(roi_by_camera={left_id: plate_roi, right_id: plate_roi})
+        plate_stereo_gate = StereoLaneGate(lane_gate=plate_gate)
+    else:
+        plate_stereo_gate = None
     stereo_gate = StereoLaneGate(lane_gate=lane_gate)
 
     try:
@@ -126,22 +182,35 @@ def run_pipeline(
             right_frame = right.read_frame(timeout_ms=50)
             detections = detector.detect(left_frame) + detector.detect(right_frame)
             gated = gate_detections(lane_gate, detections, left_frame.frame_index)
+            if plate_gate:
+                plate_gated = gate_detections(plate_gate, gated, left_frame.frame_index)
+            else:
+                plate_gated = []
             LOGGER.info(
-                "frame=%s detections=%s gated=%s",
+                "frame=%s detections=%s gated=%s plate_gated=%s",
                 left_frame.frame_index,
                 len(detections),
                 len(gated),
+                len(plate_gated),
             )
             if enable_stereo:
                 left_gated = [d for d in gated if d.camera_id == left_id]
                 right_gated = [d for d in gated if d.camera_id == right_id]
                 matches = build_stereo_matches(left_gated, right_gated)
                 gated_matches = stereo_gate.filter_matches(matches)
+                if plate_stereo_gate:
+                    plate_matches = plate_stereo_gate.filter_matches(gated_matches)
+                else:
+                    plate_matches = []
+                plate_metrics = compute_plate_stub(plate_matches)
                 LOGGER.info(
-                    "frame=%s stereo_matches=%s stereo_gated=%s",
+                    "frame=%s stereo_matches=%s stereo_gated=%s plate_matches=%s run_in=%.2f rise_in=%.2f",
                     left_frame.frame_index,
                     len(matches),
                     len(gated_matches),
+                    len(plate_matches),
+                    plate_metrics.run_in,
+                    plate_metrics.rise_in,
                 )
     finally:
         left.close()
@@ -151,7 +220,15 @@ def run_pipeline(
 def main() -> None:
     args = parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    run_pipeline(args.frames, args.stereo, args.config, args.backend, args.left, args.right)
+    run_pipeline(
+        args.frames,
+        args.stereo,
+        args.config,
+        args.roi,
+        args.backend,
+        args.left,
+        args.right,
+    )
 
 
 if __name__ == "__main__":

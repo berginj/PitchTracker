@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import time
 from pathlib import Path
 from threading import Thread
@@ -12,6 +13,7 @@ import cv2
 
 from capture.uvc_backend import UvcCamera
 from configs.settings import load_config
+from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 
 
 def parse_args() -> argparse.Namespace:
@@ -22,6 +24,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out-dir", type=Path, default=Path("recordings"))
     parser.add_argument("--duration", type=float, default=5.0, help="Seconds to record.")
     parser.add_argument("--codec", default="MJPG", help="FourCC codec (default MJPG).")
+    parser.add_argument("--pitch-id", default=None, help="Optional pitch identifier.")
+    parser.add_argument("--rig-id", default=None, help="Optional rig identifier.")
+    parser.add_argument(
+        "--calibration-profile-id",
+        default=None,
+        help="Optional calibration profile identifier.",
+    )
     return parser.parse_args()
 
 
@@ -63,6 +72,8 @@ def main() -> None:
     args = parse_args()
     config = load_config(args.config)
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    created_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    pitch_id = args.pitch_id or time.strftime("pitch-%Y%m%d-%H%M%S", time.gmtime())
 
     left = UvcCamera()
     right = UvcCamera()
@@ -97,6 +108,7 @@ def main() -> None:
     right_video = args.out_dir / "right.avi"
     left_csv = args.out_dir / "left_timestamps.csv"
     right_csv = args.out_dir / "right_timestamps.csv"
+    manifest_path = args.out_dir / "manifest.json"
 
     left_writer = _open_writer(
         left_video, config.camera.width, config.camera.height, config.camera.fps, args.codec
@@ -130,6 +142,21 @@ def main() -> None:
     right_stats = right.get_stats()
     left.close()
     right.close()
+
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "app_version": APP_VERSION,
+        "rig_id": args.rig_id,
+        "created_utc": created_utc,
+        "pitch_id": pitch_id,
+        "left_video": left_video.name,
+        "right_video": right_video.name,
+        "left_timestamps": left_csv.name,
+        "right_timestamps": right_csv.name,
+        "config_path": str(args.config),
+        "calibration_profile_id": args.calibration_profile_id,
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2))
 
     print(
         "left stats fps_avg={:.2f} fps_inst={:.2f} jitter_p95_ms={:.2f} dropped={}".format(

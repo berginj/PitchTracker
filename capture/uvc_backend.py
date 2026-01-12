@@ -190,3 +190,8 @@ def _query_pnp_devices(device_class: str) -> list[dict[str, str]]:
     if isinstance(data, dict):
         return [data]
     return [item for item in data if isinstance(item, dict)]
+
+
+def list_uvc_devices() -> list[dict[str, str]]:
+    """Return UVC camera devices with friendly names and serials."""
+    return _list_camera_devices()

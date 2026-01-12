@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import warnings
 from dataclasses import dataclass
 from typing import Optional
 
@@ -34,6 +35,16 @@ class OpenCVCamera(CameraDevice):
 
     def open(self, serial: str) -> None:
         self._serial = serial
+        if not serial.isdigit():
+            raise ValueError(
+                "OpenCVCamera only supports index-based devices. "
+                "Use UvcCamera for serial-based selection."
+            )
+        warnings.warn(
+            "OpenCVCamera is index-based and not stable for multi-camera rigs. "
+            "Use UvcCamera with serials for production.",
+            RuntimeWarning,
+        )
         index = int(serial)
         self._capture = cv2.VideoCapture(index, cv2.CAP_DSHOW)
         if not self._capture.isOpened():
