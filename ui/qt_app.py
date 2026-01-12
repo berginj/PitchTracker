@@ -18,6 +18,7 @@ from calib.plate_plane import estimate_and_write
 from capture.uvc_backend import list_uvc_devices
 from configs.lane_io import save_lane_rois
 from configs.roi_io import load_rois, save_rois
+from configs.location_profiles import apply_profile, list_profiles, load_profile, save_profile
 from configs.settings import load_config
 from detect.lane import LaneRoi
 from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig, Mode
@@ -74,6 +75,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self._detector_settings_button = QtWidgets.QPushButton("Detector Settings")
         self._session_name = QtWidgets.QLineEdit()
         self._session_name.setPlaceholderText("Session name")
+        self._profile_combo = QtWidgets.QComboBox()
+        self._profile_combo.setPlaceholderText("Location profile")
+        self._profile_load = QtWidgets.QPushButton("Load Profile")
+        self._profile_save = QtWidgets.QPushButton("Save Profile")
+        self._profile_name = QtWidgets.QLineEdit()
+        self._profile_name.setPlaceholderText("New profile name")
+        self._cue_card_button = QtWidgets.QPushButton("Cue Card Test")
+        self._enter_button = QtWidgets.QPushButton("Enter App")
         self._checklist_button = QtWidgets.QPushButton("Checklist")
         self._output_dir = QtWidgets.QLineEdit()
         self._output_dir.setPlaceholderText("Output dir")
@@ -131,9 +140,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self._apply_detector = QtWidgets.QPushButton("Apply Detector")
 
         controls = QtWidgets.QHBoxLayout()
-        controls.addWidget(self._left_input)
-        controls.addWidget(self._right_input)
-        controls.addWidget(self._refresh_button)
         controls.addWidget(self._start_button)
         controls.addWidget(self._stop_button)
         controls.addWidget(self._restart_button)
@@ -152,21 +158,43 @@ class MainWindow(QtWidgets.QMainWindow):
         views.addWidget(self._left_view, 1)
         views.addWidget(self._right_view, 1)
 
-        roi_controls = QtWidgets.QHBoxLayout()
-        roi_controls.addWidget(self._lane_button)
-        roi_controls.addWidget(self._plate_button)
-        roi_controls.addWidget(self._clear_lane_button)
-        roi_controls.addWidget(self._clear_plate_button)
-        roi_controls.addWidget(self._save_roi_button)
-        roi_controls.addWidget(self._load_roi_button)
-        roi_controls.addWidget(self._guide_button)
-        roi_controls.addWidget(self._quick_cal_button)
-        roi_controls.addWidget(self._plate_cal_button)
+        self._setup_group = QtWidgets.QGroupBox("Setup & Calibration")
+        profile_row = QtWidgets.QHBoxLayout()
+        profile_row.addWidget(self._profile_combo)
+        profile_row.addWidget(self._profile_load)
+        profile_row.addWidget(self._profile_name)
+        profile_row.addWidget(self._profile_save)
+        device_row = QtWidgets.QHBoxLayout()
+        device_row.addWidget(self._left_input)
+        device_row.addWidget(self._right_input)
+        device_row.addWidget(self._refresh_button)
+        roi_row = QtWidgets.QHBoxLayout()
+        roi_row.addWidget(self._lane_button)
+        roi_row.addWidget(self._plate_button)
+        roi_row.addWidget(self._clear_lane_button)
+        roi_row.addWidget(self._clear_plate_button)
+        roi_row.addWidget(self._save_roi_button)
+        roi_row.addWidget(self._load_roi_button)
+        calib_row = QtWidgets.QHBoxLayout()
+        calib_row.addWidget(self._guide_button)
+        calib_row.addWidget(self._quick_cal_button)
+        calib_row.addWidget(self._plate_cal_button)
+        action_row = QtWidgets.QHBoxLayout()
+        action_row.addWidget(self._cue_card_button)
+        action_row.addStretch(1)
+        action_row.addWidget(self._enter_button)
+        setup_layout = QtWidgets.QVBoxLayout()
+        setup_layout.addLayout(profile_row)
+        setup_layout.addLayout(device_row)
+        setup_layout.addLayout(roi_row)
+        setup_layout.addLayout(calib_row)
+        setup_layout.addLayout(action_row)
+        self._setup_group.setLayout(setup_layout)
 
         layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self._setup_group)
         layout.addLayout(controls)
         layout.addLayout(views)
-        layout.addLayout(roi_controls)
         layout.addWidget(self._build_health_panel())
         layout.addWidget(self._status_label)
 
@@ -188,6 +216,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._record_settings_button.clicked.connect(self._open_record_settings)
         self._strike_settings_button.clicked.connect(self._open_strike_settings)
         self._detector_settings_button.clicked.connect(self._open_detector_settings)
+        self._profile_load.clicked.connect(self._load_profile)
+        self._profile_save.clicked.connect(self._save_profile)
+        self._cue_card_button.clicked.connect(self._cue_card_test)
+        self._enter_button.clicked.connect(self._enter_app)
         self._output_browse.clicked.connect(self._browse_output)
         self._manual_speed.valueChanged.connect(self._set_manual_speed)
         self._ball_combo.currentTextChanged.connect(self._set_ball_type)
@@ -207,6 +239,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._plate_cal_button.clicked.connect(self._open_plate_calibrate)
 
         self._refresh_devices()
+        self._refresh_profiles()
         self._load_rois()
         self._maybe_show_guide()
         self._load_detector_defaults()
@@ -217,6 +250,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._output_dir.setText(self._config.recording.output_dir)
         self._service.set_record_directory(Path(self._config.recording.output_dir))
         self._update_calib_summary()
+        self._set_setup_mode(True)
 
     def _start_capture(self) -> None:
         left = _current_serial(self._left_input)
@@ -275,6 +309,92 @@ class MainWindow(QtWidgets.QMainWindow):
         self._status_label.setText(f"Recorded pitches: {summary.pitch_count}")
         dialog = SessionSummaryDialog(self, summary)
         dialog.exec()
+
+    def _set_setup_mode(self, active: bool) -> None:
+        for widget in (
+            self._start_button,
+            self._stop_button,
+            self._restart_button,
+            self._record_button,
+            self._stop_record_button,
+            self._training_button,
+            self._replay_button,
+            self._pause_button,
+            self._step_button,
+            self._record_settings_button,
+            self._strike_settings_button,
+            self._detector_settings_button,
+            self._checklist_button,
+        ):
+            widget.setEnabled(not active)
+        self._setup_group.setVisible(active)
+
+    def _enter_app(self) -> None:
+        self._set_setup_mode(False)
+
+    def _refresh_profiles(self) -> None:
+        self._profile_combo.clear()
+        self._profile_combo.addItems(list_profiles())
+
+    def _load_profile(self) -> None:
+        name = self._profile_combo.currentText().strip()
+        if not name:
+            return
+        try:
+            profile = load_profile(name)
+        except Exception as exc:  # noqa: BLE001 - show profile errors
+            QtWidgets.QMessageBox.warning(self, "Load Profile", str(exc))
+            return
+        left = str(profile.get("left_serial", ""))
+        right = str(profile.get("right_serial", ""))
+        if left:
+            self._left_input.setCurrentText(left)
+        if right:
+            self._right_input.setCurrentText(right)
+        apply_profile(profile, self._roi_path)
+        self._load_rois()
+        self._status_label.setText(f"Loaded profile '{name}'.")
+
+    def _save_profile(self) -> None:
+        name = self._profile_name.text().strip()
+        if not name:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Save Profile",
+                "Enter a profile name.",
+            )
+            return
+        left = _current_serial(self._left_input)
+        right = _current_serial(self._right_input)
+        if not left or not right:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Save Profile",
+                "Select both devices before saving.",
+            )
+            return
+        save_profile(name, left, right, self._roi_path)
+        self._refresh_profiles()
+        self._profile_name.clear()
+        self._status_label.setText(f"Saved profile '{name}'.")
+
+    def _cue_card_test(self) -> None:
+        try:
+            detections = self._service.get_latest_detections()
+        except Exception:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Cue Card Test",
+                "Start capture to run the cue card test.",
+            )
+            return
+        total = sum(len(items) for items in detections.values())
+        QtWidgets.QMessageBox.information(
+            self,
+            "Cue Card Test",
+            f"Detections in current frame: {total}\n"
+            "Hold the cue card in the lane and confirm detections appear.",
+        )
 
     def _start_training_capture(self) -> None:
         if not self._health_ok():
