@@ -173,11 +173,17 @@ def run_pipeline(
         edge_threshold=config.detector.edge_threshold,
         blob_threshold=config.detector.blob_threshold,
         runtime_budget_ms=config.detector.runtime_budget_ms,
+        crop_padding_px=config.detector.crop_padding_px,
         filters=filter_cfg,
     )
     detector = ClassicalDetector(
         config=detector_cfg,
         mode=Mode(config.detector.mode),
+        roi_by_camera=(
+            {left_id: lane_polygon, right_id: lane_polygon}
+            if lane_polygon
+            else None
+        ),
     )
     lane_polygon = load_lane_polygon(roi_path, left_id, right_id)
     lane_gate = build_lane_gate(

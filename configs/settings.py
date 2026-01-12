@@ -57,6 +57,7 @@ class MetricsConfig:
 class RecordingConfig:
     pre_roll_ms: int
     post_roll_ms: int
+    output_dir: str
 
 
 @dataclass(frozen=True)
@@ -88,6 +89,7 @@ class DetectorConfig:
     edge_threshold: float
     blob_threshold: float
     runtime_budget_ms: float
+    crop_padding_px: int
     filters: DetectorFiltersConfig
 
 
@@ -158,6 +160,7 @@ def load_config(path: Path) -> AppConfig:
         edge_threshold=data["detector"]["edge_threshold"],
         blob_threshold=data["detector"]["blob_threshold"],
         runtime_budget_ms=data["detector"]["runtime_budget_ms"],
+        crop_padding_px=data["detector"]["crop_padding_px"],
         filters=detector_filters,
     )
     strike_zone = StrikeZoneConfig(**data["strike_zone"])

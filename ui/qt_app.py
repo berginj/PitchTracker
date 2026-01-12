@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import deque
 from pathlib import Path
 from typing import Optional
 
@@ -19,6 +20,8 @@ from configs.roi_io import load_rois, save_rois
 from configs.settings import load_config
 from detect.lane import LaneRoi
 from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig, Mode
+from detect.classical_detector import ClassicalDetector
+from contracts import Frame
 
 
 def parse_args() -> argparse.Namespace:
@@ -42,6 +45,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._plate_rect: Optional[Rect] = None
         self._active_rect: Optional[Rect] = None
         self._roi_mode: Optional[str] = None
+        self._replay_capture: Optional[cv2.VideoCapture] = None
+        self._replay_frame_index = 0
+        self._replay_trail: deque[tuple[int, int]] = deque(maxlen=30)
+        self._replay_detector: Optional[ClassicalDetector] = None
 
         self._left_input = QtWidgets.QComboBox()
         self._right_input = QtWidgets.QComboBox()
@@ -56,6 +63,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self._record_button = QtWidgets.QPushButton("Start Recording")
         self._stop_record_button = QtWidgets.QPushButton("Stop Recording")
         self._refresh_button = QtWidgets.QPushButton("Refresh Devices")
+        self._replay_button = QtWidgets.QPushButton("Replay Video")
+        self._record_settings_button = QtWidgets.QPushButton("Recording Settings")
+        self._strike_settings_button = QtWidgets.QPushButton("Strike Zone Settings")
+        self._detector_settings_button = QtWidgets.QPushButton("Detector Settings")
+        self._session_name = QtWidgets.QLineEdit()
+        self._session_name.setPlaceholderText("Session name")
+        self._checklist_button = QtWidgets.QPushButton("Checklist")
+        self._output_dir = QtWidgets.QLineEdit()
+        self._output_dir.setPlaceholderText("Output dir")
+        self._output_browse = QtWidgets.QPushButton("Browse")
+        self._manual_speed = QtWidgets.QDoubleSpinBox()
+        self._manual_speed.setMinimum(0.0)
+        self._manual_speed.setMaximum(130.0)
+        self._manual_speed.setSuffix(" mph")
         self._status_label = QtWidgets.QLabel("Idle")
         self._ball_combo = QtWidgets.QComboBox()
         self._ball_combo.addItems(["baseball", "softball"])
@@ -70,6 +91,8 @@ class MainWindow(QtWidgets.QMainWindow):
             ratio.setMaximum(1.0)
             ratio.setSingleStep(0.01)
         self._save_strike_button = QtWidgets.QPushButton("Save Strike Zone")
+        self._health_left = QtWidgets.QLabel("L: fps=0.0 jitter=0.0ms drops=0")
+        self._health_right = QtWidgets.QLabel("R: fps=0.0 jitter=0.0ms drops=0")
 
         self._left_view = RoiLabel(self._on_rect_update)
         self._right_view = QtWidgets.QLabel()
@@ -109,15 +132,11 @@ class MainWindow(QtWidgets.QMainWindow):
         controls.addWidget(self._restart_button)
         controls.addWidget(self._record_button)
         controls.addWidget(self._stop_record_button)
-        controls.addWidget(QtWidgets.QLabel("Ball"))
-        controls.addWidget(self._ball_combo)
-        controls.addWidget(QtWidgets.QLabel("Batter Height"))
-        controls.addWidget(self._batter_height)
-        controls.addWidget(QtWidgets.QLabel("Top %"))
-        controls.addWidget(self._top_ratio)
-        controls.addWidget(QtWidgets.QLabel("Bottom %"))
-        controls.addWidget(self._bottom_ratio)
-        controls.addWidget(self._save_strike_button)
+        controls.addWidget(self._replay_button)
+        controls.addWidget(self._record_settings_button)
+        controls.addWidget(self._strike_settings_button)
+        controls.addWidget(self._detector_settings_button)
+        controls.addWidget(self._checklist_button)
 
         views = QtWidgets.QHBoxLayout()
         views.addWidget(self._left_view, 1)
@@ -137,7 +156,7 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addLayout(controls)
         layout.addLayout(views)
         layout.addLayout(roi_controls)
-        layout.addWidget(self._build_detector_panel())
+        layout.addWidget(self._build_health_panel())
         layout.addWidget(self._status_label)
 
         container = QtWidgets.QWidget()
@@ -150,6 +169,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self._record_button.clicked.connect(self._start_recording)
         self._stop_record_button.clicked.connect(self._stop_recording)
         self._refresh_button.clicked.connect(self._refresh_devices)
+        self._replay_button.clicked.connect(self._start_replay)
+        self._checklist_button.clicked.connect(self._open_checklist)
+        self._record_settings_button.clicked.connect(self._open_record_settings)
+        self._strike_settings_button.clicked.connect(self._open_strike_settings)
+        self._detector_settings_button.clicked.connect(self._open_detector_settings)
+        self._output_browse.clicked.connect(self._browse_output)
+        self._manual_speed.valueChanged.connect(self._set_manual_speed)
         self._ball_combo.currentTextChanged.connect(self._set_ball_type)
         self._batter_height.valueChanged.connect(self._set_batter_height)
         self._top_ratio.valueChanged.connect(self._set_strike_ratios)
@@ -173,6 +199,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._batter_height.setValue(self._config.strike_zone.batter_height_in)
         self._top_ratio.setValue(self._config.strike_zone.top_ratio)
         self._bottom_ratio.setValue(self._config.strike_zone.bottom_ratio)
+        self._output_dir.setText(self._config.recording.output_dir)
+        self._service.set_record_directory(Path(self._config.recording.output_dir))
 
     def _start_capture(self) -> None:
         left = _current_serial(self._left_input)
@@ -194,14 +222,45 @@ class MainWindow(QtWidgets.QMainWindow):
         self._start_capture()
 
     def _start_recording(self) -> None:
-        self._service.start_recording()
+        if not self._health_ok():
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Health Check",
+                "Health check failed. Verify FPS and drops before recording.",
+            )
+            return
+        session = self._session_name.text().strip() or None
+        self._service.start_recording(session_name=session)
         self._status_label.setText("Recording...")
+
+    def _browse_output(self) -> None:
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, "Select output folder")
+        if path:
+            self._set_output_dir(path)
+
+    def _set_output_dir(self, path: str) -> None:
+        if not path:
+            return
+        self._output_dir.setText(path)
+        self._service.set_record_directory(Path(path))
+        config_path = self._config_path()
+        data = yaml.safe_load(config_path.read_text())
+        data.setdefault("recording", {})
+        data["recording"]["output_dir"] = path
+        config_path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    def _set_manual_speed(self, value: float) -> None:
+        speed = value if value > 0 else None
+        self._service.set_manual_speed_mph(speed)
 
     def _stop_recording(self) -> None:
         bundle = self._service.stop_recording()
         self._status_label.setText(f"Recorded frames: {len(list(bundle.frames))}")
 
     def _update_preview(self) -> None:
+        if self._replay_capture is not None:
+            self._update_replay()
+            return
         try:
             left_frame, right_frame = self._service.get_preview_frames()
         except RuntimeError as exc:
@@ -246,6 +305,20 @@ class MainWindow(QtWidgets.QMainWindow):
         if stats:
             left_stats = stats.get("left", {})
             right_stats = stats.get("right", {})
+            self._health_left.setText(
+                "L: fps={:.1f} jitter={:.1f}ms drops={}".format(
+                    left_stats.get("fps_avg", 0.0),
+                    left_stats.get("jitter_p95_ms", 0.0),
+                    int(left_stats.get("dropped_frames", 0)),
+                )
+            )
+            self._health_right.setText(
+                "R: fps={:.1f} jitter={:.1f}ms drops={}".format(
+                    right_stats.get("fps_avg", 0.0),
+                    right_stats.get("jitter_p95_ms", 0.0),
+                    int(right_stats.get("dropped_frames", 0)),
+                )
+            )
             zone_label = "-"
             if strike.zone_row is not None and strike.zone_col is not None:
                 zone_label = f"{strike.zone_row},{strike.zone_col}"
@@ -261,6 +334,106 @@ class MainWindow(QtWidgets.QMainWindow):
                     zone_label,
                 )
             )
+
+    def _start_replay(self) -> None:
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Select left camera video",
+            str(Path("recordings")),
+            "Video Files (*.avi *.mp4)",
+        )
+        if not path:
+            return
+        self._stop_capture()
+        capture = cv2.VideoCapture(path)
+        if not capture.isOpened():
+            self._status_label.setText("Failed to open replay video.")
+            return
+        self._replay_capture = capture
+        self._replay_frame_index = 0
+        self._replay_trail.clear()
+        self._init_replay_detector()
+        self._status_label.setText("Replay mode.")
+        self._timer.start(int(1000 / max(self._config.ui.refresh_hz, 1)))
+
+    def _stop_replay(self) -> None:
+        if self._replay_capture is not None:
+            self._replay_capture.release()
+            self._replay_capture = None
+        self._replay_frame_index = 0
+        self._replay_trail.clear()
+
+    def _init_replay_detector(self) -> None:
+        cfg = self._config.detector
+        filter_cfg = FilterConfig(
+            min_area=cfg.filters.min_area,
+            max_area=cfg.filters.max_area,
+            min_circularity=cfg.filters.min_circularity,
+            max_circularity=cfg.filters.max_circularity,
+            min_velocity=cfg.filters.min_velocity,
+            max_velocity=cfg.filters.max_velocity,
+        )
+        detector_cfg = CvDetectorConfig(
+            frame_diff_threshold=cfg.frame_diff_threshold,
+            bg_diff_threshold=cfg.bg_diff_threshold,
+            bg_alpha=cfg.bg_alpha,
+            edge_threshold=cfg.edge_threshold,
+            blob_threshold=cfg.blob_threshold,
+            runtime_budget_ms=cfg.runtime_budget_ms,
+            crop_padding_px=cfg.crop_padding_px,
+            filters=filter_cfg,
+        )
+        roi_by_camera = None
+        if self._lane_rect:
+            roi_by_camera = {"replay_left": _rect_to_polygon(self._lane_rect)}
+        self._replay_detector = ClassicalDetector(
+            config=detector_cfg,
+            mode=Mode(cfg.mode),
+            roi_by_camera=roi_by_camera,
+        )
+
+    def _update_replay(self) -> None:
+        if self._replay_capture is None:
+            return
+        ok, frame = self._replay_capture.read()
+        if not ok:
+            self._status_label.setText("Replay finished.")
+            self._stop_replay()
+            return
+        self._replay_frame_index += 1
+        height, width = frame.shape[:2]
+        if self._config.camera.pixfmt == "GRAY8":
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = frame
+        frame_obj = Frame(
+            camera_id="replay_left",
+            frame_index=self._replay_frame_index,
+            t_capture_monotonic_ns=0,
+            image=gray,
+            width=width,
+            height=height,
+            pixfmt=self._config.camera.pixfmt,
+        )
+        detections = []
+        if self._replay_detector is not None:
+            detections = self._replay_detector.detect(frame_obj)
+        if detections:
+            best = max(detections, key=lambda det: det.confidence)
+            self._replay_trail.append((int(best.u), int(best.v)))
+        overlays = _roi_overlays(self._lane_rect, self._plate_rect, self._active_rect)
+        pixmap = _frame_to_pixmap(
+            gray,
+            overlays,
+            detections,
+            lane_detections=[],
+            plate_detections=[],
+            plate_rect=self._plate_rect,
+            zone=None,
+            trail=list(self._replay_trail),
+        )
+        self._left_view.setPixmap(pixmap)
+        self._right_view.setPixmap(QtGui.QPixmap())
 
     def _refresh_devices(self) -> None:
         self._left_input.clear()
@@ -395,6 +568,27 @@ class MainWindow(QtWidgets.QMainWindow):
         config_path.write_text(yaml.safe_dump(data, sort_keys=False))
         self._status_label.setText("Strike zone saved.")
 
+    def _health_ok(self) -> bool:
+        stats = self._service.get_stats()
+        if not stats:
+            return False
+        left = stats.get("left", {})
+        right = stats.get("right", {})
+        fps_ok = left.get("fps_avg", 0.0) >= 58.0 and right.get("fps_avg", 0.0) >= 58.0
+        drops_ok = (
+            int(left.get("dropped_frames", 0)) <= 2
+            and int(right.get("dropped_frames", 0)) <= 2
+        )
+        return fps_ok and drops_ok
+
+    def _build_health_panel(self) -> QtWidgets.QGroupBox:
+        panel = QtWidgets.QGroupBox("Health")
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self._health_left)
+        layout.addWidget(self._health_right)
+        panel.setLayout(layout)
+        return panel
+
     def _build_detector_panel(self) -> QtWidgets.QGroupBox:
         panel = QtWidgets.QGroupBox("Detector (Quick)")
         form = QtWidgets.QFormLayout()
@@ -444,6 +638,64 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 self._status_label.setText("Calibration updated. Restart capture to apply.")
 
+    def _open_checklist(self) -> None:
+        dialog = ChecklistDialog(self)
+        dialog.exec()
+
+    def _open_record_settings(self) -> None:
+        dialog = RecordingSettingsDialog(
+            self,
+            session=self._session_name.text(),
+            output_dir=self._output_dir.text(),
+            speed_mph=self._manual_speed.value(),
+        )
+        if dialog.exec() == QtWidgets.QDialog.Accepted:
+            session, output_dir, speed = dialog.values()
+            self._session_name.setText(session)
+            self._set_output_dir(output_dir)
+            self._manual_speed.setValue(speed)
+            self._set_manual_speed(speed)
+
+    def _open_strike_settings(self) -> None:
+        dialog = StrikeZoneSettingsDialog(
+            self,
+            ball_type=self._ball_combo.currentText(),
+            batter_height=self._batter_height.value(),
+            top_ratio=self._top_ratio.value(),
+            bottom_ratio=self._bottom_ratio.value(),
+        )
+        if dialog.exec() == QtWidgets.QDialog.Accepted:
+            ball_type, height, top_ratio, bottom_ratio = dialog.values()
+            self._ball_combo.setCurrentText(ball_type)
+            self._batter_height.setValue(height)
+            self._top_ratio.setValue(top_ratio)
+            self._bottom_ratio.setValue(bottom_ratio)
+            self._save_strike_zone()
+
+    def _open_detector_settings(self) -> None:
+        dialog = DetectorSettingsDialog(
+            self,
+            mode=self._mode_combo.currentText(),
+            frame_diff=self._frame_diff.value(),
+            bg_diff=self._bg_diff.value(),
+            bg_alpha=self._bg_alpha.value(),
+            edge_thresh=self._edge_thresh.value(),
+            blob_thresh=self._blob_thresh.value(),
+            min_area=self._min_area.value(),
+            min_circ=self._min_circ.value(),
+        )
+        if dialog.exec() == QtWidgets.QDialog.Accepted:
+            values = dialog.values()
+            self._mode_combo.setCurrentText(values["mode"])
+            self._frame_diff.setValue(values["frame_diff"])
+            self._bg_diff.setValue(values["bg_diff"])
+            self._bg_alpha.setValue(values["bg_alpha"])
+            self._edge_thresh.setValue(values["edge_thresh"])
+            self._blob_thresh.setValue(values["blob_thresh"])
+            self._min_area.setValue(values["min_area"])
+            self._min_circ.setValue(values["min_circ"])
+            self._apply_detector_config()
+
     def _maybe_show_guide(self) -> None:
         marker = Path("configs/.first_run_done")
         if marker.exists():
@@ -466,6 +718,7 @@ def _frame_to_pixmap(
     plate_detections: list | None = None,
     plate_rect: Optional[Rect] = None,
     zone: tuple[int, int] | None = None,
+    trail: list[tuple[int, int]] | None = None,
 ) -> QtGui.QPixmap:
     if image.ndim == 2:
         height, width = image.shape
@@ -487,7 +740,7 @@ def _frame_to_pixmap(
             QtGui.QImage.Format_RGB888,
         )
     pixmap = QtGui.QPixmap.fromImage(qimage)
-    if overlays or detections or lane_detections or plate_detections or plate_rect or zone:
+    if overlays or detections or lane_detections or plate_detections or plate_rect or zone or trail:
         painter = QtGui.QPainter(pixmap)
         if overlays:
             for rect, color in overlays:
@@ -496,6 +749,7 @@ def _frame_to_pixmap(
         _draw_detections(painter, detections, QtGui.QColor(255, 0, 0))
         _draw_detections(painter, lane_detections, QtGui.QColor(0, 200, 255))
         _draw_detections(painter, plate_detections, QtGui.QColor(255, 180, 0))
+        _draw_trail(painter, trail, QtGui.QColor(0, 255, 100))
         if plate_rect:
             _draw_plate_grid(painter, plate_rect, QtGui.QColor(255, 180, 0), zone)
         painter.end()
@@ -704,6 +958,20 @@ def _draw_plate_grid(
         painter.drawLine(x1, y, x2, y)
 
 
+def _draw_trail(
+    painter: QtGui.QPainter,
+    trail: list[tuple[int, int]] | None,
+    color: QtGui.QColor,
+) -> None:
+    if not trail or len(trail) < 2:
+        return
+    painter.setPen(QtGui.QPen(color, 2))
+    for i in range(1, len(trail)):
+        x1, y1 = trail[i - 1]
+        x2, y2 = trail[i]
+        painter.drawLine(x1, y1, x2, y2)
+
+
 class CalibrationGuide(QtWidgets.QDialog):
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
@@ -751,6 +1019,230 @@ class CalibrationGuide(QtWidgets.QDialog):
         layout.addWidget(steps)
         layout.addWidget(close_button)
         self.setLayout(layout)
+
+
+class ChecklistDialog(QtWidgets.QDialog):
+    def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Pre-Record Checklist")
+        self.resize(520, 360)
+        steps = QtWidgets.QTextEdit()
+        steps.setReadOnly(True)
+        steps.setText(
+            "\n".join(
+                [
+                    "Pre-Recording Checklist:",
+                    "",
+                    "- Lenses focused and locked",
+                    "- Exposure/gain set to manual",
+                    "- FPS stable (>= 58) on both cameras",
+                    "- Lane ROI and Plate ROI saved",
+                    "- Strike zone settings verified",
+                    "- Session name set",
+                ]
+            )
+        )
+        close_button = QtWidgets.QPushButton("Close")
+        close_button.clicked.connect(self.accept)
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(steps)
+        layout.addWidget(close_button)
+        self.setLayout(layout)
+
+
+class RecordingSettingsDialog(QtWidgets.QDialog):
+    def __init__(
+        self,
+        parent: QtWidgets.QWidget | None,
+        session: str,
+        output_dir: str,
+        speed_mph: float,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Recording Settings")
+        self.resize(520, 220)
+        self._session = QtWidgets.QLineEdit(session)
+        self._output_dir = QtWidgets.QLineEdit(output_dir)
+        self._speed = QtWidgets.QDoubleSpinBox()
+        self._speed.setMinimum(0.0)
+        self._speed.setMaximum(130.0)
+        self._speed.setSuffix(" mph")
+        self._speed.setValue(speed_mph)
+        browse_button = QtWidgets.QPushButton("Browse")
+        browse_button.clicked.connect(self._browse)
+
+        form = QtWidgets.QFormLayout()
+        output_row = QtWidgets.QHBoxLayout()
+        output_row.addWidget(self._output_dir)
+        output_row.addWidget(browse_button)
+        form.addRow("Session name", self._session)
+        form.addRow("Output dir", output_row)
+        form.addRow("Measured speed", self._speed)
+
+        buttons = QtWidgets.QHBoxLayout()
+        apply_button = QtWidgets.QPushButton("Apply")
+        cancel_button = QtWidgets.QPushButton("Cancel")
+        apply_button.clicked.connect(self.accept)
+        cancel_button.clicked.connect(self.reject)
+        buttons.addWidget(apply_button)
+        buttons.addWidget(cancel_button)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(form)
+        layout.addLayout(buttons)
+        self.setLayout(layout)
+
+    def _browse(self) -> None:
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, "Select output folder")
+        if path:
+            self._output_dir.setText(path)
+
+    def values(self) -> tuple[str, str, float]:
+        return (
+            self._session.text().strip(),
+            self._output_dir.text().strip(),
+            self._speed.value(),
+        )
+
+
+class StrikeZoneSettingsDialog(QtWidgets.QDialog):
+    def __init__(
+        self,
+        parent: QtWidgets.QWidget | None,
+        ball_type: str,
+        batter_height: float,
+        top_ratio: float,
+        bottom_ratio: float,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Strike Zone Settings")
+        self.resize(420, 200)
+        self._ball = QtWidgets.QComboBox()
+        self._ball.addItems(["baseball", "softball"])
+        self._ball.setCurrentText(ball_type)
+        self._height = QtWidgets.QDoubleSpinBox()
+        self._height.setMinimum(40.0)
+        self._height.setMaximum(96.0)
+        self._height.setSuffix(" in")
+        self._height.setValue(batter_height)
+        self._top = QtWidgets.QDoubleSpinBox()
+        self._bottom = QtWidgets.QDoubleSpinBox()
+        for ratio in (self._top, self._bottom):
+            ratio.setMinimum(0.0)
+            ratio.setMaximum(1.0)
+            ratio.setSingleStep(0.01)
+        self._top.setValue(top_ratio)
+        self._bottom.setValue(bottom_ratio)
+
+        form = QtWidgets.QFormLayout()
+        form.addRow("Ball type", self._ball)
+        form.addRow("Batter height", self._height)
+        form.addRow("Top ratio", self._top)
+        form.addRow("Bottom ratio", self._bottom)
+
+        buttons = QtWidgets.QHBoxLayout()
+        apply_button = QtWidgets.QPushButton("Apply")
+        cancel_button = QtWidgets.QPushButton("Cancel")
+        apply_button.clicked.connect(self.accept)
+        cancel_button.clicked.connect(self.reject)
+        buttons.addWidget(apply_button)
+        buttons.addWidget(cancel_button)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(form)
+        layout.addLayout(buttons)
+        self.setLayout(layout)
+
+    def values(self) -> tuple[str, float, float, float]:
+        return (
+            self._ball.currentText(),
+            self._height.value(),
+            self._top.value(),
+            self._bottom.value(),
+        )
+
+
+class DetectorSettingsDialog(QtWidgets.QDialog):
+    def __init__(
+        self,
+        parent: QtWidgets.QWidget | None,
+        mode: str,
+        frame_diff: float,
+        bg_diff: float,
+        bg_alpha: float,
+        edge_thresh: float,
+        blob_thresh: float,
+        min_area: int,
+        min_circ: float,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Detector Settings")
+        self.resize(420, 260)
+        self._mode = QtWidgets.QComboBox()
+        self._mode.addItems([Mode.MODE_A.value, Mode.MODE_B.value])
+        self._mode.setCurrentText(mode)
+        self._frame_diff = QtWidgets.QDoubleSpinBox()
+        self._bg_diff = QtWidgets.QDoubleSpinBox()
+        self._bg_alpha = QtWidgets.QDoubleSpinBox()
+        self._edge_thresh = QtWidgets.QDoubleSpinBox()
+        self._blob_thresh = QtWidgets.QDoubleSpinBox()
+        self._min_area = QtWidgets.QSpinBox()
+        self._min_circ = QtWidgets.QDoubleSpinBox()
+        for field in (
+            self._frame_diff,
+            self._bg_diff,
+            self._bg_alpha,
+            self._edge_thresh,
+            self._blob_thresh,
+            self._min_circ,
+        ):
+            field.setDecimals(2)
+            field.setMaximum(10_000.0)
+        self._bg_alpha.setMaximum(1.0)
+        self._bg_alpha.setSingleStep(0.01)
+        self._min_area.setMaximum(100_000)
+        self._frame_diff.setValue(frame_diff)
+        self._bg_diff.setValue(bg_diff)
+        self._bg_alpha.setValue(bg_alpha)
+        self._edge_thresh.setValue(edge_thresh)
+        self._blob_thresh.setValue(blob_thresh)
+        self._min_area.setValue(min_area)
+        self._min_circ.setValue(min_circ)
+
+        form = QtWidgets.QFormLayout()
+        form.addRow("Mode", self._mode)
+        form.addRow("Frame diff", self._frame_diff)
+        form.addRow("BG diff", self._bg_diff)
+        form.addRow("BG alpha", self._bg_alpha)
+        form.addRow("Edge thresh", self._edge_thresh)
+        form.addRow("Blob thresh", self._blob_thresh)
+        form.addRow("Min area", self._min_area)
+        form.addRow("Min circularity", self._min_circ)
+
+        buttons = QtWidgets.QHBoxLayout()
+        apply_button = QtWidgets.QPushButton("Apply")
+        cancel_button = QtWidgets.QPushButton("Cancel")
+        apply_button.clicked.connect(self.accept)
+        cancel_button.clicked.connect(self.reject)
+        buttons.addWidget(apply_button)
+        buttons.addWidget(cancel_button)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(form)
+        layout.addLayout(buttons)
+        self.setLayout(layout)
+
+    def values(self) -> dict:
+        return {
+            "mode": self._mode.currentText(),
+            "frame_diff": self._frame_diff.value(),
+            "bg_diff": self._bg_diff.value(),
+            "bg_alpha": self._bg_alpha.value(),
+            "edge_thresh": self._edge_thresh.value(),
+            "blob_thresh": self._blob_thresh.value(),
+            "min_area": self._min_area.value(),
+            "min_circ": self._min_circ.value(),
+        }
 
 
 class QuickCalibrateDialog(QtWidgets.QDialog):

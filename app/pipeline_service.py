@@ -3,18 +3,23 @@
 from __future__ import annotations
 
 import time
+import csv
+import json
 from pathlib import Path
 from collections import deque
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, Iterable, Optional, Tuple
 
+import cv2
+
 from capture import CameraDevice, SimulatedCamera, UvcCamera
 from capture.camera_device import CameraStats
 from capture.opencv_backend import OpenCVCamera
 from configs.settings import AppConfig
 from configs.roi_io import load_rois
-from contracts import Frame, PitchMetrics
+from contracts import Detection, Frame, PitchMetrics
+from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 from detect.classical_detector import ClassicalDetector
 from detect.config import DetectorConfig as CvDetectorConfig
 from detect.config import FilterConfig, Mode
@@ -53,8 +58,16 @@ class PipelineService(ABC):
         """Return the latest frames for UI preview."""
 
     @abstractmethod
-    def start_recording(self, pitch_id: Optional[str] = None) -> None:
+    def start_recording(self, pitch_id: Optional[str] = None, session_name: Optional[str] = None) -> None:
         """Begin recording frames and metadata."""
+
+    @abstractmethod
+    def set_record_directory(self, path: Optional[Path]) -> None:
+        """Set base directory for recordings."""
+
+    @abstractmethod
+    def set_manual_speed_mph(self, speed_mph: Optional[float]) -> None:
+        """Set manual speed from external device."""
 
     @abstractmethod
     def stop_recording(self) -> RecordingBundle:
@@ -113,6 +126,7 @@ class InProcessPipelineService(PipelineService):
         self._stereo_gate: Optional[StereoLaneGate] = None
         self._plate_stereo_gate: Optional[StereoLaneGate] = None
         self._detector = ClassicalDetector(config=CvDetectorConfig(), mode=Mode.MODE_A)
+        self._lane_polygon: Optional[list[tuple[float, float]]] = None
         self._stereo: Optional[SimpleStereoMatcher] = None
         self._tracker = SimpleTracker()
         self._plate_observations = deque(maxlen=12)
@@ -125,12 +139,20 @@ class InProcessPipelineService(PipelineService):
         self._last_gated: Dict[str, Dict[str, list[Detection]]] = {}
         self._strike_result = StrikeResult(is_strike=False, sample_count=0)
         self._ball_type = "baseball"
+        self._record_dir: Optional[Path] = None
+        self._record_session: Optional[str] = None
+        self._record_left_writer = None
+        self._record_right_writer = None
+        self._record_left_csv = None
+        self._record_right_csv = None
+        self._manual_speed_mph: Optional[float] = None
 
     def start_capture(self, config: AppConfig, left_serial: str, right_serial: str) -> None:
         self._config = config
         self._left_id = left_serial
         self._right_id = right_serial
         self._ball_type = config.ball.type
+        self._record_dir = Path(config.recording.output_dir)
         self._left = self._build_camera()
         self._right = self._build_camera()
         self._left.open(left_serial)
@@ -157,18 +179,28 @@ class InProcessPipelineService(PipelineService):
         self._update_plate_metrics(left_frame, right_frame)
         if self._recording:
             self._recorded_frames.extend([left_frame, right_frame])
+            self._write_record_frame(left_frame, right_frame)
         return left_frame, right_frame
 
-    def start_recording(self, pitch_id: Optional[str] = None) -> None:
+    def start_recording(self, pitch_id: Optional[str] = None, session_name: Optional[str] = None) -> None:
         self._recording = True
         self._recorded_frames = []
         if pitch_id:
             self._pitch_id = pitch_id
         else:
             self._pitch_id = time.strftime("pitch-%Y%m%d-%H%M%S", time.gmtime())
+        self._record_session = session_name
+        self._start_recording_io()
+
+    def set_record_directory(self, path: Optional[Path]) -> None:
+        self._record_dir = path
+
+    def set_manual_speed_mph(self, speed_mph: Optional[float]) -> None:
+        self._manual_speed_mph = speed_mph
 
     def stop_recording(self) -> RecordingBundle:
         self._recording = False
+        self._stop_recording_io()
         metrics = PitchMetrics(
             pitch_id=self._pitch_id,
             t_start_ns=0,
@@ -271,6 +303,97 @@ class InProcessPipelineService(PipelineService):
             return SimulatedCamera()
         return UvcCamera()
 
+    def _start_recording_io(self) -> None:
+        if self._config is None:
+            return
+        base = self._record_session or self._pitch_id
+        safe = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in base)
+        timestamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
+        base_dir = self._record_dir or Path("recordings")
+        self._record_dir = base_dir / f"{safe}_{timestamp}"
+        self._record_dir.mkdir(parents=True, exist_ok=True)
+        left_path = self._record_dir / "left.avi"
+        right_path = self._record_dir / "right.avi"
+        fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+        self._record_left_writer = cv2.VideoWriter(
+            str(left_path),
+            fourcc,
+            self._config.camera.fps,
+            (self._config.camera.width, self._config.camera.height),
+            True,
+        )
+        self._record_right_writer = cv2.VideoWriter(
+            str(right_path),
+            fourcc,
+            self._config.camera.fps,
+            (self._config.camera.width, self._config.camera.height),
+            True,
+        )
+        left_csv = (self._record_dir / "left_timestamps.csv").open("w", newline="")
+        right_csv = (self._record_dir / "right_timestamps.csv").open("w", newline="")
+        self._record_left_csv = (left_csv, csv.writer(left_csv))
+        self._record_right_csv = (right_csv, csv.writer(right_csv))
+        self._record_left_csv[1].writerow(
+            ["camera_id", "frame_index", "t_capture_monotonic_ns"]
+        )
+        self._record_right_csv[1].writerow(
+            ["camera_id", "frame_index", "t_capture_monotonic_ns"]
+        )
+
+    def _stop_recording_io(self) -> None:
+        if self._record_left_writer is not None:
+            self._record_left_writer.release()
+            self._record_left_writer = None
+        if self._record_right_writer is not None:
+            self._record_right_writer.release()
+            self._record_right_writer = None
+        if self._record_left_csv is not None:
+            self._record_left_csv[0].close()
+            self._record_left_csv = None
+        if self._record_right_csv is not None:
+            self._record_right_csv[0].close()
+            self._record_right_csv = None
+        if self._record_dir is None:
+            return
+        manifest = {
+            "schema_version": SCHEMA_VERSION,
+            "app_version": APP_VERSION,
+            "rig_id": None,
+            "created_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "pitch_id": self._pitch_id,
+            "session": self._record_session,
+            "measured_speed_mph": self._manual_speed_mph,
+            "left_video": "left.avi",
+            "right_video": "right.avi",
+            "left_timestamps": "left_timestamps.csv",
+            "right_timestamps": "right_timestamps.csv",
+            "config_path": "configs/default.yaml",
+            "calibration_profile_id": None,
+        }
+        (self._record_dir / "manifest.json").write_text(
+            json.dumps(manifest, indent=2)
+        )
+
+    def _write_record_frame(self, left: Frame, right: Frame) -> None:
+        if self._record_left_writer is None or self._record_right_writer is None:
+            return
+        left_image = left.image
+        right_image = right.image
+        if left_image.ndim == 2:
+            left_image = cv2.cvtColor(left_image, cv2.COLOR_GRAY2BGR)
+        if right_image.ndim == 2:
+            right_image = cv2.cvtColor(right_image, cv2.COLOR_GRAY2BGR)
+        self._record_left_writer.write(left_image)
+        self._record_right_writer.write(right_image)
+        if self._record_left_csv is not None:
+            self._record_left_csv[1].writerow(
+                [left.camera_id, left.frame_index, left.t_capture_monotonic_ns]
+            )
+        if self._record_right_csv is not None:
+            self._record_right_csv[1].writerow(
+                [right.camera_id, right.frame_index, right.t_capture_monotonic_ns]
+            )
+
     @staticmethod
     def _configure_camera(camera: CameraDevice, config: AppConfig) -> None:
         camera.set_mode(
@@ -293,10 +416,12 @@ class InProcessPipelineService(PipelineService):
         lane = rois.get("lane")
         plate = rois.get("plate")
         if lane:
+            self._lane_polygon = [(float(x), float(y)) for x, y in lane]
             lane_roi = LaneRoi(polygon=[(float(x), float(y)) for x, y in lane])
             self._lane_gate = LaneGate(roi_by_camera={self._left_id: lane_roi, self._right_id: lane_roi})
             self._stereo_gate = StereoLaneGate(lane_gate=self._lane_gate)
         else:
+            self._lane_polygon = None
             self._lane_gate = None
             self._stereo_gate = None
         if plate:
@@ -342,10 +467,21 @@ class InProcessPipelineService(PipelineService):
             edge_threshold=cfg.edge_threshold,
             blob_threshold=cfg.blob_threshold,
             runtime_budget_ms=cfg.runtime_budget_ms,
+            crop_padding_px=cfg.crop_padding_px,
             filters=filter_cfg,
         )
         mode = Mode(cfg.mode)
-        self._detector = ClassicalDetector(config=detector_cfg, mode=mode)
+        roi_by_camera = {}
+        if self._lane_polygon and self._left_id and self._right_id:
+            roi_by_camera = {
+                self._left_id: self._lane_polygon,
+                self._right_id: self._lane_polygon,
+            }
+        self._detector = ClassicalDetector(
+            config=detector_cfg,
+            mode=mode,
+            roi_by_camera=roi_by_camera,
+        )
 
     def _update_plate_metrics(self, left_frame: Frame, right_frame: Frame) -> None:
         if self._left_id is None or self._right_id is None:

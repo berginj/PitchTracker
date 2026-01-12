@@ -26,6 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--codec", default="MJPG", help="FourCC codec (default MJPG).")
     parser.add_argument("--pitch-id", default=None, help="Optional pitch identifier.")
     parser.add_argument("--rig-id", default=None, help="Optional rig identifier.")
+    parser.add_argument("--session", default=None, help="Optional session name.")
     parser.add_argument(
         "--calibration-profile-id",
         default=None,
@@ -149,6 +150,7 @@ def main() -> None:
         "rig_id": args.rig_id,
         "created_utc": created_utc,
         "pitch_id": pitch_id,
+        "session": args.session,
         "left_video": left_video.name,
         "right_video": right_video.name,
         "left_timestamps": left_csv.name,
