@@ -467,6 +467,7 @@ class InProcessPipelineService(PipelineService):
             "config_path": "configs/default.yaml",
             "calibration_profile_id": None,
             "session_summary": "session_summary.json",
+            "session_summary_csv": "session_summary.csv",
         }
         (self._session_dir / "manifest.json").write_text(
             json.dumps(manifest, indent=2)
@@ -649,15 +650,27 @@ class InProcessPipelineService(PipelineService):
             radius_in = self._config.ball.radius_in.get(self._ball_type, 1.45)
             self._strike_result = is_strike(self._plate_observations, zone, radius_in)
         lane_count = len(left_gated) + len(right_gated)
+        plate_count = len(plate_left) + len(plate_right)
+        obs_count = len(observations)
         frame_ns = max(left_frame.t_capture_monotonic_ns, right_frame.t_capture_monotonic_ns)
-        self._update_pitch_state(frame_ns, lane_count)
+        self._update_pitch_state(frame_ns, lane_count, plate_count, obs_count)
 
-    def _update_pitch_state(self, frame_ns: int, lane_count: int) -> None:
+    def _update_pitch_state(
+        self,
+        frame_ns: int,
+        lane_count: int,
+        plate_count: int,
+        obs_count: int,
+    ) -> None:
         if not self._session_active or self._config is None:
             return
         min_active = self._config.recording.session_min_active_frames
         end_gap = self._config.recording.session_end_gap_frames
-        if lane_count > 0:
+        if self._plate_gate is None:
+            active = lane_count > 0
+        else:
+            active = plate_count > 0 or obs_count > 0
+        if active:
             self._pitch_gap_frames = 0
             self._pitch_active_frames += 1
             self._pitch_end_ns = frame_ns
@@ -730,6 +743,45 @@ class InProcessPipelineService(PipelineService):
         payload["schema_version"] = SCHEMA_VERSION
         payload["app_version"] = APP_VERSION
         path.write_text(json.dumps(payload, indent=2))
+        self._write_session_summary_csv(summary)
+
+    def _write_session_summary_csv(self, summary: SessionSummary) -> None:
+        if self._session_dir is None:
+            return
+        path = self._session_dir / "session_summary.csv"
+        with path.open("w", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(
+                [
+                    "pitch_id",
+                    "t_start_ns",
+                    "t_end_ns",
+                    "is_strike",
+                    "zone_row",
+                    "zone_col",
+                    "run_in",
+                    "rise_in",
+                    "speed_mph",
+                    "rotation_rpm",
+                    "sample_count",
+                ]
+            )
+            for pitch in summary.pitches:
+                writer.writerow(
+                    [
+                        pitch.pitch_id,
+                        pitch.t_start_ns,
+                        pitch.t_end_ns,
+                        int(pitch.is_strike),
+                        pitch.zone_row if pitch.zone_row is not None else "",
+                        pitch.zone_col if pitch.zone_col is not None else "",
+                        f"{pitch.run_in:.3f}",
+                        f"{pitch.rise_in:.3f}",
+                        f"{pitch.speed_mph:.3f}" if pitch.speed_mph is not None else "",
+                        f"{pitch.rotation_rpm:.3f}" if pitch.rotation_rpm is not None else "",
+                        pitch.sample_count,
+                    ]
+                )
 
     def _pitch_dir(self, pitch_id: str) -> Optional[Path]:
         if self._session_dir is None:
