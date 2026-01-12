@@ -22,6 +22,17 @@ If you only have an internal camera, use:
 - Camera mount files are in `3dModels/`.
 - Recording creates a session folder with per-pitch subfolders (left/right videos, timestamps, manifest).
 
+## Tests
+```powershell
+python -m pytest
+```
+
+To run optional clip-based detection tests:
+```powershell
+$env:PITCHTRACKER_TEST_VIDEO="C:\path\to\left.avi"
+python -m pytest tests/test_video_clip.py
+```
+
 ## Completed Features
 - PySide6 UI with in-process pipeline service and recording/replay
 - Lane + plate ROI calibration with strike-zone 3x3 overlay
