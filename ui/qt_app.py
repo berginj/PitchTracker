@@ -7,10 +7,12 @@ from pathlib import Path
 from typing import Optional
 
 import cv2
+import yaml
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.pipeline_service import InProcessPipelineService
+from calib.quick_calibrate import calibrate_and_write
 from capture.uvc_backend import list_uvc_devices
 from configs.lane_io import save_lane_rois
 from configs.roi_io import load_rois, save_rois
@@ -50,10 +52,24 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._start_button = QtWidgets.QPushButton("Start Capture")
         self._stop_button = QtWidgets.QPushButton("Stop Capture")
+        self._restart_button = QtWidgets.QPushButton("Restart Capture")
         self._record_button = QtWidgets.QPushButton("Start Recording")
         self._stop_record_button = QtWidgets.QPushButton("Stop Recording")
         self._refresh_button = QtWidgets.QPushButton("Refresh Devices")
         self._status_label = QtWidgets.QLabel("Idle")
+        self._ball_combo = QtWidgets.QComboBox()
+        self._ball_combo.addItems(["baseball", "softball"])
+        self._batter_height = QtWidgets.QDoubleSpinBox()
+        self._batter_height.setMinimum(40.0)
+        self._batter_height.setMaximum(96.0)
+        self._batter_height.setSuffix(" in")
+        self._top_ratio = QtWidgets.QDoubleSpinBox()
+        self._bottom_ratio = QtWidgets.QDoubleSpinBox()
+        for ratio in (self._top_ratio, self._bottom_ratio):
+            ratio.setMinimum(0.0)
+            ratio.setMaximum(1.0)
+            ratio.setSingleStep(0.01)
+        self._save_strike_button = QtWidgets.QPushButton("Save Strike Zone")
 
         self._left_view = RoiLabel(self._on_rect_update)
         self._right_view = QtWidgets.QLabel()
@@ -71,6 +87,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._save_roi_button = QtWidgets.QPushButton("Save ROIs")
         self._load_roi_button = QtWidgets.QPushButton("Load ROIs")
         self._guide_button = QtWidgets.QPushButton("Calibration Guide")
+        self._quick_cal_button = QtWidgets.QPushButton("Quick Calibrate")
 
         self._mode_combo = QtWidgets.QComboBox()
         self._mode_combo.addItems([Mode.MODE_A.value, Mode.MODE_B.value])
@@ -89,8 +106,18 @@ class MainWindow(QtWidgets.QMainWindow):
         controls.addWidget(self._refresh_button)
         controls.addWidget(self._start_button)
         controls.addWidget(self._stop_button)
+        controls.addWidget(self._restart_button)
         controls.addWidget(self._record_button)
         controls.addWidget(self._stop_record_button)
+        controls.addWidget(QtWidgets.QLabel("Ball"))
+        controls.addWidget(self._ball_combo)
+        controls.addWidget(QtWidgets.QLabel("Batter Height"))
+        controls.addWidget(self._batter_height)
+        controls.addWidget(QtWidgets.QLabel("Top %"))
+        controls.addWidget(self._top_ratio)
+        controls.addWidget(QtWidgets.QLabel("Bottom %"))
+        controls.addWidget(self._bottom_ratio)
+        controls.addWidget(self._save_strike_button)
 
         views = QtWidgets.QHBoxLayout()
         views.addWidget(self._left_view, 1)
@@ -104,6 +131,7 @@ class MainWindow(QtWidgets.QMainWindow):
         roi_controls.addWidget(self._save_roi_button)
         roi_controls.addWidget(self._load_roi_button)
         roi_controls.addWidget(self._guide_button)
+        roi_controls.addWidget(self._quick_cal_button)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addLayout(controls)
@@ -118,9 +146,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._start_button.clicked.connect(self._start_capture)
         self._stop_button.clicked.connect(self._stop_capture)
+        self._restart_button.clicked.connect(self._restart_capture)
         self._record_button.clicked.connect(self._start_recording)
         self._stop_record_button.clicked.connect(self._stop_recording)
         self._refresh_button.clicked.connect(self._refresh_devices)
+        self._ball_combo.currentTextChanged.connect(self._set_ball_type)
+        self._batter_height.valueChanged.connect(self._set_batter_height)
+        self._top_ratio.valueChanged.connect(self._set_strike_ratios)
+        self._bottom_ratio.valueChanged.connect(self._set_strike_ratios)
+        self._save_strike_button.clicked.connect(self._save_strike_zone)
         self._lane_button.clicked.connect(lambda: self._set_roi_mode("lane"))
         self._plate_button.clicked.connect(lambda: self._set_roi_mode("plate"))
         self._clear_lane_button.clicked.connect(self._clear_lane)
@@ -129,11 +163,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self._load_roi_button.clicked.connect(self._load_rois)
         self._guide_button.clicked.connect(self._open_calibration_guide)
         self._apply_detector.clicked.connect(self._apply_detector_config)
+        self._quick_cal_button.clicked.connect(self._open_quick_calibrate)
 
         self._refresh_devices()
         self._load_rois()
         self._maybe_show_guide()
         self._load_detector_defaults()
+        self._ball_combo.setCurrentText(self._config.ball.type)
+        self._batter_height.setValue(self._config.strike_zone.batter_height_in)
+        self._top_ratio.setValue(self._config.strike_zone.top_ratio)
+        self._bottom_ratio.setValue(self._config.strike_zone.bottom_ratio)
 
     def _start_capture(self) -> None:
         left = _current_serial(self._left_input)
@@ -149,6 +188,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._timer.stop()
         self._service.stop_capture()
         self._status_label.setText("Stopped.")
+
+    def _restart_capture(self) -> None:
+        self._stop_capture()
+        self._start_capture()
 
     def _start_recording(self) -> None:
         self._service.start_recording()
@@ -166,21 +209,56 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._left_view.set_image_size(left_frame.width, left_frame.height)
         overlays = _roi_overlays(self._lane_rect, self._plate_rect, self._active_rect)
-        self._left_view.setPixmap(_frame_to_pixmap(left_frame.image, overlays))
-        self._right_view.setPixmap(_frame_to_pixmap(right_frame.image, overlays))
+        detections = self._service.get_latest_detections()
+        gated = self._service.get_latest_gated_detections()
+        left_dets = detections.get(left_frame.camera_id, [])
+        right_dets = detections.get(right_frame.camera_id, [])
+        left_gated = gated.get(left_frame.camera_id, {})
+        right_gated = gated.get(right_frame.camera_id, {})
+        zone = None
+        if strike.zone_row is not None and strike.zone_col is not None:
+            zone = (strike.zone_row, strike.zone_col)
+        self._left_view.setPixmap(
+            _frame_to_pixmap(
+                left_frame.image,
+                overlays,
+                left_dets,
+                left_gated.get("lane", []),
+                left_gated.get("plate", []),
+                plate_rect=self._plate_rect,
+                zone=zone,
+            )
+        )
+        self._right_view.setPixmap(
+            _frame_to_pixmap(
+                right_frame.image,
+                overlays,
+                right_dets,
+                right_gated.get("lane", []),
+                right_gated.get("plate", []),
+                plate_rect=self._plate_rect,
+                zone=zone,
+            )
+        )
         stats = self._service.get_stats()
         plate_metrics = self._service.get_plate_metrics()
+        strike = self._service.get_strike_result()
         if stats:
             left_stats = stats.get("left", {})
             right_stats = stats.get("right", {})
+            zone_label = "-"
+            if strike.zone_row is not None and strike.zone_col is not None:
+                zone_label = f"{strike.zone_row},{strike.zone_col}"
             self._status_label.setText(
-                "fps L={:.1f} R={:.1f} drops L={} R={} run={:.2f} rise={:.2f}".format(
+                "fps L={:.1f} R={:.1f} drops L={} R={} run={:.2f} rise={:.2f} strike={} zone={}".format(
                     left_stats.get("fps_avg", 0.0),
                     right_stats.get("fps_avg", 0.0),
                     int(left_stats.get("dropped_frames", 0)),
                     int(right_stats.get("dropped_frames", 0)),
                     plate_metrics.run_in,
                     plate_metrics.rise_in,
+                    "Y" if strike.is_strike else "N",
+                    zone_label,
                 )
             )
 
@@ -293,6 +371,30 @@ class MainWindow(QtWidgets.QMainWindow):
         self._service.set_detector_config(detector_cfg, mode)
         self._status_label.setText("Detector settings applied.")
 
+    def _set_ball_type(self, ball_type: str) -> None:
+        self._service.set_ball_type(ball_type)
+
+    def _set_batter_height(self, value: float) -> None:
+        self._service.set_batter_height_in(value)
+
+    def _set_strike_ratios(self) -> None:
+        self._service.set_strike_zone_ratios(
+            self._top_ratio.value(),
+            self._bottom_ratio.value(),
+        )
+
+    def _save_strike_zone(self) -> None:
+        config_path = self._config_path()
+        data = yaml.safe_load(config_path.read_text())
+        data.setdefault("strike_zone", {})
+        data["strike_zone"]["batter_height_in"] = float(self._batter_height.value())
+        data["strike_zone"]["top_ratio"] = float(self._top_ratio.value())
+        data["strike_zone"]["bottom_ratio"] = float(self._bottom_ratio.value())
+        data.setdefault("ball", {})
+        data["ball"]["type"] = self._ball_combo.currentText()
+        config_path.write_text(yaml.safe_dump(data, sort_keys=False))
+        self._status_label.setText("Strike zone saved.")
+
     def _build_detector_panel(self) -> QtWidgets.QGroupBox:
         panel = QtWidgets.QGroupBox("Detector (Quick)")
         form = QtWidgets.QFormLayout()
@@ -325,6 +427,23 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog = CalibrationGuide(self)
         dialog.exec()
 
+    def _open_quick_calibrate(self) -> None:
+        dialog = QuickCalibrateDialog(self, self._config_path())
+        dialog.exec()
+        if dialog.updated:
+            self._config = load_config(self._config_path())
+            if dialog.updates:
+                baseline = dialog.updates.get("baseline_ft")
+                focal = dialog.updates.get("focal_length_px")
+                if isinstance(baseline, (int, float)) and isinstance(focal, (int, float)):
+                    self._status_label.setText(
+                        f"Calibration updated (baseline_ft={baseline:.3f}, f_px={focal:.1f}). Restart capture."
+                    )
+                else:
+                    self._status_label.setText("Calibration updated. Restart capture to apply.")
+            else:
+                self._status_label.setText("Calibration updated. Restart capture to apply.")
+
     def _maybe_show_guide(self) -> None:
         marker = Path("configs/.first_run_done")
         if marker.exists():
@@ -335,9 +454,18 @@ class MainWindow(QtWidgets.QMainWindow):
         except OSError:
             pass
 
+    def _config_path(self) -> Path:
+        return Path("configs/default.yaml")
+
 
 def _frame_to_pixmap(
-    image: np.ndarray, overlays: list[Overlay] | None = None
+    image: np.ndarray,
+    overlays: list[Overlay] | None = None,
+    detections: list | None = None,
+    lane_detections: list | None = None,
+    plate_detections: list | None = None,
+    plate_rect: Optional[Rect] = None,
+    zone: tuple[int, int] | None = None,
 ) -> QtGui.QPixmap:
     if image.ndim == 2:
         height, width = image.shape
@@ -359,11 +487,17 @@ def _frame_to_pixmap(
             QtGui.QImage.Format_RGB888,
         )
     pixmap = QtGui.QPixmap.fromImage(qimage)
-    if overlays:
+    if overlays or detections or lane_detections or plate_detections or plate_rect or zone:
         painter = QtGui.QPainter(pixmap)
-        for rect, color in overlays:
-            painter.setPen(QtGui.QPen(color, 2))
-            painter.drawRect(*rect)
+        if overlays:
+            for rect, color in overlays:
+                painter.setPen(QtGui.QPen(color, 2))
+                painter.drawRect(*rect)
+        _draw_detections(painter, detections, QtGui.QColor(255, 0, 0))
+        _draw_detections(painter, lane_detections, QtGui.QColor(0, 200, 255))
+        _draw_detections(painter, plate_detections, QtGui.QColor(255, 180, 0))
+        if plate_rect:
+            _draw_plate_grid(painter, plate_rect, QtGui.QColor(255, 180, 0), zone)
         painter.end()
     return pixmap
 
@@ -517,6 +651,59 @@ def _roi_overlays(
     return overlays
 
 
+def _draw_detections(
+    painter: QtGui.QPainter,
+    detections: list | None,
+    color: QtGui.QColor,
+) -> None:
+    if not detections:
+        return
+    painter.setPen(QtGui.QPen(color, 2))
+    for det in detections:
+        radius = max(2, int(det.radius_px))
+        painter.drawEllipse(
+            int(det.u - radius),
+            int(det.v - radius),
+            int(radius * 2),
+            int(radius * 2),
+        )
+
+
+def _draw_plate_grid(
+    painter: QtGui.QPainter,
+    rect: Rect,
+    color: QtGui.QColor,
+    zone: tuple[int, int] | None,
+) -> None:
+    x1, y1, x2, y2 = rect
+    width = x2 - x1
+    height = y2 - y1
+    if width <= 0 or height <= 0:
+        return
+    if zone is not None:
+        row, col = zone
+        col_index = max(1, min(3, col)) - 1
+        row_index = max(1, min(3, row)) - 1
+        cell_w = width / 3.0
+        cell_h = height / 3.0
+        row_from_top = 2 - row_index
+        cell_x1 = x1 + int(cell_w * col_index)
+        cell_y1 = y1 + int(cell_h * row_from_top)
+        cell_x2 = x1 + int(cell_w * (col_index + 1))
+        cell_y2 = y1 + int(cell_h * (row_from_top + 1))
+        brush = QtGui.QBrush(QtGui.QColor(255, 180, 0, 60))
+        painter.fillRect(
+            QtCore.QRect(cell_x1, cell_y1, cell_x2 - cell_x1, cell_y2 - cell_y1),
+            brush,
+        )
+    painter.setPen(QtGui.QPen(color, 1, QtCore.Qt.DashLine))
+    for i in range(1, 3):
+        x = x1 + int(width * i / 3.0)
+        y = y1 + int(height * i / 3.0)
+        painter.drawLine(x, y1, x, y2)
+        painter.drawLine(x1, y, x2, y)
+
+
 class CalibrationGuide(QtWidgets.QDialog):
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
@@ -564,6 +751,93 @@ class CalibrationGuide(QtWidgets.QDialog):
         layout.addWidget(steps)
         layout.addWidget(close_button)
         self.setLayout(layout)
+
+
+class QuickCalibrateDialog(QtWidgets.QDialog):
+    def __init__(self, parent: QtWidgets.QWidget | None, config_path: Path) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Quick Calibrate")
+        self.resize(520, 240)
+        self._config_path = config_path
+        self.updated = False
+        self.updates: dict | None = None
+
+        self._left_dir = QtWidgets.QLineEdit()
+        self._right_dir = QtWidgets.QLineEdit()
+        self._pattern = QtWidgets.QLineEdit("9x6")
+        self._square_mm = QtWidgets.QDoubleSpinBox()
+        self._square_mm.setMinimum(1.0)
+        self._square_mm.setMaximum(1000.0)
+        self._square_mm.setValue(25.0)
+        self._ext = QtWidgets.QLineEdit("*.png")
+
+        left_browse = QtWidgets.QPushButton("Browse")
+        right_browse = QtWidgets.QPushButton("Browse")
+        left_browse.clicked.connect(lambda: self._browse_dir(self._left_dir))
+        right_browse.clicked.connect(lambda: self._browse_dir(self._right_dir))
+
+        form = QtWidgets.QFormLayout()
+        left_row = QtWidgets.QHBoxLayout()
+        left_row.addWidget(self._left_dir)
+        left_row.addWidget(left_browse)
+        right_row = QtWidgets.QHBoxLayout()
+        right_row.addWidget(self._right_dir)
+        right_row.addWidget(right_browse)
+        form.addRow("Left images folder", left_row)
+        form.addRow("Right images folder", right_row)
+        form.addRow("Pattern (cols x rows)", self._pattern)
+        form.addRow("Square size (mm)", self._square_mm)
+        form.addRow("Image glob", self._ext)
+
+        buttons = QtWidgets.QHBoxLayout()
+        run_button = QtWidgets.QPushButton("Run Calibration")
+        close_button = QtWidgets.QPushButton("Close")
+        run_button.clicked.connect(self._run)
+        close_button.clicked.connect(self.reject)
+        buttons.addWidget(run_button)
+        buttons.addWidget(close_button)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(form)
+        layout.addLayout(buttons)
+        self.setLayout(layout)
+
+    def _browse_dir(self, target: QtWidgets.QLineEdit) -> None:
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, "Select folder")
+        if path:
+            target.setText(path)
+
+    def _run(self) -> None:
+        left_dir = Path(self._left_dir.text().strip())
+        right_dir = Path(self._right_dir.text().strip())
+        pattern = self._pattern.text().strip()
+        glob_pattern = self._ext.text().strip() or "*.png"
+        if not left_dir.exists() or not right_dir.exists():
+            QtWidgets.QMessageBox.warning(self, "Quick Calibrate", "Select both folders.")
+            return
+        left_paths = sorted(left_dir.glob(glob_pattern))
+        right_paths = sorted(right_dir.glob(glob_pattern))
+        if not left_paths or not right_paths:
+            QtWidgets.QMessageBox.warning(self, "Quick Calibrate", "No images found.")
+            return
+        try:
+            updates = calibrate_and_write(
+                left_paths=left_paths,
+                right_paths=right_paths,
+                pattern=pattern,
+                square_mm=self._square_mm.value(),
+                config_path=self._config_path,
+            )
+        except Exception as exc:  # noqa: BLE001 - show calibration errors
+            QtWidgets.QMessageBox.critical(self, "Quick Calibrate", str(exc))
+            return
+        QtWidgets.QMessageBox.information(
+            self,
+            "Quick Calibrate",
+            f"Updated stereo config: {updates}",
+        )
+        self.updated = True
+        self.updates = updates
 
 
 def main() -> None:

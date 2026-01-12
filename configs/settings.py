@@ -92,6 +92,21 @@ class DetectorConfig:
 
 
 @dataclass(frozen=True)
+class StrikeZoneConfig:
+    batter_height_in: float
+    top_ratio: float
+    bottom_ratio: float
+    plate_width_in: float
+    plate_length_in: float
+
+
+@dataclass(frozen=True)
+class BallConfig:
+    type: str
+    radius_in: Dict[str, float]
+
+
+@dataclass(frozen=True)
 class AppConfig:
     camera: CameraConfig
     stereo: StereoConfig
@@ -101,6 +116,8 @@ class AppConfig:
     ui: UiConfig
     telemetry: TelemetryConfig
     detector: DetectorConfig
+    strike_zone: StrikeZoneConfig
+    ball: BallConfig
 
 
 def load_config(path: Path) -> AppConfig:
@@ -143,6 +160,8 @@ def load_config(path: Path) -> AppConfig:
         runtime_budget_ms=data["detector"]["runtime_budget_ms"],
         filters=detector_filters,
     )
+    strike_zone = StrikeZoneConfig(**data["strike_zone"])
+    ball = BallConfig(**data["ball"])
     return AppConfig(
         camera=camera,
         stereo=stereo,
@@ -152,4 +171,6 @@ def load_config(path: Path) -> AppConfig:
         ui=ui,
         telemetry=telemetry,
         detector=detector,
+        strike_zone=strike_zone,
+        ball=ball,
     )

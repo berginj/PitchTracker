@@ -119,6 +119,19 @@ def _write_config(config_path: Path, updates: dict) -> None:
     config_path.write_text(yaml.safe_dump(data, sort_keys=False))
 
 
+def calibrate_and_write(
+    left_paths: List[Path],
+    right_paths: List[Path],
+    pattern: str,
+    square_mm: float,
+    config_path: Path,
+) -> dict:
+    pattern_size = _parse_pattern(pattern)
+    updates = _calibrate(left_paths, right_paths, pattern_size, square_mm)
+    _write_config(config_path, updates)
+    return updates
+
+
 def main() -> None:
     args = parse_args()
     pattern = _parse_pattern(args.pattern)

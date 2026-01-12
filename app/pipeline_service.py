@@ -24,6 +24,7 @@ from metrics.simple_metrics import (
     compute_plate_from_observations,
     compute_plate_stub,
 )
+from metrics.strike_zone import StrikeResult, build_strike_zone, is_strike
 from record.recorder import RecordingBundle
 from stereo import StereoLaneGate
 from stereo.association import StereoMatch
@@ -75,6 +76,30 @@ class PipelineService(ABC):
     def set_detector_config(self, config: CvDetectorConfig, mode: Mode) -> None:
         """Update detector configuration for the active session."""
 
+    @abstractmethod
+    def get_latest_detections(self) -> Dict[str, list[Detection]]:
+        """Return latest raw detections by camera id."""
+
+    @abstractmethod
+    def get_latest_gated_detections(self) -> Dict[str, Dict[str, list[Detection]]]:
+        """Return latest gated detections by camera id and gate name."""
+
+    @abstractmethod
+    def get_strike_result(self) -> StrikeResult:
+        """Return latest strike determination."""
+
+    @abstractmethod
+    def set_ball_type(self, ball_type: str) -> None:
+        """Set ball type for strike detection."""
+
+    @abstractmethod
+    def set_batter_height_in(self, height_in: float) -> None:
+        """Set batter height for strike zone calculation."""
+
+    @abstractmethod
+    def set_strike_zone_ratios(self, top_ratio: float, bottom_ratio: float) -> None:
+        """Set strike zone top/bottom ratios for the active session."""
+
 
 class InProcessPipelineService(PipelineService):
     def __init__(self, backend: str = "uvc") -> None:
@@ -96,11 +121,16 @@ class InProcessPipelineService(PipelineService):
         self._pitch_id = "pitch-unknown"
         self._config: Optional[AppConfig] = None
         self._last_plate_metrics = PlateMetricsStub(run_in=0.0, rise_in=0.0, sample_count=0)
+        self._last_detections: Dict[str, list[Detection]] = {}
+        self._last_gated: Dict[str, Dict[str, list[Detection]]] = {}
+        self._strike_result = StrikeResult(is_strike=False, sample_count=0)
+        self._ball_type = "baseball"
 
     def start_capture(self, config: AppConfig, left_serial: str, right_serial: str) -> None:
         self._config = config
         self._left_id = left_serial
         self._right_id = right_serial
+        self._ball_type = config.ball.type
         self._left = self._build_camera()
         self._right = self._build_camera()
         self._left.open(left_serial)
@@ -175,6 +205,64 @@ class InProcessPipelineService(PipelineService):
 
     def set_detector_config(self, config: CvDetectorConfig, mode: Mode) -> None:
         self._detector = ClassicalDetector(config=config, mode=mode)
+
+    def get_latest_detections(self) -> Dict[str, list[Detection]]:
+        return dict(self._last_detections)
+
+    def get_latest_gated_detections(self) -> Dict[str, Dict[str, list[Detection]]]:
+        return {key: dict(value) for key, value in self._last_gated.items()}
+
+    def get_strike_result(self) -> StrikeResult:
+        return self._strike_result
+
+    def set_ball_type(self, ball_type: str) -> None:
+        self._ball_type = ball_type
+
+    def set_batter_height_in(self, height_in: float) -> None:
+        if self._config is None:
+            return
+        updated = self._config.strike_zone.__class__(
+            batter_height_in=height_in,
+            top_ratio=self._config.strike_zone.top_ratio,
+            bottom_ratio=self._config.strike_zone.bottom_ratio,
+            plate_width_in=self._config.strike_zone.plate_width_in,
+            plate_length_in=self._config.strike_zone.plate_length_in,
+        )
+        self._config = self._config.__class__(
+            camera=self._config.camera,
+            stereo=self._config.stereo,
+            tracking=self._config.tracking,
+            metrics=self._config.metrics,
+            recording=self._config.recording,
+            ui=self._config.ui,
+            telemetry=self._config.telemetry,
+            detector=self._config.detector,
+            strike_zone=updated,
+            ball=self._config.ball,
+        )
+
+    def set_strike_zone_ratios(self, top_ratio: float, bottom_ratio: float) -> None:
+        if self._config is None:
+            return
+        updated = self._config.strike_zone.__class__(
+            batter_height_in=self._config.strike_zone.batter_height_in,
+            top_ratio=top_ratio,
+            bottom_ratio=bottom_ratio,
+            plate_width_in=self._config.strike_zone.plate_width_in,
+            plate_length_in=self._config.strike_zone.plate_length_in,
+        )
+        self._config = self._config.__class__(
+            camera=self._config.camera,
+            stereo=self._config.stereo,
+            tracking=self._config.tracking,
+            metrics=self._config.metrics,
+            recording=self._config.recording,
+            ui=self._config.ui,
+            telemetry=self._config.telemetry,
+            detector=self._config.detector,
+            strike_zone=updated,
+            ball=self._config.ball,
+        )
 
     def _build_camera(self) -> CameraDevice:
         if self._backend == "opencv":
@@ -264,10 +352,39 @@ class InProcessPipelineService(PipelineService):
             return
         if self._stereo is None:
             return
-        detections = self._detector.detect(left_frame) + self._detector.detect(right_frame)
+        left_detections = self._detector.detect(left_frame)
+        right_detections = self._detector.detect(right_frame)
+        self._last_detections = {
+            left_frame.camera_id: left_detections,
+            right_frame.camera_id: right_detections,
+        }
+        detections = left_detections + right_detections
         gated = _gate_detections(self._lane_gate, detections)
         left_gated = [d for d in gated if d.camera_id == self._left_id]
         right_gated = [d for d in gated if d.camera_id == self._right_id]
+        plate_left = []
+        plate_right = []
+        if self._plate_gate is not None:
+            plate = _gate_detections(self._plate_gate, gated)
+            plate_left = [d for d in plate if d.camera_id == self._left_id]
+            plate_right = [d for d in plate if d.camera_id == self._right_id]
+        self._last_gated = {
+            left_frame.camera_id: {
+                "lane": left_gated,
+                "plate": plate_left,
+            },
+            right_frame.camera_id: {
+                "lane": right_gated,
+                "plate": plate_right,
+            },
+        }
+        if self._config is not None:
+            tolerance_ns = int(self._config.stereo.pairing_tolerance_ms * 1e6)
+            delta_ns = abs(left_frame.t_capture_monotonic_ns - right_frame.t_capture_monotonic_ns)
+            if delta_ns > tolerance_ns:
+                self._last_plate_metrics = compute_plate_stub([])
+                self._strike_result = StrikeResult(is_strike=False, sample_count=0)
+                return
         matches = _build_stereo_matches(left_gated, right_gated)
         if self._stereo_gate is not None:
             matches = self._stereo_gate.filter_matches(matches)
@@ -286,6 +403,17 @@ class InProcessPipelineService(PipelineService):
             self._last_plate_metrics = compute_plate_from_observations(self._plate_observations)
         else:
             self._last_plate_metrics = compute_plate_stub(plate_matches)
+        if self._config is not None:
+            zone = build_strike_zone(
+                plate_z_ft=self._config.metrics.plate_plane_z_ft,
+                plate_width_in=self._config.strike_zone.plate_width_in,
+                plate_length_in=self._config.strike_zone.plate_length_in,
+                batter_height_in=self._config.strike_zone.batter_height_in,
+                top_ratio=self._config.strike_zone.top_ratio,
+                bottom_ratio=self._config.strike_zone.bottom_ratio,
+            )
+            radius_in = self._config.ball.radius_in.get(self._ball_type, 1.45)
+            self._strike_result = is_strike(self._plate_observations, zone, radius_in)
 
 
 def _stats_to_dict(stats: CameraStats) -> Dict[str, float]:
