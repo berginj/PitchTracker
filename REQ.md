@@ -408,6 +408,10 @@ See `TRAINING.md` for dataset capture, labeling, and configuration guidance.
 ## 16) SWA Export + API Contract (Azure Static Web Apps)
 Goal: A separate SWA repo ingests session summaries for dashboards (heatmap, strikes/balls, pitcher summaries).
 
+Shared contract source of truth:
+- Submodule: `contracts-shared/`
+- Schema file: `contracts-shared/schema/session_summary.schema.json`
+
 ### 16.1 Export Artifact (from this app)
 The app must write a JSON summary file per session:
 - Path: `<recordings>/<session_id>/session_summary.json`
