@@ -404,3 +404,58 @@ All tunables must live in versioned config files:
 
 ## 15) Training Guide
 See `TRAINING.md` for dataset capture, labeling, and configuration guidance.
+
+## 16) SWA Export + API Contract (Azure Static Web Apps)
+Goal: A separate SWA repo ingests session summaries for dashboards (heatmap, strikes/balls, pitcher summaries).
+
+### 16.1 Export Artifact (from this app)
+The app must write a JSON summary file per session:
+- Path: `<recordings>/<session_id>/session_summary.json`
+- JSON schema:
+```json
+{
+  "schema_version": "1.0.0",
+  "app_version": "0.2.0",
+  "session_id": "session-2026-01-11-001",
+  "pitch_count": 12,
+  "strikes": 7,
+  "balls": 5,
+  "heatmap": [[1,2,0],[0,3,1],[0,1,4]],
+  "pitches": [
+    {
+      "pitch_id": "session-2026-01-11-001-pitch-001",
+      "t_start_ns": 0,
+      "t_end_ns": 0,
+      "is_strike": true,
+      "zone_row": 2,
+      "zone_col": 1,
+      "run_in": 3.2,
+      "rise_in": -1.1,
+      "speed_mph": 62.5,
+      "rotation_rpm": null,
+      "sample_count": 18
+    }
+  ]
+}
+```
+
+### 16.2 SWA Functions API (new repo)
+The SWA Functions API ingests the JSON summary and exposes it for the UI.
+
+#### POST `/api/sessions`
+Body: session_summary.json payload (as above).  
+Response: `{ "session_id": "..." }`
+
+#### GET `/api/sessions`
+Response: list of session metadata (id, date, pitch_count, strikes, balls).
+
+#### GET `/api/sessions/{session_id}`
+Response: full session summary JSON.
+
+### 16.3 Authentication
+SWA Functions must require either:
+- a shared API key header (e.g., `x-api-key`), or
+- SWA built-in auth if enabled.
+
+### 16.4 Backwards Compatibility
+SWA must accept compatible schema versions; reject unknown major versions.
