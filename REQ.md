@@ -463,3 +463,13 @@ SWA Functions must require either:
 
 ### 16.4 Backwards Compatibility
 SWA must accept compatible schema versions; reject unknown major versions.
+
+### 16.5 Contract Update Workflow (Source of Truth)
+- This repo owns the contract. Changes to session summary format MUST update:
+  - `contracts-shared/schema/session_summary.schema.json`
+  - `contracts-shared/schema/version.json` (bump semver)
+  - `contracts-shared/CHANGELOG.md`
+- After editing, run `scripts/contract_release.ps1 -Version X.Y.Z -Message "Describe change"` to:
+  - Commit the contracts repo.
+  - Update the submodule pointer in this repo.
+- The SWA repo must pull the submodule update to stay current.
