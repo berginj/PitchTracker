@@ -5,11 +5,12 @@ from __future__ import annotations
 import time
 import csv
 import json
+import threading
 from pathlib import Path
 from collections import deque
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Dict, Iterable, Optional, Tuple
+from dataclasses import dataclass, asdict
+from typing import Dict, Iterable, Optional, Tuple, List
 
 import cv2
 
@@ -18,7 +19,7 @@ from capture.camera_device import CameraStats
 from capture.opencv_backend import OpenCVCamera
 from configs.settings import AppConfig
 from configs.roi_io import load_rois
-from contracts import Detection, Frame, PitchMetrics
+from contracts import Detection, Frame, PitchMetrics, StereoObservation
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 from detect.classical_detector import ClassicalDetector
 from detect.ml_detector import MlDetector
@@ -43,6 +44,31 @@ class CalibrationProfile:
     profile_id: str
     created_utc: str
     schema_version: str
+
+
+@dataclass(frozen=True)
+class PitchSummary:
+    pitch_id: str
+    t_start_ns: int
+    t_end_ns: int
+    is_strike: bool
+    zone_row: Optional[int]
+    zone_col: Optional[int]
+    run_in: float
+    rise_in: float
+    speed_mph: Optional[float]
+    rotation_rpm: Optional[float]
+    sample_count: int
+
+
+@dataclass(frozen=True)
+class SessionSummary:
+    session_id: str
+    pitch_count: int
+    strikes: int
+    balls: int
+    heatmap: List[List[int]]
+    pitches: List[PitchSummary]
 
 
 class PipelineService(ABC):
@@ -119,6 +145,10 @@ class PipelineService(ABC):
     def set_strike_zone_ratios(self, top_ratio: float, bottom_ratio: float) -> None:
         """Set strike zone top/bottom ratios for the active session."""
 
+    @abstractmethod
+    def get_session_summary(self) -> SessionSummary:
+        """Return the latest session summary."""
+
 
 class InProcessPipelineService(PipelineService):
     def __init__(self, backend: str = "uvc") -> None:
@@ -136,6 +166,7 @@ class InProcessPipelineService(PipelineService):
         self._stereo: Optional[SimpleStereoMatcher] = None
         self._tracker = SimpleTracker()
         self._plate_observations = deque(maxlen=12)
+        self._current_pitch_observations: List[StereoObservation] = []
         self._recording = False
         self._recorded_frames: list[Frame] = []
         self._pitch_id = "pitch-unknown"
@@ -152,7 +183,41 @@ class InProcessPipelineService(PipelineService):
         self._record_right_writer = None
         self._record_left_csv = None
         self._record_right_csv = None
+        self._session_dir: Optional[Path] = None
+        self._pitch_left_writer = None
+        self._pitch_right_writer = None
+        self._pitch_left_csv = None
+        self._pitch_right_csv = None
+        self._pitch_post_end_ns: Optional[int] = None
+        self._pitch_latest_ns: Dict[str, int] = {"left": 0, "right": 0}
+        self._pre_roll_ns = 0
+        self._post_roll_ns = 0
+        self._pre_roll_left: deque[Frame] = deque()
+        self._pre_roll_right: deque[Frame] = deque()
         self._manual_speed_mph: Optional[float] = None
+        self._record_lock = threading.Lock()
+        self._capture_running = False
+        self._left_thread: Optional[threading.Thread] = None
+        self._right_thread: Optional[threading.Thread] = None
+        self._left_latest: Optional[Frame] = None
+        self._right_latest: Optional[Frame] = None
+        self._latest_lock = threading.Lock()
+        self._session_active = False
+        self._pitch_active = False
+        self._pitch_active_frames = 0
+        self._pitch_gap_frames = 0
+        self._pitch_index = 0
+        self._pitch_start_ns = 0
+        self._pitch_end_ns = 0
+        self._session_pitches: List[PitchSummary] = []
+        self._last_session_summary = SessionSummary(
+            session_id="session",
+            pitch_count=0,
+            strikes=0,
+            balls=0,
+            heatmap=[[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+            pitches=[],
+        )
 
     def start_capture(self, config: AppConfig, left_serial: str, right_serial: str) -> None:
         self._config = config
@@ -169,8 +234,16 @@ class InProcessPipelineService(PipelineService):
         self._load_rois()
         self._init_detector(config)
         self._init_stereo(config)
+        self._start_capture_threads()
 
     def stop_capture(self) -> None:
+        self._capture_running = False
+        if self._left_thread is not None:
+            self._left_thread.join(timeout=1.0)
+            self._left_thread = None
+        if self._right_thread is not None:
+            self._right_thread.join(timeout=1.0)
+            self._right_thread = None
         if self._left is not None:
             self._left.close()
             self._left = None
@@ -181,12 +254,12 @@ class InProcessPipelineService(PipelineService):
     def get_preview_frames(self) -> Tuple[Frame, Frame]:
         if self._left is None or self._right is None:
             raise RuntimeError("Capture not started.")
-        left_frame = self._left.read_frame(timeout_ms=50)
-        right_frame = self._right.read_frame(timeout_ms=50)
+        with self._latest_lock:
+            left_frame = self._left_latest
+            right_frame = self._right_latest
+        if left_frame is None or right_frame is None:
+            raise RuntimeError("Waiting for camera frames.")
         self._update_plate_metrics(left_frame, right_frame)
-        if self._recording:
-            self._recorded_frames.extend([left_frame, right_frame])
-            self._write_record_frame(left_frame, right_frame)
         return left_frame, right_frame
 
     def start_recording(
@@ -203,6 +276,17 @@ class InProcessPipelineService(PipelineService):
             self._pitch_id = time.strftime("pitch-%Y%m%d-%H%M%S", time.gmtime())
         self._record_session = session_name
         self._record_mode = mode
+        self._session_active = True
+        self._session_pitches = []
+        self._pitch_index = 0
+        self._pitch_active = False
+        self._pitch_active_frames = 0
+        self._pitch_gap_frames = 0
+        self._current_pitch_observations = []
+        self._last_session_summary = _build_session_summary(
+            self._record_session or "session",
+            self._session_pitches,
+        )
         self._start_recording_io()
 
     def set_record_directory(self, path: Optional[Path]) -> None:
@@ -213,6 +297,9 @@ class InProcessPipelineService(PipelineService):
 
     def stop_recording(self) -> RecordingBundle:
         self._recording = False
+        if self._pitch_active:
+            self._finalize_pitch(self._pitch_end_ns or time.monotonic_ns())
+        self._session_active = False
         self._stop_recording_io()
         metrics = PitchMetrics(
             pitch_id=self._pitch_id,
@@ -227,7 +314,7 @@ class InProcessPipelineService(PipelineService):
         )
         return RecordingBundle(
             pitch_id=self._pitch_id,
-            frames=self._recorded_frames,
+            frames=[],
             detections=[],
             track=[],
             metrics=metrics,
@@ -309,12 +396,46 @@ class InProcessPipelineService(PipelineService):
             ball=self._config.ball,
         )
 
+    def get_session_summary(self) -> SessionSummary:
+        return self._last_session_summary
+
     def _build_camera(self) -> CameraDevice:
         if self._backend == "opencv":
             return OpenCVCamera()
         if self._backend == "sim":
             return SimulatedCamera()
         return UvcCamera()
+
+    def _start_capture_threads(self) -> None:
+        if self._left is None or self._right is None:
+            return
+        self._capture_running = True
+        self._left_thread = threading.Thread(
+            target=self._capture_loop,
+            args=("left", self._left),
+            daemon=True,
+        )
+        self._right_thread = threading.Thread(
+            target=self._capture_loop,
+            args=("right", self._right),
+            daemon=True,
+        )
+        self._left_thread.start()
+        self._right_thread.start()
+
+    def _capture_loop(self, label: str, camera: CameraDevice) -> None:
+        while self._capture_running:
+            try:
+                frame = camera.read_frame(timeout_ms=200)
+            except Exception:
+                continue
+            with self._latest_lock:
+                if label == "left":
+                    self._left_latest = frame
+                else:
+                    self._right_latest = frame
+            if self._recording:
+                self._write_record_frame_single(label, frame)
 
     def _start_recording_io(self) -> None:
         if self._config is None:
@@ -323,50 +444,16 @@ class InProcessPipelineService(PipelineService):
         safe = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in base)
         timestamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
         base_dir = self._record_dir or Path("recordings")
-        self._record_dir = base_dir / f"{safe}_{timestamp}"
-        self._record_dir.mkdir(parents=True, exist_ok=True)
-        left_path = self._record_dir / "left.avi"
-        right_path = self._record_dir / "right.avi"
-        fourcc = cv2.VideoWriter_fourcc(*"MJPG")
-        self._record_left_writer = cv2.VideoWriter(
-            str(left_path),
-            fourcc,
-            self._config.camera.fps,
-            (self._config.camera.width, self._config.camera.height),
-            True,
-        )
-        self._record_right_writer = cv2.VideoWriter(
-            str(right_path),
-            fourcc,
-            self._config.camera.fps,
-            (self._config.camera.width, self._config.camera.height),
-            True,
-        )
-        left_csv = (self._record_dir / "left_timestamps.csv").open("w", newline="")
-        right_csv = (self._record_dir / "right_timestamps.csv").open("w", newline="")
-        self._record_left_csv = (left_csv, csv.writer(left_csv))
-        self._record_right_csv = (right_csv, csv.writer(right_csv))
-        self._record_left_csv[1].writerow(
-            ["camera_id", "frame_index", "t_capture_monotonic_ns"]
-        )
-        self._record_right_csv[1].writerow(
-            ["camera_id", "frame_index", "t_capture_monotonic_ns"]
-        )
+        self._session_dir = base_dir / f"{safe}_{timestamp}"
+        self._session_dir.mkdir(parents=True, exist_ok=True)
+        self._pre_roll_ns = int(self._config.recording.pre_roll_ms * 1e6)
+        self._post_roll_ns = int(self._config.recording.post_roll_ms * 1e6)
+        self._pre_roll_left.clear()
+        self._pre_roll_right.clear()
 
     def _stop_recording_io(self) -> None:
-        if self._record_left_writer is not None:
-            self._record_left_writer.release()
-            self._record_left_writer = None
-        if self._record_right_writer is not None:
-            self._record_right_writer.release()
-            self._record_right_writer = None
-        if self._record_left_csv is not None:
-            self._record_left_csv[0].close()
-            self._record_left_csv = None
-        if self._record_right_csv is not None:
-            self._record_right_csv[0].close()
-            self._record_right_csv = None
-        if self._record_dir is None:
+        self._close_pitch_recording(force=True)
+        if self._session_dir is None:
             return
         manifest = {
             "schema_version": SCHEMA_VERSION,
@@ -377,36 +464,21 @@ class InProcessPipelineService(PipelineService):
             "session": self._record_session,
             "mode": self._record_mode,
             "measured_speed_mph": self._manual_speed_mph,
-            "left_video": "left.avi",
-            "right_video": "right.avi",
-            "left_timestamps": "left_timestamps.csv",
-            "right_timestamps": "right_timestamps.csv",
             "config_path": "configs/default.yaml",
             "calibration_profile_id": None,
+            "session_summary": "session_summary.json",
         }
-        (self._record_dir / "manifest.json").write_text(
+        (self._session_dir / "manifest.json").write_text(
             json.dumps(manifest, indent=2)
         )
+        self._write_session_summary()
 
-    def _write_record_frame(self, left: Frame, right: Frame) -> None:
-        if self._record_left_writer is None or self._record_right_writer is None:
+    def _write_record_frame_single(self, label: str, frame: Frame) -> None:
+        if not self._recording:
             return
-        left_image = left.image
-        right_image = right.image
-        if left_image.ndim == 2:
-            left_image = cv2.cvtColor(left_image, cv2.COLOR_GRAY2BGR)
-        if right_image.ndim == 2:
-            right_image = cv2.cvtColor(right_image, cv2.COLOR_GRAY2BGR)
-        self._record_left_writer.write(left_image)
-        self._record_right_writer.write(right_image)
-        if self._record_left_csv is not None:
-            self._record_left_csv[1].writerow(
-                [left.camera_id, left.frame_index, left.t_capture_monotonic_ns]
-            )
-        if self._record_right_csv is not None:
-            self._record_right_csv[1].writerow(
-                [right.camera_id, right.frame_index, right.t_capture_monotonic_ns]
-            )
+        self._buffer_pre_roll(label, frame)
+        if self._pitch_active or self._pitch_post_end_ns is not None:
+            self._write_pitch_frame(label, frame)
 
     @staticmethod
     def _configure_camera(camera: CameraDevice, config: AppConfig) -> None:
@@ -559,6 +631,8 @@ class InProcessPipelineService(PipelineService):
             state = self._tracker.update(obs)
             if state.samples:
                 self._plate_observations.append(obs)
+                if self._pitch_active:
+                    self._current_pitch_observations.append(obs)
         if self._plate_observations:
             self._last_plate_metrics = compute_plate_from_observations(self._plate_observations)
         else:
@@ -574,6 +648,224 @@ class InProcessPipelineService(PipelineService):
             )
             radius_in = self._config.ball.radius_in.get(self._ball_type, 1.45)
             self._strike_result = is_strike(self._plate_observations, zone, radius_in)
+        lane_count = len(left_gated) + len(right_gated)
+        frame_ns = max(left_frame.t_capture_monotonic_ns, right_frame.t_capture_monotonic_ns)
+        self._update_pitch_state(frame_ns, lane_count)
+
+    def _update_pitch_state(self, frame_ns: int, lane_count: int) -> None:
+        if not self._session_active or self._config is None:
+            return
+        min_active = self._config.recording.session_min_active_frames
+        end_gap = self._config.recording.session_end_gap_frames
+        if lane_count > 0:
+            self._pitch_gap_frames = 0
+            self._pitch_active_frames += 1
+            self._pitch_end_ns = frame_ns
+            if not self._pitch_active and self._pitch_active_frames >= min_active:
+                self._start_pitch(frame_ns)
+        else:
+            if self._pitch_active:
+                self._pitch_gap_frames += 1
+                if self._pitch_gap_frames >= end_gap:
+                    self._finalize_pitch(frame_ns)
+            else:
+                self._pitch_active_frames = 0
+
+    def _start_pitch(self, frame_ns: int) -> None:
+        self._pitch_active = True
+        self._pitch_start_ns = frame_ns
+        self._pitch_index += 1
+        self._current_pitch_observations = []
+        self._plate_observations.clear()
+        session = self._record_session or "session"
+        self._pitch_id = f"{session}-pitch-{self._pitch_index:03d}"
+        self._open_pitch_recording()
+
+    def _finalize_pitch(self, frame_ns: int) -> None:
+        self._pitch_active = False
+        self._pitch_active_frames = 0
+        self._pitch_gap_frames = 0
+        self._pitch_end_ns = frame_ns
+        self._pitch_post_end_ns = frame_ns + self._post_roll_ns
+        if self._config is None:
+            return
+        zone = build_strike_zone(
+            plate_z_ft=self._config.metrics.plate_plane_z_ft,
+            plate_width_in=self._config.strike_zone.plate_width_in,
+            plate_length_in=self._config.strike_zone.plate_length_in,
+            batter_height_in=self._config.strike_zone.batter_height_in,
+            top_ratio=self._config.strike_zone.top_ratio,
+            bottom_ratio=self._config.strike_zone.bottom_ratio,
+        )
+        radius_in = self._config.ball.radius_in.get(self._ball_type, 1.45)
+        strike = is_strike(self._current_pitch_observations, zone, radius_in)
+        metrics = compute_plate_from_observations(self._current_pitch_observations)
+        summary = PitchSummary(
+            pitch_id=self._pitch_id,
+            t_start_ns=self._pitch_start_ns,
+            t_end_ns=self._pitch_end_ns,
+            is_strike=strike.is_strike,
+            zone_row=strike.zone_row,
+            zone_col=strike.zone_col,
+            run_in=metrics.run_in,
+            rise_in=metrics.rise_in,
+            speed_mph=self._manual_speed_mph,
+            rotation_rpm=None,
+            sample_count=metrics.sample_count,
+        )
+        self._session_pitches.append(summary)
+        self._last_session_summary = _build_session_summary(
+            self._record_session or "session",
+            self._session_pitches,
+        )
+        self._current_pitch_observations = []
+        self._write_pitch_manifest(summary)
+
+    def _write_session_summary(self) -> None:
+        if self._session_dir is None:
+            return
+        summary = self._last_session_summary
+        path = self._session_dir / "session_summary.json"
+        payload = asdict(summary)
+        payload["schema_version"] = SCHEMA_VERSION
+        payload["app_version"] = APP_VERSION
+        path.write_text(json.dumps(payload, indent=2))
+
+    def _pitch_dir(self, pitch_id: str) -> Optional[Path]:
+        if self._session_dir is None:
+            return None
+        safe = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in pitch_id)
+        pitch_dir = self._session_dir / safe
+        pitch_dir.mkdir(parents=True, exist_ok=True)
+        return pitch_dir
+
+    def _open_pitch_recording(self) -> None:
+        if self._config is None:
+            return
+        pitch_dir = self._pitch_dir(self._pitch_id)
+        if pitch_dir is None:
+            return
+        left_path = pitch_dir / "left.avi"
+        right_path = pitch_dir / "right.avi"
+        fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+        self._pitch_left_writer = cv2.VideoWriter(
+            str(left_path),
+            fourcc,
+            self._config.camera.fps,
+            (self._config.camera.width, self._config.camera.height),
+            True,
+        )
+        self._pitch_right_writer = cv2.VideoWriter(
+            str(right_path),
+            fourcc,
+            self._config.camera.fps,
+            (self._config.camera.width, self._config.camera.height),
+            True,
+        )
+        left_csv = (pitch_dir / "left_timestamps.csv").open("w", newline="")
+        right_csv = (pitch_dir / "right_timestamps.csv").open("w", newline="")
+        self._pitch_left_csv = (left_csv, csv.writer(left_csv))
+        self._pitch_right_csv = (right_csv, csv.writer(right_csv))
+        self._pitch_left_csv[1].writerow(
+            ["camera_id", "frame_index", "t_capture_monotonic_ns"]
+        )
+        self._pitch_right_csv[1].writerow(
+            ["camera_id", "frame_index", "t_capture_monotonic_ns"]
+        )
+        self._pitch_post_end_ns = None
+        self._pitch_latest_ns = {"left": 0, "right": 0}
+        self._flush_pre_roll()
+
+    def _close_pitch_recording(self, force: bool = False) -> None:
+        with self._record_lock:
+            if self._pitch_left_writer is not None:
+                self._pitch_left_writer.release()
+                self._pitch_left_writer = None
+            if self._pitch_right_writer is not None:
+                self._pitch_right_writer.release()
+                self._pitch_right_writer = None
+            if self._pitch_left_csv is not None:
+                self._pitch_left_csv[0].close()
+                self._pitch_left_csv = None
+            if self._pitch_right_csv is not None:
+                self._pitch_right_csv[0].close()
+                self._pitch_right_csv = None
+            if force:
+                self._pitch_post_end_ns = None
+                self._pitch_latest_ns = {"left": 0, "right": 0}
+
+    def _buffer_pre_roll(self, label: str, frame: Frame) -> None:
+        buffer = self._pre_roll_left if label == "left" else self._pre_roll_right
+        buffer.append(frame)
+        cutoff = frame.t_capture_monotonic_ns - self._pre_roll_ns
+        while buffer and buffer[0].t_capture_monotonic_ns < cutoff:
+            buffer.popleft()
+
+    def _flush_pre_roll(self) -> None:
+        for frame in list(self._pre_roll_left):
+            self._write_pitch_frame("left", frame)
+        for frame in list(self._pre_roll_right):
+            self._write_pitch_frame("right", frame)
+
+    def _write_pitch_frame(self, label: str, frame: Frame) -> None:
+        if self._pitch_left_writer is None or self._pitch_right_writer is None:
+            return
+        image = frame.image
+        if image.ndim == 2:
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        with self._record_lock:
+            if label == "left" and self._pitch_left_writer is not None:
+                self._pitch_left_writer.write(image)
+                if self._pitch_left_csv is not None:
+                    self._pitch_left_csv[1].writerow(
+                        [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
+                    )
+                self._pitch_latest_ns["left"] = frame.t_capture_monotonic_ns
+            elif label == "right" and self._pitch_right_writer is not None:
+                self._pitch_right_writer.write(image)
+                if self._pitch_right_csv is not None:
+                    self._pitch_right_csv[1].writerow(
+                        [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
+                    )
+                self._pitch_latest_ns["right"] = frame.t_capture_monotonic_ns
+        self._maybe_close_pitch(frame.t_capture_monotonic_ns)
+
+    def _maybe_close_pitch(self, frame_ns: int) -> None:
+        if self._pitch_post_end_ns is None:
+            return
+        left_ns = self._pitch_latest_ns.get("left", 0)
+        right_ns = self._pitch_latest_ns.get("right", 0)
+        if left_ns >= self._pitch_post_end_ns and right_ns >= self._pitch_post_end_ns:
+            self._close_pitch_recording()
+            self._pitch_post_end_ns = None
+            self._pitch_latest_ns = {"left": 0, "right": 0}
+
+    def _write_pitch_manifest(self, summary: PitchSummary) -> None:
+        pitch_dir = self._pitch_dir(summary.pitch_id)
+        if pitch_dir is None:
+            return
+        manifest = {
+            "schema_version": SCHEMA_VERSION,
+            "app_version": APP_VERSION,
+            "rig_id": None,
+            "created_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "pitch_id": summary.pitch_id,
+            "t_start_ns": summary.t_start_ns,
+            "t_end_ns": summary.t_end_ns,
+            "is_strike": summary.is_strike,
+            "zone_row": summary.zone_row,
+            "zone_col": summary.zone_col,
+            "run_in": summary.run_in,
+            "rise_in": summary.rise_in,
+            "measured_speed_mph": summary.speed_mph,
+            "rotation_rpm": summary.rotation_rpm,
+            "left_video": "left.avi",
+            "right_video": "right.avi",
+            "left_timestamps": "left_timestamps.csv",
+            "right_timestamps": "right_timestamps.csv",
+            "config_path": "configs/default.yaml",
+        }
+        (pitch_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
 
 
 def _stats_to_dict(stats: CameraStats) -> Dict[str, float]:
@@ -610,3 +902,27 @@ def _build_stereo_matches(
                 )
             )
     return matches
+
+
+def _build_session_summary(session_id: str, pitches: List[PitchSummary]) -> SessionSummary:
+    heatmap = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+    strikes = 0
+    balls = 0
+    for pitch in pitches:
+        if pitch.is_strike:
+            strikes += 1
+        else:
+            balls += 1
+        if pitch.zone_row and pitch.zone_col:
+            row = max(1, min(3, pitch.zone_row))
+            row = 3 - row
+            col = max(1, min(3, pitch.zone_col)) - 1
+            heatmap[row][col] += 1
+    return SessionSummary(
+        session_id=session_id,
+        pitch_count=len(pitches),
+        strikes=strikes,
+        balls=balls,
+        heatmap=heatmap,
+        pitches=list(pitches),
+    )

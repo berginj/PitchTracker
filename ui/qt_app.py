@@ -271,7 +271,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _stop_recording(self) -> None:
         bundle = self._service.stop_recording()
-        self._status_label.setText(f"Recorded frames: {len(list(bundle.frames))}")
+        summary = self._service.get_session_summary()
+        self._status_label.setText(f"Recorded pitches: {summary.pitch_count}")
+        dialog = SessionSummaryDialog(self, summary)
+        dialog.exec()
 
     def _start_training_capture(self) -> None:
         if not self._health_ok():
@@ -309,6 +312,7 @@ class MainWindow(QtWidgets.QMainWindow):
         right_dets = detections.get(right_frame.camera_id, [])
         left_gated = gated.get(left_frame.camera_id, {})
         right_gated = gated.get(right_frame.camera_id, {})
+        strike = self._service.get_strike_result()
         zone = None
         if strike.zone_row is not None and strike.zone_col is not None:
             zone = (strike.zone_row, strike.zone_col)
@@ -336,7 +340,6 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         stats = self._service.get_stats()
         plate_metrics = self._service.get_plate_metrics()
-        strike = self._service.get_strike_result()
         if stats:
             left_stats = stats.get("left", {})
             right_stats = stats.get("right", {})
@@ -1122,6 +1125,68 @@ class ChecklistDialog(QtWidgets.QDialog):
         close_button.clicked.connect(self.accept)
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(steps)
+        layout.addWidget(close_button)
+        self.setLayout(layout)
+
+
+class SessionSummaryDialog(QtWidgets.QDialog):
+    def __init__(self, parent: QtWidgets.QWidget | None, summary) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Session Summary")
+        self.resize(680, 520)
+
+        header = QtWidgets.QLabel(
+            f"Session: {summary.session_id} | "
+            f"Pitches: {summary.pitch_count} | "
+            f"Strikes: {summary.strikes} | "
+            f"Balls: {summary.balls}"
+        )
+
+        heatmap = QtWidgets.QTableWidget(3, 3)
+        heatmap.setHorizontalHeaderLabels(["Inside", "Middle", "Outside"])
+        heatmap.setVerticalHeaderLabels(["Top", "Middle", "Bottom"])
+        heatmap.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        heatmap.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        for row in range(3):
+            for col in range(3):
+                value = summary.heatmap[row][col]
+                item = QtWidgets.QTableWidgetItem(str(value))
+                item.setTextAlignment(QtCore.Qt.AlignCenter)
+                heatmap.setItem(row, col, item)
+
+        table = QtWidgets.QTableWidget(len(summary.pitches), 7)
+        table.setHorizontalHeaderLabels(
+            ["Pitch", "Strike", "Zone", "Run (in)", "Rise (in)", "Speed", "Rotation"]
+        )
+        table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        for row, pitch in enumerate(summary.pitches):
+            zone = "-"
+            if pitch.zone_row is not None and pitch.zone_col is not None:
+                zone = f"{pitch.zone_row},{pitch.zone_col}"
+            values = [
+                pitch.pitch_id,
+                "Y" if pitch.is_strike else "N",
+                zone,
+                f"{pitch.run_in:.2f}",
+                f"{pitch.rise_in:.2f}",
+                f"{pitch.speed_mph:.1f}" if pitch.speed_mph is not None else "-",
+                f"{pitch.rotation_rpm:.1f}" if pitch.rotation_rpm is not None else "-",
+            ]
+            for col, value in enumerate(values):
+                item = QtWidgets.QTableWidgetItem(str(value))
+                if col > 0:
+                    item.setTextAlignment(QtCore.Qt.AlignCenter)
+                table.setItem(row, col, item)
+
+        close_button = QtWidgets.QPushButton("Close")
+        close_button.clicked.connect(self.accept)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(header)
+        layout.addWidget(QtWidgets.QLabel("Strike Zone Heatmap"))
+        layout.addWidget(heatmap)
+        layout.addWidget(QtWidgets.QLabel("Pitch Summary"))
+        layout.addWidget(table)
         layout.addWidget(close_button)
         self.setLayout(layout)
 

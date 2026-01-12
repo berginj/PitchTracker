@@ -34,6 +34,8 @@ recording:
   pre_roll_ms: 500
   post_roll_ms: 500
   output_dir: recordings
+  session_min_active_frames: 4
+  session_end_gap_frames: 8
 ui:
   refresh_hz: 15
 telemetry:

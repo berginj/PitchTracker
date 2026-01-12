@@ -58,6 +58,8 @@ class RecordingConfig:
     pre_roll_ms: int
     post_roll_ms: int
     output_dir: str
+    session_min_active_frames: int
+    session_end_gap_frames: int
 
 
 @dataclass(frozen=True)
