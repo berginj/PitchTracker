@@ -19,7 +19,14 @@ If you only have an internal camera, use:
 ## Notes
 - Use the “Refresh Devices” button to populate cameras.
 - Configure ROIs and strike zone settings before recording.
-- Camera mount files are in `3d models/`.
+- Camera mount files are in `3dModels/`.
+
+## Completed Features
+- PySide6 UI with in-process pipeline service and recording/replay
+- Lane + plate ROI calibration with strike-zone 3x3 overlay
+- Classical detector with ROI cropping and optional ONNX ML detector
+- Recording bundles with manifest, timestamps, and config snapshot
+- Plate plane calibration tool with logging
 
 ## ML Detector
 Set these in `configs/default.yaml` to use an ONNX model:

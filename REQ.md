@@ -26,6 +26,13 @@ pip install -r requirements.txt
 - Approach angles (horizontal + vertical) near plate
 - Confidence + diagnostics + latency metrics
 
+### Implementation Status (current repo)
+- PySide6 UI with in-process pipeline service and capture/replay.
+- Lane + plate ROI calibration with strike-zone 3x3 overlay.
+- Classical detector with ROI cropping and optional ONNX ML detector + validator.
+- Recording bundles with manifest, timestamps, and config snapshot.
+- Plate plane calibration tool with persistent logging.
+
 ---
 
 ## 1) System Architecture (Modules + Interfaces)
