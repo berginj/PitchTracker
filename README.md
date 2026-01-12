@@ -20,6 +20,7 @@ If you only have an internal camera, use:
 - Use the “Refresh Devices” button to populate cameras.
 - Configure ROIs and strike zone settings before recording.
 - Camera mount files are in `3dModels/`.
+- Recording creates a session folder with per-pitch subfolders (left/right videos, timestamps, manifest).
 
 ## Completed Features
 - PySide6 UI with in-process pipeline service and recording/replay

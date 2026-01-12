@@ -30,7 +30,7 @@ pip install -r requirements.txt
 - PySide6 UI with in-process pipeline service and capture/replay.
 - Lane + plate ROI calibration with strike-zone 3x3 overlay.
 - Classical detector with ROI cropping and optional ONNX ML detector + validator.
-- Recording bundles with manifest, timestamps, and config snapshot.
+- Per-pitch recording bundles with manifest, timestamps, and config snapshot.
 - Plate plane calibration tool with persistent logging.
 
 ---
