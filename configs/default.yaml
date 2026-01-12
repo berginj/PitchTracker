@@ -41,6 +41,10 @@ telemetry:
 detector:
   type: classical
   model_path: null
+  model_input_size: [640, 640]
+  model_conf_threshold: 0.25
+  model_class_id: 0
+  model_format: yolo_v5
   mode: MODE_A
   frame_diff_threshold: 18.0
   bg_diff_threshold: 12.0

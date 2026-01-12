@@ -467,7 +467,13 @@ class InProcessPipelineService(PipelineService):
     def _init_detector(self, config: AppConfig) -> None:
         cfg = config.detector
         if cfg.type == "ml":
-            self._detector = MlDetector(model_path=cfg.model_path)
+            self._detector = MlDetector(
+                model_path=cfg.model_path,
+                input_size=cfg.model_input_size,
+                conf_threshold=cfg.model_conf_threshold,
+                class_id=cfg.model_class_id,
+                output_format=cfg.model_format,
+            )
             return
         filter_cfg = FilterConfig(
             min_area=cfg.filters.min_area,

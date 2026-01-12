@@ -14,6 +14,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.pipeline_service import InProcessPipelineService
 from calib.quick_calibrate import calibrate_and_write
+from calib.plate_plane import estimate_and_write
 from capture.uvc_backend import list_uvc_devices
 from configs.lane_io import save_lane_rois
 from configs.roi_io import load_rois, save_rois
@@ -116,6 +117,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._load_roi_button = QtWidgets.QPushButton("Load ROIs")
         self._guide_button = QtWidgets.QPushButton("Calibration Guide")
         self._quick_cal_button = QtWidgets.QPushButton("Quick Calibrate")
+        self._plate_cal_button = QtWidgets.QPushButton("Plate Plane Calibrate")
 
         self._mode_combo = QtWidgets.QComboBox()
         self._mode_combo.addItems([Mode.MODE_A.value, Mode.MODE_B.value])
@@ -159,6 +161,7 @@ class MainWindow(QtWidgets.QMainWindow):
         roi_controls.addWidget(self._load_roi_button)
         roi_controls.addWidget(self._guide_button)
         roi_controls.addWidget(self._quick_cal_button)
+        roi_controls.addWidget(self._plate_cal_button)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addLayout(controls)
@@ -201,6 +204,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._guide_button.clicked.connect(self._open_calibration_guide)
         self._apply_detector.clicked.connect(self._apply_detector_config)
         self._quick_cal_button.clicked.connect(self._open_quick_calibrate)
+        self._plate_cal_button.clicked.connect(self._open_plate_calibrate)
 
         self._refresh_devices()
         self._load_rois()
@@ -687,6 +691,21 @@ class MainWindow(QtWidgets.QMainWindow):
                     self._status_label.setText("Calibration updated. Restart capture to apply.")
             else:
                 self._status_label.setText("Calibration updated. Restart capture to apply.")
+
+    def _open_plate_calibrate(self) -> None:
+        dialog = PlatePlaneDialog(self, self._config_path())
+        if dialog.exec() != QtWidgets.QDialog.Accepted:
+            return
+        left_path, right_path = dialog.values()
+        try:
+            plate_z = estimate_and_write(Path(left_path), Path(right_path), self._config_path())
+        except Exception as exc:  # noqa: BLE001 - show errors
+            QtWidgets.QMessageBox.critical(self, "Plate Plane Calibrate", str(exc))
+            return
+        self._config = load_config(self._config_path())
+        self._status_label.setText(
+            f"Plate plane updated (Z={plate_z:.3f} ft). Restart capture."
+        )
 
     def _update_calib_summary(self) -> None:
         baseline = self._config.stereo.baseline_ft
@@ -1387,6 +1406,55 @@ class QuickCalibrateDialog(QtWidgets.QDialog):
         )
         self.updated = True
         self.updates = updates
+
+
+class PlatePlaneDialog(QtWidgets.QDialog):
+    def __init__(self, parent: QtWidgets.QWidget | None, config_path: Path) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Plate Plane Calibrate")
+        self.resize(520, 200)
+        self._left = QtWidgets.QLineEdit()
+        self._right = QtWidgets.QLineEdit()
+        left_browse = QtWidgets.QPushButton("Browse")
+        right_browse = QtWidgets.QPushButton("Browse")
+        left_browse.clicked.connect(lambda: self._browse(self._left))
+        right_browse.clicked.connect(lambda: self._browse(self._right))
+
+        form = QtWidgets.QFormLayout()
+        left_row = QtWidgets.QHBoxLayout()
+        left_row.addWidget(self._left)
+        left_row.addWidget(left_browse)
+        right_row = QtWidgets.QHBoxLayout()
+        right_row.addWidget(self._right)
+        right_row.addWidget(right_browse)
+        form.addRow("Left image", left_row)
+        form.addRow("Right image", right_row)
+
+        buttons = QtWidgets.QHBoxLayout()
+        run_button = QtWidgets.QPushButton("Run")
+        cancel_button = QtWidgets.QPushButton("Cancel")
+        run_button.clicked.connect(self.accept)
+        cancel_button.clicked.connect(self.reject)
+        buttons.addWidget(run_button)
+        buttons.addWidget(cancel_button)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(form)
+        layout.addLayout(buttons)
+        self.setLayout(layout)
+
+    def _browse(self, target: QtWidgets.QLineEdit) -> None:
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Select image",
+            str(Path("recordings")),
+            "Image Files (*.png *.jpg *.jpeg *.bmp)",
+        )
+        if path:
+            target.setText(path)
+
+    def values(self) -> tuple[str, str]:
+        return (self._left.text().strip(), self._right.text().strip())
 
 
 def main() -> None:

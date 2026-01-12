@@ -84,6 +84,10 @@ class DetectorFiltersConfig:
 class DetectorConfig:
     type: str
     model_path: Optional[str]
+    model_input_size: Tuple[int, int]
+    model_conf_threshold: float
+    model_class_id: int
+    model_format: str
     mode: str
     frame_diff_threshold: float
     bg_diff_threshold: float
@@ -158,6 +162,10 @@ def load_config(path: Path) -> AppConfig:
     detector = DetectorConfig(
         type=data["detector"].get("type", "classical"),
         model_path=data["detector"].get("model_path"),
+        model_input_size=tuple(data["detector"].get("model_input_size", (640, 640))),
+        model_conf_threshold=float(data["detector"].get("model_conf_threshold", 0.25)),
+        model_class_id=int(data["detector"].get("model_class_id", 0)),
+        model_format=data["detector"].get("model_format", "yolo_v5"),
         mode=data["detector"]["mode"],
         frame_diff_threshold=data["detector"]["frame_diff_threshold"],
         bg_diff_threshold=data["detector"]["bg_diff_threshold"],

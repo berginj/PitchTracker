@@ -168,7 +168,13 @@ def run_pipeline(
         max_velocity=config.detector.filters.max_velocity,
     )
     if config.detector.type == "ml":
-        detector = MlDetector(model_path=config.detector.model_path)
+        detector = MlDetector(
+            model_path=config.detector.model_path,
+            input_size=config.detector.model_input_size,
+            conf_threshold=config.detector.model_conf_threshold,
+            class_id=config.detector.model_class_id,
+            output_format=config.detector.model_format,
+        )
     else:
         detector_cfg = DetectorConfig(
             frame_diff_threshold=config.detector.frame_diff_threshold,
