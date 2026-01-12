@@ -41,7 +41,7 @@ class UvcCamera(CameraDevice):
         self._serial = serial
         target = self._resolve_device(serial)
         self._friendly_name = target
-        if serial.isdigit():
+        if target.isdigit() and target == serial:
             self._capture = cv2.VideoCapture(int(serial), cv2.CAP_DSHOW)
         else:
             self._capture = cv2.VideoCapture(f"video={target}", cv2.CAP_DSHOW)
@@ -128,13 +128,13 @@ class UvcCamera(CameraDevice):
             self._capture = None
 
     def _resolve_device(self, serial: str) -> str:
-        if serial.isdigit():
-            return serial
         devices = _list_camera_devices()
         matches = [
             dev for dev in devices if dev["serial"].lower() == serial.lower()
         ]
         if not matches:
+            if serial.isdigit():
+                return serial
             raise RuntimeError(
                 f"No camera found with serial '{serial}'. "
                 f"Available serials: {[dev['serial'] for dev in devices]}"
@@ -152,6 +152,10 @@ def _list_camera_devices() -> list[dict[str, str]]:
         devices = _query_pnp_devices("Image")
     output: list[dict[str, str]] = []
     for device in devices:
+        if not device.get("present", True):
+            continue
+        if device.get("status") not in ("OK", None, ""):
+            continue
         friendly = (device.get("FriendlyName") or "").strip()
         instance = (device.get("InstanceId") or "").strip()
         serial = (device.get("Serial") or "").strip()
@@ -175,7 +179,7 @@ def _query_pnp_devices(device_class: str) -> list[dict[str, str]]:
         + " | ForEach-Object { "
         + "$serial = (Get-PnpDeviceProperty -InstanceId $_.InstanceId "
         + "-KeyName 'DEVPKEY_Device_SerialNumber' -ErrorAction SilentlyContinue).Data; "
-        + "[pscustomobject]@{FriendlyName=$_.FriendlyName;InstanceId=$_.InstanceId;Serial=$serial} "
+        + "[pscustomobject]@{FriendlyName=$_.FriendlyName;InstanceId=$_.InstanceId;Serial=$serial;Status=$_.Status;Present=$_.Present} "
         + "} | ConvertTo-Json"
     )
     result = subprocess.run(

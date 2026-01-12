@@ -14,7 +14,8 @@ from configs.roi_io import load_rois
 from configs.settings import load_config
 from contracts import Detection
 from detect import LaneGate, LaneRoi
-from detect.simple_detector import CenterDetector
+from detect.classical_detector import ClassicalDetector
+from detect.config import DetectorConfig, FilterConfig, Mode
 from stereo import StereoLaneGate
 from stereo.association import StereoMatch
 from metrics.simple_metrics import compute_plate_stub
@@ -157,7 +158,27 @@ def run_pipeline(
     configure_camera(left, config)
     configure_camera(right, config)
 
-    detector = CenterDetector()
+    filter_cfg = FilterConfig(
+        min_area=config.detector.filters.min_area,
+        max_area=config.detector.filters.max_area,
+        min_circularity=config.detector.filters.min_circularity,
+        max_circularity=config.detector.filters.max_circularity,
+        min_velocity=config.detector.filters.min_velocity,
+        max_velocity=config.detector.filters.max_velocity,
+    )
+    detector_cfg = DetectorConfig(
+        frame_diff_threshold=config.detector.frame_diff_threshold,
+        bg_diff_threshold=config.detector.bg_diff_threshold,
+        bg_alpha=config.detector.bg_alpha,
+        edge_threshold=config.detector.edge_threshold,
+        blob_threshold=config.detector.blob_threshold,
+        runtime_budget_ms=config.detector.runtime_budget_ms,
+        filters=filter_cfg,
+    )
+    detector = ClassicalDetector(
+        config=detector_cfg,
+        mode=Mode(config.detector.mode),
+    )
     lane_polygon = load_lane_polygon(roi_path, left_id, right_id)
     lane_gate = build_lane_gate(
         config.camera.width,

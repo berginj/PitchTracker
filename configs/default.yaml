@@ -37,3 +37,18 @@ ui:
   refresh_hz: 15
 telemetry:
   latency_p95_ms_warn: 500
+detector:
+  mode: MODE_A
+  frame_diff_threshold: 18.0
+  bg_diff_threshold: 12.0
+  bg_alpha: 0.08
+  edge_threshold: 32.0
+  blob_threshold: 22.0
+  runtime_budget_ms: 4.0
+  filters:
+    min_area: 12
+    max_area: null
+    min_circularity: 0.1
+    max_circularity: null
+    min_velocity: 0.0
+    max_velocity: null

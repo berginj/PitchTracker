@@ -15,8 +15,10 @@ from capture.opencv_backend import OpenCVCamera
 from configs.settings import AppConfig
 from configs.roi_io import load_rois
 from contracts import Frame, PitchMetrics
+from detect.classical_detector import ClassicalDetector
+from detect.config import DetectorConfig as CvDetectorConfig
+from detect.config import FilterConfig, Mode
 from detect.lane import LaneGate, LaneRoi
-from detect.simple_detector import CenterDetector
 from metrics.simple_metrics import (
     PlateMetricsStub,
     compute_plate_from_observations,
@@ -69,6 +71,10 @@ class PipelineService(ABC):
     def get_plate_metrics(self) -> PlateMetricsStub:
         """Return latest plate-gated metrics (stubbed if unavailable)."""
 
+    @abstractmethod
+    def set_detector_config(self, config: CvDetectorConfig, mode: Mode) -> None:
+        """Update detector configuration for the active session."""
+
 
 class InProcessPipelineService(PipelineService):
     def __init__(self, backend: str = "uvc") -> None:
@@ -81,7 +87,7 @@ class InProcessPipelineService(PipelineService):
         self._plate_gate: Optional[LaneGate] = None
         self._stereo_gate: Optional[StereoLaneGate] = None
         self._plate_stereo_gate: Optional[StereoLaneGate] = None
-        self._detector = CenterDetector()
+        self._detector = ClassicalDetector(config=CvDetectorConfig(), mode=Mode.MODE_A)
         self._stereo: Optional[SimpleStereoMatcher] = None
         self._tracker = SimpleTracker()
         self._plate_observations = deque(maxlen=12)
@@ -102,6 +108,7 @@ class InProcessPipelineService(PipelineService):
         self._configure_camera(self._left, config)
         self._configure_camera(self._right, config)
         self._load_rois()
+        self._init_detector(config)
         self._init_stereo(config)
 
     def stop_capture(self) -> None:
@@ -166,6 +173,9 @@ class InProcessPipelineService(PipelineService):
     def get_plate_metrics(self) -> PlateMetricsStub:
         return self._last_plate_metrics
 
+    def set_detector_config(self, config: CvDetectorConfig, mode: Mode) -> None:
+        self._detector = ClassicalDetector(config=config, mode=mode)
+
     def _build_camera(self) -> CameraDevice:
         if self._backend == "opencv":
             return OpenCVCamera()
@@ -226,6 +236,28 @@ class InProcessPipelineService(PipelineService):
             z_max_ft=float(config.stereo.z_max_ft),
         )
         self._stereo = SimpleStereoMatcher(geometry)
+
+    def _init_detector(self, config: AppConfig) -> None:
+        cfg = config.detector
+        filter_cfg = FilterConfig(
+            min_area=cfg.filters.min_area,
+            max_area=cfg.filters.max_area,
+            min_circularity=cfg.filters.min_circularity,
+            max_circularity=cfg.filters.max_circularity,
+            min_velocity=cfg.filters.min_velocity,
+            max_velocity=cfg.filters.max_velocity,
+        )
+        detector_cfg = CvDetectorConfig(
+            frame_diff_threshold=cfg.frame_diff_threshold,
+            bg_diff_threshold=cfg.bg_diff_threshold,
+            bg_alpha=cfg.bg_alpha,
+            edge_threshold=cfg.edge_threshold,
+            blob_threshold=cfg.blob_threshold,
+            runtime_budget_ms=cfg.runtime_budget_ms,
+            filters=filter_cfg,
+        )
+        mode = Mode(cfg.mode)
+        self._detector = ClassicalDetector(config=detector_cfg, mode=mode)
 
     def _update_plate_metrics(self, left_frame: Frame, right_frame: Frame) -> None:
         if self._left_id is None or self._right_id is None:

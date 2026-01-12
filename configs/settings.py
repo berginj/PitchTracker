@@ -70,6 +70,28 @@ class TelemetryConfig:
 
 
 @dataclass(frozen=True)
+class DetectorFiltersConfig:
+    min_area: int
+    max_area: Optional[int]
+    min_circularity: float
+    max_circularity: Optional[float]
+    min_velocity: float
+    max_velocity: Optional[float]
+
+
+@dataclass(frozen=True)
+class DetectorConfig:
+    mode: str
+    frame_diff_threshold: float
+    bg_diff_threshold: float
+    bg_alpha: float
+    edge_threshold: float
+    blob_threshold: float
+    runtime_budget_ms: float
+    filters: DetectorFiltersConfig
+
+
+@dataclass(frozen=True)
 class AppConfig:
     camera: CameraConfig
     stereo: StereoConfig
@@ -78,6 +100,7 @@ class AppConfig:
     recording: RecordingConfig
     ui: UiConfig
     telemetry: TelemetryConfig
+    detector: DetectorConfig
 
 
 def load_config(path: Path) -> AppConfig:
@@ -109,6 +132,17 @@ def load_config(path: Path) -> AppConfig:
     recording = RecordingConfig(**data["recording"])
     ui = UiConfig(**data["ui"])
     telemetry = TelemetryConfig(**data["telemetry"])
+    detector_filters = DetectorFiltersConfig(**data["detector"]["filters"])
+    detector = DetectorConfig(
+        mode=data["detector"]["mode"],
+        frame_diff_threshold=data["detector"]["frame_diff_threshold"],
+        bg_diff_threshold=data["detector"]["bg_diff_threshold"],
+        bg_alpha=data["detector"]["bg_alpha"],
+        edge_threshold=data["detector"]["edge_threshold"],
+        blob_threshold=data["detector"]["blob_threshold"],
+        runtime_budget_ms=data["detector"]["runtime_budget_ms"],
+        filters=detector_filters,
+    )
     return AppConfig(
         camera=camera,
         stereo=stereo,
@@ -117,4 +151,5 @@ def load_config(path: Path) -> AppConfig:
         recording=recording,
         ui=ui,
         telemetry=telemetry,
+        detector=detector,
     )

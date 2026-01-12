@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 from typing import Optional
 
+import cv2
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -15,6 +16,7 @@ from configs.lane_io import save_lane_rois
 from configs.roi_io import load_rois, save_rois
 from configs.settings import load_config
 from detect.lane import LaneRoi
+from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig, Mode
 
 
 def parse_args() -> argparse.Namespace:
@@ -70,6 +72,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self._load_roi_button = QtWidgets.QPushButton("Load ROIs")
         self._guide_button = QtWidgets.QPushButton("Calibration Guide")
 
+        self._mode_combo = QtWidgets.QComboBox()
+        self._mode_combo.addItems([Mode.MODE_A.value, Mode.MODE_B.value])
+        self._frame_diff = QtWidgets.QDoubleSpinBox()
+        self._bg_diff = QtWidgets.QDoubleSpinBox()
+        self._bg_alpha = QtWidgets.QDoubleSpinBox()
+        self._edge_thresh = QtWidgets.QDoubleSpinBox()
+        self._blob_thresh = QtWidgets.QDoubleSpinBox()
+        self._min_area = QtWidgets.QSpinBox()
+        self._min_circ = QtWidgets.QDoubleSpinBox()
+        self._apply_detector = QtWidgets.QPushButton("Apply Detector")
+
         controls = QtWidgets.QHBoxLayout()
         controls.addWidget(self._left_input)
         controls.addWidget(self._right_input)
@@ -96,6 +109,7 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addLayout(controls)
         layout.addLayout(views)
         layout.addLayout(roi_controls)
+        layout.addWidget(self._build_detector_panel())
         layout.addWidget(self._status_label)
 
         container = QtWidgets.QWidget()
@@ -114,10 +128,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self._save_roi_button.clicked.connect(self._save_rois)
         self._load_roi_button.clicked.connect(self._load_rois)
         self._guide_button.clicked.connect(self._open_calibration_guide)
+        self._apply_detector.clicked.connect(self._apply_detector_config)
 
         self._refresh_devices()
         self._load_rois()
         self._maybe_show_guide()
+        self._load_detector_defaults()
 
     def _start_capture(self) -> None:
         left = _current_serial(self._left_input)
@@ -169,23 +185,34 @@ class MainWindow(QtWidgets.QMainWindow):
             )
 
     def _refresh_devices(self) -> None:
-        if self._service._backend != "uvc":
-            self._status_label.setText("Device refresh only available for UVC backend.")
-            return
-        devices = list_uvc_devices()
         self._left_input.clear()
         self._right_input.clear()
-        for device in devices:
-            label = f"{device['serial']} - {device['friendly_name']}"
-            self._left_input.addItem(label, device["serial"])
-            self._right_input.addItem(label, device["serial"])
-        if devices:
-            self._status_label.setText(f"Found {len(devices)} device(s).")
-            if len(devices) >= 2:
+        if self._service._backend == "uvc":
+            devices = _probe_uvc_devices()
+            for device in devices:
+                label = f"{device['serial']} - {device['friendly_name']}"
+                self._left_input.addItem(label, device["serial"])
+                self._right_input.addItem(label, device["serial"])
+            if devices:
+                self._status_label.setText(f"Found {len(devices)} usable device(s).")
+                if len(devices) >= 2:
+                    self._left_input.setCurrentIndex(0)
+                    self._right_input.setCurrentIndex(1)
+            else:
+                self._status_label.setText("No UVC devices found.")
+            return
+        indices = _probe_opencv_indices()
+        for index in indices:
+            label = f"Index {index}"
+            self._left_input.addItem(label, str(index))
+            self._right_input.addItem(label, str(index))
+        if indices:
+            self._status_label.setText(f"Found {len(indices)} camera index(es).")
+            if len(indices) >= 2:
                 self._left_input.setCurrentIndex(0)
                 self._right_input.setCurrentIndex(1)
         else:
-            self._status_label.setText("No UVC devices found.")
+            self._status_label.setText("No OpenCV camera indices available.")
 
     def _set_roi_mode(self, mode: str) -> None:
         self._roi_mode = mode
@@ -231,6 +258,68 @@ class MainWindow(QtWidgets.QMainWindow):
         self._plate_rect = _polygon_to_rect(rois.get("plate"))
         if self._lane_rect or self._plate_rect:
             self._status_label.setText("ROIs loaded.")
+
+    def _load_detector_defaults(self) -> None:
+        cfg = self._config.detector
+        self._mode_combo.setCurrentText(cfg.mode)
+        self._frame_diff.setValue(cfg.frame_diff_threshold)
+        self._bg_diff.setValue(cfg.bg_diff_threshold)
+        self._bg_alpha.setValue(cfg.bg_alpha)
+        self._edge_thresh.setValue(cfg.edge_threshold)
+        self._blob_thresh.setValue(cfg.blob_threshold)
+        self._min_area.setValue(cfg.filters.min_area)
+        self._min_circ.setValue(cfg.filters.min_circularity)
+
+    def _apply_detector_config(self) -> None:
+        cfg = self._config.detector
+        filter_cfg = FilterConfig(
+            min_area=self._min_area.value(),
+            max_area=cfg.filters.max_area,
+            min_circularity=self._min_circ.value(),
+            max_circularity=cfg.filters.max_circularity,
+            min_velocity=cfg.filters.min_velocity,
+            max_velocity=cfg.filters.max_velocity,
+        )
+        detector_cfg = CvDetectorConfig(
+            frame_diff_threshold=self._frame_diff.value(),
+            bg_diff_threshold=self._bg_diff.value(),
+            bg_alpha=self._bg_alpha.value(),
+            edge_threshold=self._edge_thresh.value(),
+            blob_threshold=self._blob_thresh.value(),
+            runtime_budget_ms=cfg.runtime_budget_ms,
+            filters=filter_cfg,
+        )
+        mode = Mode(self._mode_combo.currentText())
+        self._service.set_detector_config(detector_cfg, mode)
+        self._status_label.setText("Detector settings applied.")
+
+    def _build_detector_panel(self) -> QtWidgets.QGroupBox:
+        panel = QtWidgets.QGroupBox("Detector (Quick)")
+        form = QtWidgets.QFormLayout()
+        for field in (
+            self._frame_diff,
+            self._bg_diff,
+            self._bg_alpha,
+            self._edge_thresh,
+            self._blob_thresh,
+            self._min_circ,
+        ):
+            field.setDecimals(2)
+            field.setMaximum(10_000.0)
+        self._bg_alpha.setMaximum(1.0)
+        self._bg_alpha.setSingleStep(0.01)
+        self._min_area.setMaximum(100_000)
+        form.addRow("Mode", self._mode_combo)
+        form.addRow("Frame diff", self._frame_diff)
+        form.addRow("BG diff", self._bg_diff)
+        form.addRow("BG alpha", self._bg_alpha)
+        form.addRow("Edge thresh", self._edge_thresh)
+        form.addRow("Blob thresh", self._blob_thresh)
+        form.addRow("Min area", self._min_area)
+        form.addRow("Min circularity", self._min_circ)
+        form.addRow(self._apply_detector)
+        panel.setLayout(form)
+        return panel
 
     def _open_calibration_guide(self) -> None:
         dialog = CalibrationGuide(self)
@@ -284,6 +373,32 @@ def _current_serial(combo: QtWidgets.QComboBox) -> str:
     if isinstance(data, str) and data.strip():
         return data.strip()
     return combo.currentText().strip()
+
+
+def _probe_opencv_indices(max_index: int = 8) -> list[int]:
+    indices: list[int] = []
+    for i in range(max_index):
+        cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+        ok = cap.isOpened()
+        cap.release()
+        if ok:
+            indices.append(i)
+    return indices
+
+
+def _probe_uvc_devices() -> list[dict[str, str]]:
+    devices = list_uvc_devices()
+    usable: list[dict[str, str]] = []
+    for device in devices:
+        name = device.get("friendly_name", "")
+        if not name:
+            continue
+        cap = cv2.VideoCapture(f"video={name}", cv2.CAP_DSHOW)
+        ok = cap.isOpened()
+        cap.release()
+        if ok:
+            usable.append(device)
+    return usable
 
 
 class RoiLabel(QtWidgets.QLabel):

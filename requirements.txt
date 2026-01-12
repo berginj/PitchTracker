@@ -1,4 +1,5 @@
 opencv-python==4.10.0.84
-numpy==1.26.4
+numpy==1.26.4; python_version < "3.12"
+numpy==2.2.2; python_version >= "3.12"
 PyYAML==6.0.1
-PySide6==6.7.2
+PySide6==6.10.1

@@ -394,3 +394,6 @@ All tunables must live in versioned config files:
 - p95 latency ≤ 500 ms
 - Recording + deterministic replay works
 - Automated tests exist and pass on a target laptop
+
+## 15) Training Guide
+See `TRAINING.md` for dataset capture, labeling, and configuration guidance.
