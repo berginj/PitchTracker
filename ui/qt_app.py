@@ -20,6 +20,8 @@ from capture.uvc_backend import list_uvc_devices
 from configs.lane_io import save_lane_rois
 from configs.roi_io import load_rois, save_rois
 from configs.location_profiles import apply_profile, list_profiles, load_profile, save_profile
+from configs.pitchers import add_pitcher, load_pitchers
+from configs.app_state import load_state, save_state
 from configs.settings import load_config
 from detect.lane import LaneRoi
 from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig, Mode
@@ -83,6 +85,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self._profile_save = QtWidgets.QPushButton("Save Profile")
         self._profile_name = QtWidgets.QLineEdit()
         self._profile_name.setPlaceholderText("New profile name")
+        self._pitcher_combo = QtWidgets.QComboBox()
+        self._pitcher_combo.setPlaceholderText("Pitcher")
+        self._pitcher_add = QtWidgets.QPushButton("Add Pitcher")
+        self._pitcher_name_input = QtWidgets.QLineEdit()
+        self._pitcher_name_input.setPlaceholderText("New pitcher name")
+        self._low_perf_button = QtWidgets.QPushButton("Low Perf Mode")
         self._cue_card_button = QtWidgets.QPushButton("Cue Card Test")
         self._enter_button = QtWidgets.QPushButton("Enter App")
         self._checklist_button = QtWidgets.QPushButton("Checklist")
@@ -166,6 +174,10 @@ class MainWindow(QtWidgets.QMainWindow):
         profile_row.addWidget(self._profile_load)
         profile_row.addWidget(self._profile_name)
         profile_row.addWidget(self._profile_save)
+        pitcher_row = QtWidgets.QHBoxLayout()
+        pitcher_row.addWidget(self._pitcher_combo)
+        pitcher_row.addWidget(self._pitcher_name_input)
+        pitcher_row.addWidget(self._pitcher_add)
         device_row = QtWidgets.QHBoxLayout()
         device_row.addWidget(self._left_input)
         device_row.addWidget(self._right_input)
@@ -182,11 +194,13 @@ class MainWindow(QtWidgets.QMainWindow):
         calib_row.addWidget(self._quick_cal_button)
         calib_row.addWidget(self._plate_cal_button)
         action_row = QtWidgets.QHBoxLayout()
+        action_row.addWidget(self._low_perf_button)
         action_row.addWidget(self._cue_card_button)
         action_row.addStretch(1)
         action_row.addWidget(self._enter_button)
         setup_layout = QtWidgets.QVBoxLayout()
         setup_layout.addLayout(profile_row)
+        setup_layout.addLayout(pitcher_row)
         setup_layout.addLayout(device_row)
         setup_layout.addLayout(roi_row)
         setup_layout.addLayout(calib_row)
@@ -220,6 +234,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._detector_settings_button.clicked.connect(self._open_detector_settings)
         self._profile_load.clicked.connect(self._load_profile)
         self._profile_save.clicked.connect(self._save_profile)
+        self._pitcher_add.clicked.connect(self._add_pitcher)
+        self._pitcher_combo.currentTextChanged.connect(self._set_pitcher)
+        self._low_perf_button.clicked.connect(self._apply_low_perf_mode)
         self._cue_card_button.clicked.connect(self._cue_card_test)
         self._enter_button.clicked.connect(self._enter_app)
         self._output_browse.clicked.connect(self._browse_output)
@@ -242,6 +259,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._refresh_devices()
         self._refresh_profiles()
+        self._refresh_pitchers()
         self._load_rois()
         self._maybe_show_guide()
         self._load_detector_defaults()
@@ -253,7 +271,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._service.set_record_directory(Path(self._config.recording.output_dir))
         self._update_calib_summary()
         self._set_setup_mode(True)
-        self._prompt_pitcher_name()
+        self._run_startup_dialog()
 
     def _start_capture(self) -> None:
         left = _current_serial(self._left_input)
@@ -336,10 +354,22 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _enter_app(self) -> None:
         self._set_setup_mode(False)
+        state = load_state()
+        if self._pitcher_name:
+            state["last_pitcher"] = self._pitcher_name
+        save_state(state)
 
     def _refresh_profiles(self) -> None:
         self._profile_combo.clear()
         self._profile_combo.addItems(list_profiles())
+
+    def _refresh_pitchers(self) -> None:
+        self._pitcher_combo.clear()
+        self._pitcher_combo.addItems(load_pitchers())
+        state = load_state()
+        last = state.get("last_pitcher")
+        if last:
+            self._pitcher_combo.setCurrentText(last)
 
     def _load_profile(self) -> None:
         name = self._profile_combo.currentText().strip()
@@ -384,6 +414,35 @@ class MainWindow(QtWidgets.QMainWindow):
         self._profile_name.clear()
         self._status_label.setText(f"Saved profile '{name}'.")
 
+    def _add_pitcher(self) -> None:
+        name = self._pitcher_name_input.text().strip()
+        if not name:
+            return
+        pitchers = add_pitcher(name)
+        self._pitcher_combo.clear()
+        self._pitcher_combo.addItems(pitchers)
+        self._pitcher_combo.setCurrentText(name)
+        self._pitcher_name_input.clear()
+        self._set_pitcher(name)
+
+    def _set_pitcher(self, name: str) -> None:
+        name = name.strip()
+        self._pitcher_name = name if name else None
+
+    def _run_startup_dialog(self) -> None:
+        dialog = StartupDialog(self)
+        result = dialog.exec()
+        if result != QtWidgets.QDialog.Accepted:
+            return
+        profile_name, pitcher = dialog.values()
+        if pitcher:
+            self._pitcher_name = pitcher
+            self._pitcher_combo.setCurrentText(pitcher)
+            add_pitcher(pitcher)
+        if profile_name:
+            self._profile_combo.setCurrentText(profile_name)
+            self._load_profile()
+
     def _cue_card_test(self) -> None:
         try:
             detections = self._service.get_latest_detections()
@@ -402,15 +461,26 @@ class MainWindow(QtWidgets.QMainWindow):
             "Hold the cue card in the lane and confirm detections appear.",
         )
 
-    def _prompt_pitcher_name(self) -> None:
-        name, ok = QtWidgets.QInputDialog.getText(
-            self,
-            "Select Pitcher",
-            "Enter pitcher name for this session:",
-        )
-        if ok:
-            name = name.strip()
-            self._pitcher_name = name if name else None
+    def _apply_low_perf_mode(self) -> None:
+        if self._timer.isActive():
+            QtWidgets.QMessageBox.information(
+                self,
+                "Low Perf Mode",
+                "Stop capture before applying low performance settings.",
+            )
+            return
+        config_path = self._config_path()
+        data = yaml.safe_load(config_path.read_text())
+        data.setdefault("camera", {})
+        data.setdefault("ui", {})
+        data["camera"]["width"] = 1280
+        data["camera"]["height"] = 720
+        data["camera"]["fps"] = 30
+        data["ui"]["refresh_hz"] = 10
+        config_path.write_text(yaml.safe_dump(data, sort_keys=False))
+        self._config = load_config(config_path)
+        self._load_detector_defaults()
+        self._status_label.setText("Low performance mode applied.")
 
     def _default_session_name(self) -> Optional[str]:
         pitcher = self._pitcher_name or "pitcher"
@@ -1270,6 +1340,45 @@ class ChecklistDialog(QtWidgets.QDialog):
         layout.addWidget(steps)
         layout.addWidget(close_button)
         self.setLayout(layout)
+
+
+class StartupDialog(QtWidgets.QDialog):
+    def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Select Location and Pitcher")
+        self.resize(520, 220)
+        self._profile = QtWidgets.QComboBox()
+        self._profile.addItems(list_profiles())
+        self._pitcher = QtWidgets.QComboBox()
+        self._pitcher.setEditable(True)
+        self._pitcher.addItems(load_pitchers())
+        state = load_state()
+        last_pitcher = state.get("last_pitcher")
+        if last_pitcher:
+            self._pitcher.setCurrentText(last_pitcher)
+
+        form = QtWidgets.QFormLayout()
+        form.addRow("Location profile", self._profile)
+        form.addRow("Pitcher", self._pitcher)
+
+        buttons = QtWidgets.QHBoxLayout()
+        apply_button = QtWidgets.QPushButton("Continue")
+        cancel_button = QtWidgets.QPushButton("Cancel")
+        apply_button.clicked.connect(self.accept)
+        cancel_button.clicked.connect(self.reject)
+        buttons.addWidget(apply_button)
+        buttons.addWidget(cancel_button)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(form)
+        layout.addLayout(buttons)
+        self.setLayout(layout)
+
+    def values(self) -> tuple[str, str]:
+        return (
+            self._profile.currentText().strip(),
+            self._pitcher.currentText().strip(),
+        )
 
 
 class SessionSummaryDialog(QtWidgets.QDialog):
