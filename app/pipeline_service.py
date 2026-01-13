@@ -37,6 +37,7 @@ from stereo import StereoLaneGate
 from stereo.association import StereoMatch
 from stereo.simple_stereo import SimpleStereoMatcher, StereoGeometry
 from track.simple_tracker import SimpleTracker
+from integrations.radar import RadarGunClient, NullRadarGun
 
 
 @dataclass(frozen=True)
@@ -151,7 +152,7 @@ class PipelineService(ABC):
 
 
 class InProcessPipelineService(PipelineService):
-    def __init__(self, backend: str = "uvc") -> None:
+    def __init__(self, backend: str = "uvc", radar_client: Optional[RadarGunClient] = None) -> None:
         self._backend = backend
         self._left: Optional[CameraDevice] = None
         self._right: Optional[CameraDevice] = None
@@ -184,6 +185,7 @@ class InProcessPipelineService(PipelineService):
         self._record_left_csv = None
         self._record_right_csv = None
         self._session_dir: Optional[Path] = None
+        self._radar_client: RadarGunClient = radar_client or NullRadarGun()
         self._pitch_left_writer = None
         self._pitch_right_writer = None
         self._pitch_left_csv = None
@@ -713,6 +715,7 @@ class InProcessPipelineService(PipelineService):
         radius_in = self._config.ball.radius_in.get(self._ball_type, 1.45)
         strike = is_strike(self._current_pitch_observations, zone, radius_in)
         metrics = compute_plate_from_observations(self._current_pitch_observations)
+        radar_speed = self._radar_client.latest_speed_mph() if self._manual_speed_mph is None else self._manual_speed_mph
         summary = PitchSummary(
             pitch_id=self._pitch_id,
             t_start_ns=self._pitch_start_ns,
@@ -722,7 +725,7 @@ class InProcessPipelineService(PipelineService):
             zone_col=strike.zone_col,
             run_in=metrics.run_in,
             rise_in=metrics.rise_in,
-            speed_mph=self._manual_speed_mph,
+            speed_mph=radar_speed,
             rotation_rpm=None,
             sample_count=metrics.sample_count,
         )
