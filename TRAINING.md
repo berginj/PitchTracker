@@ -2,6 +2,20 @@
 
 This guide explains how to capture data, prepare a dataset, and train a ball detector for this repo.
 
+## 0) Marked Ball Plan (Workback)
+Phase 1: Marked balls
+- Use the marking jig and `contracts-shared/examples/marker_spec.json`.
+- Detect dot centroids and the index pair (double-dot) for orientation.
+- Record dot detections + index confidence in session metadata.
+
+Phase 2: Mixed training
+- Mix marked and unmarked balls in sessions.
+- Validate that the detector still tracks unmarked balls with acceptable dropout rate.
+
+Phase 3: Seam identification
+- Train/ship a seam detector for unmarked balls.
+- Use seams when dots are absent; fall back to dots when present.
+
 ## 1) Capture Guidelines
 - Use the dual capture tool to record left/right video and timestamps.
 - Collect diverse sessions: different backgrounds, lighting, speeds, and distances.
@@ -67,7 +81,18 @@ These config fields impact detection and tracking:
 
 Tip: Keep `baseline_ft` and `focal_length_px` up to date after calibration so 3D estimates are meaningful.
 
-## 7) Team Workflow
-- Keep a shared naming convention for recordings (date, location, lighting).
+## 7) Marked Ball Expectations
+- Use the marking jig and follow the dot/stencil settings in `contracts-shared/examples/marker_spec.json`.
+- For regenerated specs (baseball vs softball), use `contracts-shared/examples/generate_marker_spec.py`.
+- Record the marker spec path in session metadata for reproducibility.
+
+## 8) Team Workflow + Data Submission
+- Use a shared naming convention for recordings (date, location, lighting, pitcher).
 - Store raw recordings and labels in a shared location.
 - Track dataset version and changes in a simple changelog.
+
+To contribute training runs to the shared dataset:
+1) Export a session summary and ensure `marker_spec.json` is captured alongside the videos.
+2) Zip: `left.avi`, `right.avi`, timestamps, `session_summary.json`, and `marker_spec.json`.
+3) Submit to the shared data drop (SWA ingest or internal storage).
+4) Maintain a manifest of uploads (session id, location, lighting, ball type).

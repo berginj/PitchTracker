@@ -473,3 +473,24 @@ SWA must accept compatible schema versions; reject unknown major versions.
   - Commit the contracts repo.
   - Update the submodule pointer in this repo.
 - The SWA repo must pull the submodule update to stay current.
+
+## 17) Marked Ball Contract (Training)
+We will train with marked balls first, then transition to unmarked balls with seam identification.
+
+### 17.1 Marker Spec Contract
+The vision system must ingest `marker_spec.json` (schema in `contracts-shared/schema/marker_spec.schema.json`).
+This spec defines the ball geometry, stencil dot size, index separation, and dot vectors on the unit sphere.
+- `markers` must enumerate every dot in the pattern (excluding seam-excluded holes), not a partial sample.
+
+### 17.2 Training Expectations (Marked Balls)
+- Marked balls are the primary training target for initial detector + pose estimation.
+- Each training session must include `marker_spec.json` reference in metadata.
+- Detection should expose:
+  - dot centroids in image (u,v)
+  - index pair detection and confidence
+  - estimated ball orientation (optional)
+
+### 17.3 Transition Plan (Standard Balls)
+- Phase 1: Marked balls only (dot detection + index pair + orientation).
+- Phase 2: Mixed sessions (marked + unmarked) to validate detector generalization.
+- Phase 3: Unmarked balls with seam/texture identification (no dot dependence).

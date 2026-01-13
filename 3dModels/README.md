@@ -1,4 +1,17 @@
-# OpenSCAD Mount
+# 3D Models
+
+## Ball Marking Jig
+- `ballmarking.scad`: OpenSCAD source for baseball/softball marking jig (set `ball_type`).
+- `ball_marking_jig.scad`: Extended jig with index double-dot and stencil apertures.
+- `baseballmarking guide.stl`: Printed guide for baseball marking.
+- `softballmarking.stl`: Printed guide for softball marking.
+
+Print notes:
+- Use the `show` selector to export top/bottom halves.
+- Print with solid walls and consistent layer height for clean dot edges.
+- Use high-contrast marker ink for tracking.
+
+## Camera Mount
 
 ```scad
 // Dual Arducam 3-foot baseline — dovetail key joints — Bambu P1P friendly
