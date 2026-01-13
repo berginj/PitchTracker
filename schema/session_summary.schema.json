@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PitchTracker Session Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "app_version",
+    "session_id",
+    "pitch_count",
+    "strikes",
+    "balls",
+    "heatmap",
+    "pitches"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "app_version": {
+      "type": "string"
+    },
+    "session_id": {
+      "type": "string"
+    },
+    "pitch_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "strikes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "balls": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "heatmap": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "array",
+        "minItems": 3,
+        "maxItems": 3,
+        "items": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "pitches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pitch_id",
+          "t_start_ns",
+          "t_end_ns",
+          "is_strike",
+          "zone_row",
+          "zone_col",
+          "run_in",
+          "rise_in",
+          "speed_mph",
+          "rotation_rpm",
+          "sample_count"
+        ],
+        "properties": {
+          "pitch_id": { "type": "string" },
+          "t_start_ns": { "type": "integer" },
+          "t_end_ns": { "type": "integer" },
+          "is_strike": { "type": "boolean" },
+          "zone_row": { "type": ["integer", "null"] },
+          "zone_col": { "type": ["integer", "null"] },
+          "run_in": { "type": "number" },
+          "rise_in": { "type": "number" },
+          "speed_mph": { "type": ["number", "null"] },
+          "rotation_rpm": { "type": ["number", "null"] },
+          "sample_count": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}
