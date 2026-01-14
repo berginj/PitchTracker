@@ -14,6 +14,7 @@ from dataclasses import dataclass, asdict
 from typing import Dict, Iterable, Optional, Tuple, List
 
 import cv2
+import numpy as np
 
 from capture import CameraDevice, SimulatedCamera, UvcCamera
 from capture.camera_device import CameraStats
@@ -120,7 +121,17 @@ class PipelineService(ABC):
         """Return latest plate-gated metrics (stubbed if unavailable)."""
 
     @abstractmethod
-    def set_detector_config(self, config: CvDetectorConfig, mode: Mode) -> None:
+    def set_detector_config(
+        self,
+        config: CvDetectorConfig,
+        mode: Mode,
+        detector_type: str = "classical",
+        model_path: Optional[str] = None,
+        model_input_size: Tuple[int, int] = (640, 640),
+        model_conf_threshold: float = 0.25,
+        model_class_id: int = 0,
+        model_format: str = "yolo_v5",
+    ) -> None:
         """Update detector configuration for the active session."""
 
     @abstractmethod
@@ -201,6 +212,10 @@ class InProcessPipelineService(PipelineService):
         self._record_right_writer = None
         self._record_left_csv = None
         self._record_right_csv = None
+        self._session_left_writer = None
+        self._session_right_writer = None
+        self._session_left_csv = None
+        self._session_right_csv = None
         self._session_dir: Optional[Path] = None
         self._radar_client: RadarGunClient = radar_client or NullRadarGun()
         self._pitch_left_writer = None
@@ -370,9 +385,25 @@ class InProcessPipelineService(PipelineService):
         with self._detect_lock:
             return self._last_plate_metrics
 
-    def set_detector_config(self, config: CvDetectorConfig, mode: Mode) -> None:
+    def set_detector_config(
+        self,
+        config: CvDetectorConfig,
+        mode: Mode,
+        detector_type: str = "classical",
+        model_path: Optional[str] = None,
+        model_input_size: Tuple[int, int] = (640, 640),
+        model_conf_threshold: float = 0.25,
+        model_class_id: int = 0,
+        model_format: str = "yolo_v5",
+    ) -> None:
         self._detector_config = config
         self._detector_mode = mode
+        self._detector_type = detector_type
+        self._detector_model_path = model_path
+        self._detector_model_input_size = model_input_size
+        self._detector_model_conf_threshold = model_conf_threshold
+        self._detector_model_class_id = model_class_id
+        self._detector_model_format = model_format
         self._rebuild_detectors()
 
     def set_detection_threading(self, mode: str, worker_count: int) -> None:
@@ -656,11 +687,13 @@ class InProcessPipelineService(PipelineService):
         self._post_roll_ns = int(self._config.recording.post_roll_ms * 1e6)
         self._pre_roll_left.clear()
         self._pre_roll_right.clear()
+        self._open_session_recording()
 
     def _stop_recording_io(self) -> None:
         self._close_pitch_recording(force=True)
         if self._session_dir is None:
             return
+        self._close_session_recording()
         manifest = {
             "schema_version": SCHEMA_VERSION,
             "app_version": APP_VERSION,
@@ -674,6 +707,10 @@ class InProcessPipelineService(PipelineService):
             "calibration_profile_id": None,
             "session_summary": "session_summary.json",
             "session_summary_csv": "session_summary.csv",
+            "session_left_video": "session_left.avi",
+            "session_right_video": "session_right.avi",
+            "session_left_timestamps": "session_left_timestamps.csv",
+            "session_right_timestamps": "session_right_timestamps.csv",
         }
         (self._session_dir / "manifest.json").write_text(
             json.dumps(manifest, indent=2)
@@ -684,8 +721,75 @@ class InProcessPipelineService(PipelineService):
         if not self._recording:
             return
         self._buffer_pre_roll(label, frame)
+        self._write_session_frame(label, frame)
         if self._pitch_active or self._pitch_post_end_ns is not None:
             self._write_pitch_frame(label, frame)
+
+    def _open_session_recording(self) -> None:
+        if self._config is None or self._session_dir is None:
+            return
+        left_path = self._session_dir / "session_left.avi"
+        right_path = self._session_dir / "session_right.avi"
+        fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+        self._session_left_writer = cv2.VideoWriter(
+            str(left_path),
+            fourcc,
+            self._config.camera.fps,
+            (self._config.camera.width, self._config.camera.height),
+            True,
+        )
+        self._session_right_writer = cv2.VideoWriter(
+            str(right_path),
+            fourcc,
+            self._config.camera.fps,
+            (self._config.camera.width, self._config.camera.height),
+            True,
+        )
+        left_csv = (self._session_dir / "session_left_timestamps.csv").open("w", newline="")
+        right_csv = (self._session_dir / "session_right_timestamps.csv").open("w", newline="")
+        self._session_left_csv = (left_csv, csv.writer(left_csv))
+        self._session_right_csv = (right_csv, csv.writer(right_csv))
+        self._session_left_csv[1].writerow(
+            ["camera_id", "frame_index", "t_capture_monotonic_ns"]
+        )
+        self._session_right_csv[1].writerow(
+            ["camera_id", "frame_index", "t_capture_monotonic_ns"]
+        )
+
+    def _close_session_recording(self) -> None:
+        with self._record_lock:
+            if self._session_left_writer is not None:
+                self._session_left_writer.release()
+                self._session_left_writer = None
+            if self._session_right_writer is not None:
+                self._session_right_writer.release()
+                self._session_right_writer = None
+            if self._session_left_csv is not None:
+                self._session_left_csv[0].close()
+                self._session_left_csv = None
+            if self._session_right_csv is not None:
+                self._session_right_csv[0].close()
+                self._session_right_csv = None
+
+    def _write_session_frame(self, label: str, frame: Frame) -> None:
+        if self._session_left_writer is None or self._session_right_writer is None:
+            return
+        image = frame.image
+        if image.ndim == 2:
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        with self._record_lock:
+            if label == "left" and self._session_left_writer is not None:
+                self._session_left_writer.write(image)
+                if self._session_left_csv is not None:
+                    self._session_left_csv[1].writerow(
+                        [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
+                    )
+            elif label == "right" and self._session_right_writer is not None:
+                self._session_right_writer.write(image)
+                if self._session_right_csv is not None:
+                    self._session_right_csv[1].writerow(
+                        [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
+                    )
 
     @staticmethod
     def _configure_camera(camera: CameraDevice, config: AppConfig) -> None:
@@ -781,6 +885,8 @@ class InProcessPipelineService(PipelineService):
         if self._right_id:
             detectors["right"] = self._build_detector_for_camera(self._right_id)
         self._detectors_by_camera = detectors
+        if self._detector_type == "ml":
+            self._warmup_detectors()
 
     def _build_detector_for_camera(self, camera_id: str):
         if self._detector_type == "ml":
@@ -799,6 +905,27 @@ class InProcessPipelineService(PipelineService):
             mode=self._detector_mode,
             roi_by_camera=roi_by_camera,
         )
+
+    def _warmup_detectors(self) -> None:
+        if self._config is None:
+            return
+        height = self._config.camera.height
+        width = self._config.camera.width
+        dummy = np.zeros((height, width), dtype=np.uint8)
+        for label, detector in self._detectors_by_camera.items():
+            frame = Frame(
+                camera_id=label,
+                frame_index=0,
+                t_capture_monotonic_ns=0,
+                image=dummy,
+                width=width,
+                height=height,
+                pixfmt=self._config.camera.pixfmt,
+            )
+            try:
+                detector.detect(frame)
+            except Exception:
+                continue
 
     def _update_plate_metrics(
         self,

@@ -81,6 +81,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self._location_profile: Optional[str] = None
         self._detection_threading = "per_camera"
         self._detection_workers = 2
+        self._detector_type = "classical"
+        self._detector_model_path = ""
+        self._detector_model_input_size = (640, 640)
+        self._detector_model_conf_threshold = 0.25
+        self._detector_model_class_id = 0
+        self._detector_model_format = "yolo_v5"
 
         self._left_input = QtWidgets.QComboBox()
         self._right_input = QtWidgets.QComboBox()
@@ -476,6 +482,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self._profile_combo.setCurrentText(profile_name)
             self._location_profile = profile_name
             self._load_profile()
+        self._run_calibration_wizard()
+
+    def _run_calibration_wizard(self) -> None:
+        wizard = CalibrationWizardDialog(self)
+        wizard.exec()
 
     def _cue_card_test(self) -> None:
         try:
@@ -1024,6 +1035,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _load_detector_defaults(self) -> None:
         cfg = self._config.detector
+        self._detector_type = cfg.type
+        self._detector_model_path = cfg.model_path or ""
+        self._detector_model_input_size = tuple(cfg.model_input_size)
+        self._detector_model_conf_threshold = float(cfg.model_conf_threshold)
+        self._detector_model_class_id = int(cfg.model_class_id)
+        self._detector_model_format = cfg.model_format
         self._mode_combo.setCurrentText(cfg.mode)
         self._frame_diff.setValue(cfg.frame_diff_threshold)
         self._bg_diff.setValue(cfg.bg_diff_threshold)
@@ -1035,6 +1052,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _apply_detector_config(self) -> None:
         cfg = self._config.detector
+        if self._detector_type == "ml" and not self._detector_model_path:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Detector Settings",
+                "Select an ONNX model path before enabling ML detection.",
+            )
+            return
         filter_cfg = FilterConfig(
             min_area=self._min_area.value(),
             max_area=cfg.filters.max_area,
@@ -1054,7 +1078,16 @@ class MainWindow(QtWidgets.QMainWindow):
             filters=filter_cfg,
         )
         mode = Mode(self._mode_combo.currentText())
-        self._service.set_detector_config(detector_cfg, mode)
+        self._service.set_detector_config(
+            detector_cfg,
+            mode,
+            detector_type=self._detector_type,
+            model_path=self._detector_model_path or None,
+            model_input_size=self._detector_model_input_size,
+            model_conf_threshold=self._detector_model_conf_threshold,
+            model_class_id=self._detector_model_class_id,
+            model_format=self._detector_model_format,
+        )
         self._service.set_detection_threading(
             self._detection_threading, self._detection_workers
         )
@@ -1225,6 +1258,12 @@ class MainWindow(QtWidgets.QMainWindow):
             min_circ=self._min_circ.value(),
             threading_mode=self._detection_threading,
             worker_count=self._detection_workers,
+            detector_type=self._detector_type,
+            model_path=self._detector_model_path,
+            model_input_size=self._detector_model_input_size,
+            model_conf_threshold=self._detector_model_conf_threshold,
+            model_class_id=self._detector_model_class_id,
+            model_format=self._detector_model_format,
         )
         if dialog.exec() == QtWidgets.QDialog.Accepted:
             values = dialog.values()
@@ -1238,6 +1277,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self._min_circ.setValue(values["min_circ"])
             self._detection_threading = values["threading_mode"]
             self._detection_workers = values["worker_count"]
+            self._detector_type = values["detector_type"]
+            self._detector_model_path = values["model_path"]
+            self._detector_model_input_size = values["model_input_size"]
+            self._detector_model_conf_threshold = values["model_conf_threshold"]
+            self._detector_model_class_id = values["model_class_id"]
+            self._detector_model_format = values["model_format"]
             self._apply_detector_config()
 
     def _maybe_show_guide(self) -> None:
@@ -1850,10 +1895,16 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
         min_circ: float,
         threading_mode: str,
         worker_count: int,
+        detector_type: str,
+        model_path: str,
+        model_input_size: tuple[int, int],
+        model_conf_threshold: float,
+        model_class_id: int,
+        model_format: str,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Detector Settings")
-        self.resize(640, 460)
+        self.resize(700, 560)
         help_text = QtWidgets.QTextEdit()
         help_text.setReadOnly(True)
         help_text.setText(
@@ -1868,6 +1919,7 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
                     "- Blob thresh: Threshold for blob candidate generation.",
                     "- Min area: Rejects tiny blobs; increase to reduce noise.",
                     "- Min circularity: 0..1; higher rejects non-circular shapes.",
+                    "- ML: Select an ONNX model and input size if using detector type ML.",
                     "",
                     "Tip: Start with MODE_A and lower thresholds until the cue card is detected.",
                 ]
@@ -1876,6 +1928,32 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
         self._mode = QtWidgets.QComboBox()
         self._mode.addItems([Mode.MODE_A.value, Mode.MODE_B.value])
         self._mode.setCurrentText(mode)
+        self._detector_type = QtWidgets.QComboBox()
+        self._detector_type.addItem("Classical", "classical")
+        self._detector_type.addItem("ML (ONNX)", "ml")
+        self._detector_type.setCurrentIndex(0 if detector_type != "ml" else 1)
+        self._model_path = QtWidgets.QLineEdit(model_path or "")
+        self._model_browse = QtWidgets.QPushButton("Browse")
+        self._model_browse.clicked.connect(self._browse_model)
+        self._model_input_w = QtWidgets.QSpinBox()
+        self._model_input_h = QtWidgets.QSpinBox()
+        for field in (self._model_input_w, self._model_input_h):
+            field.setMinimum(64)
+            field.setMaximum(2048)
+        self._model_input_w.setValue(int(model_input_size[0]))
+        self._model_input_h.setValue(int(model_input_size[1]))
+        self._model_conf = QtWidgets.QDoubleSpinBox()
+        self._model_conf.setDecimals(2)
+        self._model_conf.setRange(0.0, 1.0)
+        self._model_conf.setSingleStep(0.05)
+        self._model_conf.setValue(float(model_conf_threshold))
+        self._model_class_id = QtWidgets.QSpinBox()
+        self._model_class_id.setMinimum(0)
+        self._model_class_id.setMaximum(1000)
+        self._model_class_id.setValue(int(model_class_id))
+        self._model_format = QtWidgets.QComboBox()
+        self._model_format.addItems(["yolo_v5"])
+        self._model_format.setCurrentText(model_format or "yolo_v5")
         self._frame_diff = QtWidgets.QDoubleSpinBox()
         self._bg_diff = QtWidgets.QDoubleSpinBox()
         self._bg_alpha = QtWidgets.QDoubleSpinBox()
@@ -1915,6 +1993,20 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
         self._min_circ.setValue(min_circ)
 
         form = QtWidgets.QFormLayout()
+        form.addRow("Detector type", self._detector_type)
+        model_row = QtWidgets.QHBoxLayout()
+        model_row.addWidget(self._model_path)
+        model_row.addWidget(self._model_browse)
+        form.addRow("Model path", model_row)
+        input_row = QtWidgets.QHBoxLayout()
+        input_row.addWidget(QtWidgets.QLabel("W"))
+        input_row.addWidget(self._model_input_w)
+        input_row.addWidget(QtWidgets.QLabel("H"))
+        input_row.addWidget(self._model_input_h)
+        form.addRow("Model input", input_row)
+        form.addRow("Model conf", self._model_conf)
+        form.addRow("Model class id", self._model_class_id)
+        form.addRow("Model format", self._model_format)
         form.addRow("Mode", self._mode)
         form.addRow("Frame diff", self._frame_diff)
         form.addRow("BG diff", self._bg_diff)
@@ -1940,6 +2032,9 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
         layout.addLayout(buttons)
         self.setLayout(layout)
 
+        self._detector_type.currentIndexChanged.connect(self._toggle_model_fields)
+        self._toggle_model_fields()
+
     def values(self) -> dict:
         return {
             "mode": self._mode.currentText(),
@@ -1952,7 +2047,39 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
             "min_circ": self._min_circ.value(),
             "threading_mode": self._threading.currentData(),
             "worker_count": self._workers.value(),
+            "detector_type": self._detector_type.currentData(),
+            "model_path": self._model_path.text().strip(),
+            "model_input_size": (
+                int(self._model_input_w.value()),
+                int(self._model_input_h.value()),
+            ),
+            "model_conf_threshold": float(self._model_conf.value()),
+            "model_class_id": int(self._model_class_id.value()),
+            "model_format": self._model_format.currentText().strip(),
         }
+
+    def _toggle_model_fields(self) -> None:
+        use_ml = self._detector_type.currentData() == "ml"
+        for widget in (
+            self._model_path,
+            self._model_browse,
+            self._model_input_w,
+            self._model_input_h,
+            self._model_conf,
+            self._model_class_id,
+            self._model_format,
+        ):
+            widget.setEnabled(use_ml)
+
+    def _browse_model(self) -> None:
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Select ONNX model",
+            str(Path(".")),
+            "ONNX Files (*.onnx)",
+        )
+        if path:
+            self._model_path.setText(path)
 
 
 class QuickCalibrateDialog(QtWidgets.QDialog):
@@ -2040,6 +2167,226 @@ class QuickCalibrateDialog(QtWidgets.QDialog):
         )
         self.updated = True
         self.updates = updates
+
+
+class CalibrationWizardDialog(QtWidgets.QDialog):
+    def __init__(self, parent: "MainWindow") -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Calibration & Training Wizard")
+        self.resize(720, 420)
+        self._parent = parent
+        self._index = 0
+        self._steps = [
+            {
+                "title": "Select Cameras",
+                "detail": "Select left/right camera serials and refresh devices if needed.",
+                "action_label": "Refresh Devices",
+                "action": self._parent._refresh_devices,
+                "validate": self._validate_devices,
+            },
+            {
+                "title": "Start Capture + Health Check",
+                "detail": "Start capture and confirm FPS and drops are within limits.",
+                "action_label": "Start Capture",
+                "action": self._parent._start_capture,
+                "validate": self._validate_health,
+            },
+            {
+                "title": "Place Calibration Target",
+                "detail": (
+                    "Place a calibration checkerboard at pitching distance so the "
+                    "rubber-to-plate distance is represented in your calibration images."
+                ),
+                "action_label": "Open Guide",
+                "action": self._parent._open_calibration_guide,
+                "validate": None,
+            },
+            {
+                "title": "Lane ROI",
+                "detail": "Draw the lane ROI on the left camera view.",
+                "action_label": "Edit Lane ROI",
+                "action": lambda: self._parent._set_roi_mode("lane"),
+                "validate": self._validate_lane_roi,
+            },
+            {
+                "title": "Plate ROI",
+                "detail": "Draw the plate ROI on the left camera view.",
+                "action_label": "Edit Plate ROI",
+                "action": lambda: self._parent._set_roi_mode("plate"),
+                "validate": self._validate_plate_roi,
+            },
+            {
+                "title": "Quick Calibrate (Checkerboard)",
+                "detail": "Run quick stereo calibration from captured checkerboard images.",
+                "action_label": "Quick Calibrate",
+                "action": self._parent._open_quick_calibrate,
+                "validate": self._validate_quick_calibrate,
+            },
+            {
+                "title": "Plate Plane Calibration",
+                "detail": "Estimate plate plane Z from a left/right image pair.",
+                "action_label": "Plate Plane Calibrate",
+                "action": self._parent._open_plate_calibrate,
+                "validate": self._validate_plate_plane,
+            },
+            {
+                "title": "Detector Test",
+                "detail": "Run the cue card test and confirm detections appear.",
+                "action_label": "Cue Card Test",
+                "action": self._parent._cue_card_test,
+                "validate": self._validate_detector_activity,
+            },
+            {
+                "title": "Ready",
+                "detail": "Calibration steps are complete. You can enter the app.",
+                "action_label": None,
+                "action": None,
+                "validate": None,
+            },
+        ]
+
+        self._title = QtWidgets.QLabel()
+        self._title.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self._detail = QtWidgets.QLabel()
+        self._detail.setWordWrap(True)
+        self._status = QtWidgets.QLabel("")
+
+        self._action_button = QtWidgets.QPushButton()
+        self._action_button.clicked.connect(self._run_action)
+
+        self._back_button = QtWidgets.QPushButton("Back")
+        self._skip_button = QtWidgets.QPushButton("Skip Step")
+        self._next_button = QtWidgets.QPushButton("Next")
+        self._back_button.clicked.connect(self._go_back)
+        self._skip_button.clicked.connect(self._skip_step)
+        self._next_button.clicked.connect(self._go_next)
+
+        header = QtWidgets.QVBoxLayout()
+        header.addWidget(self._title)
+        header.addWidget(self._detail)
+        header.addWidget(self._status)
+
+        button_row = QtWidgets.QHBoxLayout()
+        button_row.addWidget(self._action_button)
+        button_row.addStretch(1)
+        button_row.addWidget(self._back_button)
+        button_row.addWidget(self._skip_button)
+        button_row.addWidget(self._next_button)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(header)
+        layout.addStretch(1)
+        layout.addLayout(button_row)
+        self.setLayout(layout)
+
+        self._refresh_step()
+
+    def _refresh_step(self) -> None:
+        step = self._steps[self._index]
+        self._title.setText(f"Step {self._index + 1} of {len(self._steps)}: {step['title']}")
+        self._detail.setText(step["detail"])
+        self._status.setText(self._validation_text(step))
+        action_label = step.get("action_label")
+        if action_label:
+            self._action_button.setText(action_label)
+            self._action_button.setEnabled(True)
+        else:
+            self._action_button.setText("No Action")
+            self._action_button.setEnabled(False)
+        self._back_button.setEnabled(self._index > 0)
+        self._next_button.setText("Finish" if self._index == len(self._steps) - 1 else "Next")
+
+    def _validation_text(self, step: dict) -> str:
+        validator = step.get("validate")
+        if validator is None:
+            return "Validation: not required"
+        ok = validator()
+        return "Validation: passed" if ok else "Validation: not passed"
+
+    def _run_action(self) -> None:
+        step = self._steps[self._index]
+        action = step.get("action")
+        if action is None:
+            return
+        action()
+        self._status.setText(self._validation_text(step))
+
+    def _go_back(self) -> None:
+        if self._index > 0:
+            self._index -= 1
+            self._refresh_step()
+
+    def _skip_step(self) -> None:
+        if self._index >= len(self._steps) - 1:
+            self.accept()
+            return
+        self._index += 1
+        self._refresh_step()
+
+    def _go_next(self) -> None:
+        step = self._steps[self._index]
+        validator = step.get("validate")
+        if validator is not None and not validator():
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Validation",
+                "Validation failed for this step. Fix the issue or use Skip Step.",
+            )
+            self._status.setText(self._validation_text(step))
+            return
+        if self._index >= len(self._steps) - 1:
+            self.accept()
+            return
+        self._index += 1
+        self._refresh_step()
+
+    def _validate_devices(self) -> bool:
+        left = _current_serial(self._parent._left_input)
+        right = _current_serial(self._parent._right_input)
+        return bool(left and right)
+
+    def _validate_health(self) -> bool:
+        return self._parent._health_ok()
+
+    def _validate_lane_roi(self) -> bool:
+        return self._parent._lane_rect is not None
+
+    def _validate_plate_roi(self) -> bool:
+        return self._parent._plate_rect is not None
+
+    def _validate_quick_calibrate(self) -> bool:
+        config = load_config(self._parent._config_path())
+        return (
+            config.stereo.cx is not None
+            and config.stereo.cy is not None
+            and config.stereo.baseline_ft > 0
+            and config.stereo.focal_length_px > 0
+        )
+
+    def _validate_plate_plane(self) -> bool:
+        config = load_config(self._parent._config_path())
+        plate_z = config.metrics.plate_plane_z_ft
+        if plate_z is None or abs(plate_z) < 0.001:
+            return False
+        log_path = self._parent._config_path().parent / "plate_plane_log.csv"
+        if not log_path.exists():
+            return True
+        try:
+            lines = [line.strip() for line in log_path.read_text().splitlines() if line.strip()]
+            if len(lines) <= 1:
+                return True
+            last = lines[-1].split(",")
+            return len(last) >= 2 and last[1].strip() == "1"
+        except OSError:
+            return True
+
+    def _validate_detector_activity(self) -> bool:
+        try:
+            detections = self._parent._service.get_latest_detections()
+        except Exception:
+            return False
+        total = sum(len(items) for items in detections.values())
+        return total > 0
 
 
 class PlatePlaneDialog(QtWidgets.QDialog):
