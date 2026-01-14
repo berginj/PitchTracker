@@ -17,10 +17,15 @@ If you only have an internal camera, use:
 ```
 
 ## Notes
-- Use the “Refresh Devices” button to populate cameras.
+- Use the `Refresh Devices` button to populate cameras.
+- The calibration wizard runs after startup; follow the steps or use Skip to reach the UI.
 - Configure ROIs and strike zone settings before recording.
 - Camera mount files are in `3dModels/`.
 - Recording creates a session folder with per-pitch subfolders (left/right videos, timestamps, manifest).
+- Recording also writes continuous session videos: `session_left.avi`, `session_right.avi`, and timestamp CSVs in the session folder.
+
+## ARM Auto Config
+On Windows ARM (e.g., Snapdragon), the UI auto-selects `configs/snapdragon.yaml` when no `--config` is provided. Use `--config configs/default.yaml` (or another file) to override.
 
 ## Tests
 ```powershell
