@@ -4,9 +4,16 @@ from __future__ import annotations
 
 import argparse
 import time
+import json
+import urllib.request
+import urllib.error
+import shutil
+import zipfile
+import csv
+from dataclasses import asdict
 from collections import deque
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import cv2
 import yaml
@@ -26,7 +33,9 @@ from configs.settings import load_config
 from detect.lane import LaneRoi
 from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig, Mode
 from detect.classical_detector import ClassicalDetector
+from record.training_report import build_training_report
 from contracts import Frame
+from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 
 
 def parse_args() -> argparse.Namespace:
@@ -56,6 +65,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._replay_detector: Optional[ClassicalDetector] = None
         self._replay_paused = False
         self._pitcher_name: Optional[str] = None
+        self._location_profile: Optional[str] = None
+        self._detection_threading = "per_camera"
+        self._detection_workers = 2
 
         self._left_input = QtWidgets.QComboBox()
         self._right_input = QtWidgets.QComboBox()
@@ -330,7 +342,13 @@ class MainWindow(QtWidgets.QMainWindow):
         bundle = self._service.stop_recording()
         summary = self._service.get_session_summary()
         self._status_label.setText(f"Recorded pitches: {summary.pitch_count}")
-        dialog = SessionSummaryDialog(self, summary)
+        session_dir = self._service.get_session_dir()
+        dialog = SessionSummaryDialog(
+            self,
+            summary,
+            self._upload_session,
+            lambda export_type: self._save_session_export(summary, session_dir, export_type),
+        )
         dialog.exec()
 
     def _set_setup_mode(self, active: bool) -> None:
@@ -388,6 +406,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._right_input.setCurrentText(right)
         apply_profile(profile, self._roi_path)
         self._load_rois()
+        self._location_profile = name
         self._status_label.setText(f"Loaded profile '{name}'.")
         self._enter_app()
 
@@ -412,6 +431,7 @@ class MainWindow(QtWidgets.QMainWindow):
         save_profile(name, left or "", right or "", self._roi_path)
         self._refresh_profiles()
         self._profile_name.clear()
+        self._location_profile = name
         self._status_label.setText(f"Saved profile '{name}'.")
 
     def _add_pitcher(self) -> None:
@@ -441,6 +461,7 @@ class MainWindow(QtWidgets.QMainWindow):
             add_pitcher(pitcher)
         if profile_name:
             self._profile_combo.setCurrentText(profile_name)
+            self._location_profile = profile_name
             self._load_profile()
 
     def _cue_card_test(self) -> None:
@@ -486,6 +507,217 @@ class MainWindow(QtWidgets.QMainWindow):
         pitcher = self._pitcher_name or "pitcher"
         timestamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
         return f"{pitcher}-{timestamp}"
+
+    def _upload_session(self, summary) -> None:
+        if not self._config.upload.enabled:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Upload Session",
+                "Uploads are disabled. Enable upload in configs/default.yaml.",
+            )
+            return
+        api_base = self._config.upload.swa_api_base.rstrip("/")
+        if not api_base:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Upload Session",
+                "Upload URL is not configured.",
+            )
+            return
+        session_dir = self._service.get_session_dir()
+        marker_spec = None
+        if session_dir:
+            marker_path = Path(session_dir) / "marker_spec.json"
+            if marker_path.exists():
+                marker_spec = json.loads(marker_path.read_text())
+        payload = {
+            "schema_version": SCHEMA_VERSION,
+            "app_version": APP_VERSION,
+            "session": asdict(summary),
+            "metadata": {
+                "uploaded_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "pitcher": self._pitcher_name,
+                "location_profile": self._location_profile,
+                "rig_id": None,
+                "source": "PitchTracker",
+            },
+            "marker_spec": marker_spec,
+        }
+        data = json.dumps(payload).encode("utf-8")
+        url = f"{api_base}/sessions"
+        headers = {"Content-Type": "application/json"}
+        if self._config.upload.api_key:
+            headers["x-api-key"] = self._config.upload.api_key
+        request = urllib.request.Request(url, data=data, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                if response.status >= 400:
+                    raise RuntimeError(f"Upload failed: {response.status}")
+        except (urllib.error.URLError, RuntimeError) as exc:
+            QtWidgets.QMessageBox.warning(self, "Upload Session", str(exc))
+            return
+        QtWidgets.QMessageBox.information(self, "Upload Session", "Upload complete.")
+
+    def _save_session_export(
+        self,
+        summary,
+        session_dir: Optional[Path],
+        export_type: Optional[str],
+    ) -> None:
+        if session_dir is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Save Session",
+                "No session directory available for export.",
+            )
+            return
+        if not export_type:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Save Session",
+                "Select an export type before saving.",
+            )
+            return
+
+        try:
+            if export_type == "summary_json":
+                self._export_session_summary_json(summary, session_dir)
+            elif export_type == "summary_csv":
+                self._export_session_summary_csv(summary, session_dir)
+            elif export_type == "training_report":
+                self._export_training_report(session_dir)
+            elif export_type == "manifests_zip":
+                self._export_manifests_zip(session_dir)
+            else:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Save Session",
+                    f"Unknown export type: {export_type}",
+                )
+        except Exception as exc:  # noqa: BLE001 - surface export failures
+            QtWidgets.QMessageBox.warning(self, "Save Session", str(exc))
+
+    def _export_session_summary_json(self, summary, session_dir: Path) -> None:
+        default_name = "session_summary.json"
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            "Save Session Summary (JSON)",
+            default_name,
+            "JSON files (*.json)",
+        )
+        if not path:
+            return
+        src = session_dir / "session_summary.json"
+        if src.exists():
+            shutil.copyfile(src, path)
+            return
+        payload = asdict(summary)
+        payload["schema_version"] = SCHEMA_VERSION
+        payload["app_version"] = APP_VERSION
+        Path(path).write_text(json.dumps(payload, indent=2))
+
+    def _export_session_summary_csv(self, summary, session_dir: Path) -> None:
+        default_name = "session_summary.csv"
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            "Save Session Summary (CSV)",
+            default_name,
+            "CSV files (*.csv)",
+        )
+        if not path:
+            return
+        src = session_dir / "session_summary.csv"
+        if src.exists():
+            shutil.copyfile(src, path)
+            return
+        self._write_session_summary_csv(Path(path), summary)
+
+    def _write_session_summary_csv(self, path: Path, summary) -> None:
+        with path.open("w", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(
+                [
+                    "pitch_id",
+                    "t_start_ns",
+                    "t_end_ns",
+                    "is_strike",
+                    "zone_row",
+                    "zone_col",
+                    "run_in",
+                    "rise_in",
+                    "speed_mph",
+                    "rotation_rpm",
+                    "sample_count",
+                ]
+            )
+            for pitch in summary.pitches:
+                writer.writerow(
+                    [
+                        pitch.pitch_id,
+                        pitch.t_start_ns,
+                        pitch.t_end_ns,
+                        int(pitch.is_strike),
+                        pitch.zone_row if pitch.zone_row is not None else "",
+                        pitch.zone_col if pitch.zone_col is not None else "",
+                        f"{pitch.run_in:.3f}",
+                        f"{pitch.rise_in:.3f}",
+                        f"{pitch.speed_mph:.3f}" if pitch.speed_mph is not None else "",
+                        f"{pitch.rotation_rpm:.3f}" if pitch.rotation_rpm is not None else "",
+                        pitch.sample_count,
+                    ]
+                )
+
+    def _export_training_report(self, session_dir: Path) -> None:
+        default_name = "training_report.json"
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            "Save Training Report",
+            default_name,
+            "JSON files (*.json)",
+        )
+        if not path:
+            return
+        payload = build_training_report(
+            session_dir=session_dir,
+            config_path=self._config_path(),
+            roi_path=self._roi_path,
+            source={
+                "app": "PitchTracker",
+                "rig_id": None,
+                "pitcher": self._pitcher_name,
+                "location_profile": self._location_profile,
+                "operator": None,
+                "host": None,
+            },
+        )
+        Path(path).write_text(json.dumps(payload, indent=2))
+
+    def _export_manifests_zip(self, session_dir: Path) -> None:
+        default_name = "session_manifests.zip"
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            "Save Session Manifests",
+            default_name,
+            "Zip files (*.zip)",
+        )
+        if not path:
+            return
+        files: List[Path] = []
+        manifest = session_dir / "manifest.json"
+        summary_json = session_dir / "session_summary.json"
+        summary_csv = session_dir / "session_summary.csv"
+        if manifest.exists():
+            files.append(manifest)
+        if summary_json.exists():
+            files.append(summary_json)
+        if summary_csv.exists():
+            files.append(summary_csv)
+        files.extend(session_dir.rglob("*/manifest.json"))
+        if not files:
+            raise RuntimeError("No manifest files found to export.")
+        with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for file_path in files:
+                archive.write(file_path, file_path.relative_to(session_dir))
 
     def _start_training_capture(self) -> None:
         if not self._health_ok():
@@ -810,6 +1042,9 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         mode = Mode(self._mode_combo.currentText())
         self._service.set_detector_config(detector_cfg, mode)
+        self._service.set_detection_threading(
+            self._detection_threading, self._detection_workers
+        )
         self._status_label.setText("Detector settings applied.")
 
     def _set_ball_type(self, ball_type: str) -> None:
@@ -975,6 +1210,8 @@ class MainWindow(QtWidgets.QMainWindow):
             blob_thresh=self._blob_thresh.value(),
             min_area=self._min_area.value(),
             min_circ=self._min_circ.value(),
+            threading_mode=self._detection_threading,
+            worker_count=self._detection_workers,
         )
         if dialog.exec() == QtWidgets.QDialog.Accepted:
             values = dialog.values()
@@ -986,6 +1223,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self._blob_thresh.setValue(values["blob_thresh"])
             self._min_area.setValue(values["min_area"])
             self._min_circ.setValue(values["min_circ"])
+            self._detection_threading = values["threading_mode"]
+            self._detection_workers = values["worker_count"]
             self._apply_detector_config()
 
     def _maybe_show_guide(self) -> None:
@@ -1382,10 +1621,18 @@ class StartupDialog(QtWidgets.QDialog):
 
 
 class SessionSummaryDialog(QtWidgets.QDialog):
-    def __init__(self, parent: QtWidgets.QWidget | None, summary) -> None:
+    def __init__(
+        self,
+        parent: QtWidgets.QWidget | None,
+        summary,
+        on_upload,
+        on_save,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Session Summary")
         self.resize(680, 520)
+        self._on_upload = on_upload
+        self._on_save = on_save
 
         header = QtWidgets.QLabel(
             f"Session: {summary.session_id} | "
@@ -1430,16 +1677,37 @@ class SessionSummaryDialog(QtWidgets.QDialog):
                     item.setTextAlignment(QtCore.Qt.AlignCenter)
                 table.setItem(row, col, item)
 
+        export_combo = QtWidgets.QComboBox()
+        export_combo.addItem("Session Summary (JSON)", "summary_json")
+        export_combo.addItem("Session Summary (CSV)", "summary_csv")
+        export_combo.addItem("Training Report (JSON)", "training_report")
+        export_combo.addItem("Manifests (ZIP)", "manifests_zip")
+        save_button = QtWidgets.QPushButton("Save Session")
+        save_button.clicked.connect(lambda: self._on_save(export_combo.currentData()))
+
         close_button = QtWidgets.QPushButton("Close")
         close_button.clicked.connect(self.accept)
+        upload_button = QtWidgets.QPushButton("Upload Session")
+        upload_button.clicked.connect(lambda: self._on_upload(summary))
 
         layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(header)
+        top_row = QtWidgets.QHBoxLayout()
+        top_row.addWidget(header)
+        top_row.addStretch(1)
+        export_layout = QtWidgets.QVBoxLayout()
+        export_layout.addWidget(save_button)
+        export_layout.addWidget(export_combo)
+        top_row.addLayout(export_layout)
+        layout.addLayout(top_row)
         layout.addWidget(QtWidgets.QLabel("Strike Zone Heatmap"))
         layout.addWidget(heatmap)
         layout.addWidget(QtWidgets.QLabel("Pitch Summary"))
         layout.addWidget(table)
-        layout.addWidget(close_button)
+        button_row = QtWidgets.QHBoxLayout()
+        button_row.addWidget(upload_button)
+        button_row.addStretch(1)
+        button_row.addWidget(close_button)
+        layout.addLayout(button_row)
         self.setLayout(layout)
 
 
@@ -1567,6 +1835,8 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
         blob_thresh: float,
         min_area: int,
         min_circ: float,
+        threading_mode: str,
+        worker_count: int,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Detector Settings")
@@ -1600,6 +1870,16 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
         self._blob_thresh = QtWidgets.QDoubleSpinBox()
         self._min_area = QtWidgets.QSpinBox()
         self._min_circ = QtWidgets.QDoubleSpinBox()
+        self._threading = QtWidgets.QComboBox()
+        self._threading.addItem("Per-camera threads", "per_camera")
+        self._threading.addItem("Worker pool", "worker_pool")
+        self._threading.setCurrentIndex(
+            0 if threading_mode == "per_camera" else 1
+        )
+        self._workers = QtWidgets.QSpinBox()
+        self._workers.setMinimum(1)
+        self._workers.setMaximum(8)
+        self._workers.setValue(max(1, int(worker_count)))
         for field in (
             self._frame_diff,
             self._bg_diff,
@@ -1630,6 +1910,8 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
         form.addRow("Blob thresh", self._blob_thresh)
         form.addRow("Min area", self._min_area)
         form.addRow("Min circularity", self._min_circ)
+        form.addRow("Detection threading", self._threading)
+        form.addRow("Worker count (pool)", self._workers)
 
         buttons = QtWidgets.QHBoxLayout()
         apply_button = QtWidgets.QPushButton("Apply")
@@ -1655,6 +1937,8 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
             "blob_thresh": self._blob_thresh.value(),
             "min_area": self._min_area.value(),
             "min_circ": self._min_circ.value(),
+            "threading_mode": self._threading.currentData(),
+            "worker_count": self._workers.value(),
         }
 
 
