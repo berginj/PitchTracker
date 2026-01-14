@@ -10,6 +10,7 @@ import urllib.error
 import shutil
 import zipfile
 import csv
+import platform
 from dataclasses import asdict
 from collections import deque
 from pathlib import Path
@@ -40,9 +41,21 @@ from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Pitch Tracker Qt UI.")
-    parser.add_argument("--config", type=Path, default=Path("configs/default.yaml"))
+    parser.add_argument("--config", type=Path, default=None)
     parser.add_argument("--backend", default="uvc", choices=("uvc", "opencv", "sim"))
     return parser.parse_args()
+
+
+def _select_config_path(config_arg: Optional[Path]) -> Path:
+    if config_arg is not None:
+        return config_arg
+    machine = platform.machine().lower()
+    processor = platform.processor().lower()
+    is_arm = any(token in machine for token in ("arm", "aarch64")) or "arm" in processor
+    snapdragon_path = Path("configs/snapdragon.yaml")
+    if is_arm and snapdragon_path.exists():
+        return snapdragon_path
+    return Path("configs/default.yaml")
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -2081,7 +2094,8 @@ class PlatePlaneDialog(QtWidgets.QDialog):
 def main() -> None:
     args = parse_args()
     app = QtWidgets.QApplication([])
-    window = MainWindow(backend=args.backend, config_path=args.config)
+    config_path = _select_config_path(args.config)
+    window = MainWindow(backend=args.backend, config_path=config_path)
     window.resize(1280, 720)
     window.show()
     app.exec()

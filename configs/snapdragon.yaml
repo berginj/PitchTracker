@@ -1,0 +1,80 @@
+camera:
+  width: 1280
+  height: 720
+  fps: 30
+  pixfmt: GRAY8
+  exposure_us: 2000
+  gain: 0.0
+  wb_mode: null
+  wb: null
+  queue_depth: 6
+stereo:
+  pairing_tolerance_ms: 8
+  epipolar_epsilon_px: 3
+  baseline_ft: 1.0
+  focal_length_px: 1200.0
+  cx: null
+  cy: null
+  z_min_ft: 3
+  z_max_ft: 80
+  max_jump_in: 12
+tracking:
+  gate_distance_ft: 0.5
+  min_track_frames: 20
+metrics:
+  coordinate_system: "X: catcher left-right, Y: vertical, Z: toward plate"
+  plate_plane_z_ft: 0
+  release_plane_z_ft: 50
+  approach_window_ft: 5
+  velo_bounds_mph: [30, 110]
+  hb_bounds_in: [-30, 30]
+  ivb_bounds_in: [-30, 30]
+  release_height_bounds_ft: [1, 8]
+recording:
+  pre_roll_ms: 500
+  post_roll_ms: 500
+  output_dir: recordings
+  session_min_active_frames: 4
+  session_end_gap_frames: 8
+ui:
+  refresh_hz: 10
+telemetry:
+  latency_p95_ms_warn: 500
+upload:
+  swa_api_base: "https://mango-ground-0bca2111e.6.azurestaticapps.net/api"
+  api_key: ""
+  enabled: false
+detector:
+  type: classical
+  model_path: null
+  model_input_size: [640, 640]
+  model_conf_threshold: 0.25
+  model_class_id: 0
+  model_format: yolo_v5
+  mode: MODE_A
+  frame_diff_threshold: 18.0
+  bg_diff_threshold: 12.0
+  bg_alpha: 0.08
+  edge_threshold: 32.0
+  blob_threshold: 22.0
+  runtime_budget_ms: 8.0
+  crop_padding_px: 20
+  min_consecutive: 1
+  filters:
+    min_area: 20
+    max_area: null
+    min_circularity: 0.1
+    max_circularity: null
+    min_velocity: 0.0
+    max_velocity: null
+strike_zone:
+  batter_height_in: 72.0
+  top_ratio: 0.5
+  bottom_ratio: 0.27
+  plate_width_in: 17.0
+  plate_length_in: 17.0
+ball:
+  type: baseball
+  radius_in:
+    baseball: 1.45
+    softball: 1.88
