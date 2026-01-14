@@ -2176,6 +2176,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self.resize(720, 420)
         self._parent = parent
         self._index = 0
+        self._skipped_steps: list[str] = []
         self._steps = [
             {
                 "title": "Select Cameras",
@@ -2317,8 +2318,12 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
             self._refresh_step()
 
     def _skip_step(self) -> None:
+        step = self._steps[self._index]
+        title = step.get("title")
+        if title:
+            self._skipped_steps.append(title)
         if self._index >= len(self._steps) - 1:
-            self.accept()
+            self._finalize()
             return
         self._index += 1
         self._refresh_step()
@@ -2335,7 +2340,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
             self._status.setText(self._validation_text(step))
             return
         if self._index >= len(self._steps) - 1:
-            self.accept()
+            self._finalize()
             return
         self._index += 1
         self._refresh_step()
@@ -2387,6 +2392,33 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
             return False
         total = sum(len(items) for items in detections.values())
         return total > 0
+
+    def _finalize(self) -> None:
+        try:
+            self._parent._stop_capture()
+        except Exception:
+            pass
+        self._write_log()
+        self.accept()
+
+    def _write_log(self) -> None:
+        log_path = self._parent._config_path().parent / "calibration_wizard_log.json"
+        entry = {
+            "completed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "skipped_steps": self._skipped_steps,
+        }
+        payload = {"runs": []}
+        try:
+            if log_path.exists():
+                payload = json.loads(log_path.read_text())
+        except Exception:
+            payload = {"runs": []}
+        payload.setdefault("runs", [])
+        payload["runs"].append(entry)
+        try:
+            log_path.write_text(json.dumps(payload, indent=2))
+        except Exception:
+            pass
 
 
 class PlatePlaneDialog(QtWidgets.QDialog):
