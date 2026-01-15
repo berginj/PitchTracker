@@ -2185,12 +2185,15 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._parent = parent
         self._index = 0
         self._skipped_steps: list[str] = []
+        self._device_left: Optional[QtWidgets.QComboBox] = None
+        self._device_right: Optional[QtWidgets.QComboBox] = None
         self._steps = [
             {
                 "title": "Select Cameras",
                 "detail": "Select left/right camera serials and refresh devices if needed.",
                 "action_label": "Refresh Devices",
-                "action": self._parent._refresh_devices,
+                "action": self._refresh_devices_and_sync,
+                "widget": self._build_device_selector,
                 "validate": self._validate_devices,
             },
             {
@@ -2259,6 +2262,10 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._detail = QtWidgets.QLabel()
         self._detail.setWordWrap(True)
         self._status = QtWidgets.QLabel("")
+        self._step_area = QtWidgets.QWidget()
+        self._step_layout = QtWidgets.QVBoxLayout()
+        self._step_layout.setContentsMargins(0, 0, 0, 0)
+        self._step_area.setLayout(self._step_layout)
 
         self._action_button = QtWidgets.QPushButton()
         self._action_button.clicked.connect(self._run_action)
@@ -2284,6 +2291,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
 
         layout = QtWidgets.QVBoxLayout()
         layout.addLayout(header)
+        layout.addWidget(self._step_area)
         layout.addStretch(1)
         layout.addLayout(button_row)
         self.setLayout(layout)
@@ -2304,6 +2312,20 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
             self._action_button.setEnabled(False)
         self._back_button.setEnabled(self._index > 0)
         self._next_button.setText("Finish" if self._index == len(self._steps) - 1 else "Next")
+        self._refresh_step_widget(step)
+
+    def _refresh_step_widget(self, step: dict) -> None:
+        for i in reversed(range(self._step_layout.count())):
+            item = self._step_layout.takeAt(i)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+        builder = step.get("widget")
+        if builder is None:
+            return
+        widget = builder()
+        if widget is not None:
+            self._step_layout.addWidget(widget)
 
     def _validation_text(self, step: dict) -> str:
         validator = step.get("validate")
@@ -2357,6 +2379,43 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         left = _current_serial(self._parent._left_input)
         right = _current_serial(self._parent._right_input)
         return bool(left and right)
+
+    def _refresh_devices_and_sync(self) -> None:
+        self._parent._refresh_devices()
+        self._sync_device_dropdowns()
+
+    def _sync_device_dropdowns(self) -> None:
+        if self._device_left is None or self._device_right is None:
+            return
+        self._device_left.clear()
+        self._device_right.clear()
+        for combo, source in (
+            (self._device_left, self._parent._left_input),
+            (self._device_right, self._parent._right_input),
+        ):
+            for i in range(source.count()):
+                combo.addItem(source.itemText(i), source.itemData(i))
+            combo.setEditable(True)
+            combo.setCurrentText(source.currentText())
+
+    def _build_device_selector(self) -> Optional[QtWidgets.QWidget]:
+        widget = QtWidgets.QGroupBox("Device Selection")
+        left_combo = QtWidgets.QComboBox()
+        right_combo = QtWidgets.QComboBox()
+        self._device_left = left_combo
+        self._device_right = right_combo
+        self._sync_device_dropdowns()
+        left_combo.currentTextChanged.connect(
+            lambda text: self._parent._left_input.setCurrentText(text)
+        )
+        right_combo.currentTextChanged.connect(
+            lambda text: self._parent._right_input.setCurrentText(text)
+        )
+        form = QtWidgets.QFormLayout()
+        form.addRow("Left camera", left_combo)
+        form.addRow("Right camera", right_combo)
+        widget.setLayout(form)
+        return widget
 
     def _validate_health(self) -> bool:
         return self._parent._health_ok()
