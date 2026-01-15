@@ -159,7 +159,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._calib_summary = QtWidgets.QLabel("Calib: baseline_ft=? f_px=?")
 
         self._left_view = RoiLabel(self._on_rect_update)
-        self._right_view = QtWidgets.QLabel()
+        self._right_view = RoiLabel(self._on_right_rect_update)
         self._left_view.setMinimumSize(320, 180)
         self._right_view.setMinimumSize(320, 180)
         self._left_view.setAlignment(QtCore.Qt.AlignCenter)
@@ -168,6 +168,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._right_view.setScaledContents(True)
 
         self._lane_button = QtWidgets.QPushButton("Edit Lane ROI")
+        self._lane_right_button = QtWidgets.QPushButton("Edit Right Lane ROI")
         self._plate_button = QtWidgets.QPushButton("Edit Plate ROI")
         self._clear_lane_button = QtWidgets.QPushButton("Clear Lane ROI")
         self._clear_plate_button = QtWidgets.QPushButton("Clear Plate ROI")
@@ -223,6 +224,7 @@ class MainWindow(QtWidgets.QMainWindow):
         device_row.addWidget(self._refresh_button)
         roi_row = QtWidgets.QHBoxLayout()
         roi_row.addWidget(self._lane_button)
+        roi_row.addWidget(self._lane_right_button)
         roi_row.addWidget(self._plate_button)
         roi_row.addWidget(self._clear_lane_button)
         roi_row.addWidget(self._clear_plate_button)
@@ -286,6 +288,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._bottom_ratio.valueChanged.connect(self._set_strike_ratios)
         self._save_strike_button.clicked.connect(self._save_strike_zone)
         self._lane_button.clicked.connect(lambda: self._set_roi_mode("lane"))
+        self._lane_right_button.clicked.connect(lambda: self._set_roi_mode("lane_right"))
         self._plate_button.clicked.connect(lambda: self._set_roi_mode("plate"))
         self._clear_lane_button.clicked.connect(self._clear_lane)
         self._clear_plate_button.clicked.connect(self._clear_plate)
@@ -1026,8 +1029,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _set_roi_mode(self, mode: str) -> None:
         self._roi_mode = mode
-        self._left_view.set_mode(mode)
-        self._status_label.setText(f"ROI mode: {mode} (drag rectangle on left view)")
+        if mode == "lane_right":
+            self._left_view.set_mode(None)
+            self._right_view.set_mode(mode)
+            self._status_label.setText("ROI mode: lane_right (drag rectangle on right view)")
+        else:
+            self._left_view.set_mode(mode)
+            self._right_view.set_mode(None)
+            self._status_label.setText(f"ROI mode: {mode} (drag rectangle on left view)")
 
     def _on_rect_update(self, rect: Rect, final: bool) -> None:
         rect = _normalize_rect(rect, self._left_view.image_size())
@@ -1038,6 +1047,17 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._lane_rect = rect
             elif self._roi_mode == "plate":
                 self._plate_rect = rect
+            self._active_rect = None
+        else:
+            self._active_rect = rect
+
+    def _on_right_rect_update(self, rect: Rect, final: bool) -> None:
+        rect = _normalize_rect(rect, self._right_view.image_size())
+        if rect is None:
+            return
+        if final:
+            if self._roi_mode == "lane_right":
+                self._lane_rect_right = rect
             self._active_rect = None
         else:
             self._active_rect = rect
