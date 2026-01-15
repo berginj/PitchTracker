@@ -21,6 +21,7 @@ from capture.camera_device import CameraStats
 from capture.opencv_backend import OpenCVCamera
 from configs.settings import AppConfig
 from configs.roi_io import load_rois
+from configs.lane_io import load_lane_rois
 from contracts import Detection, Frame, PitchMetrics, StereoObservation
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 from detect.classical_detector import ClassicalDetector
@@ -812,10 +813,21 @@ class InProcessPipelineService(PipelineService):
         rois = load_rois(Path("configs/roi.json"))
         lane = rois.get("lane")
         plate = rois.get("plate")
+        lane_rois = load_lane_rois(Path("configs/lane_roi.json"))
         if lane:
             self._lane_polygon = [(float(x), float(y)) for x, y in lane]
-            lane_roi = LaneRoi(polygon=[(float(x), float(y)) for x, y in lane])
-            self._lane_gate = LaneGate(roi_by_camera={self._left_id: lane_roi, self._right_id: lane_roi})
+            lane_roi_left = LaneRoi(polygon=[(float(x), float(y)) for x, y in lane])
+            lane_roi_right = lane_roi_left
+            if lane_rois:
+                lane_left = lane_rois.get(self._left_id) or lane_rois.get("left")
+                lane_right = lane_rois.get(self._right_id) or lane_rois.get("right")
+                if lane_left is not None:
+                    lane_roi_left = lane_left
+                if lane_right is not None:
+                    lane_roi_right = lane_right
+            self._lane_gate = LaneGate(
+                roi_by_camera={self._left_id: lane_roi_left, self._right_id: lane_roi_right}
+            )
             self._stereo_gate = StereoLaneGate(lane_gate=self._lane_gate)
         else:
             self._lane_polygon = None
