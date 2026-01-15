@@ -88,6 +88,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self._detector_model_class_id = 0
         self._detector_model_format = "yolo_v5"
         self._calibration_wizard: Optional[CalibrationWizardDialog] = None
+        self._show_target_overlay = False
+        self._target_found = False
+        self._target_corners: Optional[list[tuple[float, float]]] = None
+        self._target_stride = 5
+        self._target_frame_index = 0
+        self._target_pattern = (9, 6)
 
         self._left_input = QtWidgets.QComboBox()
         self._right_input = QtWidgets.QComboBox()
@@ -793,6 +799,24 @@ class MainWindow(QtWidgets.QMainWindow):
         zone = None
         if strike.zone_row is not None and strike.zone_col is not None:
             zone = (strike.zone_row, strike.zone_col)
+        checkerboard = None
+        if self._show_target_overlay:
+            self._target_frame_index += 1
+            if self._target_frame_index % self._target_stride == 0:
+                gray = (
+                    left_frame.image
+                    if left_frame.image.ndim == 2
+                    else cv2.cvtColor(left_frame.image, cv2.COLOR_BGR2GRAY)
+                )
+                found, corners = cv2.findChessboardCorners(gray, self._target_pattern)
+                self._target_found = bool(found)
+                if found and corners is not None:
+                    self._target_corners = [
+                        (float(pt[0][0]), float(pt[0][1])) for pt in corners
+                    ]
+                else:
+                    self._target_corners = None
+            checkerboard = self._target_corners
         self._left_view.setPixmap(
             _frame_to_pixmap(
                 left_frame.image,
@@ -802,6 +826,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 left_gated.get("plate", []),
                 plate_rect=self._plate_rect,
                 zone=zone,
+                checkerboard=checkerboard,
             )
         )
         self._right_view.setPixmap(
@@ -1293,6 +1318,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self._detector_model_format = values["model_format"]
             self._apply_detector_config()
 
+    def _set_target_overlay(self, enabled: bool) -> None:
+        self._show_target_overlay = enabled
+        self._target_found = False
+        self._target_corners = None
+
     def _maybe_show_guide(self) -> None:
         marker = Path("configs/.first_run_done")
         if marker.exists():
@@ -1316,6 +1346,7 @@ def _frame_to_pixmap(
     plate_rect: Optional[Rect] = None,
     zone: tuple[int, int] | None = None,
     trail: list[tuple[int, int]] | None = None,
+    checkerboard: list[tuple[float, float]] | None = None,
 ) -> QtGui.QPixmap:
     if image.ndim == 2:
         height, width = image.shape
@@ -1347,6 +1378,7 @@ def _frame_to_pixmap(
         _draw_detections(painter, lane_detections, QtGui.QColor(0, 200, 255))
         _draw_detections(painter, plate_detections, QtGui.QColor(255, 180, 0))
         _draw_trail(painter, trail, QtGui.QColor(0, 255, 100))
+        _draw_checkerboard(painter, checkerboard)
         if plate_rect:
             _draw_plate_grid(painter, plate_rect, QtGui.QColor(255, 180, 0), zone)
         painter.end()
@@ -1518,6 +1550,17 @@ def _draw_detections(
             int(radius * 2),
             int(radius * 2),
         )
+
+
+def _draw_checkerboard(
+    painter: QtGui.QPainter,
+    corners: list[tuple[float, float]] | None,
+) -> None:
+    if not corners:
+        return
+    painter.setPen(QtGui.QPen(QtGui.QColor(0, 220, 0), 2))
+    for x, y in corners:
+        painter.drawEllipse(int(x) - 2, int(y) - 2, 4, 4)
 
 
 def _draw_plate_grid(
@@ -2187,31 +2230,24 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._skipped_steps: list[str] = []
         self._device_left: Optional[QtWidgets.QComboBox] = None
         self._device_right: Optional[QtWidgets.QComboBox] = None
+        self._target_label: Optional[QtWidgets.QLabel] = None
         self._steps = [
             {
-                "title": "Select Cameras",
-                "detail": "Select left/right camera serials and refresh devices if needed.",
-                "action_label": "Refresh Devices",
-                "action": self._refresh_devices_and_sync,
-                "widget": self._build_device_selector,
-                "validate": self._validate_devices,
-            },
-            {
                 "title": "Start Capture + Health Check",
-                "detail": "Start capture and confirm FPS and drops are within limits.",
+                "detail": "Select cameras, refresh devices if needed, start capture, and confirm FPS/drops.",
                 "action_label": "Start Capture",
                 "action": self._parent._start_capture,
+                "widget": self._build_device_selector,
                 "validate": self._validate_health,
             },
             {
-                "title": "Place Calibration Target",
-                "detail": (
-                    "Place a calibration checkerboard at pitching distance so the "
-                    "rubber-to-plate distance is represented in your calibration images."
-                ),
+                "title": "Calibration Target (Checkerboard)",
+                "detail": "Place the checkerboard in view. The indicator turns green when detected.",
                 "action_label": "Open Guide",
                 "action": self._parent._open_calibration_guide,
-                "validate": None,
+                "widget": self._build_target_indicator,
+                "validate": self._validate_target_detected,
+                "target_overlay": True,
             },
             {
                 "title": "Lane ROI",
@@ -2266,6 +2302,9 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._step_layout = QtWidgets.QVBoxLayout()
         self._step_layout.setContentsMargins(0, 0, 0, 0)
         self._step_area.setLayout(self._step_layout)
+        self._status_timer = QtCore.QTimer(self)
+        self._status_timer.timeout.connect(self._update_live_status)
+        self._status_timer.start(500)
 
         self._action_button = QtWidgets.QPushButton()
         self._action_button.clicked.connect(self._run_action)
@@ -2313,6 +2352,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._back_button.setEnabled(self._index > 0)
         self._next_button.setText("Finish" if self._index == len(self._steps) - 1 else "Next")
         self._refresh_step_widget(step)
+        self._parent._set_target_overlay(bool(step.get("target_overlay", False)))
 
     def _refresh_step_widget(self, step: dict) -> None:
         for i in reversed(range(self._step_layout.count())):
@@ -2321,6 +2361,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
             if widget is not None:
                 widget.setParent(None)
         builder = step.get("widget")
+        self._target_label = None
         if builder is None:
             return
         widget = builder()
@@ -2380,6 +2421,9 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         right = _current_serial(self._parent._right_input)
         return bool(left and right)
 
+    def _validate_target_detected(self) -> bool:
+        return bool(self._parent._target_found)
+
     def _refresh_devices_and_sync(self) -> None:
         self._parent._refresh_devices()
         self._sync_device_dropdowns()
@@ -2414,8 +2458,25 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         form = QtWidgets.QFormLayout()
         form.addRow("Left camera", left_combo)
         form.addRow("Right camera", right_combo)
+        refresh_button = QtWidgets.QPushButton("Refresh Devices")
+        refresh_button.clicked.connect(self._refresh_devices_and_sync)
+        form.addRow("", refresh_button)
         widget.setLayout(form)
         return widget
+
+    def _build_target_indicator(self) -> Optional[QtWidgets.QWidget]:
+        widget = QtWidgets.QGroupBox("Target Detection")
+        self._target_label = QtWidgets.QLabel("Target detected: no")
+        form = QtWidgets.QFormLayout()
+        form.addRow(self._target_label)
+        widget.setLayout(form)
+        return widget
+
+    def _update_live_status(self) -> None:
+        if self._target_label is None:
+            return
+        found = self._parent._target_found
+        self._target_label.setText("Target detected: yes" if found else "Target detected: no")
 
     def _validate_health(self) -> bool:
         return self._parent._health_ok()
