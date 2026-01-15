@@ -34,6 +34,7 @@ from configs.settings import load_config
 from detect.lane import LaneRoi
 from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig, Mode
 from detect.classical_detector import ClassicalDetector
+from detect.fiducials import detect_apriltags, FiducialDetection
 from record.training_report import build_training_report
 from contracts import Frame
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
@@ -95,6 +96,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self._target_stride = 5
         self._target_frame_index = 0
         self._target_pattern = (9, 6)
+        self._show_fiducials = False
+        self._fiducial_detections: list[FiducialDetection] = []
+        self._fiducial_error: Optional[str] = None
+        self._fiducial_stride = 5
+        self._fiducial_frame_index = 0
+        self._fiducial_ids = {"plate": 0, "rubber": 1}
 
         self._left_input = QtWidgets.QComboBox()
         self._right_input = QtWidgets.QComboBox()
@@ -823,6 +830,19 @@ class MainWindow(QtWidgets.QMainWindow):
                 else:
                     self._target_corners = None
             checkerboard = self._target_corners
+        fiducials = None
+        if self._show_fiducials:
+            self._fiducial_frame_index += 1
+            if self._fiducial_frame_index % self._fiducial_stride == 0:
+                gray = (
+                    left_frame.image
+                    if left_frame.image.ndim == 2
+                    else cv2.cvtColor(left_frame.image, cv2.COLOR_BGR2GRAY)
+                )
+                detections, error = detect_apriltags(gray)
+                self._fiducial_detections = detections
+                self._fiducial_error = error
+            fiducials = self._fiducial_detections
         self._left_view.setPixmap(
             _frame_to_pixmap(
                 left_frame.image,
@@ -833,6 +853,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 plate_rect=self._plate_rect,
                 zone=zone,
                 checkerboard=checkerboard,
+                fiducials=fiducials,
             )
         )
         self._right_view.setPixmap(
@@ -1361,6 +1382,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._target_found = False
         self._target_corners = None
 
+    def _set_fiducial_overlay(self, enabled: bool) -> None:
+        self._show_fiducials = enabled
+        self._fiducial_detections = []
+        self._fiducial_error = None
+
     def _propose_right_lane(self) -> None:
         if self._lane_rect is None:
             QtWidgets.QMessageBox.information(
@@ -1434,6 +1460,7 @@ def _frame_to_pixmap(
     zone: tuple[int, int] | None = None,
     trail: list[tuple[int, int]] | None = None,
     checkerboard: list[tuple[float, float]] | None = None,
+    fiducials: list[FiducialDetection] | None = None,
 ) -> QtGui.QPixmap:
     if image.ndim == 2:
         height, width = image.shape
@@ -1466,6 +1493,7 @@ def _frame_to_pixmap(
         _draw_detections(painter, plate_detections, QtGui.QColor(255, 180, 0))
         _draw_trail(painter, trail, QtGui.QColor(0, 255, 100))
         _draw_checkerboard(painter, checkerboard)
+        _draw_fiducials(painter, fiducials)
         if plate_rect:
             _draw_plate_grid(painter, plate_rect, QtGui.QColor(255, 180, 0), zone)
         painter.end()
@@ -1648,6 +1676,23 @@ def _draw_checkerboard(
     painter.setPen(QtGui.QPen(QtGui.QColor(0, 220, 0), 2))
     for x, y in corners:
         painter.drawEllipse(int(x) - 2, int(y) - 2, 4, 4)
+
+
+def _draw_fiducials(
+    painter: QtGui.QPainter,
+    detections: list[FiducialDetection] | None,
+) -> None:
+    if not detections:
+        return
+    for det in detections:
+        color = QtGui.QColor(255, 180, 0) if det.tag_id == 0 else QtGui.QColor(0, 200, 255)
+        painter.setPen(QtGui.QPen(color, 2))
+        pts = det.corners
+        for i in range(len(pts)):
+            x1, y1 = pts[i]
+            x2, y2 = pts[(i + 1) % len(pts)]
+            painter.drawLine(int(x1), int(y1), int(x2), int(y2))
+        painter.drawText(int(pts[0][0]), int(pts[0][1]) - 4, f"id {det.tag_id}")
 
 
 def _draw_plate_grid(
@@ -2318,6 +2363,8 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._device_left: Optional[QtWidgets.QComboBox] = None
         self._device_right: Optional[QtWidgets.QComboBox] = None
         self._target_label: Optional[QtWidgets.QLabel] = None
+        self._fiducial_label: Optional[QtWidgets.QLabel] = None
+        self._fiducial_error_label: Optional[QtWidgets.QLabel] = None
         self._steps = [
             {
                 "title": "Start Capture + Health Check",
@@ -2335,6 +2382,15 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
                 "widget": self._build_target_indicator,
                 "validate": self._validate_target_detected,
                 "target_overlay": True,
+            },
+            {
+                "title": "Fiducials (Plate + Rubber)",
+                "detail": "Place AprilTags on the front of the plate and rubber. Both IDs must be detected.",
+                "action_label": None,
+                "action": None,
+                "widget": self._build_fiducial_indicator,
+                "validate": self._validate_fiducials,
+                "fiducial_overlay": True,
             },
             {
                 "title": "Lane ROI",
@@ -2441,6 +2497,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._next_button.setText("Finish" if self._index == len(self._steps) - 1 else "Next")
         self._refresh_step_widget(step)
         self._parent._set_target_overlay(bool(step.get("target_overlay", False)))
+        self._parent._set_fiducial_overlay(bool(step.get("fiducial_overlay", False)))
 
     def _refresh_step_widget(self, step: dict) -> None:
         for i in reversed(range(self._step_layout.count())):
@@ -2450,6 +2507,8 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
                 widget.setParent(None)
         builder = step.get("widget")
         self._target_label = None
+        self._fiducial_label = None
+        self._fiducial_error_label = None
         if builder is None:
             return
         widget = builder()
@@ -2512,6 +2571,13 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
     def _validate_target_detected(self) -> bool:
         return bool(self._parent._target_found)
 
+    def _validate_fiducials(self) -> bool:
+        if self._parent._fiducial_error:
+            return False
+        ids = {det.tag_id for det in self._parent._fiducial_detections}
+        required = set(self._parent._fiducial_ids.values())
+        return required.issubset(ids)
+
     def _refresh_devices_and_sync(self) -> None:
         self._parent._refresh_devices()
         self._sync_device_dropdowns()
@@ -2560,6 +2626,23 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         widget.setLayout(form)
         return widget
 
+    def _build_fiducial_indicator(self) -> Optional[QtWidgets.QWidget]:
+        widget = QtWidgets.QGroupBox("Fiducial Detection")
+        plate_id = self._parent._fiducial_ids["plate"]
+        rubber_id = self._parent._fiducial_ids["rubber"]
+        self._fiducial_label = QtWidgets.QLabel("Tags detected: 0")
+        self._fiducial_error_label = QtWidgets.QLabel("")
+        hint = QtWidgets.QLabel(
+            f"Required IDs: plate={plate_id}, rubber={rubber_id} (AprilTag 36h11, 100mm)."
+        )
+        hint.setWordWrap(True)
+        form = QtWidgets.QFormLayout()
+        form.addRow(hint)
+        form.addRow(self._fiducial_label)
+        form.addRow(self._fiducial_error_label)
+        widget.setLayout(form)
+        return widget
+
     def _build_lane_helper(self) -> Optional[QtWidgets.QWidget]:
         widget = QtWidgets.QGroupBox("Lane Helper")
         propose_button = QtWidgets.QPushButton("Propose Right Lane")
@@ -2576,9 +2659,16 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
 
     def _update_live_status(self) -> None:
         if self._target_label is None:
-            return
+            pass
         found = self._parent._target_found
-        self._target_label.setText("Target detected: yes" if found else "Target detected: no")
+        if self._target_label is not None:
+            self._target_label.setText("Target detected: yes" if found else "Target detected: no")
+        if self._fiducial_label is not None:
+            ids = [det.tag_id for det in self._parent._fiducial_detections]
+            self._fiducial_label.setText(f"Tags detected: {len(ids)} ({ids})")
+        if self._fiducial_error_label is not None:
+            error = self._parent._fiducial_error
+            self._fiducial_error_label.setText(error or "")
 
     def _validate_health(self) -> bool:
         return self._parent._health_ok()
