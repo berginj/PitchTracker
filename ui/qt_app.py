@@ -87,6 +87,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._detector_model_conf_threshold = 0.25
         self._detector_model_class_id = 0
         self._detector_model_format = "yolo_v5"
+        self._calibration_wizard: Optional[CalibrationWizardDialog] = None
 
         self._left_input = QtWidgets.QComboBox()
         self._right_input = QtWidgets.QComboBox()
@@ -485,8 +486,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self._run_calibration_wizard()
 
     def _run_calibration_wizard(self) -> None:
+        if self._calibration_wizard is not None:
+            self._calibration_wizard.raise_()
+            self._calibration_wizard.activateWindow()
+            return
         wizard = CalibrationWizardDialog(self)
-        wizard.exec()
+        wizard.setModal(False)
+        wizard.finished.connect(lambda: setattr(self, "_calibration_wizard", None))
+        self._calibration_wizard = wizard
+        wizard.show()
 
     def _cue_card_test(self) -> None:
         try:
