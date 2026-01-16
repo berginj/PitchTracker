@@ -7,3 +7,6 @@ configs/pitchers.json
 configs/app_state.json
 configs/locations/
 *.log
+
+# Claude Code local settings
+.claude/
