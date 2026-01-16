@@ -8,7 +8,7 @@ import jsonschema
 from jsonschema import Draft7Validator, validators
 
 from exceptions import ConfigValidationError
-from logging.logger import get_logger
+from log_config.logger import get_logger
 
 logger = get_logger(__name__)
 

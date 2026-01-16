@@ -23,7 +23,7 @@ Write-Host "[3/5] Verifying installations..." -ForegroundColor Green
 
 # Test imports
 Write-Host "  - Testing logging infrastructure..." -ForegroundColor Gray
-python -c "from logging.logger import get_logger; logger = get_logger('test'); logger.info('✓ Logging works'); print('    ✓ Logging module OK')"
+python -c "from log_config.logger import get_logger; logger = get_logger('test'); logger.info('✓ Logging works'); print('    ✓ Logging module OK')"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "    [ERROR] Logging test failed" -ForegroundColor Red
     exit 1

@@ -21,7 +21,7 @@ This document summarizes the improvements implemented for tasks 1-5 of the Pitch
 
 **Usage:**
 ```python
-from logging.logger import get_logger, log_performance
+from log_config.logger import get_logger, log_performance
 
 logger = get_logger(__name__)
 logger.info("Application started")
@@ -374,7 +374,7 @@ safety check
 
 ### Performance Profiling:
 ```python
-from logging.logger import log_performance
+from log_config.logger import log_performance
 import time
 
 start = time.time()

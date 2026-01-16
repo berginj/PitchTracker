@@ -42,7 +42,7 @@ from exceptions import (
     RecordingError,
 )
 from integrations.radar import NullRadarGun, RadarGunClient
-from logging.logger import get_logger
+from log_config.logger import get_logger
 from metrics.simple_metrics import (
     PlateMetricsStub,
     compute_plate_from_observations,

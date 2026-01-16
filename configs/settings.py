@@ -10,7 +10,7 @@ import yaml
 
 from configs.validator import validate_config
 from exceptions import ConfigError, InvalidConfigError
-from logging.logger import get_logger
+from log_config.logger import get_logger
 
 logger = get_logger(__name__)
 

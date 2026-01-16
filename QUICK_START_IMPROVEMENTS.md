@@ -29,7 +29,7 @@ type logs\pitchtracker_*.log | Select-Object -Last 20
 ## 📋 New Files Created
 
 ```
-logging/
+log_config/
   ├── __init__.py
   └── logger.py              # Logging configuration
 
@@ -50,7 +50,7 @@ IMPROVEMENTS_SUMMARY.md      # Full documentation
 
 ### Logging
 ```python
-from logging.logger import get_logger
+from log_config.logger import get_logger
 
 logger = get_logger(__name__)
 logger.info("Processing frame")

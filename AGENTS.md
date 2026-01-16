@@ -52,7 +52,7 @@ PitchTracker/
 ├── contracts/              # Serialized contract definitions
 ├── detect/                 # Detection (classical + ML)
 ├── exceptions.py           # Custom exception hierarchy
-├── logging/                # Structured logging with loguru
+├── log_config/             # Structured logging with loguru
 ├── metrics/                # Strike zone and metrics
 ├── record/                 # Recording and manifests
 ├── stereo/                 # Stereo matching and triangulation
@@ -96,7 +96,7 @@ PitchTracker/
 3. **Classes must be < 30 methods** (target 10-15 methods)
 4. **One responsibility per module**
 5. **Always use custom exceptions** (never generic `Exception` or `RuntimeError`)
-6. **Log all important events** (use `from logging.logger import get_logger`)
+6. **Log all important events** (use `from log_config.logger import get_logger`)
 7. **Test everything** (smoke tests + unit tests + integration tests)
 8. **Type hints everywhere** (all function signatures)
 9. **Document public APIs** (docstrings with Args, Returns, Raises)

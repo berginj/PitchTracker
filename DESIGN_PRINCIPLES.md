@@ -188,7 +188,7 @@ from PySide6 import QtWidgets
 
 from configs.settings import load_config
 from exceptions import CameraConnectionError
-from logging.logger import get_logger
+from log_config.logger import get_logger
 ```
 
 ### Avoid Circular Imports
@@ -288,7 +288,7 @@ def start_capture(self, left_serial: str, right_serial: str):
 
 ### Logging Pattern
 ```python
-from logging.logger import get_logger
+from log_config.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -603,7 +603,7 @@ Before committing code, verify:
 - ✅ `ui/device_utils.py` (70 lines, 3 functions, well-tested)
 - ✅ `ui/dialogs/checklist_dialog.py` (45 lines, simple dialog)
 - ✅ `exceptions.py` (110 lines, 10 exception classes)
-- ✅ `logging/logger.py` (80 lines, focused logging setup)
+- ✅ `log_config/logger.py` (80 lines, focused logging setup)
 
 ### Modules Needing Refactoring
 - ⚠️ `ui/main_window.py` (1,465 lines - needs further splitting)

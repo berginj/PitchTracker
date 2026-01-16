@@ -17,7 +17,7 @@ from exceptions import (
     CameraConfigurationError,
     CameraNotFoundError,
 )
-from logging.logger import get_logger
+from log_config.logger import get_logger
 
 from .camera_device import CameraDevice, CameraStats
 
