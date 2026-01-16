@@ -12,8 +12,16 @@ from typing import Deque, Optional
 import cv2
 
 from contracts import Frame
+from exceptions import (
+    CameraConnectionError,
+    CameraConfigurationError,
+    CameraNotFoundError,
+)
+from logging.logger import get_logger
 
 from .camera_device import CameraDevice, CameraStats
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -38,26 +46,95 @@ class UvcCamera(CameraDevice):
         self._pixfmt = "GRAY8"
 
     def open(self, serial: str) -> None:
-        self._serial = serial
-        target = self._resolve_device(serial)
-        self._friendly_name = target
-        if target.isdigit() and target == serial:
-            self._capture = cv2.VideoCapture(int(serial), cv2.CAP_DSHOW)
-        else:
-            self._capture = cv2.VideoCapture(f"video={target}", cv2.CAP_DSHOW)
-        if self._capture is None or not self._capture.isOpened():
-            raise RuntimeError(f"Failed to open camera for serial '{serial}'.")
+        """Open camera connection.
+
+        Args:
+            serial: Camera serial number or device index
+
+        Raises:
+            CameraNotFoundError: If camera is not found
+            CameraConnectionError: If connection fails
+        """
+        try:
+            logger.info(f"Opening camera with serial: {serial}")
+            self._serial = serial
+            target = self._resolve_device(serial)
+            self._friendly_name = target
+
+            if target.isdigit() and target == serial:
+                self._capture = cv2.VideoCapture(int(serial), cv2.CAP_DSHOW)
+            else:
+                self._capture = cv2.VideoCapture(f"video={target}", cv2.CAP_DSHOW)
+
+            if self._capture is None or not self._capture.isOpened():
+                logger.error(f"Failed to open camera {serial}: capture object invalid")
+                raise CameraConnectionError(
+                    f"Failed to open camera for serial '{serial}'. "
+                    "Check that the camera is connected and not in use by another application.",
+                    camera_id=serial,
+                )
+
+            logger.info(f"Camera {serial} opened successfully: {self._friendly_name}")
+
+        except CameraNotFoundError:
+            raise
+        except CameraConnectionError:
+            raise
+        except Exception as e:
+            logger.exception(f"Unexpected error opening camera {serial}")
+            raise CameraConnectionError(
+                f"Unexpected error opening camera '{serial}': {e}",
+                camera_id=serial,
+            )
 
     def set_mode(self, width: int, height: int, fps: int, pixfmt: str) -> None:
+        """Set camera capture mode.
+
+        Args:
+            width: Frame width in pixels
+            height: Frame height in pixels
+            fps: Target frames per second
+            pixfmt: Pixel format (GRAY8, RGB24, etc.)
+
+        Raises:
+            CameraConfigurationError: If mode setting fails
+        """
         if self._capture is None:
-            raise RuntimeError("Camera not opened.")
-        self._width = width
-        self._height = height
-        self._fps = fps
-        self._pixfmt = pixfmt
-        self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        self._capture.set(cv2.CAP_PROP_FPS, fps)
+            raise CameraConfigurationError(
+                "Camera not opened. Call open() first.",
+                camera_id=self._serial,
+            )
+
+        try:
+            logger.debug(f"Setting camera mode: {width}x{height}@{fps}fps, format={pixfmt}")
+            self._width = width
+            self._height = height
+            self._fps = fps
+            self._pixfmt = pixfmt
+
+            self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+            self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+            self._capture.set(cv2.CAP_PROP_FPS, fps)
+
+            # Verify settings were applied
+            actual_width = self._capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+            actual_height = self._capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
+            actual_fps = self._capture.get(cv2.CAP_PROP_FPS)
+
+            if (actual_width != width or actual_height != height):
+                logger.warning(
+                    f"Camera mode mismatch: requested {width}x{height}@{fps}fps, "
+                    f"got {actual_width}x{actual_height}@{actual_fps}fps"
+                )
+
+            logger.info(f"Camera mode set successfully: {actual_width}x{actual_height}@{actual_fps}fps")
+
+        except Exception as e:
+            logger.error(f"Failed to set camera mode: {e}")
+            raise CameraConfigurationError(
+                f"Failed to set camera mode to {width}x{height}@{fps}fps: {e}",
+                camera_id=self._serial,
+            )
 
     def set_controls(
         self,
@@ -77,12 +154,31 @@ class UvcCamera(CameraDevice):
                 self._capture.set(cv2.CAP_PROP_WB_TEMPERATURE, wb)
 
     def read_frame(self, timeout_ms: int) -> Frame:
+        """Read a frame from the camera.
+
+        Args:
+            timeout_ms: Read timeout in milliseconds (not used for OpenCV backend)
+
+        Returns:
+            Frame object with image data and metadata
+
+        Raises:
+            CameraConnectionError: If frame read fails (camera disconnected)
+        """
         if self._capture is None:
-            raise RuntimeError("Camera not opened.")
+            raise CameraConnectionError(
+                "Camera not opened. Call open() first.",
+                camera_id=self._serial,
+            )
+
         ok, frame = self._capture.read()
         if not ok:
             self._stats.dropped += 1
-            raise TimeoutError("Failed to read frame.")
+            logger.warning(f"Failed to read frame from camera {self._serial}")
+            raise CameraConnectionError(
+                f"Failed to read frame from camera '{self._serial}'. Camera may be disconnected.",
+                camera_id=self._serial,
+            )
         if self._pixfmt == "GRAY8":
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         now_ns = time.monotonic_ns()
@@ -123,27 +219,66 @@ class UvcCamera(CameraDevice):
         )
 
     def close(self) -> None:
+        """Close camera connection and release resources."""
         if self._capture is not None:
-            self._capture.release()
-            self._capture = None
+            try:
+                logger.info(f"Closing camera {self._serial}")
+                self._capture.release()
+                self._capture = None
+                logger.debug(f"Camera {self._serial} closed successfully")
+            except Exception as e:
+                logger.error(f"Error closing camera {self._serial}: {e}")
 
     def _resolve_device(self, serial: str) -> str:
-        devices = _list_camera_devices()
-        matches = [
-            dev for dev in devices if dev["serial"].lower() == serial.lower()
-        ]
-        if not matches:
-            if serial.isdigit():
-                return serial
-            raise RuntimeError(
-                f"No camera found with serial '{serial}'. "
-                f"Available serials: {[dev['serial'] for dev in devices]}"
+        """Resolve camera serial to device name.
+
+        Args:
+            serial: Camera serial number
+
+        Returns:
+            Device friendly name or index
+
+        Raises:
+            CameraNotFoundError: If camera is not found
+        """
+        try:
+            devices = _list_camera_devices()
+            matches = [
+                dev for dev in devices if dev["serial"].lower() == serial.lower()
+            ]
+
+            if not matches:
+                if serial.isdigit():
+                    logger.debug(f"Using numeric index for camera: {serial}")
+                    return serial
+
+                available_serials = [dev['serial'] for dev in devices]
+                logger.error(f"Camera not found: {serial}. Available: {available_serials}")
+                raise CameraNotFoundError(
+                    f"No camera found with serial '{serial}'. "
+                    f"Available serials: {available_serials}",
+                    camera_id=serial,
+                )
+
+            if len(matches) > 1:
+                logger.error(f"Multiple cameras matched serial {serial}: {matches}")
+                raise CameraNotFoundError(
+                    f"Multiple cameras matched serial '{serial}': {matches}",
+                    camera_id=serial,
+                )
+
+            friendly_name = matches[0]["friendly_name"]
+            logger.debug(f"Resolved camera {serial} to {friendly_name}")
+            return friendly_name
+
+        except CameraNotFoundError:
+            raise
+        except Exception as e:
+            logger.exception(f"Error resolving camera device {serial}")
+            raise CameraNotFoundError(
+                f"Error resolving camera device '{serial}': {e}",
+                camera_id=serial,
             )
-        if len(matches) > 1:
-            raise RuntimeError(
-                f"Multiple cameras matched serial '{serial}': {matches}"
-            )
-        return matches[0]["friendly_name"]
 
 
 def _list_camera_devices() -> list[dict[str, str]]:

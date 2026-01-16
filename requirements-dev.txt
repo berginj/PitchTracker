@@ -1,0 +1,14 @@
+# Development dependencies for PitchTracker
+-r requirements.txt
+
+# Code quality
+black==23.12.1
+mypy==1.7.1
+flake8==6.1.0
+
+# Profiling
+py-spy==0.3.14
+memory-profiler==0.61.0
+
+# Security
+safety==3.0.1

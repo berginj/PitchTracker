@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import yaml
+
+from configs.validator import validate_config
+from exceptions import ConfigError, InvalidConfigError
+from logging.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -132,64 +138,105 @@ class AppConfig:
 
 
 def load_config(path: Path) -> AppConfig:
-    data = yaml.safe_load(path.read_text())
-    camera = CameraConfig(**data["camera"])
-    stereo_data = data["stereo"]
-    stereo = StereoConfig(
-        pairing_tolerance_ms=stereo_data["pairing_tolerance_ms"],
-        epipolar_epsilon_px=stereo_data["epipolar_epsilon_px"],
-        baseline_ft=stereo_data.get("baseline_ft", 1.0),
-        focal_length_px=stereo_data.get("focal_length_px", 1200.0),
-        cx=stereo_data.get("cx"),
-        cy=stereo_data.get("cy"),
-        z_min_ft=stereo_data["z_min_ft"],
-        z_max_ft=stereo_data["z_max_ft"],
-        max_jump_in=stereo_data["max_jump_in"],
-    )
-    tracking = TrackingConfig(**data["tracking"])
-    metrics = MetricsConfig(
-        coordinate_system=data["metrics"]["coordinate_system"],
-        plate_plane_z_ft=data["metrics"]["plate_plane_z_ft"],
-        release_plane_z_ft=data["metrics"]["release_plane_z_ft"],
-        approach_window_ft=data["metrics"]["approach_window_ft"],
-        velo_bounds_mph=tuple(data["metrics"]["velo_bounds_mph"]),
-        hb_bounds_in=tuple(data["metrics"]["hb_bounds_in"]),
-        ivb_bounds_in=tuple(data["metrics"]["ivb_bounds_in"]),
-        release_height_bounds_ft=tuple(data["metrics"]["release_height_bounds_ft"]),
-    )
-    recording = RecordingConfig(**data["recording"])
-    ui = UiConfig(**data["ui"])
-    telemetry = TelemetryConfig(**data["telemetry"])
-    detector_filters = DetectorFiltersConfig(**data["detector"]["filters"])
-    detector = DetectorConfig(
-        type=data["detector"].get("type", "classical"),
-        model_path=data["detector"].get("model_path"),
-        model_input_size=tuple(data["detector"].get("model_input_size", (640, 640))),
-        model_conf_threshold=float(data["detector"].get("model_conf_threshold", 0.25)),
-        model_class_id=int(data["detector"].get("model_class_id", 0)),
-        model_format=data["detector"].get("model_format", "yolo_v5"),
-        mode=data["detector"]["mode"],
-        frame_diff_threshold=data["detector"]["frame_diff_threshold"],
-        bg_diff_threshold=data["detector"]["bg_diff_threshold"],
-        bg_alpha=data["detector"]["bg_alpha"],
-        edge_threshold=data["detector"]["edge_threshold"],
-        blob_threshold=data["detector"]["blob_threshold"],
-        runtime_budget_ms=data["detector"]["runtime_budget_ms"],
-        crop_padding_px=data["detector"]["crop_padding_px"],
-        min_consecutive=data["detector"]["min_consecutive"],
-        filters=detector_filters,
-    )
-    strike_zone = StrikeZoneConfig(**data["strike_zone"])
-    ball = BallConfig(**data["ball"])
-    return AppConfig(
-        camera=camera,
-        stereo=stereo,
-        tracking=tracking,
-        metrics=metrics,
-        recording=recording,
-        ui=ui,
-        telemetry=telemetry,
-        detector=detector,
-        strike_zone=strike_zone,
-        ball=ball,
-    )
+    """Load and validate configuration from YAML file.
+
+    Args:
+        path: Path to configuration file
+
+    Returns:
+        Validated AppConfig instance
+
+    Raises:
+        ConfigError: If configuration is invalid or cannot be loaded
+    """
+    try:
+        logger.info(f"Loading configuration from {path}")
+        if not path.exists():
+            raise InvalidConfigError(f"Configuration file not found: {path}")
+
+        data = yaml.safe_load(path.read_text())
+
+        # Validate against JSON Schema
+        validate_config(data)
+
+        logger.debug("Parsing configuration sections")
+
+    except yaml.YAMLError as e:
+        logger.error(f"Failed to parse YAML configuration: {e}")
+        raise InvalidConfigError(f"Failed to parse configuration file: {e}")
+    except KeyError as e:
+        logger.error(f"Missing required configuration key: {e}")
+        raise InvalidConfigError(f"Missing required configuration key: {e}")
+    except (TypeError, ValueError) as e:
+        logger.error(f"Invalid configuration value: {e}")
+        raise InvalidConfigError(f"Invalid configuration value: {e}")
+
+    try:
+        camera = CameraConfig(**data["camera"])
+        stereo_data = data["stereo"]
+        stereo = StereoConfig(
+            pairing_tolerance_ms=stereo_data["pairing_tolerance_ms"],
+            epipolar_epsilon_px=stereo_data["epipolar_epsilon_px"],
+            baseline_ft=stereo_data.get("baseline_ft", 1.0),
+            focal_length_px=stereo_data.get("focal_length_px", 1200.0),
+            cx=stereo_data.get("cx"),
+            cy=stereo_data.get("cy"),
+            z_min_ft=stereo_data["z_min_ft"],
+            z_max_ft=stereo_data["z_max_ft"],
+            max_jump_in=stereo_data["max_jump_in"],
+        )
+        tracking = TrackingConfig(**data["tracking"])
+        metrics = MetricsConfig(
+            coordinate_system=data["metrics"]["coordinate_system"],
+            plate_plane_z_ft=data["metrics"]["plate_plane_z_ft"],
+            release_plane_z_ft=data["metrics"]["release_plane_z_ft"],
+            approach_window_ft=data["metrics"]["approach_window_ft"],
+            velo_bounds_mph=tuple(data["metrics"]["velo_bounds_mph"]),
+            hb_bounds_in=tuple(data["metrics"]["hb_bounds_in"]),
+            ivb_bounds_in=tuple(data["metrics"]["ivb_bounds_in"]),
+            release_height_bounds_ft=tuple(data["metrics"]["release_height_bounds_ft"]),
+        )
+        recording = RecordingConfig(**data["recording"])
+        ui = UiConfig(**data["ui"])
+        telemetry = TelemetryConfig(**data["telemetry"])
+        detector_filters = DetectorFiltersConfig(**data["detector"]["filters"])
+        detector = DetectorConfig(
+            type=data["detector"].get("type", "classical"),
+            model_path=data["detector"].get("model_path"),
+            model_input_size=tuple(data["detector"].get("model_input_size", (640, 640))),
+            model_conf_threshold=float(data["detector"].get("model_conf_threshold", 0.25)),
+            model_class_id=int(data["detector"].get("model_class_id", 0)),
+            model_format=data["detector"].get("model_format", "yolo_v5"),
+            mode=data["detector"]["mode"],
+            frame_diff_threshold=data["detector"]["frame_diff_threshold"],
+            bg_diff_threshold=data["detector"]["bg_diff_threshold"],
+            bg_alpha=data["detector"]["bg_alpha"],
+            edge_threshold=data["detector"]["edge_threshold"],
+            blob_threshold=data["detector"]["blob_threshold"],
+            runtime_budget_ms=data["detector"]["runtime_budget_ms"],
+            crop_padding_px=data["detector"]["crop_padding_px"],
+            min_consecutive=data["detector"]["min_consecutive"],
+            filters=detector_filters,
+        )
+        strike_zone = StrikeZoneConfig(**data["strike_zone"])
+        ball = BallConfig(**data["ball"])
+
+        config = AppConfig(
+            camera=camera,
+            stereo=stereo,
+            tracking=tracking,
+            metrics=metrics,
+            recording=recording,
+            ui=ui,
+            telemetry=telemetry,
+            detector=detector,
+            strike_zone=strike_zone,
+            ball=ball,
+        )
+
+        logger.info(f"Configuration loaded successfully: {config.detector.type} detector, {config.camera.width}x{config.camera.height}@{config.camera.fps}fps")
+        return config
+
+    except Exception as e:
+        logger.error(f"Failed to construct configuration objects: {e}")
+        raise InvalidConfigError(f"Failed to construct configuration: {e}")
