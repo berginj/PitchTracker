@@ -66,6 +66,8 @@ from app.pipeline.utils import (
 from app.pipeline.config_service import ConfigService
 from app.pipeline.initialization import PipelineInitializer
 from app.pipeline.camera_management import CameraManager
+from app.pipeline.detection.threading_pool import DetectionThreadPool
+from app.pipeline.detection.processor import DetectionProcessor
 
 logger = get_logger(__name__)
 
@@ -221,6 +223,9 @@ class InProcessPipelineService(PipelineService):
         self._backend = backend
         self._initializer = PipelineInitializer()
         self._camera_mgr = CameraManager(backend, self._initializer)
+        self._detect_queue_size = 6
+        self._detection_pool: Optional[DetectionThreadPool] = None
+        self._detection_processor: Optional[DetectionProcessor] = None
         self._lane_gate: Optional[LaneGate] = None
         self._plate_gate: Optional[LaneGate] = None
         self._stereo_gate: Optional[StereoLaneGate] = None
@@ -228,9 +233,7 @@ class InProcessPipelineService(PipelineService):
         self._detectors_by_camera: Dict[str, object] = {}
         self._lane_polygon: Optional[list[tuple[float, float]]] = None
         self._stereo: Optional[SimpleStereoMatcher] = None
-        self._tracker = SimpleTracker()
         self._trajectory_fitter = PhysicsDragFitter()
-        self._plate_observations = deque(maxlen=12)
         self._current_pitch_observations: List[StereoObservation] = []
         self._recording = False
         self._recorded_frames: list[Frame] = []
@@ -238,10 +241,6 @@ class InProcessPipelineService(PipelineService):
         self._config: Optional[AppConfig] = None
         self._config_service: Optional[ConfigService] = None
         self._config_path: Optional[Path] = None
-        self._last_plate_metrics = PlateMetricsStub(run_in=0.0, rise_in=0.0, sample_count=0)
-        self._last_detections: Dict[str, list[Detection]] = {}
-        self._last_gated: Dict[str, Dict[str, list[Detection]]] = {}
-        self._strike_result = StrikeResult(is_strike=False, sample_count=0)
         self._record_dir: Optional[Path] = None
         self._record_session: Optional[str] = None
         self._record_mode: Optional[str] = None
@@ -267,19 +266,6 @@ class InProcessPipelineService(PipelineService):
         self._pre_roll_right: deque[Frame] = deque()
         self._manual_speed_mph: Optional[float] = None
         self._record_lock = threading.Lock()
-        self._detect_lock = threading.Lock()
-        self._detection_mode = "per_camera"
-        self._detection_worker_count = 2
-        self._detection_running = False
-        self._detector_threads: List[threading.Thread] = []
-        self._worker_threads: List[threading.Thread] = []
-        self._stereo_thread: Optional[threading.Thread] = None
-        self._detect_queue_size = 6
-        self._left_detect_queue: queue.Queue[Frame] = queue.Queue()
-        self._right_detect_queue: queue.Queue[Frame] = queue.Queue()
-        self._detect_result_queue: queue.Queue[Tuple[str, Frame, list[Detection]]] = queue.Queue()
-        self._detector_busy: Dict[str, bool] = {"left": False, "right": False}
-        self._detector_busy_lock = threading.Lock()
         self._session_active = False
         self._pitch_active = False
         self._pitch_active_frames = 0
@@ -319,7 +305,68 @@ class InProcessPipelineService(PipelineService):
             self._write_record_frame_single(label, frame)
 
         # Enqueue for detection
-        self._enqueue_detection_frame(label, frame)
+        if self._detection_pool:
+            self._detection_pool.enqueue_frame(label, frame)
+
+    def _detect_frame(self, label: str, frame: Frame) -> list[Detection]:
+        """Callback for frame detection.
+
+        Args:
+            label: Camera label
+            frame: Frame to detect
+
+        Returns:
+            List of detections
+        """
+        detector = self._detectors_by_camera.get(label)
+        if detector is None:
+            return []
+        try:
+            return detector.detect(frame)
+        except Exception:
+            return []
+
+    def _on_detection_result(self, label: str, frame: Frame, detections: list[Detection]) -> None:
+        """Callback when detection result is ready.
+
+        Args:
+            label: Camera label
+            frame: Detected frame
+            detections: Detection results
+        """
+        if self._detection_processor:
+            self._detection_processor.process_detection_result(label, frame, detections)
+
+    def _on_stereo_pair(
+        self,
+        left_frame: Frame,
+        right_frame: Frame,
+        left_detections: list[Detection],
+        right_detections: list[Detection],
+        observations: List[StereoObservation],
+        lane_count: int,
+        plate_count: int,
+    ) -> None:
+        """Callback when stereo pair is processed.
+
+        Args:
+            left_frame: Left camera frame
+            right_frame: Right camera frame
+            left_detections: Left camera detections
+            right_detections: Right camera detections
+            observations: Triangulated observations
+            lane_count: Number of lane detections
+            plate_count: Number of plate detections
+        """
+        # Track observations for current pitch
+        for obs in observations:
+            if self._pitch_active:
+                self._current_pitch_observations.append(obs)
+
+        # Update pitch state
+        frame_ns = max(left_frame.t_capture_monotonic_ns, right_frame.t_capture_monotonic_ns)
+        obs_count = len(observations)
+        self._update_pitch_state(frame_ns, lane_count, plate_count, obs_count)
 
     def start_capture(
         self,
@@ -402,10 +449,31 @@ class InProcessPipelineService(PipelineService):
                 self._camera_mgr.stop_capture()
                 raise PitchTrackerError(f"Failed to initialize stereo system: {exc}") from exc
 
-            # Start detection threads
+            # Create detection processor
+            try:
+                logger.debug("Creating detection processor")
+                self._detection_processor = DetectionProcessor(
+                    config=config,
+                    stereo_matcher=self._stereo,
+                    lane_gate=self._lane_gate,
+                    plate_gate=self._plate_gate,
+                    stereo_gate=self._stereo_gate,
+                    plate_stereo_gate=self._plate_stereo_gate,
+                    get_ball_radius_fn=lambda: self._config_service.get_ball_radius_in() if self._config_service else 1.45,
+                )
+                self._detection_processor.set_stereo_pair_callback(self._on_stereo_pair)
+            except Exception as exc:
+                logger.error(f"Failed to create detection processor: {exc}")
+                self._camera_mgr.stop_capture()
+                raise DetectionError(f"Failed to create detection processor: {exc}") from exc
+
+            # Create and start detection thread pool
             try:
                 logger.debug("Starting detection threads")
-                self._start_detection_threads()
+                self._detection_pool = DetectionThreadPool(mode="per_camera", worker_count=2)
+                self._detection_pool.set_detect_callback(self._detect_frame)
+                self._detection_pool.set_stereo_callback(self._on_detection_result)
+                self._detection_pool.start(queue_size=self._detect_queue_size)
             except Exception as exc:
                 logger.error(f"Failed to start detection threads: {exc}")
                 self._camera_mgr.stop_capture()
@@ -433,7 +501,8 @@ class InProcessPipelineService(PipelineService):
         try:
             # Stop detection threads
             try:
-                self._stop_detection_threads()
+                if self._detection_pool:
+                    self._detection_pool.stop()
                 logger.debug("Detection threads stopped")
             except Exception as exc:
                 logger.warning(f"Error stopping detection threads: {exc}")
@@ -526,8 +595,9 @@ class InProcessPipelineService(PipelineService):
         return self._camera_mgr.get_stats()
 
     def get_plate_metrics(self) -> PlateMetricsStub:
-        with self._detect_lock:
-            return self._last_plate_metrics
+        if self._detection_processor:
+            return self._detection_processor.get_plate_metrics()
+        return PlateMetricsStub(run_in=0.0, rise_in=0.0, sample_count=0)
 
     def set_detector_config(
         self,
@@ -559,23 +629,30 @@ class InProcessPipelineService(PipelineService):
     def set_detection_threading(self, mode: str, worker_count: int) -> None:
         if mode not in ("per_camera", "worker_pool"):
             raise ValueError(f"Unknown detection threading mode: {mode}")
-        self._detection_mode = mode
-        self._detection_worker_count = max(1, int(worker_count))
-        if self._capture_running:
-            self._stop_detection_threads()
-            self._start_detection_threads()
+
+        if self._detection_pool:
+            # Update mode and restart if running
+            is_running = self._detection_pool.is_running()
+            if is_running:
+                self._detection_pool.stop()
+            self._detection_pool.set_mode(mode, worker_count)
+            if is_running:
+                self._detection_pool.start(queue_size=self._detect_queue_size)
 
     def get_latest_detections(self) -> Dict[str, list[Detection]]:
-        with self._detect_lock:
-            return dict(self._last_detections)
+        if self._detection_processor:
+            return self._detection_processor.get_latest_detections()
+        return {}
 
     def get_latest_gated_detections(self) -> Dict[str, Dict[str, list[Detection]]]:
-        with self._detect_lock:
-            return {key: dict(value) for key, value in self._last_gated.items()}
+        if self._detection_processor:
+            return self._detection_processor.get_latest_gated_detections()
+        return {}
 
     def get_strike_result(self) -> StrikeResult:
-        with self._detect_lock:
-            return self._strike_result
+        if self._detection_processor:
+            return self._detection_processor.get_strike_result()
+        return StrikeResult(is_strike=False, sample_count=0)
 
     def set_ball_type(self, ball_type: str) -> None:
         if self._config_service is not None:
@@ -601,159 +678,6 @@ class InProcessPipelineService(PipelineService):
 
     def get_session_dir(self) -> Optional[Path]:
         return self._session_dir
-
-    def _reset_detection_queues(self) -> None:
-        self._left_detect_queue = queue.Queue(maxsize=self._detect_queue_size)
-        self._right_detect_queue = queue.Queue(maxsize=self._detect_queue_size)
-        self._detect_result_queue = queue.Queue(maxsize=self._detect_queue_size * 4)
-
-    @staticmethod
-    def _queue_put_drop_oldest(target: queue.Queue, item) -> None:
-        try:
-            target.put_nowait(item)
-            return
-        except queue.Full:
-            pass
-        try:
-            target.get_nowait()
-        except queue.Empty:
-            pass
-        try:
-            target.put_nowait(item)
-        except queue.Full:
-            pass
-
-    def _enqueue_detection_frame(self, label: str, frame: Frame) -> None:
-        if not self._detection_running:
-            return
-        target = self._left_detect_queue if label == "left" else self._right_detect_queue
-        self._queue_put_drop_oldest(target, frame)
-
-    def _start_detection_threads(self) -> None:
-        if self._detection_running:
-            return
-        if self._left is None or self._right is None:
-            return
-        self._reset_detection_queues()
-        self._detection_running = True
-        self._detector_busy = {"left": False, "right": False}
-        self._detector_threads = []
-        self._worker_threads = []
-        self._stereo_thread = threading.Thread(target=self._stereo_loop, daemon=True)
-        self._stereo_thread.start()
-        if self._detection_mode == "per_camera":
-            self._detector_threads = [
-                threading.Thread(
-                    target=self._detection_loop_per_camera,
-                    args=("left", self._left_detect_queue),
-                    daemon=True,
-                ),
-                threading.Thread(
-                    target=self._detection_loop_per_camera,
-                    args=("right", self._right_detect_queue),
-                    daemon=True,
-                ),
-            ]
-            for thread in self._detector_threads:
-                thread.start()
-            return
-        for _ in range(max(1, self._detection_worker_count)):
-            thread = threading.Thread(target=self._detection_loop_pool, daemon=True)
-            self._worker_threads.append(thread)
-            thread.start()
-
-    def _stop_detection_threads(self) -> None:
-        self._detection_running = False
-        for thread in self._detector_threads:
-            thread.join(timeout=1.0)
-        for thread in self._worker_threads:
-            thread.join(timeout=1.0)
-        if self._stereo_thread is not None:
-            self._stereo_thread.join(timeout=1.0)
-        self._detector_threads = []
-        self._worker_threads = []
-        self._stereo_thread = None
-
-    def _detect_frame(self, label: str, frame: Frame) -> list[Detection]:
-        detector = self._detectors_by_camera.get(label)
-        if detector is None:
-            return []
-        try:
-            return detector.detect(frame)
-        except Exception:
-            return []
-
-    def _detection_loop_per_camera(self, label: str, source: queue.Queue) -> None:
-        while self._detection_running:
-            try:
-                frame = source.get(timeout=0.2)
-            except queue.Empty:
-                continue
-            detections = self._detect_frame(label, frame)
-            with self._detect_lock:
-                self._last_detections[frame.camera_id] = detections
-            self._queue_put_drop_oldest(self._detect_result_queue, (label, frame, detections))
-
-    def _detection_loop_pool(self) -> None:
-        while self._detection_running:
-            handled = False
-            for label in ("left", "right"):
-                if not self._detection_running:
-                    return
-                with self._detector_busy_lock:
-                    if self._detector_busy.get(label, False):
-                        continue
-                    source = self._left_detect_queue if label == "left" else self._right_detect_queue
-                    try:
-                        frame = source.get_nowait()
-                    except queue.Empty:
-                        continue
-                    self._detector_busy[label] = True
-                detections = self._detect_frame(label, frame)
-                with self._detect_lock:
-                    self._last_detections[frame.camera_id] = detections
-                self._queue_put_drop_oldest(self._detect_result_queue, (label, frame, detections))
-                with self._detector_busy_lock:
-                    self._detector_busy[label] = False
-                handled = True
-            if not handled:
-                time.sleep(0.005)
-
-    def _stereo_loop(self) -> None:
-        left_buffer: deque[Tuple[Frame, list[Detection]]] = deque(maxlen=6)
-        right_buffer: deque[Tuple[Frame, list[Detection]]] = deque(maxlen=6)
-        while self._detection_running:
-            try:
-                label, frame, detections = self._detect_result_queue.get(timeout=0.2)
-            except queue.Empty:
-                continue
-            if label == "left":
-                left_buffer.append((frame, detections))
-            else:
-                right_buffer.append((frame, detections))
-            self._match_stereo_buffers(left_buffer, right_buffer)
-
-    def _match_stereo_buffers(
-        self,
-        left_buffer: deque[Tuple[Frame, list[Detection]]],
-        right_buffer: deque[Tuple[Frame, list[Detection]]],
-    ) -> None:
-        while left_buffer and right_buffer:
-            left_frame, left_dets = left_buffer[0]
-            right_frame, right_dets = right_buffer[0]
-            delta = abs(left_frame.t_capture_monotonic_ns - right_frame.t_capture_monotonic_ns)
-            tolerance = 0
-            if self._config is not None:
-                tolerance = int(self._config.stereo.pairing_tolerance_ms * 1e6)
-            if tolerance and delta > tolerance:
-                if left_frame.t_capture_monotonic_ns < right_frame.t_capture_monotonic_ns:
-                    left_buffer.popleft()
-                else:
-                    right_buffer.popleft()
-                continue
-            left_buffer.popleft()
-            right_buffer.popleft()
-            self._update_plate_metrics(left_frame, right_frame, left_dets, right_dets)
 
     def _start_recording_io(self) -> None:
         if self._config is None:
@@ -873,93 +797,6 @@ class InProcessPipelineService(PipelineService):
                         [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
                     )
 
-
-    def _update_plate_metrics(
-        self,
-        left_frame: Frame,
-        right_frame: Frame,
-        left_detections: list[Detection],
-        right_detections: list[Detection],
-    ) -> None:
-        if self._left_id is None or self._right_id is None:
-            return
-        if self._stereo is None:
-            return
-        with self._detect_lock:
-            self._last_detections = {
-                left_frame.camera_id: left_detections,
-                right_frame.camera_id: right_detections,
-            }
-        detections = left_detections + right_detections
-        gated = gate_detections(self._lane_gate, detections)
-        left_gated = [d for d in gated if d.camera_id == self._left_id]
-        right_gated = [d for d in gated if d.camera_id == self._right_id]
-        plate_left = []
-        plate_right = []
-        if self._plate_gate is not None:
-            plate = gate_detections(self._plate_gate, gated)
-            plate_left = [d for d in plate if d.camera_id == self._left_id]
-            plate_right = [d for d in plate if d.camera_id == self._right_id]
-        with self._detect_lock:
-            self._last_gated = {
-                left_frame.camera_id: {
-                    "lane": left_gated,
-                    "plate": plate_left,
-                },
-                right_frame.camera_id: {
-                    "lane": right_gated,
-                    "plate": plate_right,
-                },
-            }
-        if self._config is not None:
-            tolerance_ns = int(self._config.stereo.pairing_tolerance_ms * 1e6)
-            delta_ns = abs(left_frame.t_capture_monotonic_ns - right_frame.t_capture_monotonic_ns)
-            if delta_ns > tolerance_ns:
-                with self._detect_lock:
-                    self._last_plate_metrics = compute_plate_stub([])
-                    self._strike_result = StrikeResult(is_strike=False, sample_count=0)
-                return
-        matches = build_stereo_matches(left_gated, right_gated)
-        if self._stereo_gate is not None:
-            matches = self._stereo_gate.filter_matches(matches)
-        if self._plate_stereo_gate is not None:
-            plate_matches = self._plate_stereo_gate.filter_matches(matches)
-        else:
-            plate_matches = []
-        observations = []
-        for match in plate_matches:
-            observations.append(self._stereo.triangulate(match))
-        for obs in observations:
-            state = self._tracker.update(obs)
-            if state.samples:
-                self._plate_observations.append(obs)
-                if self._pitch_active:
-                    self._current_pitch_observations.append(obs)
-        if self._plate_observations:
-            metrics = compute_plate_from_observations(self._plate_observations)
-        else:
-            metrics = compute_plate_stub(plate_matches)
-        if self._config is not None:
-            zone = build_strike_zone(
-                plate_z_ft=self._config.metrics.plate_plane_z_ft,
-                plate_width_in=self._config.strike_zone.plate_width_in,
-                plate_length_in=self._config.strike_zone.plate_length_in,
-                batter_height_in=self._config.strike_zone.batter_height_in,
-                top_ratio=self._config.strike_zone.top_ratio,
-                bottom_ratio=self._config.strike_zone.bottom_ratio,
-            )
-            radius_in = self._config_service.get_ball_radius_in() if self._config_service else 1.45
-            strike = is_strike(self._plate_observations, zone, radius_in)
-        else:
-            strike = StrikeResult(is_strike=False, sample_count=0)
-        with self._detect_lock:
-            self._last_plate_metrics = metrics
-            self._strike_result = strike
-        lane_count = len(left_gated) + len(right_gated)
-        plate_count = len(plate_left) + len(plate_right)
-        obs_count = len(observations)
-        frame_ns = max(left_frame.t_capture_monotonic_ns, right_frame.t_capture_monotonic_ns)
-        self._update_pitch_state(frame_ns, lane_count, plate_count, obs_count)
 
     def _update_pitch_state(
         self,
