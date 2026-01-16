@@ -64,6 +64,7 @@ from app.pipeline.utils import (
     stats_to_dict,
 )
 from app.pipeline.config_service import ConfigService
+from app.pipeline.initialization import PipelineInitializer
 
 logger = get_logger(__name__)
 
@@ -225,14 +226,6 @@ class InProcessPipelineService(PipelineService):
         self._plate_gate: Optional[LaneGate] = None
         self._stereo_gate: Optional[StereoLaneGate] = None
         self._plate_stereo_gate: Optional[StereoLaneGate] = None
-        self._detector_config = CvDetectorConfig()
-        self._detector_mode = Mode.MODE_A
-        self._detector_type = "classical"
-        self._detector_model_path: Optional[str] = None
-        self._detector_model_input_size: Tuple[int, int] = (640, 640)
-        self._detector_model_conf_threshold = 0.25
-        self._detector_model_class_id = 0
-        self._detector_model_format = "yolo_v5"
         self._detectors_by_camera: Dict[str, object] = {}
         self._lane_polygon: Optional[list[tuple[float, float]]] = None
         self._stereo: Optional[SimpleStereoMatcher] = None
@@ -245,6 +238,7 @@ class InProcessPipelineService(PipelineService):
         self._pitch_id = "pitch-unknown"
         self._config: Optional[AppConfig] = None
         self._config_service: Optional[ConfigService] = None
+        self._initializer = PipelineInitializer()
         self._config_path: Optional[Path] = None
         self._last_plate_metrics = PlateMetricsStub(run_in=0.0, rise_in=0.0, sample_count=0)
         self._last_detections: Dict[str, list[Detection]] = {}
@@ -378,9 +372,9 @@ class InProcessPipelineService(PipelineService):
             # Configure cameras
             try:
                 logger.debug("Configuring left camera")
-                self._configure_camera(self._left, config)
+                PipelineInitializer.configure_camera(self._left, config)
                 logger.debug("Configuring right camera")
-                self._configure_camera(self._right, config)
+                PipelineInitializer.configure_camera(self._right, config)
             except Exception as exc:
                 logger.error(f"Failed to configure cameras: {exc}")
                 self._cleanup_cameras()
@@ -389,7 +383,13 @@ class InProcessPipelineService(PipelineService):
             # Load ROIs
             try:
                 logger.debug("Loading ROIs")
-                self._load_rois()
+                (
+                    self._lane_polygon,
+                    self._lane_gate,
+                    self._stereo_gate,
+                    self._plate_gate,
+                    self._plate_stereo_gate,
+                ) = PipelineInitializer.load_rois(self._left_id, self._right_id)
             except Exception as exc:
                 logger.error(f"Failed to load ROIs: {exc}")
                 self._cleanup_cameras()
@@ -398,7 +398,12 @@ class InProcessPipelineService(PipelineService):
             # Initialize detector
             try:
                 logger.debug("Initializing detector")
-                self._init_detector(config)
+                self._initializer.initialize_detector_config(config)
+                self._detectors_by_camera = self._initializer.build_detectors(
+                    self._left_id, self._right_id, self._lane_polygon
+                )
+                if self._initializer._detector_type == "ml":
+                    self._initializer.warmup_detectors(self._detectors_by_camera, config)
             except Exception as exc:
                 logger.error(f"Failed to initialize detector: {exc}")
                 self._cleanup_cameras()
@@ -409,7 +414,7 @@ class InProcessPipelineService(PipelineService):
             # Initialize stereo
             try:
                 logger.debug("Initializing stereo")
-                self._init_stereo(config)
+                self._stereo = PipelineInitializer.create_stereo_matcher(config)
             except Exception as exc:
                 logger.error(f"Failed to initialize stereo: {exc}")
                 self._cleanup_cameras()
@@ -629,15 +634,20 @@ class InProcessPipelineService(PipelineService):
         model_class_id: int = 0,
         model_format: str = "yolo_v5",
     ) -> None:
-        self._detector_config = config
-        self._detector_mode = mode
-        self._detector_type = detector_type
-        self._detector_model_path = model_path
-        self._detector_model_input_size = model_input_size
-        self._detector_model_conf_threshold = model_conf_threshold
-        self._detector_model_class_id = model_class_id
-        self._detector_model_format = model_format
-        self._rebuild_detectors()
+        self._initializer.update_detector_config(
+            config,
+            mode,
+            detector_type,
+            model_path,
+            model_input_size,
+            model_conf_threshold,
+            model_class_id,
+            model_format,
+        )
+        if self._left_id and self._right_id:
+            self._detectors_by_camera = self._initializer.build_detectors(
+                self._left_id, self._right_id, self._lane_polygon
+            )
 
     def set_detection_threading(self, mode: str, worker_count: int) -> None:
         if mode not in ("per_camera", "worker_pool"):
@@ -995,152 +1005,6 @@ class InProcessPipelineService(PipelineService):
                         [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
                     )
 
-    @staticmethod
-    def _configure_camera(camera: CameraDevice, config: AppConfig) -> None:
-        camera.set_mode(
-            config.camera.width,
-            config.camera.height,
-            config.camera.fps,
-            config.camera.pixfmt,
-        )
-        camera.set_controls(
-            config.camera.exposure_us,
-            config.camera.gain,
-            config.camera.wb_mode,
-            config.camera.wb,
-        )
-
-    def _load_rois(self) -> None:
-        if self._left_id is None or self._right_id is None:
-            return
-        rois = load_rois(Path("configs/roi.json"))
-        lane = rois.get("lane")
-        plate = rois.get("plate")
-        lane_rois = load_lane_rois(Path("configs/lane_roi.json"))
-        if lane:
-            self._lane_polygon = [(float(x), float(y)) for x, y in lane]
-            lane_roi_left = LaneRoi(polygon=[(float(x), float(y)) for x, y in lane])
-            lane_roi_right = lane_roi_left
-            if lane_rois:
-                lane_left = lane_rois.get(self._left_id) or lane_rois.get("left")
-                lane_right = lane_rois.get(self._right_id) or lane_rois.get("right")
-                if lane_left is not None:
-                    lane_roi_left = lane_left
-                if lane_right is not None:
-                    lane_roi_right = lane_right
-            self._lane_gate = LaneGate(
-                roi_by_camera={self._left_id: lane_roi_left, self._right_id: lane_roi_right}
-            )
-            self._stereo_gate = StereoLaneGate(lane_gate=self._lane_gate)
-        else:
-            self._lane_polygon = None
-            self._lane_gate = None
-            self._stereo_gate = None
-        if plate:
-            plate_roi = LaneRoi(polygon=[(float(x), float(y)) for x, y in plate])
-            self._plate_gate = LaneGate(roi_by_camera={self._left_id: plate_roi, self._right_id: plate_roi})
-            self._plate_stereo_gate = StereoLaneGate(lane_gate=self._plate_gate)
-        else:
-            self._plate_gate = None
-            self._plate_stereo_gate = None
-
-    def _init_stereo(self, config: AppConfig) -> None:
-        cx = config.stereo.cx
-        cy = config.stereo.cy
-        if cx is None:
-            cx = config.camera.width / 2.0
-        if cy is None:
-            cy = config.camera.height / 2.0
-        geometry = StereoGeometry(
-            baseline_ft=config.stereo.baseline_ft,
-            focal_length_px=config.stereo.focal_length_px,
-            cx=float(cx),
-            cy=float(cy),
-            epipolar_epsilon_px=float(config.stereo.epipolar_epsilon_px),
-            z_min_ft=float(config.stereo.z_min_ft),
-            z_max_ft=float(config.stereo.z_max_ft),
-        )
-        self._stereo = SimpleStereoMatcher(geometry)
-
-    def _init_detector(self, config: AppConfig) -> None:
-        cfg = config.detector
-        self._detector_type = cfg.type
-        self._detector_model_path = cfg.model_path
-        self._detector_model_input_size = cfg.model_input_size
-        self._detector_model_conf_threshold = cfg.model_conf_threshold
-        self._detector_model_class_id = cfg.model_class_id
-        self._detector_model_format = cfg.model_format
-        filter_cfg = FilterConfig(
-            min_area=cfg.filters.min_area,
-            max_area=cfg.filters.max_area,
-            min_circularity=cfg.filters.min_circularity,
-            max_circularity=cfg.filters.max_circularity,
-            min_velocity=cfg.filters.min_velocity,
-            max_velocity=cfg.filters.max_velocity,
-        )
-        detector_cfg = CvDetectorConfig(
-            frame_diff_threshold=cfg.frame_diff_threshold,
-            bg_diff_threshold=cfg.bg_diff_threshold,
-            bg_alpha=cfg.bg_alpha,
-            edge_threshold=cfg.edge_threshold,
-            blob_threshold=cfg.blob_threshold,
-            runtime_budget_ms=cfg.runtime_budget_ms,
-            crop_padding_px=cfg.crop_padding_px,
-            min_consecutive=cfg.min_consecutive,
-            filters=filter_cfg,
-        )
-        self._detector_config = detector_cfg
-        self._detector_mode = Mode(cfg.mode)
-        self._rebuild_detectors()
-
-    def _rebuild_detectors(self) -> None:
-        detectors: Dict[str, object] = {}
-        if self._left_id:
-            detectors["left"] = self._build_detector_for_camera(self._left_id)
-        if self._right_id:
-            detectors["right"] = self._build_detector_for_camera(self._right_id)
-        self._detectors_by_camera = detectors
-        if self._detector_type == "ml":
-            self._warmup_detectors()
-
-    def _build_detector_for_camera(self, camera_id: str):
-        if self._detector_type == "ml":
-            return MlDetector(
-                model_path=self._detector_model_path,
-                input_size=self._detector_model_input_size,
-                conf_threshold=self._detector_model_conf_threshold,
-                class_id=self._detector_model_class_id,
-                output_format=self._detector_model_format,
-            )
-        roi_by_camera = {}
-        if self._lane_polygon:
-            roi_by_camera = {camera_id: self._lane_polygon}
-        return ClassicalDetector(
-            config=self._detector_config,
-            mode=self._detector_mode,
-            roi_by_camera=roi_by_camera,
-        )
-
-    def _warmup_detectors(self) -> None:
-        if self._config is None:
-            return
-        height = self._config.camera.height
-        width = self._config.camera.width
-        dummy = np.zeros((height, width), dtype=np.uint8)
-        for label, detector in self._detectors_by_camera.items():
-            frame = Frame(
-                camera_id=label,
-                frame_index=0,
-                t_capture_monotonic_ns=0,
-                image=dummy,
-                width=width,
-                height=height,
-                pixfmt=self._config.camera.pixfmt,
-            )
-            try:
-                detector.detect(frame)
-            except Exception:
-                continue
 
     def _update_plate_metrics(
         self,
