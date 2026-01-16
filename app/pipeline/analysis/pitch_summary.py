@@ -9,7 +9,8 @@ from configs.settings import AppConfig
 from contracts import StereoObservation
 from metrics.simple_metrics import compute_plate_from_observations
 from metrics.strike_zone import StrikeResult, build_strike_zone, is_strike
-from trajectory.physics_drag_fitter import PhysicsDragFitter, TrajectoryFitRequest
+from trajectory.physics import PhysicsDragFitter
+from trajectory.contracts import TrajectoryFitRequest
 
 logger = logging.getLogger(__name__)
 

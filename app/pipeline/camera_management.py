@@ -7,10 +7,11 @@ import threading
 from pathlib import Path
 from typing import Callable, Optional, Tuple
 
-from capture import CameraDevice, OpenCVCamera, SimulatedCamera, UvcCamera
+from capture import CameraDevice, SimulatedCamera, UvcCamera
+from capture.opencv_backend import OpenCVCamera
 from configs.settings import AppConfig
 from contracts import Frame
-from errors import (
+from exceptions import (
     CameraConfigurationError,
     CameraConnectionError,
     PitchTrackerError,

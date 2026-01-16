@@ -88,9 +88,10 @@ python -m detect.validate_ml --model models\ball.onnx --image samples\frame.png
 
 ### ML Training & Automation (NEW)
 - **[ML_QUICK_REFERENCE.md](ML_QUICK_REFERENCE.md)** - Quick start guide for ML features ⭐ START HERE
+- **[CLOUD_SUBMISSION_GUIDE.md](CLOUD_SUBMISSION_GUIDE.md)** - Package data for cloud upload ⭐ EXPORT GUIDE
 - **[ML_TRAINING_DATA_STRATEGY.md](ML_TRAINING_DATA_STRATEGY.md)** - 18-month automation roadmap
 - **[ML_TRAINING_IMPLEMENTATION_GUIDE.md](ML_TRAINING_IMPLEMENTATION_GUIDE.md)** - Week 1 implementation details
-- **[CLOUD_SUBMISSION_SCHEMA.md](CLOUD_SUBMISSION_SCHEMA.md)** - Cloud upload contract (full vs telemetry-only)
+- **[CLOUD_SUBMISSION_SCHEMA.md](CLOUD_SUBMISSION_SCHEMA.md)** - Technical specification (full vs telemetry-only)
 
 **Current Status (v1.2.0):**
 - ✅ Detection export (pixel coordinates, confidence scores)
