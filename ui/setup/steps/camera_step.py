@@ -170,6 +170,18 @@ class CameraStep(BaseStep):
 
         return True, ""
 
+    def get_left_serial(self) -> Optional[str]:
+        """Get selected left camera serial/identifier."""
+        return self._left_serial
+
+    def get_right_serial(self) -> Optional[str]:
+        """Get selected right camera serial/identifier."""
+        return self._right_serial
+
+    def get_backend(self) -> str:
+        """Get camera backend type."""
+        return self._backend
+
     def on_enter(self) -> None:
         """Called when step becomes active."""
         # Auto-refresh on first entry if no devices yet
