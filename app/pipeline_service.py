@@ -63,6 +63,7 @@ from app.pipeline.utils import (
     gate_detections,
     stats_to_dict,
 )
+from app.pipeline.config_service import ConfigService
 
 logger = get_logger(__name__)
 
@@ -243,12 +244,12 @@ class InProcessPipelineService(PipelineService):
         self._recorded_frames: list[Frame] = []
         self._pitch_id = "pitch-unknown"
         self._config: Optional[AppConfig] = None
+        self._config_service: Optional[ConfigService] = None
         self._config_path: Optional[Path] = None
         self._last_plate_metrics = PlateMetricsStub(run_in=0.0, rise_in=0.0, sample_count=0)
         self._last_detections: Dict[str, list[Detection]] = {}
         self._last_gated: Dict[str, Dict[str, list[Detection]]] = {}
         self._strike_result = StrikeResult(is_strike=False, sample_count=0)
-        self._ball_type = "baseball"
         self._record_dir: Optional[Path] = None
         self._record_session: Optional[str] = None
         self._record_mode: Optional[str] = None
@@ -337,10 +338,10 @@ class InProcessPipelineService(PipelineService):
 
         try:
             self._config = config
+            self._config_service = ConfigService(config)
             self._config_path = config_path
             self._left_id = left_serial
             self._right_id = right_serial
-            self._ball_type = config.ball.type
             self._record_dir = Path(config.recording.output_dir)
             self._detect_queue_size = config.camera.queue_depth or 6
 
@@ -660,53 +661,20 @@ class InProcessPipelineService(PipelineService):
             return self._strike_result
 
     def set_ball_type(self, ball_type: str) -> None:
-        self._ball_type = ball_type
+        if self._config_service is not None:
+            self._config_service.set_ball_type(ball_type)
 
     def set_batter_height_in(self, height_in: float) -> None:
-        if self._config is None:
-            return
-        updated = self._config.strike_zone.__class__(
-            batter_height_in=height_in,
-            top_ratio=self._config.strike_zone.top_ratio,
-            bottom_ratio=self._config.strike_zone.bottom_ratio,
-            plate_width_in=self._config.strike_zone.plate_width_in,
-            plate_length_in=self._config.strike_zone.plate_length_in,
-        )
-        self._config = self._config.__class__(
-            camera=self._config.camera,
-            stereo=self._config.stereo,
-            tracking=self._config.tracking,
-            metrics=self._config.metrics,
-            recording=self._config.recording,
-            ui=self._config.ui,
-            telemetry=self._config.telemetry,
-            detector=self._config.detector,
-            strike_zone=updated,
-            ball=self._config.ball,
-        )
+        if self._config_service is not None:
+            self._config_service.update_batter_height(height_in)
+            # Sync back to self._config for backward compatibility
+            self._config = self._config_service.get_config()
 
     def set_strike_zone_ratios(self, top_ratio: float, bottom_ratio: float) -> None:
-        if self._config is None:
-            return
-        updated = self._config.strike_zone.__class__(
-            batter_height_in=self._config.strike_zone.batter_height_in,
-            top_ratio=top_ratio,
-            bottom_ratio=bottom_ratio,
-            plate_width_in=self._config.strike_zone.plate_width_in,
-            plate_length_in=self._config.strike_zone.plate_length_in,
-        )
-        self._config = self._config.__class__(
-            camera=self._config.camera,
-            stereo=self._config.stereo,
-            tracking=self._config.tracking,
-            metrics=self._config.metrics,
-            recording=self._config.recording,
-            ui=self._config.ui,
-            telemetry=self._config.telemetry,
-            detector=self._config.detector,
-            strike_zone=updated,
-            ball=self._config.ball,
-        )
+        if self._config_service is not None:
+            self._config_service.update_strike_zone_ratios(top_ratio, bottom_ratio)
+            # Sync back to self._config for backward compatibility
+            self._config = self._config_service.get_config()
 
     def get_session_summary(self) -> SessionSummary:
         return self._last_session_summary
@@ -1248,7 +1216,7 @@ class InProcessPipelineService(PipelineService):
                 top_ratio=self._config.strike_zone.top_ratio,
                 bottom_ratio=self._config.strike_zone.bottom_ratio,
             )
-            radius_in = self._config.ball.radius_in.get(self._ball_type, 1.45)
+            radius_in = self._config_service.get_ball_radius_in() if self._config_service else 1.45
             strike = is_strike(self._plate_observations, zone, radius_in)
         else:
             strike = StrikeResult(is_strike=False, sample_count=0)
@@ -1316,7 +1284,7 @@ class InProcessPipelineService(PipelineService):
             top_ratio=self._config.strike_zone.top_ratio,
             bottom_ratio=self._config.strike_zone.bottom_ratio,
         )
-        radius_in = self._config.ball.radius_in.get(self._ball_type, 1.45)
+        radius_in = self._config_service.get_ball_radius_in() if self._config_service else 1.45
         strike = is_strike(self._current_pitch_observations, zone, radius_in)
         metrics = compute_plate_from_observations(self._current_pitch_observations)
         radar_speed = self._radar_client.latest_speed_mph() if self._manual_speed_mph is None else self._manual_speed_mph
