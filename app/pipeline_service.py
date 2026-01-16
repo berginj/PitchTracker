@@ -68,6 +68,7 @@ from app.pipeline.initialization import PipelineInitializer
 from app.pipeline.camera_management import CameraManager
 from app.pipeline.detection.threading_pool import DetectionThreadPool
 from app.pipeline.detection.processor import DetectionProcessor
+from app.pipeline.recording.session_recorder import SessionRecorder
 
 logger = get_logger(__name__)
 
@@ -244,15 +245,7 @@ class InProcessPipelineService(PipelineService):
         self._record_dir: Optional[Path] = None
         self._record_session: Optional[str] = None
         self._record_mode: Optional[str] = None
-        self._record_left_writer = None
-        self._record_right_writer = None
-        self._record_left_csv = None
-        self._record_right_csv = None
-        self._session_left_writer = None
-        self._session_right_writer = None
-        self._session_left_csv = None
-        self._session_right_csv = None
-        self._session_dir: Optional[Path] = None
+        self._session_recorder: Optional[SessionRecorder] = None
         self._radar_client: RadarGunClient = radar_client or NullRadarGun()
         self._pitch_left_writer = None
         self._pitch_right_writer = None
@@ -677,126 +670,49 @@ class InProcessPipelineService(PipelineService):
         return [list(path) for path in self._recent_pitch_paths]
 
     def get_session_dir(self) -> Optional[Path]:
-        return self._session_dir
+        if self._session_recorder:
+            return self._session_recorder.get_session_dir()
+        return None
 
     def _start_recording_io(self) -> None:
         if self._config is None:
             return
-        base = self._record_session or self._pitch_id
-        safe = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in base)
-        timestamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
-        base_dir = self._record_dir or Path("recordings")
-        self._session_dir = base_dir / f"{safe}_{timestamp}"
-        self._session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Initialize session recorder
+        self._session_recorder = SessionRecorder(self._config, self._record_dir)
+        session_dir = self._session_recorder.start_session(
+            self._record_session or "session", self._pitch_id
+        )
+
+        # Set up pre/post-roll
         self._pre_roll_ns = int(self._config.recording.pre_roll_ms * 1e6)
         self._post_roll_ns = int(self._config.recording.post_roll_ms * 1e6)
         self._pre_roll_left.clear()
         self._pre_roll_right.clear()
-        self._open_session_recording()
 
     def _stop_recording_io(self) -> None:
         self._close_pitch_recording(force=True)
-        if self._session_dir is None:
-            return
-        self._close_session_recording()
-        config_path = str(self._config_path) if self._config_path else "configs/default.yaml"
-        manifest = {
-            "schema_version": SCHEMA_VERSION,
-            "app_version": APP_VERSION,
-            "rig_id": None,
-            "created_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "pitch_id": self._pitch_id,
-            "session": self._record_session,
-            "mode": self._record_mode,
-            "measured_speed_mph": self._manual_speed_mph,
-            "config_path": config_path,
-            "calibration_profile_id": None,
-            "session_summary": "session_summary.json",
-            "session_summary_csv": "session_summary.csv",
-            "session_left_video": "session_left.avi",
-            "session_right_video": "session_right.avi",
-            "session_left_timestamps": "session_left_timestamps.csv",
-            "session_right_timestamps": "session_right_timestamps.csv",
-        }
-        (self._session_dir / "manifest.json").write_text(
-            json.dumps(manifest, indent=2)
-        )
-        self._write_session_summary()
+
+        if self._session_recorder:
+            config_path = str(self._config_path) if self._config_path else None
+            self._session_recorder.stop_session(
+                config_path,
+                self._pitch_id,
+                self._record_session,
+                self._record_mode,
+                self._manual_speed_mph,
+            )
+            self._write_session_summary()
 
     def _write_record_frame_single(self, label: str, frame: Frame) -> None:
         if not self._recording:
             return
         self._buffer_pre_roll(label, frame)
-        self._write_session_frame(label, frame)
+        # Write to session recording
+        if self._session_recorder:
+            self._session_recorder.write_frame(label, frame)
         if self._pitch_active or self._pitch_post_end_ns is not None:
             self._write_pitch_frame(label, frame)
-
-    def _open_session_recording(self) -> None:
-        if self._config is None or self._session_dir is None:
-            return
-        left_path = self._session_dir / "session_left.avi"
-        right_path = self._session_dir / "session_right.avi"
-        fourcc = cv2.VideoWriter_fourcc(*"MJPG")
-        self._session_left_writer = cv2.VideoWriter(
-            str(left_path),
-            fourcc,
-            self._config.camera.fps,
-            (self._config.camera.width, self._config.camera.height),
-            True,
-        )
-        self._session_right_writer = cv2.VideoWriter(
-            str(right_path),
-            fourcc,
-            self._config.camera.fps,
-            (self._config.camera.width, self._config.camera.height),
-            True,
-        )
-        left_csv = (self._session_dir / "session_left_timestamps.csv").open("w", newline="")
-        right_csv = (self._session_dir / "session_right_timestamps.csv").open("w", newline="")
-        self._session_left_csv = (left_csv, csv.writer(left_csv))
-        self._session_right_csv = (right_csv, csv.writer(right_csv))
-        self._session_left_csv[1].writerow(
-            ["camera_id", "frame_index", "t_capture_monotonic_ns"]
-        )
-        self._session_right_csv[1].writerow(
-            ["camera_id", "frame_index", "t_capture_monotonic_ns"]
-        )
-
-    def _close_session_recording(self) -> None:
-        with self._record_lock:
-            if self._session_left_writer is not None:
-                self._session_left_writer.release()
-                self._session_left_writer = None
-            if self._session_right_writer is not None:
-                self._session_right_writer.release()
-                self._session_right_writer = None
-            if self._session_left_csv is not None:
-                self._session_left_csv[0].close()
-                self._session_left_csv = None
-            if self._session_right_csv is not None:
-                self._session_right_csv[0].close()
-                self._session_right_csv = None
-
-    def _write_session_frame(self, label: str, frame: Frame) -> None:
-        if self._session_left_writer is None or self._session_right_writer is None:
-            return
-        image = frame.image
-        if image.ndim == 2:
-            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-        with self._record_lock:
-            if label == "left" and self._session_left_writer is not None:
-                self._session_left_writer.write(image)
-                if self._session_left_csv is not None:
-                    self._session_left_csv[1].writerow(
-                        [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
-                    )
-            elif label == "right" and self._session_right_writer is not None:
-                self._session_right_writer.write(image)
-                if self._session_right_csv is not None:
-                    self._session_right_csv[1].writerow(
-                        [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
-                    )
-
 
     def _update_pitch_state(
         self,
@@ -898,67 +814,8 @@ class InProcessPipelineService(PipelineService):
         self._write_pitch_manifest(summary)
 
     def _write_session_summary(self) -> None:
-        if self._session_dir is None:
-            return
-        summary = self._last_session_summary
-        path = self._session_dir / "session_summary.json"
-        payload = asdict(summary)
-        payload["schema_version"] = SCHEMA_VERSION
-        payload["app_version"] = APP_VERSION
-        path.write_text(json.dumps(payload, indent=2))
-        self._write_session_summary_csv(summary)
-
-    def _write_session_summary_csv(self, summary: SessionSummary) -> None:
-        if self._session_dir is None:
-            return
-        path = self._session_dir / "session_summary.csv"
-        with path.open("w", newline="") as handle:
-            writer = csv.writer(handle)
-            writer.writerow(
-                [
-                    "pitch_id",
-                    "t_start_ns",
-                    "t_end_ns",
-                    "is_strike",
-                    "zone_row",
-                    "zone_col",
-                    "run_in",
-                    "rise_in",
-                    "speed_mph",
-                    "rotation_rpm",
-                    "sample_count",
-                    "trajectory_plate_x_ft",
-                    "trajectory_plate_y_ft",
-                    "trajectory_plate_z_ft",
-                    "trajectory_plate_t_ns",
-                    "trajectory_model",
-                    "trajectory_expected_error_ft",
-                    "trajectory_confidence",
-                ]
-            )
-            for pitch in summary.pitches:
-                writer.writerow(
-                    [
-                        pitch.pitch_id,
-                        pitch.t_start_ns,
-                        pitch.t_end_ns,
-                        int(pitch.is_strike),
-                        pitch.zone_row if pitch.zone_row is not None else "",
-                        pitch.zone_col if pitch.zone_col is not None else "",
-                        f"{pitch.run_in:.3f}",
-                        f"{pitch.rise_in:.3f}",
-                        f"{pitch.speed_mph:.3f}" if pitch.speed_mph is not None else "",
-                        f"{pitch.rotation_rpm:.3f}" if pitch.rotation_rpm is not None else "",
-                        pitch.sample_count,
-                        f"{pitch.trajectory_plate_x_ft:.4f}" if pitch.trajectory_plate_x_ft is not None else "",
-                        f"{pitch.trajectory_plate_y_ft:.4f}" if pitch.trajectory_plate_y_ft is not None else "",
-                        f"{pitch.trajectory_plate_z_ft:.4f}" if pitch.trajectory_plate_z_ft is not None else "",
-                        pitch.trajectory_plate_t_ns if pitch.trajectory_plate_t_ns is not None else "",
-                        pitch.trajectory_model if pitch.trajectory_model is not None else "",
-                        f"{pitch.trajectory_expected_error_ft:.4f}" if pitch.trajectory_expected_error_ft is not None else "",
-                        f"{pitch.trajectory_confidence:.3f}" if pitch.trajectory_confidence is not None else "",
-                    ]
-                )
+        if self._session_recorder:
+            self._session_recorder.write_session_summary(self._last_session_summary)
 
     def _pitch_dir(self, pitch_id: str) -> Optional[Path]:
         if self._session_dir is None:
