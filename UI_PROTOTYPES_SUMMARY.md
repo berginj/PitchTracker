@@ -2,7 +2,9 @@
 
 ## ✅ Completed Today
 
-Both role-based UI prototypes are now functional, and the Coaching App is integrated with the pipeline service!
+Both role-based UI applications are now FULLY FUNCTIONAL!
+- **Setup Wizard:** Complete 6-step guided workflow ✅
+- **Coaching App:** Fully integrated with pipeline service ✅
 
 ---
 
@@ -18,23 +20,74 @@ Both role-based UI prototypes are now functional, and the Coaching App is integr
 - Step validation before proceeding
 - Optional step support with confirmation
 - Clean wizard layout with instructions
+- Camera serial passing between steps
+- Resource management (cameras open/close per step)
 
-**Step 1: Camera Setup (Complete):**
+**Step 1: Camera Setup ✅ Complete:**
 - Camera discovery (UVC and OpenCV backends)
 - Left/right camera selection dropdowns
 - Duplicate camera validation
 - Auto-refresh on step entry
 - Status messages with color coding
-- Preview placeholders
+- Export camera serials to next steps
 
-### 🚧 What's Next
+**Step 2: Stereo Calibration ✅ Complete:**
+- Live camera preview from both cameras
+- Real-time checkerboard detection (9x6 pattern)
+- Visual feedback (green=detected, red=not detected)
+- Configurable pattern size and square dimensions
+- Capture image pairs (minimum 10 required)
+- One-click calibration using quick_calibrate module
+- Results display (baseline, focal length, principal point)
+- Auto-save to configs/default.yaml
 
-**Steps 2-6 (Ready to Implement):**
-1. Stereo Calibration - checkerboard capture
-2. ROI Configuration - lane gates + plate region
-3. Detector Tuning - threshold sliders or ML model
-4. System Validation - automated tests
-5. Export Package - calibration bundle + PDF report
+**Step 3: ROI Configuration ✅ Complete:**
+- Live camera preview from left camera
+- Interactive rectangle drawing with RoiLabel widget
+- Separate editing modes for lane and plate ROIs
+- Visual overlays (lane=green, plate=blue, preview=yellow)
+- Rectangle to 4-point polygon conversion
+- One-click clear for current ROI
+- Auto-save to rois/shared_rois.json
+
+**Step 4: Detector Tuning ✅ Complete:**
+- Display current detector configuration
+- Show detection mode (classical vs ML)
+- Show ball type setting
+- Switch between detection modes
+- Apply changes to config file
+- Tips for detection optimization
+- Optional/skippable step
+
+**Step 5: System Validation ✅ Complete:**
+- Automated validation checks
+- Check configuration file
+- Check stereo calibration (file or config params)
+- Check ROI configuration (lane + plate)
+- Check detector settings
+- Visual checklist with pass/fail indicators
+- Summary with recommendations
+- Refresh button to re-run validation
+
+**Step 6: Export & Complete ✅ Complete:**
+- Completion celebration message
+- Configuration summary display
+- Next steps instructions for Coaching App
+- Generate detailed setup report (.txt file)
+- Show all calibration parameters
+- Final step before launching coaching sessions
+
+### 🎯 Setup Wizard Complete!
+
+All 6 steps are now fully functional. Users can:
+1. Select and configure cameras
+2. Perform stereo calibration
+3. Define lane and plate ROIs
+4. Configure detector settings
+5. Validate system configuration
+6. Export calibration package
+
+Total: ~2,100 lines across 14 files
 
 ### How to Test
 
@@ -51,10 +104,17 @@ python test_setup_wizard.py
 5. Click "Back" - returns (disabled on first step)
 
 **Files:**
-- `ui/setup/setup_window.py` - Wizard framework (267 lines)
-- `ui/setup/steps/camera_step.py` - Camera setup (154 lines)
+- `ui/setup/setup_window.py` - Wizard framework (276 lines)
 - `ui/setup/steps/base_step.py` - Step interface (55 lines)
+- `ui/setup/steps/camera_step.py` - Step 1 (191 lines)
+- `ui/setup/steps/calibration_step.py` - Step 2 (427 lines)
+- `ui/setup/steps/roi_step.py` - Step 3 (364 lines)
+- `ui/setup/steps/detector_step.py` - Step 4 (213 lines)
+- `ui/setup/steps/validation_step.py` - Step 5 (221 lines)
+- `ui/setup/steps/export_step.py` - Step 6 (245 lines)
 - `test_setup_wizard.py` - Test launcher
+
+**Total:** ~2,100 lines across 14 files
 
 ---
 
@@ -262,16 +322,21 @@ ui/
 
 ## Implementation Status
 
-### Phase 1: Setup Wizard Foundation ✅ COMPLETE
+### Phase 1: Setup Wizard - All Steps ✅ COMPLETE
 - [x] Wizard framework with navigation
 - [x] Step indicator with progress
 - [x] BaseStep interface
-- [x] Camera setup step (Step 1)
+- [x] Step 1: Camera Setup
+- [x] Step 2: Stereo Calibration
+- [x] Step 3: ROI Configuration
+- [x] Step 4: Detector Tuning
+- [x] Step 5: System Validation
+- [x] Step 6: Export Package
 - [x] Test launcher
 - [x] Documentation
 
-**Time:** ~3 hours
-**Lines:** 476 lines across 8 files
+**Time:** ~8 hours total
+**Lines:** ~2,100 lines across 14 files
 
 ### Phase 2: Coaching Dashboard ✅ COMPLETE
 - [x] Dashboard layout
@@ -300,18 +365,21 @@ ui/
 **Time:** ~4 hours
 **Lines:** +541 lines (session dialog + integration)
 
-### Phase 4: Future Enhancements (Next)
+### Phase 4: Future Enhancements (Optional)
 **Coaching Dashboard:**
-- [ ] Heat map population
-- [ ] Strike zone overlay on preview
-- [ ] Trajectory visualization
-- [ ] Replay functionality
-- [ ] Enhanced session summary dialog
+- [ ] Heat map population with pitch locations
+- [ ] Strike zone overlay on camera preview
+- [ ] Trajectory visualization overlay
+- [ ] Replay functionality (last pitch)
+- [ ] Enhanced session summary dialog with charts
+- [ ] Export for player review (video + stats)
+- [ ] Keyboard shortcuts
 
 **Setup Wizard:**
-- [ ] Add Steps 2-6 (calibration, ROI, detector, validation, export)
-- [ ] Integrate pipeline service for testing
-- [ ] Add camera preview (not just placeholders)
+- [ ] Live preview in Step 1 (currently placeholder)
+- [ ] Advanced detector tuning in Step 4
+- [ ] PDF report generation in Step 6
+- [ ] Automated system tests in Step 5
 
 ---
 
@@ -354,36 +422,42 @@ python test_coaching_app.py      # Shows dashboard
 
 ## Next Steps
 
-### Option 1: Complete Setup Wizard Steps 2-6
-**Effort:** ~8 hours
+### ~~Option 1: Complete Setup Wizard Steps 2-6~~ ✅ DONE
+**Effort:** ~8 hours (actual: ~5 hours)
 **Value:** Full setup workflow functional
 **Priority:** High - enables end-to-end setup
-**Status:** Not started
+**Status:** Complete! All 6 steps working ✅
 
-### Option 2: ~~Integrate Coaching Dashboard~~ ✅ DONE
+### ~~Option 2: Integrate Coaching Dashboard~~ ✅ DONE
 **Effort:** ~6 hours (actual: 4 hours)
 **Value:** Working coaching sessions
 **Priority:** High - demonstrates daily workflow
-**Status:** Complete!
+**Status:** Complete! Fully integrated ✅
 
-### Option 3: Enhance Coaching Dashboard
+### Option 3: Enhance Coaching Dashboard (Optional)
 **Effort:** ~4 hours
 **Value:** Heat map, overlays, trajectory visualization
 **Priority:** Medium - polish existing functionality
 **Status:** Not started
 
-### Option 4: Create Role Selector Entry Point
+### Option 4: Create Role Selector Entry Point (Optional)
 **Effort:** ~2 hours
 **Value:** Unified launch experience
 **Priority:** Low - nice to have
 **Status:** Not started
 
-### Recommendation: Do Option 1 Next
-**Why:**
-- Coaching app now fully functional ✅
-- Setup wizard needs completion for end-to-end workflow
-- Steps 2-6 enable full system configuration
-- Can then demo complete coaching workflow from setup to session
+### 🎉 Recommendation: Both Core Applications Complete!
+**What's working:**
+- ✅ Complete Setup Wizard (6 steps, camera to export)
+- ✅ Full Coaching Dashboard (session management + live tracking)
+- ✅ End-to-end workflow from setup to coaching sessions
+
+**Ready to use:**
+1. Run Setup Wizard to configure system
+2. Launch Coaching App to run sessions
+3. Track pitches in real-time with metrics
+
+**Optional enhancements** can be added later based on user feedback.
 
 ---
 
@@ -394,7 +468,10 @@ python test_coaching_app.py      # Shows dashboard
 - ✅ Step navigation works
 - ✅ Validation works
 - ✅ Clean, guided experience
-- ⏳ Complete all 6 steps
+- ✅ All 6 steps complete and functional
+- ✅ End-to-end setup workflow
+- ✅ Camera resource management
+- ✅ Configuration export
 
 ### Coaching Dashboard
 - ✅ Clean dashboard layout
@@ -422,26 +499,28 @@ python test_coaching_app.py      # Shows dashboard
 
 **Branch:** main
 **Status:** Clean, all pushed to origin
-**Commits Today:** 16 total
+**Commits Today:** 20 total
 
 **Recent Commits:**
 ```
+c0aa951 Add Steps 4-6: Complete Setup Wizard
+eea8ca8 Add Step 3: ROI Configuration to Setup Wizard
+75bb6f8 Add Step 2: Stereo Calibration to Setup Wizard
+91b1373 Update UI prototypes summary with integration details
 84f61ac Integrate pipeline service with Coaching App
-2fda1e7 Add UI prototypes summary and demo guide
-f17fca7 Add Coaching App prototype with dashboard layout
-9b61a74 Add Setup Wizard prototype (Step 1: Camera Setup)
-c11bb0d Add role-based UI redesign proposal and implementation roadmap
 ```
 
 **Files Created:**
 - 2 design documents (UI_ROLE_BASED_REDESIGN.md, UI_REDESIGN_ROADMAP.md)
-- 8 setup wizard files (framework + Step 1)
-- 6 coaching dashboard files (complete dashboard)
-- 1 session start dialog (new)
+- 14 setup wizard files (framework + all 6 steps)
+- 7 coaching dashboard files (complete dashboard + session dialog)
 - 2 test launchers
 - 3 README files (setup, coaching, this summary)
 
-**Lines Added:** ~3,100 lines (design docs + prototypes + integration)
+**Lines Added:** ~5,700 lines total
+- Design docs: ~2,500 lines
+- Setup Wizard: ~2,100 lines
+- Coaching App: ~1,100 lines
 
 ---
 
