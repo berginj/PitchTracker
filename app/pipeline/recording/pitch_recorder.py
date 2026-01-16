@@ -6,7 +6,6 @@ import csv
 import json
 import logging
 import threading
-import time
 from collections import deque
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -15,7 +14,8 @@ import cv2
 
 from configs.settings import AppConfig
 from contracts import Frame
-from contracts.versioning import APP_VERSION, SCHEMA_VERSION
+
+from app.pipeline.recording.manifest import create_pitch_manifest
 
 logger = logging.getLogger(__name__)
 
@@ -169,38 +169,7 @@ class PitchRecorder:
             summary: PitchSummary object
             config_path: Path to config file used
         """
-        manifest = {
-            "schema_version": SCHEMA_VERSION,
-            "app_version": APP_VERSION,
-            "rig_id": None,
-            "created_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "pitch_id": summary.pitch_id,
-            "t_start_ns": summary.t_start_ns,
-            "t_end_ns": summary.t_end_ns,
-            "is_strike": summary.is_strike,
-            "zone_row": summary.zone_row,
-            "zone_col": summary.zone_col,
-            "run_in": summary.run_in,
-            "rise_in": summary.rise_in,
-            "measured_speed_mph": summary.speed_mph,
-            "rotation_rpm": summary.rotation_rpm,
-            "trajectory": {
-                "plate_crossing_xyz_ft": [
-                    summary.trajectory_plate_x_ft,
-                    summary.trajectory_plate_y_ft,
-                    summary.trajectory_plate_z_ft,
-                ],
-                "plate_crossing_t_ns": summary.trajectory_plate_t_ns,
-                "model": summary.trajectory_model,
-                "expected_error_ft": summary.trajectory_expected_error_ft,
-                "confidence": summary.trajectory_confidence,
-            },
-            "left_video": "left.avi",
-            "right_video": "right.avi",
-            "left_timestamps": "left_timestamps.csv",
-            "right_timestamps": "right_timestamps.csv",
-            "config_path": config_path or "configs/default.yaml",
-        }
+        manifest = create_pitch_manifest(summary, config_path)
         (self._pitch_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
 
     def is_active(self) -> bool:

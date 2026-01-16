@@ -6,7 +6,6 @@ import csv
 import json
 import logging
 import threading
-import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Optional, Tuple
@@ -16,6 +15,8 @@ import cv2
 from configs.settings import AppConfig
 from contracts import Frame
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
+
+from app.pipeline.recording.manifest import create_session_manifest
 
 logger = logging.getLogger(__name__)
 
@@ -95,24 +96,13 @@ class SessionRecorder:
             return
 
         # Write manifest
-        manifest = {
-            "schema_version": SCHEMA_VERSION,
-            "app_version": APP_VERSION,
-            "rig_id": None,
-            "created_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "pitch_id": pitch_id,
-            "session": session_name,
-            "mode": mode,
-            "measured_speed_mph": measured_speed_mph,
-            "config_path": config_path or "configs/default.yaml",
-            "calibration_profile_id": None,
-            "session_summary": "session_summary.json",
-            "session_summary_csv": "session_summary.csv",
-            "session_left_video": "session_left.avi",
-            "session_right_video": "session_right.avi",
-            "session_left_timestamps": "session_left_timestamps.csv",
-            "session_right_timestamps": "session_right_timestamps.csv",
-        }
+        manifest = create_session_manifest(
+            pitch_id=pitch_id,
+            session_name=session_name,
+            mode=mode,
+            measured_speed_mph=measured_speed_mph,
+            config_path=config_path,
+        )
         (self._session_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
 
     def write_frame(self, label: str, frame: Frame) -> None:

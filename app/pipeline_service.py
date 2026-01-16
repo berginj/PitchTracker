@@ -72,6 +72,7 @@ from app.pipeline.recording.session_recorder import SessionRecorder
 from app.pipeline.recording.pitch_recorder import PitchRecorder
 from app.pipeline.analysis.pitch_summary import PitchAnalyzer
 from app.pipeline.analysis.session_summary import SessionManager
+from app.pipeline.pitch_tracking import PitchStateMachine
 
 logger = get_logger(__name__)
 
@@ -250,17 +251,12 @@ class InProcessPipelineService(PipelineService):
         self._pitch_recorder: Optional[PitchRecorder] = None
         self._pitch_analyzer: Optional[PitchAnalyzer] = None
         self._session_manager: Optional[SessionManager] = None
+        self._pitch_tracker: Optional[PitchStateMachine] = None
         self._radar_client: RadarGunClient = radar_client or NullRadarGun()
         self._manual_speed_mph: Optional[float] = None
         self._record_lock = threading.Lock()
         self._session_active = False
-        self._pitch_active = False
-        self._pitch_active_frames = 0
-        self._pitch_gap_frames = 0
-        self._pitch_index = 0
-        self._pitch_start_ns = 0
-        self._pitch_end_ns = 0
-        self._current_pitch_observations: List[StereoObservation] = []
+        self._pitch_id = "pitch-unknown"
         self._last_session_summary = SessionSummary(
             session_id="session",
             pitch_count=0,
@@ -344,15 +340,61 @@ class InProcessPipelineService(PipelineService):
             lane_count: Number of lane detections
             plate_count: Number of plate detections
         """
-        # Track observations for current pitch
-        for obs in observations:
-            if self._pitch_active:
-                self._current_pitch_observations.append(obs)
+        # Track observations and update pitch state
+        if self._pitch_tracker:
+            for obs in observations:
+                self._pitch_tracker.add_observation(obs)
 
-        # Update pitch state
-        frame_ns = max(left_frame.t_capture_monotonic_ns, right_frame.t_capture_monotonic_ns)
-        obs_count = len(observations)
-        self._update_pitch_state(frame_ns, lane_count, plate_count, obs_count)
+            frame_ns = max(left_frame.t_capture_monotonic_ns, right_frame.t_capture_monotonic_ns)
+            obs_count = len(observations)
+            self._pitch_tracker.update(frame_ns, lane_count, plate_count, obs_count)
+
+    def _on_pitch_start(self, pitch_index: int, start_ns: int) -> None:
+        """Callback when pitch starts.
+
+        Args:
+            pitch_index: Pitch index (1-based)
+            start_ns: Start timestamp in nanoseconds
+        """
+        session = self._record_session or "session"
+        self._pitch_id = f"{session}-pitch-{pitch_index:03d}"
+
+        # Create and start pitch recorder
+        if self._config and self._session_recorder:
+            session_dir = self._session_recorder.get_session_dir()
+            if session_dir:
+                self._pitch_recorder = PitchRecorder(self._config, session_dir, self._pitch_id)
+                self._pitch_recorder.start_pitch()
+
+    def _on_pitch_end(self, end_ns: int, pitch_index: int, observations: List[StereoObservation]) -> None:
+        """Callback when pitch ends.
+
+        Args:
+            end_ns: End timestamp in nanoseconds
+            pitch_index: Pitch index (1-based)
+            observations: List of stereo observations for the pitch
+        """
+        if self._pitch_analyzer is None or self._session_manager is None:
+            return
+
+        # Analyze pitch
+        summary = self._pitch_analyzer.analyze_pitch(
+            pitch_id=self._pitch_id,
+            start_ns=observations[0].t_ns if observations else end_ns,
+            end_ns=end_ns,
+            observations=observations,
+        )
+
+        # Add to session
+        self._session_manager.add_pitch(summary, observations)
+        self._last_session_summary = self._session_manager.get_summary()
+
+        # End pitch recording (continue for post-roll)
+        if self._pitch_recorder:
+            self._pitch_recorder.end_pitch(end_ns)
+            # Write manifest
+            config_path = str(self._config_path) if self._config_path else None
+            self._pitch_recorder.write_manifest(summary, config_path)
 
     def start_capture(
         self,
@@ -529,16 +571,15 @@ class InProcessPipelineService(PipelineService):
         self._record_session = session_name
         self._record_mode = mode
         self._session_active = True
-        self._session_pitches = []
-        self._recent_pitch_paths.clear()
-        self._pitch_index = 0
-        self._pitch_active = False
-        self._pitch_active_frames = 0
-        self._pitch_gap_frames = 0
-        self._current_pitch_observations = []
-        self._last_session_summary = build_session_summary(
-            self._record_session or "session",
-            self._session_pitches,
+        if self._pitch_tracker:
+            self._pitch_tracker.reset()
+        self._last_session_summary = SessionSummary(
+            session_id=self._record_session or "session",
+            pitch_count=0,
+            strikes=0,
+            balls=0,
+            heatmap=[[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+            pitches=[],
         )
         self._start_recording_io()
 
@@ -550,8 +591,8 @@ class InProcessPipelineService(PipelineService):
 
     def stop_recording(self) -> RecordingBundle:
         self._recording = False
-        if self._pitch_active:
-            self._finalize_pitch(self._pitch_end_ns or time.monotonic_ns())
+        if self._pitch_tracker:
+            self._pitch_tracker.force_end()
         self._session_active = False
         self._stop_recording_io()
         metrics = PitchMetrics(
@@ -695,6 +736,15 @@ class InProcessPipelineService(PipelineService):
         # Initialize session manager
         self._session_manager = SessionManager(self._record_session or "session")
 
+        # Initialize pitch state machine
+        self._pitch_tracker = PitchStateMachine(
+            min_active_frames=self._config.recording.session_min_active_frames,
+            end_gap_frames=self._config.recording.session_end_gap_frames,
+            use_plate_gate=self._plate_gate is not None,
+        )
+        self._pitch_tracker.set_pitch_start_callback(self._on_pitch_start)
+        self._pitch_tracker.set_pitch_end_callback(self._on_pitch_end)
+
     def _stop_recording_io(self) -> None:
         # Close pitch recording if active
         if self._pitch_recorder:
@@ -729,80 +779,6 @@ class InProcessPipelineService(PipelineService):
                     self._pitch_recorder.close()
                     self._pitch_recorder = None
 
-    def _update_pitch_state(
-        self,
-        frame_ns: int,
-        lane_count: int,
-        plate_count: int,
-        obs_count: int,
-    ) -> None:
-        if not self._session_active or self._config is None:
-            return
-        min_active = self._config.recording.session_min_active_frames
-        end_gap = self._config.recording.session_end_gap_frames
-        if self._plate_gate is None:
-            active = lane_count > 0
-        else:
-            active = plate_count > 0 or obs_count > 0
-        if active:
-            self._pitch_gap_frames = 0
-            self._pitch_active_frames += 1
-            self._pitch_end_ns = frame_ns
-            if not self._pitch_active and self._pitch_active_frames >= min_active:
-                self._start_pitch(frame_ns)
-        else:
-            if self._pitch_active:
-                self._pitch_gap_frames += 1
-                if self._pitch_gap_frames >= end_gap:
-                    self._finalize_pitch(frame_ns)
-            else:
-                self._pitch_active_frames = 0
-
-    def _start_pitch(self, frame_ns: int) -> None:
-        self._pitch_active = True
-        self._pitch_start_ns = frame_ns
-        self._pitch_index += 1
-        self._current_pitch_observations = []
-        session = self._record_session or "session"
-        self._pitch_id = f"{session}-pitch-{self._pitch_index:03d}"
-
-        # Create and start pitch recorder
-        if self._config and self._session_recorder:
-            session_dir = self._session_recorder.get_session_dir()
-            if session_dir:
-                self._pitch_recorder = PitchRecorder(self._config, session_dir, self._pitch_id)
-                self._pitch_recorder.start_pitch()
-
-    def _finalize_pitch(self, frame_ns: int) -> None:
-        self._pitch_active = False
-        self._pitch_active_frames = 0
-        self._pitch_gap_frames = 0
-        self._pitch_end_ns = frame_ns
-
-        if self._pitch_analyzer is None or self._session_manager is None:
-            return
-
-        # Analyze pitch
-        summary = self._pitch_analyzer.analyze_pitch(
-            pitch_id=self._pitch_id,
-            start_ns=self._pitch_start_ns,
-            end_ns=self._pitch_end_ns,
-            observations=self._current_pitch_observations,
-        )
-
-        # Add to session
-        self._session_manager.add_pitch(summary, self._current_pitch_observations)
-        self._last_session_summary = self._session_manager.get_summary()
-
-        # End pitch recording (continue for post-roll)
-        if self._pitch_recorder:
-            self._pitch_recorder.end_pitch(frame_ns)
-            # Write manifest
-            config_path = str(self._config_path) if self._config_path else None
-            self._pitch_recorder.write_manifest(summary, config_path)
-
-        # Reset pitch observations
-        self._current_pitch_observations = []
 
     def _write_session_summary(self) -> None:
         if self._session_recorder:
