@@ -5,10 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.pipeline_service import InProcessPipelineService
 from configs.settings import load_config
+from ui.coaching.dialogs import SessionStartDialog
 
 
 class CoachWindow(QtWidgets.QMainWindow):
@@ -49,6 +50,19 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         # Build UI
         self._build_ui()
+
+        # Preview timer
+        self._preview_timer = QtCore.QTimer()
+        self._preview_timer.timeout.connect(self._update_preview)
+        self._preview_timer.start(33)  # ~30 FPS
+
+        # Metrics update timer
+        self._metrics_timer = QtCore.QTimer()
+        self._metrics_timer.timeout.connect(self._update_metrics)
+        self._metrics_timer.start(100)  # 10 Hz
+
+        # Last known pitch count
+        self._last_pitch_count = 0
 
     def _build_ui(self) -> None:
         """Build coaching dashboard UI."""
@@ -287,13 +301,58 @@ class CoachWindow(QtWidgets.QMainWindow):
 
     def _start_session(self) -> None:
         """Start new coaching session."""
-        # TODO: Show session start dialog (pitcher selection, session name)
+        # Show session start dialog
+        dialog = SessionStartDialog(self._config, parent=self)
+        if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return
 
-        # For prototype, just start immediately
-        import time
-        self._session_name = f"Practice-{time.strftime('%Y-%m-%d-%H%M%S')}"
-        self._pitcher_name = "John Doe"  # Placeholder
+        # Get values from dialog
+        self._session_name = dialog.session_name
+        self._pitcher_name = dialog.pitcher_name
         self._pitch_count = 0
+        self._last_pitch_count = 0
+
+        # Update configuration from dialog
+        if dialog.batter_height_in != self._config.strike_zone.batter_height_in:
+            self._service.set_batter_height_in(dialog.batter_height_in)
+
+        if dialog.ball_type != self._config.tracking.ball_type:
+            self._service.set_ball_type(dialog.ball_type)
+
+        # Start capture (if not already running)
+        try:
+            if not self._service.is_capturing():
+                # Get camera serials from config
+                left_serial = self._config.cameras.left.serial_number
+                right_serial = self._config.cameras.right.serial_number
+
+                self._status_label.setText("Starting cameras...")
+                QtWidgets.QApplication.processEvents()
+
+                self._service.start_capture(
+                    self._config,
+                    left_serial,
+                    right_serial,
+                    str(self._config_path),
+                )
+
+            # Start recording
+            self._status_label.setText("Starting recording...")
+            QtWidgets.QApplication.processEvents()
+
+            self._service.start_recording(
+                pitch_id="session",
+                session_name=self._session_name,
+                mode="session",
+            )
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Session Start Error",
+                f"Failed to start session:\n{str(e)}",
+            )
+            return
 
         # Update UI
         self._session_label.setText(f"Session: {self._session_name}")
@@ -320,8 +379,6 @@ class CoachWindow(QtWidgets.QMainWindow):
 
     def _end_session(self) -> None:
         """End current session and show summary."""
-        # TODO: Show session summary dialog
-
         reply = QtWidgets.QMessageBox.question(
             self,
             "End Session",
@@ -331,6 +388,33 @@ class CoachWindow(QtWidgets.QMainWindow):
         )
 
         if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+            # Stop recording
+            try:
+                self._status_label.setText("Stopping recording...")
+                QtWidgets.QApplication.processEvents()
+
+                summary = self._service.stop_recording()
+
+                # Show summary
+                if summary:
+                    QtWidgets.QMessageBox.information(
+                        self,
+                        "Session Complete",
+                        f"Session: {self._session_name}\n"
+                        f"Pitcher: {self._pitcher_name}\n"
+                        f"Pitches: {summary.pitch_count}\n"
+                        f"Strikes: {summary.strike_count}\n"
+                        f"Balls: {summary.ball_count}\n\n"
+                        f"Session data saved.",
+                    )
+
+            except Exception as e:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Session End Error",
+                    f"Error stopping session:\n{str(e)}",
+                )
+
             # Reset UI
             self._session_label.setText("Session: <not started>")
             self._pitcher_label.setText("Pitcher: <not selected>")
@@ -347,3 +431,172 @@ class CoachWindow(QtWidgets.QMainWindow):
             self._status_label.setStyleSheet("padding: 5px; background-color: #f0f0f0;")
 
             self._session_active = False
+
+    def closeEvent(self, event) -> None:
+        """Handle window close event - stop capture and recording."""
+        # Stop timers
+        self._preview_timer.stop()
+        self._metrics_timer.stop()
+
+        if self._session_active:
+            reply = QtWidgets.QMessageBox.question(
+                self,
+                "Session Active",
+                "A session is currently active. End session before closing?",
+                QtWidgets.QMessageBox.StandardButton.Yes
+                | QtWidgets.QMessageBox.StandardButton.No
+                | QtWidgets.QMessageBox.StandardButton.Cancel,
+            )
+
+            if reply == QtWidgets.QMessageBox.StandardButton.Cancel:
+                event.ignore()
+                # Restart timers if user cancels
+                self._preview_timer.start(33)
+                self._metrics_timer.start(100)
+                return
+            elif reply == QtWidgets.QMessageBox.StandardButton.Yes:
+                try:
+                    self._service.stop_recording()
+                except Exception:
+                    pass
+
+        # Stop capture
+        try:
+            if self._service.is_capturing():
+                self._service.stop_capture()
+        except Exception:
+            pass
+
+        event.accept()
+
+    def _update_preview(self) -> None:
+        """Update camera preview frames."""
+        if not self._service.is_capturing():
+            return
+
+        try:
+            # Get preview frames
+            left_frame, right_frame = self._service.get_preview_frames()
+
+            # Update left view
+            if left_frame is not None:
+                pixmap = self._frame_to_pixmap(left_frame.image)
+                if pixmap:
+                    scaled = pixmap.scaled(
+                        self._left_view.size(),
+                        QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                        QtCore.Qt.TransformationMode.SmoothTransformation,
+                    )
+                    self._left_view.setPixmap(scaled)
+
+            # Update right view
+            if right_frame is not None:
+                pixmap = self._frame_to_pixmap(right_frame.image)
+                if pixmap:
+                    scaled = pixmap.scaled(
+                        self._right_view.size(),
+                        QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                        QtCore.Qt.TransformationMode.SmoothTransformation,
+                    )
+                    self._right_view.setPixmap(scaled)
+
+        except Exception:
+            # Silently ignore preview errors
+            pass
+
+    def _frame_to_pixmap(self, image) -> Optional[QtGui.QPixmap]:
+        """Convert numpy image to QPixmap."""
+        try:
+            import numpy as np
+
+            # Ensure image is uint8
+            if image.dtype != np.uint8:
+                image = image.astype(np.uint8)
+
+            # Convert BGR to RGB if needed
+            if len(image.shape) == 3 and image.shape[2] == 3:
+                import cv2
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+            # Create QImage
+            height, width = image.shape[:2]
+            if len(image.shape) == 3:
+                bytes_per_line = 3 * width
+                q_image = QtGui.QImage(
+                    image.data,
+                    width,
+                    height,
+                    bytes_per_line,
+                    QtGui.QImage.Format.Format_RGB888,
+                )
+            else:
+                bytes_per_line = width
+                q_image = QtGui.QImage(
+                    image.data,
+                    width,
+                    height,
+                    bytes_per_line,
+                    QtGui.QImage.Format.Format_Grayscale8,
+                )
+
+            return QtGui.QPixmap.fromImage(q_image)
+
+        except Exception:
+            return None
+
+    def _update_metrics(self) -> None:
+        """Update pitch metrics display."""
+        if not self._session_active:
+            return
+
+        try:
+            # Get recent pitches from service
+            recent_pitches = self._service.get_recent_pitches()
+
+            # Check if new pitches detected
+            if len(recent_pitches) > self._last_pitch_count:
+                # Update pitch count
+                self._pitch_count = len(recent_pitches)
+                self._pitch_count_label.setText(f"Pitches: {self._pitch_count}")
+                self._last_pitch_count = self._pitch_count
+
+                # Get latest pitch
+                if recent_pitches:
+                    latest = recent_pitches[-1]
+
+                    # Update metrics display
+                    speed_mph = latest.measured_speed_mph or 0.0
+                    self._speed_label.setText(f"Speed: {speed_mph:.1f} mph")
+
+                    # Update break
+                    if latest.plate_x_in is not None and latest.plate_z_in is not None:
+                        self._hbreak_label.setText(f"H-Break: {latest.plate_x_in:+.1f} in")
+                        self._vbreak_label.setText(f"V-Break: {latest.plate_z_in:+.1f} in")
+
+                    # Update result
+                    result = "STRIKE" if latest.is_strike else "BALL"
+                    result_color = "#4CAF50" if latest.is_strike else "#FF5722"
+                    self._result_label.setText(f"Result: {result}")
+                    self._result_label.setStyleSheet(f"font-size: 14pt; font-weight: bold; color: {result_color};")
+
+                    # Update recent pitches list
+                    self._update_recent_pitches_list(recent_pitches)
+
+        except Exception:
+            # Silently ignore metrics errors
+            pass
+
+    def _update_recent_pitches_list(self, pitches) -> None:
+        """Update recent pitches list widget."""
+        self._recent_list.clear()
+
+        # Show last 10 pitches (most recent first)
+        for i, pitch in enumerate(reversed(pitches[-10:])):
+            speed_mph = pitch.measured_speed_mph or 0.0
+            result = "STRIKE" if pitch.is_strike else "BALL"
+            color = "#4CAF50" if pitch.is_strike else "#FF5722"
+
+            item_text = f"{len(pitches) - i}. {speed_mph:.1f} mph - {result}"
+            item = QtWidgets.QListWidgetItem(item_text)
+            item.setForeground(QtGui.QColor(color))
+            self._recent_list.addItem(item)

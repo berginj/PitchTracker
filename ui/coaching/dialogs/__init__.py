@@ -1,3 +1,5 @@
 """Dialogs for coaching application."""
 
-__all__ = []
+from .session_start import SessionStartDialog
+
+__all__ = ["SessionStartDialog"]
