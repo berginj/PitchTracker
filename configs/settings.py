@@ -129,6 +129,13 @@ class BallConfig:
 
 
 @dataclass(frozen=True)
+class UploadConfig:
+    enabled: bool
+    swa_api_base: str
+    api_key: str
+
+
+@dataclass(frozen=True)
 class AppConfig:
     camera: CameraConfig
     stereo: StereoConfig
@@ -140,6 +147,7 @@ class AppConfig:
     detector: DetectorConfig
     strike_zone: StrikeZoneConfig
     ball: BallConfig
+    upload: UploadConfig
 
 
 def load_config(path: Path) -> AppConfig:

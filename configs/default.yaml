@@ -79,3 +79,7 @@ ball:
   radius_in:
     baseball: 1.45
     softball: 1.88
+upload:
+  enabled: false
+  swa_api_base: ""
+  api_key: ""

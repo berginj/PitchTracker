@@ -66,9 +66,17 @@ recording:
   frame_save_interval: 5      # Save every Nth frame
 ```
 
+### Cloud Submission
+- `export_ml_submission.py` - Package sessions for cloud ML training upload
+- Two variants: Full (videos + telemetry) and Telemetry-only (no videos)
+- Full package enables all 5 ML models (100% automation roadmap)
+- Telemetry-only enables 2 of 5 models (privacy-preserving, 40% automation)
+
 ### Documentation
 - `ML_TRAINING_DATA_STRATEGY.md` - 18-month roadmap to near-zero configuration
 - `ML_TRAINING_IMPLEMENTATION_GUIDE.md` - Week 1 implementation details
+- `CLOUD_SUBMISSION_SCHEMA.md` - Cloud upload contract and API specification
+- `ML_QUICK_REFERENCE.md` - Quick start guide for ML features
 
 ### Purpose
 Enable dual-purpose data capture:

@@ -90,6 +90,7 @@ python -m detect.validate_ml --model models\ball.onnx --image samples\frame.png
 - **[ML_QUICK_REFERENCE.md](ML_QUICK_REFERENCE.md)** - Quick start guide for ML features ⭐ START HERE
 - **[ML_TRAINING_DATA_STRATEGY.md](ML_TRAINING_DATA_STRATEGY.md)** - 18-month automation roadmap
 - **[ML_TRAINING_IMPLEMENTATION_GUIDE.md](ML_TRAINING_IMPLEMENTATION_GUIDE.md)** - Week 1 implementation details
+- **[CLOUD_SUBMISSION_SCHEMA.md](CLOUD_SUBMISSION_SCHEMA.md)** - Cloud upload contract (full vs telemetry-only)
 
 **Current Status (v1.2.0):**
 - ✅ Detection export (pixel coordinates, confidence scores)
@@ -117,4 +118,13 @@ recording:
 **Validate Export:**
 ```powershell
 python test_ml_data_export.py "recordings\session-2026-01-16_001"
+```
+
+**Export for Cloud Submission:**
+```powershell
+# Full package (videos + telemetry) - 4-5 GB, enables all 5 models
+python export_ml_submission.py --session-dir "recordings\session-2026-01-16_001" --output "ml-submission-full.zip" --type full --pitcher-id "anonymous-123"
+
+# Telemetry-only (no videos) - 50-100 MB, enables 2 of 5 models, privacy-preserving
+python export_ml_submission.py --session-dir "recordings\session-2026-01-16_001" --output "ml-submission-telemetry.zip" --type telemetry_only --pitcher-id "anonymous-123" --reason privacy_preserving
 ```
