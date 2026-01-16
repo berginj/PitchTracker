@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
+import random
 import time
 from collections import deque
 from pathlib import Path
@@ -22,12 +24,15 @@ from configs.location_profiles import apply_profile, list_profiles, load_profile
 from configs.pitchers import add_pitcher, load_pitchers
 from configs.roi_io import load_rois, save_rois
 from configs.settings import load_config
-from contracts import Frame
+from configs.validator import validate_config_file
+from contracts import Frame, StereoObservation
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 from detect.classical_detector import ClassicalDetector
 from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig, Mode
 from detect.fiducials import FiducialDetection, detect_apriltags
 from detect.lane import LaneRoi
+from metrics.strike_zone import build_strike_zone
+from exceptions import ConfigValidationError
 from ui.device_utils import current_serial, probe_opencv_indices, probe_uvc_devices
 from ui.dialogs import (
     CalibrationGuide,
@@ -51,14 +56,15 @@ from ui.geometry import (
     rect_to_polygon,
     roi_overlays,
 )
-from ui.widgets import RoiLabel
+from ui.widgets import PlateMapWidget, RoiLabel
 
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, backend: str, config_path: Path) -> None:
         super().__init__()
         self.setWindowTitle("Pitch Tracker")
-        self._config = load_config(config_path)
+        self._config_path_value = Path(config_path)
+        self._config = load_config(self._config_path_value)
         self._service = InProcessPipelineService(backend=backend)
         self._timer = QtCore.QTimer(self)
         self._timer.timeout.connect(self._update_preview)
@@ -168,6 +174,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self._right_view.setAlignment(QtCore.Qt.AlignCenter)
         self._left_view.setScaledContents(True)
         self._right_view.setScaledContents(True)
+        self._right_view.setVisible(False)
+        self._plate_map = PlateMapWidget()
+        self._recent_pitch_paths: list[list[StereoObservation]] = []
+        self._last_pitch_id: Optional[str] = None
+        self._tic_tac_toe_board: list[list[str]] = [["", "", ""], ["", "", ""], ["", "", ""]]
+        self._game_score_x = 0
+        self._game_score_o = 0
+        self._game_round = 0
+        self._game_streak = 0
+        self._production_mode = False
+        self._target_mode = False
+        self._target_cell: Optional[tuple[int, int]] = None
 
         self._lane_button = QtWidgets.QPushButton("Edit Lane ROI")
         self._lane_right_button = QtWidgets.QPushButton("Edit Right Lane ROI")
@@ -192,23 +210,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self._apply_detector = QtWidgets.QPushButton("Apply Detector")
 
         controls = QtWidgets.QHBoxLayout()
-        controls.addWidget(self._start_button)
-        controls.addWidget(self._stop_button)
-        controls.addWidget(self._restart_button)
         controls.addWidget(self._record_button)
         controls.addWidget(self._stop_record_button)
-        controls.addWidget(self._training_button)
-        controls.addWidget(self._replay_button)
-        controls.addWidget(self._pause_button)
-        controls.addWidget(self._step_button)
-        controls.addWidget(self._record_settings_button)
-        controls.addWidget(self._strike_settings_button)
-        controls.addWidget(self._detector_settings_button)
-        controls.addWidget(self._checklist_button)
 
-        views = QtWidgets.QHBoxLayout()
-        views.addWidget(self._left_view, 1)
-        views.addWidget(self._right_view, 1)
+        plate_column = QtWidgets.QVBoxLayout()
+        plate_column.addWidget(self._plate_map)
+        plate_column.addWidget(self._build_game_panel())
+        plate_widget = QtWidgets.QWidget()
+        plate_widget.setLayout(plate_column)
+        self._plate_widget = plate_widget
+        self._views_layout = QtWidgets.QHBoxLayout()
+        self._views_layout.addWidget(self._left_view, 3)
+        self._views_layout.addWidget(self._plate_widget, 2)
+        self._views_layout.addWidget(self._right_view, 2)
 
         self._setup_group = QtWidgets.QGroupBox("Setup & Calibration")
         profile_row = QtWidgets.QHBoxLayout()
@@ -223,7 +237,6 @@ class MainWindow(QtWidgets.QMainWindow):
         device_row = QtWidgets.QHBoxLayout()
         device_row.addWidget(self._left_input)
         device_row.addWidget(self._right_input)
-        device_row.addWidget(self._refresh_button)
         roi_row = QtWidgets.QHBoxLayout()
         roi_row.addWidget(self._lane_button)
         roi_row.addWidget(self._lane_right_button)
@@ -237,29 +250,30 @@ class MainWindow(QtWidgets.QMainWindow):
         calib_row.addWidget(self._quick_cal_button)
         calib_row.addWidget(self._plate_cal_button)
         action_row = QtWidgets.QHBoxLayout()
-        action_row.addWidget(self._low_perf_button)
-        action_row.addWidget(self._cue_card_button)
         action_row.addStretch(1)
         action_row.addWidget(self._enter_button)
         setup_layout = QtWidgets.QVBoxLayout()
         setup_layout.addLayout(profile_row)
         setup_layout.addLayout(pitcher_row)
         setup_layout.addLayout(device_row)
-        setup_layout.addLayout(roi_row)
-        setup_layout.addLayout(calib_row)
+        # Move ROI/calibration controls into menus to reduce clutter.
         setup_layout.addLayout(action_row)
         self._setup_group.setLayout(setup_layout)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self._setup_group)
-        layout.addLayout(controls)
-        layout.addLayout(views)
-        layout.addWidget(self._build_health_panel())
+        self._controls_widget = QtWidgets.QWidget()
+        self._controls_widget.setLayout(controls)
+        layout.addWidget(self._controls_widget)
+        layout.addLayout(self._views_layout)
+        self._health_panel = self._build_health_panel()
+        layout.addWidget(self._health_panel)
         layout.addWidget(self._status_label)
 
         container = QtWidgets.QWidget()
         container.setLayout(layout)
         self.setCentralWidget(container)
+        self._build_menu()
 
         self._start_button.clicked.connect(self._start_capture)
         self._stop_button.clicked.connect(self._stop_capture)
@@ -313,6 +327,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._bottom_ratio.setValue(self._config.strike_zone.bottom_ratio)
         self._output_dir.setText(self._config.recording.output_dir)
         self._service.set_record_directory(Path(self._config.recording.output_dir))
+        self._update_plate_map_zone()
         self._update_calib_summary()
         self._set_setup_mode(True)
         self._run_startup_dialog()
@@ -323,7 +338,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if not left or not right:
             self._status_label.setText("Enter both serials.")
             return
-        self._service.start_capture(self._config, left, right)
+        if not self._pre_capture_check():
+            return
+        self._service.start_capture(self._config, left, right, config_path=self._config_path())
         self._status_label.setText("Capturing.")
         self._timer.start(int(1000 / max(self._config.ui.refresh_hz, 1)))
 
@@ -335,6 +352,55 @@ class MainWindow(QtWidgets.QMainWindow):
     def _restart_capture(self) -> None:
         self._stop_capture()
         self._start_capture()
+
+    def _pre_capture_check(self) -> bool:
+        errors: list[str] = []
+        warnings: list[str] = []
+        config_path = self._config_path()
+        try:
+            validate_config_file(str(config_path))
+        except ConfigValidationError as exc:
+            errors.append(str(exc))
+            for detail in exc.validation_errors:
+                errors.append(f"- {detail}")
+        if self._config.detector.type == "ml":
+            model_path = self._config.detector.model_path
+            if not model_path:
+                errors.append("ML detector enabled but model_path is empty.")
+            else:
+                resolved = Path(model_path)
+                if not resolved.exists():
+                    errors.append(f"ML model not found at {resolved}.")
+        output_dir = Path(self._config.recording.output_dir)
+        try:
+            output_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            errors.append(f"Output dir not writable: {output_dir} ({exc})")
+        else:
+            if not os.access(output_dir, os.W_OK):
+                errors.append(f"Output dir not writable: {output_dir}")
+        if not Path("configs/roi.json").exists():
+            warnings.append("ROI file configs/roi.json not found; lane/plate gating will be disabled.")
+        if not Path("configs/lane_roi.json").exists():
+            warnings.append("Lane ROI overrides not found; using shared lane ROI for both cameras.")
+
+        if errors:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Pre-Capture Check Failed",
+                "Fix the following before capturing:\n" + "\n".join(errors),
+            )
+            return False
+        if warnings:
+            result = QtWidgets.QMessageBox.warning(
+                self,
+                "Pre-Capture Warnings",
+                "Continue with the following warnings?\n" + "\n".join(warnings),
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.No,
+            )
+            return result == QtWidgets.QMessageBox.Yes
+        return True
 
     def _start_recording(self) -> None:
         if not self._health_ok():
@@ -867,17 +933,19 @@ class MainWindow(QtWidgets.QMainWindow):
                 fiducials=fiducials,
             )
         )
-        self._right_view.setPixmap(
-            frame_to_pixmap(
-                right_frame.image,
-                overlays_right,
-                right_dets,
-                right_gated.get("lane", []),
-                right_gated.get("plate", []),
-                plate_rect=self._plate_rect,
-                zone=zone,
+        if self._right_view.isVisible():
+            self._right_view.setPixmap(
+                frame_to_pixmap(
+                    right_frame.image,
+                    overlays_right,
+                    right_dets,
+                    right_gated.get("lane", []),
+                    right_gated.get("plate", []),
+                    plate_rect=self._plate_rect,
+                    zone=zone,
+                )
             )
-        )
+        self._update_plate_map()
         stats = self._service.get_stats()
         plate_metrics = self._service.get_plate_metrics()
         if stats:
@@ -1201,12 +1269,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _set_batter_height(self, value: float) -> None:
         self._service.set_batter_height_in(value)
+        self._update_plate_map_zone()
 
     def _set_strike_ratios(self) -> None:
         self._service.set_strike_zone_ratios(
             self._top_ratio.value(),
             self._bottom_ratio.value(),
         )
+        self._update_plate_map_zone()
 
     def _save_strike_zone(self) -> None:
         config_path = self._config_path()
@@ -1219,6 +1289,7 @@ class MainWindow(QtWidgets.QMainWindow):
         data["ball"]["type"] = self._ball_combo.currentText()
         config_path.write_text(yaml.safe_dump(data, sort_keys=False))
         self._status_label.setText("Strike zone saved.")
+        self._update_plate_map_zone()
 
     def _health_ok(self) -> bool:
         stats = self._service.get_stats()
@@ -1233,12 +1304,266 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         return fps_ok and drops_ok
 
+    def _update_plate_map_zone(self) -> None:
+        zone = build_strike_zone(
+            plate_z_ft=self._config.metrics.plate_plane_z_ft,
+            plate_width_in=self._config.strike_zone.plate_width_in,
+            plate_length_in=self._config.strike_zone.plate_length_in,
+            batter_height_in=self._config.strike_zone.batter_height_in,
+            top_ratio=self._config.strike_zone.top_ratio,
+            bottom_ratio=self._config.strike_zone.bottom_ratio,
+        )
+        self._plate_map.set_zone(zone)
+
+    def _update_plate_map(self) -> None:
+        paths = self._service.get_recent_pitch_paths()
+        self._recent_pitch_paths = paths
+        self._plate_map.set_pitch_paths(paths)
+        summary = self._service.get_session_summary()
+        if summary.pitches:
+            last_pitch = summary.pitches[-1]
+            if last_pitch.pitch_id != self._last_pitch_id:
+                self._last_pitch_id = last_pitch.pitch_id
+                if self._target_mode:
+                    self._apply_target_mode(last_pitch)
+                else:
+                    self._apply_pitch_to_tic_tac_toe(last_pitch)
+                self._plate_map.set_board(self._tic_tac_toe_board)
+                self._update_game_labels()
+            crossing = _pitch_crossing_xy(last_pitch)
+            self._plate_map.set_crossing_point(crossing)
+        else:
+            self._plate_map.set_crossing_point(None)
+
+    def _apply_pitch_to_tic_tac_toe(self, pitch) -> None:
+        row = pitch.zone_row
+        col = pitch.zone_col
+        if row is not None and col is not None:
+            r = max(1, min(3, row)) - 1
+            c = max(1, min(3, col)) - 1
+            if self._tic_tac_toe_board[r][c] == "":
+                self._tic_tac_toe_board[r][c] = "X"
+            else:
+                self._mark_tic_tac_toe_ai()
+        else:
+            self._mark_tic_tac_toe_ai()
+        winner = _tic_tac_toe_winner(self._tic_tac_toe_board)
+        if winner:
+            self._game_round += 1
+            if winner == "X":
+                self._game_score_x += 1
+                self._game_streak += 1
+                self._game_status.setText("Win! Keep the streak alive.")
+            elif winner == "O":
+                self._game_score_o += 1
+                self._game_streak = 0
+                self._game_status.setText("AI takes the round.")
+            else:
+                self._game_streak = 0
+                self._game_status.setText("Draw round.")
+            self._tic_tac_toe_board = [["", "", ""], ["", "", ""], ["", "", ""]]
+
+    def _mark_tic_tac_toe_ai(self) -> None:
+        empty = [
+            (r, c)
+            for r in range(3)
+            for c in range(3)
+            if self._tic_tac_toe_board[r][c] == ""
+        ]
+        if not empty:
+            return
+        r, c = random.choice(empty)
+        self._tic_tac_toe_board[r][c] = "O"
+
+    def _reset_tic_tac_toe_game(self) -> None:
+        self._tic_tac_toe_board = [["", "", ""], ["", "", ""], ["", "", ""]]
+        self._game_score_x = 0
+        self._game_score_o = 0
+        self._game_round = 0
+        self._game_streak = 0
+        self._game_status.setText("Ready.")
+        self._plate_map.set_board(self._tic_tac_toe_board)
+        self._target_cell = None
+        self._plate_map.set_target_cell(None)
+        self._update_game_labels()
+
+    def _update_game_labels(self) -> None:
+        self._game_score.setText(f"Score X:{self._game_score_x}  O:{self._game_score_o}  R:{self._game_round}")
+        self._game_streak_label.setText(f"Streak: {self._game_streak}")
+
+    def _set_production_mode(self, enabled: bool) -> None:
+        self._production_mode = enabled
+        self._setup_group.setVisible(not enabled)
+        if enabled:
+            self._health_panel.setVisible(False)
+            self._status_label.setVisible(False)
+            self._controls_widget.setVisible(False)
+            self._right_view.setVisible(False)
+            self._right_camera_action.setChecked(False)
+            self._views_layout.setStretch(0, 3)
+            self._views_layout.setStretch(1, 4)
+            self._views_layout.setStretch(2, 0)
+        else:
+            self._health_panel.setVisible(self._health_toggle_action.isChecked())
+            self._status_label.setVisible(True)
+            self._controls_widget.setVisible(True)
+            self._right_view.setVisible(self._right_camera_action.isChecked())
+            self._views_layout.setStretch(0, 3)
+            self._views_layout.setStretch(1, 2)
+            self._views_layout.setStretch(2, 2)
+        if enabled:
+            self._status_label.setText("Production mode.")
+
+    def _set_target_mode(self, enabled: bool) -> None:
+        self._target_mode = enabled
+        if enabled:
+            self._target_cell = self._random_target_cell()
+            self._game_status.setText("Hit the highlighted target.")
+            self._plate_map.set_target_cell(self._target_cell)
+        else:
+            self._target_cell = None
+            self._plate_map.set_target_cell(None)
+
+    def _apply_target_mode(self, pitch) -> None:
+        if not self._target_mode or self._target_cell is None:
+            return
+        row = pitch.zone_row
+        col = pitch.zone_col
+        if row is None or col is None:
+            self._game_streak = 0
+            self._game_status.setText("Missed. New target.")
+        else:
+            cell = (max(1, min(3, row)) - 1, max(1, min(3, col)) - 1)
+            if cell == self._target_cell:
+                self._game_score_x += 1
+                self._game_streak += 1
+                self._game_status.setText("Target hit!")
+            else:
+                self._game_streak = 0
+                self._game_status.setText("Missed. New target.")
+        self._game_round += 1
+        self._target_cell = self._random_target_cell()
+        self._plate_map.set_target_cell(self._target_cell)
+
+    def _random_target_cell(self) -> tuple[int, int]:
+        return (random.randint(0, 2), random.randint(0, 2))
+
+    def _build_menu(self) -> None:
+        menu_bar = self.menuBar()
+        capture_menu = menu_bar.addMenu("Capture")
+        start_action = capture_menu.addAction("Start Capture")
+        stop_action = capture_menu.addAction("Stop Capture")
+        restart_action = capture_menu.addAction("Restart Capture")
+        capture_menu.addSeparator()
+        record_action = capture_menu.addAction("Start Recording")
+        stop_record_action = capture_menu.addAction("Stop Recording")
+        capture_menu.addSeparator()
+        training_action = capture_menu.addAction("Training Capture")
+        start_action.triggered.connect(self._start_capture)
+        stop_action.triggered.connect(self._stop_capture)
+        restart_action.triggered.connect(self._restart_capture)
+        record_action.triggered.connect(self._start_recording)
+        stop_record_action.triggered.connect(self._stop_recording)
+        training_action.triggered.connect(self._start_training_capture)
+
+        calibration_menu = menu_bar.addMenu("Calibration")
+        guide_action = calibration_menu.addAction("Calibration Guide")
+        wizard_action = calibration_menu.addAction("Calibration Wizard")
+        quick_action = calibration_menu.addAction("Quick Calibrate")
+        plate_action = calibration_menu.addAction("Plate Plane Calibrate")
+        guide_action.triggered.connect(self._open_calibration_guide)
+        wizard_action.triggered.connect(self._run_calibration_wizard)
+        quick_action.triggered.connect(self._open_quick_calibrate)
+        plate_action.triggered.connect(self._open_plate_calibrate)
+
+        roi_menu = menu_bar.addMenu("ROI")
+        lane_action = roi_menu.addAction("Edit Lane ROI")
+        lane_right_action = roi_menu.addAction("Edit Right Lane ROI")
+        plate_roi_action = roi_menu.addAction("Edit Plate ROI")
+        roi_menu.addSeparator()
+        clear_lane_action = roi_menu.addAction("Clear Lane ROI")
+        clear_plate_action = roi_menu.addAction("Clear Plate ROI")
+        roi_menu.addSeparator()
+        save_roi_action = roi_menu.addAction("Save ROIs")
+        load_roi_action = roi_menu.addAction("Load ROIs")
+        lane_action.triggered.connect(lambda: self._set_roi_mode("lane"))
+        lane_right_action.triggered.connect(lambda: self._set_roi_mode("lane_right"))
+        plate_roi_action.triggered.connect(lambda: self._set_roi_mode("plate"))
+        clear_lane_action.triggered.connect(self._clear_lane)
+        clear_plate_action.triggered.connect(self._clear_plate)
+        save_roi_action.triggered.connect(self._save_rois)
+        load_roi_action.triggered.connect(self._load_rois)
+
+        settings_menu = menu_bar.addMenu("Settings")
+        record_settings_action = settings_menu.addAction("Recording Settings")
+        strike_settings_action = settings_menu.addAction("Strike Zone Settings")
+        detector_settings_action = settings_menu.addAction("Detector Settings")
+        record_settings_action.triggered.connect(self._open_record_settings)
+        strike_settings_action.triggered.connect(self._open_strike_settings)
+        detector_settings_action.triggered.connect(self._open_detector_settings)
+
+        tools_menu = menu_bar.addMenu("Tools")
+        refresh_action = tools_menu.addAction("Refresh Devices")
+        checklist_action = tools_menu.addAction("Checklist")
+        low_perf_action = tools_menu.addAction("Low Perf Mode")
+        cue_card_action = tools_menu.addAction("Cue Card Test")
+        reset_game_action = tools_menu.addAction("Reset Game")
+        target_mode_action = tools_menu.addAction("Target Mode")
+        target_mode_action.setCheckable(True)
+        target_mode_action.setChecked(False)
+        refresh_action.triggered.connect(self._refresh_devices)
+        checklist_action.triggered.connect(self._open_checklist)
+        low_perf_action.triggered.connect(self._apply_low_perf_mode)
+        cue_card_action.triggered.connect(self._cue_card_test)
+        reset_game_action.triggered.connect(self._reset_tic_tac_toe_game)
+        target_mode_action.toggled.connect(self._set_target_mode)
+
+        review_menu = menu_bar.addMenu("Review")
+        replay_action = review_menu.addAction("Replay")
+        pause_action = review_menu.addAction("Pause/Resume Replay")
+        step_action = review_menu.addAction("Step Replay")
+        replay_action.triggered.connect(self._start_replay)
+        pause_action.triggered.connect(self._toggle_replay_pause)
+        step_action.triggered.connect(self._step_replay)
+
+        view_menu = menu_bar.addMenu("View")
+        self._health_toggle_action = QtWidgets.QAction("Show Health Panel", self)
+        self._health_toggle_action.setCheckable(True)
+        self._health_toggle_action.setChecked(True)
+        self._health_toggle_action.toggled.connect(self._health_panel.setVisible)
+        view_menu.addAction(self._health_toggle_action)
+        self._right_camera_action = QtWidgets.QAction("Show Right Camera", self)
+        self._right_camera_action.setCheckable(True)
+        self._right_camera_action.setChecked(False)
+        self._right_camera_action.toggled.connect(self._right_view.setVisible)
+        view_menu.addAction(self._right_camera_action)
+        self._production_action = QtWidgets.QAction("Production Mode", self)
+        self._production_action.setCheckable(True)
+        self._production_action.setChecked(False)
+        self._production_action.toggled.connect(self._set_production_mode)
+        view_menu.addAction(self._production_action)
+
     def _build_health_panel(self) -> QtWidgets.QGroupBox:
         panel = QtWidgets.QGroupBox("Health")
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self._health_left)
         layout.addWidget(self._health_right)
         layout.addWidget(self._calib_summary)
+        panel.setLayout(layout)
+        return panel
+
+    def _build_game_panel(self) -> QtWidgets.QGroupBox:
+        panel = QtWidgets.QGroupBox("Game")
+        layout = QtWidgets.QVBoxLayout()
+        self._game_status = QtWidgets.QLabel("Ready.")
+        self._game_score = QtWidgets.QLabel("Score X:0  O:0  R:0")
+        self._game_streak_label = QtWidgets.QLabel("Streak: 0")
+        reset = QtWidgets.QPushButton("Reset Game")
+        reset.clicked.connect(self._reset_tic_tac_toe_game)
+        layout.addWidget(self._game_status)
+        layout.addWidget(self._game_score)
+        layout.addWidget(self._game_streak_label)
+        layout.addWidget(reset)
         panel.setLayout(layout)
         return panel
 
@@ -1458,8 +1783,31 @@ class MainWindow(QtWidgets.QMainWindow):
             pass
 
     def _config_path(self) -> Path:
-        return Path("configs/default.yaml")
+        return self._config_path_value
 
+
+
+def _tic_tac_toe_winner(board: list[list[str]]) -> Optional[str]:
+    lines = []
+    for i in range(3):
+        lines.append(board[i])
+        lines.append([board[0][i], board[1][i], board[2][i]])
+    lines.append([board[0][0], board[1][1], board[2][2]])
+    lines.append([board[0][2], board[1][1], board[2][0]])
+    for line in lines:
+        if line[0] and line[0] == line[1] == line[2]:
+            return line[0]
+    if all(cell for row in board for cell in row):
+        return "Draw"
+    return None
+
+
+def _pitch_crossing_xy(pitch) -> Optional[tuple[float, float]]:
+    x = getattr(pitch, "trajectory_plate_x_ft", None)
+    y = getattr(pitch, "trajectory_plate_y_ft", None)
+    if x is None or y is None:
+        return None
+    return (x, y)
 
 
 __all__ = ["MainWindow"]

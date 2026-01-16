@@ -54,6 +54,8 @@ from stereo import StereoLaneGate
 from stereo.association import StereoMatch
 from stereo.simple_stereo import SimpleStereoMatcher, StereoGeometry
 from track.simple_tracker import SimpleTracker
+from trajectory.contracts import TrajectoryFitRequest
+from trajectory.physics import PhysicsDragFitter
 
 logger = get_logger(__name__)
 
@@ -78,6 +80,13 @@ class PitchSummary:
     speed_mph: Optional[float]
     rotation_rpm: Optional[float]
     sample_count: int
+    trajectory_plate_x_ft: Optional[float] = None
+    trajectory_plate_y_ft: Optional[float] = None
+    trajectory_plate_z_ft: Optional[float] = None
+    trajectory_plate_t_ns: Optional[int] = None
+    trajectory_model: Optional[str] = None
+    trajectory_expected_error_ft: Optional[float] = None
+    trajectory_confidence: Optional[float] = None
 
 
 @dataclass(frozen=True)
@@ -92,7 +101,13 @@ class SessionSummary:
 
 class PipelineService(ABC):
     @abstractmethod
-    def start_capture(self, config: AppConfig, left_serial: str, right_serial: str) -> None:
+    def start_capture(
+        self,
+        config: AppConfig,
+        left_serial: str,
+        right_serial: str,
+        config_path: Optional[Path] = None,
+    ) -> None:
         """Start capture on both cameras."""
 
     @abstractmethod
@@ -183,6 +198,10 @@ class PipelineService(ABC):
         """Return the latest session summary."""
 
     @abstractmethod
+    def get_recent_pitch_paths(self) -> list[list[StereoObservation]]:
+        """Return recent pitch observation paths."""
+
+    @abstractmethod
     def get_session_dir(self) -> Optional[Path]:
         """Return the current session directory if available."""
 
@@ -210,12 +229,14 @@ class InProcessPipelineService(PipelineService):
         self._lane_polygon: Optional[list[tuple[float, float]]] = None
         self._stereo: Optional[SimpleStereoMatcher] = None
         self._tracker = SimpleTracker()
+        self._trajectory_fitter = PhysicsDragFitter()
         self._plate_observations = deque(maxlen=12)
         self._current_pitch_observations: List[StereoObservation] = []
         self._recording = False
         self._recorded_frames: list[Frame] = []
         self._pitch_id = "pitch-unknown"
         self._config: Optional[AppConfig] = None
+        self._config_path: Optional[Path] = None
         self._last_plate_metrics = PlateMetricsStub(run_in=0.0, rise_in=0.0, sample_count=0)
         self._last_detections: Dict[str, list[Detection]] = {}
         self._last_gated: Dict[str, Dict[str, list[Detection]]] = {}
@@ -273,6 +294,7 @@ class InProcessPipelineService(PipelineService):
         self._pitch_start_ns = 0
         self._pitch_end_ns = 0
         self._session_pitches: List[PitchSummary] = []
+        self._recent_pitch_paths: deque[list[StereoObservation]] = deque(maxlen=12)
         self._last_session_summary = SessionSummary(
             session_id="session",
             pitch_count=0,
@@ -282,13 +304,20 @@ class InProcessPipelineService(PipelineService):
             pitches=[],
         )
 
-    def start_capture(self, config: AppConfig, left_serial: str, right_serial: str) -> None:
+    def start_capture(
+        self,
+        config: AppConfig,
+        left_serial: str,
+        right_serial: str,
+        config_path: Optional[Path] = None,
+    ) -> None:
         """Start capture on both cameras with error handling.
 
         Args:
             config: Application configuration
             left_serial: Left camera serial number
             right_serial: Right camera serial number
+            config_path: Path to active config file
 
         Raises:
             CameraNotFoundError: If camera serials are not found
@@ -301,6 +330,7 @@ class InProcessPipelineService(PipelineService):
 
         try:
             self._config = config
+            self._config_path = config_path
             self._left_id = left_serial
             self._right_id = right_serial
             self._ball_type = config.ball.type
@@ -521,6 +551,7 @@ class InProcessPipelineService(PipelineService):
         self._record_mode = mode
         self._session_active = True
         self._session_pitches = []
+        self._recent_pitch_paths.clear()
         self._pitch_index = 0
         self._pitch_active = False
         self._pitch_active_frames = 0
@@ -672,6 +703,9 @@ class InProcessPipelineService(PipelineService):
 
     def get_session_summary(self) -> SessionSummary:
         return self._last_session_summary
+
+    def get_recent_pitch_paths(self) -> list[list[StereoObservation]]:
+        return [list(path) for path in self._recent_pitch_paths]
 
     def get_session_dir(self) -> Optional[Path]:
         return self._session_dir
@@ -888,6 +922,7 @@ class InProcessPipelineService(PipelineService):
         if self._session_dir is None:
             return
         self._close_session_recording()
+        config_path = str(self._config_path) if self._config_path else "configs/default.yaml"
         manifest = {
             "schema_version": SCHEMA_VERSION,
             "app_version": APP_VERSION,
@@ -897,7 +932,7 @@ class InProcessPipelineService(PipelineService):
             "session": self._record_session,
             "mode": self._record_mode,
             "measured_speed_mph": self._manual_speed_mph,
-            "config_path": "configs/default.yaml",
+            "config_path": config_path,
             "calibration_profile_id": None,
             "session_summary": "session_summary.json",
             "session_summary_csv": "session_summary.csv",
@@ -1278,6 +1313,16 @@ class InProcessPipelineService(PipelineService):
         strike = is_strike(self._current_pitch_observations, zone, radius_in)
         metrics = compute_plate_from_observations(self._current_pitch_observations)
         radar_speed = self._radar_client.latest_speed_mph() if self._manual_speed_mph is None else self._manual_speed_mph
+        trajectory_result = None
+        if self._current_pitch_observations:
+            trajectory_request = TrajectoryFitRequest(
+                observations=list(self._current_pitch_observations),
+                plate_plane_z_ft=self._config.metrics.plate_plane_z_ft,
+                radar_speed_mph=radar_speed,
+                radar_speed_ref="release",
+            )
+            trajectory_result = self._trajectory_fitter.fit_trajectory(trajectory_request)
+        crossing_xyz = trajectory_result.plate_crossing_xyz_ft if trajectory_result else None
         summary = PitchSummary(
             pitch_id=self._pitch_id,
             t_start_ns=self._pitch_start_ns,
@@ -1290,8 +1335,17 @@ class InProcessPipelineService(PipelineService):
             speed_mph=radar_speed,
             rotation_rpm=None,
             sample_count=metrics.sample_count,
+            trajectory_plate_x_ft=crossing_xyz[0] if crossing_xyz else None,
+            trajectory_plate_y_ft=crossing_xyz[1] if crossing_xyz else None,
+            trajectory_plate_z_ft=crossing_xyz[2] if crossing_xyz else None,
+            trajectory_plate_t_ns=trajectory_result.plate_crossing_t_ns if trajectory_result else None,
+            trajectory_model=trajectory_result.model_name if trajectory_result else None,
+            trajectory_expected_error_ft=trajectory_result.expected_plate_error_ft if trajectory_result else None,
+            trajectory_confidence=trajectory_result.confidence if trajectory_result else None,
         )
         self._session_pitches.append(summary)
+        if self._current_pitch_observations:
+            self._recent_pitch_paths.append(list(self._current_pitch_observations))
         self._last_session_summary = _build_session_summary(
             self._record_session or "session",
             self._session_pitches,
@@ -1329,6 +1383,13 @@ class InProcessPipelineService(PipelineService):
                     "speed_mph",
                     "rotation_rpm",
                     "sample_count",
+                    "trajectory_plate_x_ft",
+                    "trajectory_plate_y_ft",
+                    "trajectory_plate_z_ft",
+                    "trajectory_plate_t_ns",
+                    "trajectory_model",
+                    "trajectory_expected_error_ft",
+                    "trajectory_confidence",
                 ]
             )
             for pitch in summary.pitches:
@@ -1345,6 +1406,13 @@ class InProcessPipelineService(PipelineService):
                         f"{pitch.speed_mph:.3f}" if pitch.speed_mph is not None else "",
                         f"{pitch.rotation_rpm:.3f}" if pitch.rotation_rpm is not None else "",
                         pitch.sample_count,
+                        f"{pitch.trajectory_plate_x_ft:.4f}" if pitch.trajectory_plate_x_ft is not None else "",
+                        f"{pitch.trajectory_plate_y_ft:.4f}" if pitch.trajectory_plate_y_ft is not None else "",
+                        f"{pitch.trajectory_plate_z_ft:.4f}" if pitch.trajectory_plate_z_ft is not None else "",
+                        pitch.trajectory_plate_t_ns if pitch.trajectory_plate_t_ns is not None else "",
+                        pitch.trajectory_model if pitch.trajectory_model is not None else "",
+                        f"{pitch.trajectory_expected_error_ft:.4f}" if pitch.trajectory_expected_error_ft is not None else "",
+                        f"{pitch.trajectory_confidence:.3f}" if pitch.trajectory_confidence is not None else "",
                     ]
                 )
 
@@ -1461,6 +1529,7 @@ class InProcessPipelineService(PipelineService):
         pitch_dir = self._pitch_dir(summary.pitch_id)
         if pitch_dir is None:
             return
+        config_path = str(self._config_path) if self._config_path else "configs/default.yaml"
         manifest = {
             "schema_version": SCHEMA_VERSION,
             "app_version": APP_VERSION,
@@ -1476,11 +1545,22 @@ class InProcessPipelineService(PipelineService):
             "rise_in": summary.rise_in,
             "measured_speed_mph": summary.speed_mph,
             "rotation_rpm": summary.rotation_rpm,
+            "trajectory": {
+                "plate_crossing_xyz_ft": [
+                    summary.trajectory_plate_x_ft,
+                    summary.trajectory_plate_y_ft,
+                    summary.trajectory_plate_z_ft,
+                ],
+                "plate_crossing_t_ns": summary.trajectory_plate_t_ns,
+                "model": summary.trajectory_model,
+                "expected_error_ft": summary.trajectory_expected_error_ft,
+                "confidence": summary.trajectory_confidence,
+            },
             "left_video": "left.avi",
             "right_video": "right.avi",
             "left_timestamps": "left_timestamps.csv",
             "right_timestamps": "right_timestamps.csv",
-            "config_path": "configs/default.yaml",
+            "config_path": config_path,
         }
         (pitch_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
 

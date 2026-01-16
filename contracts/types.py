@@ -57,6 +57,24 @@ class TrackSample:
 
 
 @dataclass(frozen=True)
+class TrajectoryInput:
+    observations: list[StereoObservation]
+    radar_speed_mph: Optional[float] = None
+    pitch_id: Optional[str] = None
+    t_start_ns: Optional[int] = None
+    t_end_ns: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class TrajectoryFit:
+    model_name: str
+    samples: list[TrackSample]
+    crossing_xyz_ft: Optional[Tuple[float, float, float]]
+    confidence: float
+    diagnostics: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class PitchMetrics:
     pitch_id: str
     t_start_ns: int

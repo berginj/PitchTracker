@@ -233,6 +233,13 @@ def write_session_summary_csv(path: Path, summary) -> None:
                 "speed_mph",
                 "rotation_rpm",
                 "sample_count",
+                "trajectory_plate_x_ft",
+                "trajectory_plate_y_ft",
+                "trajectory_plate_z_ft",
+                "trajectory_plate_t_ns",
+                "trajectory_model",
+                "trajectory_expected_error_ft",
+                "trajectory_confidence",
             ]
         )
         for pitch in summary.pitches:
@@ -249,6 +256,13 @@ def write_session_summary_csv(path: Path, summary) -> None:
                     f"{pitch.speed_mph:.3f}" if pitch.speed_mph is not None else "",
                     f"{pitch.rotation_rpm:.3f}" if pitch.rotation_rpm is not None else "",
                     pitch.sample_count,
+                    f"{pitch.trajectory_plate_x_ft:.4f}" if getattr(pitch, "trajectory_plate_x_ft", None) is not None else "",
+                    f"{pitch.trajectory_plate_y_ft:.4f}" if getattr(pitch, "trajectory_plate_y_ft", None) is not None else "",
+                    f"{pitch.trajectory_plate_z_ft:.4f}" if getattr(pitch, "trajectory_plate_z_ft", None) is not None else "",
+                    getattr(pitch, "trajectory_plate_t_ns", "") if getattr(pitch, "trajectory_plate_t_ns", None) is not None else "",
+                    getattr(pitch, "trajectory_model", "") if getattr(pitch, "trajectory_model", None) is not None else "",
+                    f"{getattr(pitch, 'trajectory_expected_error_ft', None):.4f}" if getattr(pitch, "trajectory_expected_error_ft", None) is not None else "",
+                    f"{getattr(pitch, 'trajectory_confidence', None):.3f}" if getattr(pitch, "trajectory_confidence", None) is not None else "",
                 ]
             )
 

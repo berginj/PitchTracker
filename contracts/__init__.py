@@ -5,6 +5,8 @@ from .types import (
     Frame,
     PitchMetrics,
     StereoObservation,
+    TrajectoryFit,
+    TrajectoryInput,
     TrackSample,
 )
 
@@ -13,5 +15,7 @@ __all__ = [
     "Frame",
     "PitchMetrics",
     "StereoObservation",
+    "TrajectoryFit",
+    "TrajectoryInput",
     "TrackSample",
 ]
