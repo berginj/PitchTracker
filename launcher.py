@@ -10,6 +10,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+from startup_validator import create_required_directories, validate_environment
 from updater import check_for_updates, get_current_version
 
 
@@ -404,6 +405,13 @@ class UpdateCheckThread(QtCore.QThread):
 
 def main():
     """Main entry point."""
+    # Create required directories first
+    create_required_directories()
+
+    # Validate environment before starting GUI
+    errors, warnings = validate_environment()
+
+    # Create QApplication (needed for dialogs)
     app = QtWidgets.QApplication(sys.argv)
 
     # Set application style
@@ -413,6 +421,26 @@ def main():
     app.setApplicationName("PitchTracker")
     app.setApplicationVersion(get_current_version())
     app.setOrganizationName("PitchTracker")
+
+    # Show critical errors and exit
+    if errors:
+        error_text = "Cannot start PitchTracker:\n\n" + "\n\n---\n\n".join(errors)
+        QtWidgets.QMessageBox.critical(
+            None,
+            "Startup Error",
+            error_text
+        )
+        sys.exit(1)
+
+    # Show warnings (non-blocking)
+    if warnings:
+        warning_text = "PitchTracker detected some issues:\n\n" + "\n\n---\n\n".join(warnings)
+        warning_text += "\n\nYou can continue, but please address these issues."
+        QtWidgets.QMessageBox.warning(
+            None,
+            "Startup Warning",
+            warning_text
+        )
 
     # Create and show launcher
     launcher = LauncherWindow()
