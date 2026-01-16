@@ -72,7 +72,7 @@ from app.pipeline.recording.session_recorder import SessionRecorder
 from app.pipeline.recording.pitch_recorder import PitchRecorder
 from app.pipeline.analysis.pitch_summary import PitchAnalyzer
 from app.pipeline.analysis.session_summary import SessionManager
-from app.pipeline.pitch_tracking import PitchStateMachine
+from app.pipeline.pitch_tracking_v2 import PitchStateMachineV2, PitchConfig, PitchData
 
 logger = get_logger(__name__)
 
@@ -251,7 +251,7 @@ class InProcessPipelineService(PipelineService):
         self._pitch_recorder: Optional[PitchRecorder] = None
         self._pitch_analyzer: Optional[PitchAnalyzer] = None
         self._session_manager: Optional[SessionManager] = None
-        self._pitch_tracker: Optional[PitchStateMachine] = None
+        self._pitch_tracker: Optional[PitchStateMachineV2] = None
         self._radar_client: RadarGunClient = radar_client or NullRadarGun()
         self._manual_speed_mph: Optional[float] = None
         self._record_lock = threading.Lock()
@@ -273,8 +273,8 @@ class InProcessPipelineService(PipelineService):
         """Callback when camera captures a frame.
 
         Handles frame routing:
-        1. Write to session recording if active
-        2. Buffer for pitch pre-roll
+        1. Buffer for pitch pre-roll (ALWAYS, before pitch detection)
+        2. Write to session recording if active
         3. Write to pitch recording if active
         4. Enqueue for detection
 
@@ -282,6 +282,10 @@ class InProcessPipelineService(PipelineService):
             label: Camera label ("left" or "right")
             frame: Captured frame
         """
+        # Buffer for pitch pre-roll (V2: ALWAYS buffer, not just when pitch_recorder exists)
+        if self._pitch_tracker and self._session_active:
+            self._pitch_tracker.buffer_frame(label, frame)
+
         # Write to session recording if active
         if self._recording:
             self._write_record_frame_single(label, frame)
@@ -349,12 +353,12 @@ class InProcessPipelineService(PipelineService):
             obs_count = len(observations)
             self._pitch_tracker.update(frame_ns, lane_count, plate_count, obs_count)
 
-    def _on_pitch_start(self, pitch_index: int, start_ns: int) -> None:
-        """Callback when pitch starts.
+    def _on_pitch_start(self, pitch_index: int, pitch_data: PitchData) -> None:
+        """Callback when pitch starts (V2).
 
         Args:
             pitch_index: Pitch index (1-based)
-            start_ns: Start timestamp in nanoseconds
+            pitch_data: Complete pitch data with pre-roll frames and ramp-up observations
         """
         session = self._record_session or "session"
         self._pitch_id = f"{session}-pitch-{pitch_index:03d}"
@@ -366,21 +370,28 @@ class InProcessPipelineService(PipelineService):
                 self._pitch_recorder = PitchRecorder(self._config, session_dir, self._pitch_id)
                 self._pitch_recorder.start_pitch()
 
-    def _on_pitch_end(self, end_ns: int, pitch_index: int, observations: List[StereoObservation]) -> None:
-        """Callback when pitch ends.
+                # Write pre-roll frames (V2: These are captured BEFORE pitch detection)
+                for cam_label, frame in pitch_data.pre_roll_frames:
+                    self._pitch_recorder.write_frame(cam_label, frame)
+
+    def _on_pitch_end(self, pitch_data: PitchData) -> None:
+        """Callback when pitch ends (V2).
 
         Args:
-            end_ns: End timestamp in nanoseconds
-            pitch_index: Pitch index (1-based)
-            observations: List of stereo observations for the pitch
+            pitch_data: Complete pitch data with accurate timing and all observations
         """
         if self._pitch_analyzer is None or self._session_manager is None:
             return
 
+        # Extract data from PitchData (V2: accurate start/end times)
+        observations = pitch_data.observations
+        start_ns = pitch_data.start_ns  # V2: Correct start time (first detection)
+        end_ns = pitch_data.end_ns      # V2: Correct end time (last detection)
+
         # Analyze pitch
         summary = self._pitch_analyzer.analyze_pitch(
             pitch_id=self._pitch_id,
-            start_ns=observations[0].t_ns if observations else end_ns,
+            start_ns=start_ns,
             end_ns=end_ns,
             observations=observations,
         )
@@ -736,14 +747,21 @@ class InProcessPipelineService(PipelineService):
         # Initialize session manager
         self._session_manager = SessionManager(self._record_session or "session")
 
-        # Initialize pitch state machine
-        self._pitch_tracker = PitchStateMachine(
+        # Initialize pitch state machine (V2: robust architecture with thread safety)
+        pitch_config = PitchConfig(
             min_active_frames=self._config.recording.session_min_active_frames,
             end_gap_frames=self._config.recording.session_end_gap_frames,
             use_plate_gate=self._plate_gate is not None,
+            min_observations=3,  # V2: Minimum observations to save pitch
+            min_duration_ms=100.0,  # V2: Minimum duration to confirm pitch
+            pre_roll_ms=float(self._config.recording.pre_roll_ms),  # V2: Pre-roll window
+            frame_rate=float(self._config.camera.fps),  # V2: For timing calculations
         )
-        self._pitch_tracker.set_pitch_start_callback(self._on_pitch_start)
-        self._pitch_tracker.set_pitch_end_callback(self._on_pitch_end)
+        self._pitch_tracker = PitchStateMachineV2(pitch_config)
+        self._pitch_tracker.set_callbacks(
+            on_pitch_start=self._on_pitch_start,
+            on_pitch_end=self._on_pitch_end,
+        )
 
     def _stop_recording_io(self) -> None:
         # Close pitch recording if active
@@ -769,9 +787,8 @@ class InProcessPipelineService(PipelineService):
         # Write to session recording
         if self._session_recorder:
             self._session_recorder.write_frame(label, frame)
-        # Buffer pre-roll and write to pitch recording
+        # Write to pitch recording if active (V2: pre-roll handled by state machine)
         if self._pitch_recorder:
-            self._pitch_recorder.buffer_pre_roll(label, frame)
             if self._pitch_recorder.is_active():
                 self._pitch_recorder.write_frame(label, frame)
                 # Check if post-roll is complete
