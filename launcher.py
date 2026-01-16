@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """PitchTracker unified launcher - role selector entry point."""
 
+import json
 import sys
 from pathlib import Path
 
@@ -8,6 +9,8 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
+
+from updater import check_for_updates, get_current_version
 
 
 class AboutDialog(QtWidgets.QDialog):
@@ -30,7 +33,7 @@ class AboutDialog(QtWidgets.QDialog):
         layout.addWidget(title)
 
         # Version
-        version = QtWidgets.QLabel("Version 1.0.0")
+        version = QtWidgets.QLabel(f"Version {get_current_version()}")
         version.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         version.setStyleSheet("font-size: 12pt; color: #666; padding-bottom: 20px;")
         layout.addWidget(version)
@@ -79,6 +82,9 @@ class LauncherWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("PitchTracker")
         self.resize(800, 600)
         self._build_ui()
+
+        # Check for updates after a short delay (non-blocking)
+        QtCore.QTimer.singleShot(2000, self._check_for_updates)
 
     def _build_ui(self):
         """Build launcher UI."""
@@ -330,10 +336,70 @@ class LauncherWindow(QtWidgets.QMainWindow):
         # Show launcher again
         self.show()
 
+    def _check_for_updates(self) -> None:
+        """Check for updates in background (non-blocking)."""
+        # Run update check in worker thread to avoid blocking UI
+        self._update_thread = UpdateCheckThread()
+        self._update_thread.update_available.connect(self._show_update_dialog)
+        self._update_thread.start()
+
+    def _show_update_dialog(self, update_info: dict) -> None:
+        """Show update dialog if update is available and not skipped.
+
+        Args:
+            update_info: Update information from check_for_updates()
+        """
+        # Check if user previously skipped this version
+        if self._is_version_skipped(update_info['version']):
+            return
+
+        # Show update dialog
+        from ui.update_dialog import UpdateDialog
+        dialog = UpdateDialog(update_info, parent=self)
+        dialog.exec()
+
+    def _is_version_skipped(self, version: str) -> bool:
+        """Check if user previously skipped this version.
+
+        Args:
+            version: Version string to check
+
+        Returns:
+            True if version was skipped
+        """
+        try:
+            settings_file = Path("configs") / "update_settings.json"
+            if not settings_file.exists():
+                return False
+
+            with open(settings_file) as f:
+                settings = json.load(f)
+
+            return settings.get('skipped_version') == version
+
+        except Exception:
+            return False
+
     def _show_about(self):
         """Show about dialog."""
         dialog = AboutDialog(self)
         dialog.exec()
+
+
+class UpdateCheckThread(QtCore.QThread):
+    """Background thread for checking updates without blocking UI."""
+
+    update_available = QtCore.Signal(dict)  # update_info
+
+    def run(self) -> None:
+        """Check for updates in background."""
+        try:
+            update_info = check_for_updates(timeout=5)
+            if update_info['available']:
+                self.update_available.emit(update_info)
+        except Exception:
+            # Silently fail - don't bother user with update check errors
+            pass
 
 
 def main():
@@ -345,7 +411,7 @@ def main():
 
     # Set application metadata
     app.setApplicationName("PitchTracker")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion(get_current_version())
     app.setOrganizationName("PitchTracker")
 
     # Create and show launcher
