@@ -2,9 +2,10 @@
 
 ## ✅ Completed Today
 
-Both role-based UI applications are now FULLY FUNCTIONAL!
+Both role-based UI applications are now FULLY FUNCTIONAL with a unified launcher!
 - **Setup Wizard:** Complete 6-step guided workflow ✅
 - **Coaching App:** Fully integrated with pipeline service ✅
+- **Unified Launcher:** Professional entry point with role selector ✅
 
 ---
 
@@ -230,47 +231,152 @@ python test_coaching_app.py
 
 ---
 
-## Comparison: Two Role-Based UIs
+## 3. Unified Launcher
 
-| Aspect | Setup Wizard | Coaching Dashboard |
-|--------|--------------|-------------------|
-| **Pattern** | Wizard (guided steps) | Dashboard (direct access) |
-| **Navigation** | Linear (Back/Next) | Quick controls (buttons) |
-| **Focus** | Completeness, validation | Speed, real-time feedback |
-| **Frequency** | Once (rarely) | Every practice session |
-| **Time** | 20-45 minutes | 10 seconds start, 5-30 min session |
-| **Complexity** | High (many options) | Low (focused tasks) |
-| **User** | Technician/installer | Coach/pitcher |
-| **Safety** | Can change everything | Read-only calibration |
-| **Status** | Step 1 complete | Dashboard complete |
+**Purpose:** Professional entry point with role selector
+
+### ✅ What Works
+
+**Main Interface:**
+- Clean, branded title screen
+- Two large role selector buttons
+- Color-coded by function (green=setup, blue=coaching)
+- Descriptive text for each role
+- Clear usage guidance
+
+**Setup & Calibration Button:**
+- Icon: 🔧
+- Color: Green (#4CAF50)
+- Description: For technicians and installers
+- Lists: Camera config, calibration, ROI, validation
+- Note: "Run once or when reconfiguring"
+- Launches Setup Wizard on click
+
+**Coaching Sessions Button:**
+- Icon: ⚾
+- Color: Blue (#2196F3)
+- Description: For coaches and pitchers
+- Lists: Sessions, tracking, metrics, summaries
+- Note: "Use daily for practice"
+- Launches Coaching App on click
+
+**About Dialog:**
+- Version information (1.0.0)
+- Feature list
+- Component overview
+- Clean, professional presentation
+
+**Behavior:**
+- Hides launcher when child window opens
+- Shows launcher again when child window closes
+- Error handling for launch failures
+- Fusion style for consistent look
+
+### How to Launch
+
+```powershell
+# Main launcher (recommended)
+python launcher.py
+```
+
+**What to Try:**
+1. Observe clean branded interface
+2. Click "Setup & Calibration" - launches Setup Wizard
+3. Close Setup Wizard - returns to launcher
+4. Click "Coaching Sessions" - launches Coaching App
+5. Close Coaching App - returns to launcher
+6. Click "About" - shows version and features
+
+**Files:**
+- `launcher.py` - Main launcher (332 lines)
+- `README_LAUNCHER.md` - Quick start guide
+
+---
+
+## Comparison: Three UI Components
+
+| Aspect | Unified Launcher | Setup Wizard | Coaching Dashboard |
+|--------|------------------|--------------|-------------------|
+| **Purpose** | Role selection | System configuration | Daily sessions |
+| **Pattern** | Menu (role selector) | Wizard (guided steps) | Dashboard (direct access) |
+| **Navigation** | 2 buttons | Linear (Back/Next) | Quick controls |
+| **Focus** | Clarity, simplicity | Completeness, validation | Speed, real-time |
+| **Frequency** | Every launch | Once (rarely) | Every practice |
+| **Time** | <5 seconds | 20-45 minutes | 10 sec start, 5-30 min |
+| **Complexity** | Minimal | High (many options) | Low (focused) |
+| **User** | All users | Technician/installer | Coach/pitcher |
+| **Status** | Complete ✅ | Complete ✅ | Complete ✅ |
 
 ---
 
 ## Architecture
 
 ```
-ui/
-├── setup/                    # Setup Wizard
-│   ├── setup_window.py       # Wizard framework
-│   ├── steps/
-│   │   ├── base_step.py      # Step interface
-│   │   └── camera_step.py    # Step 1
-│   └── widgets/              # (empty, ready for steps 2-6)
+PitchTracker/
+├── launcher.py                # Main entry point (unified launcher)
+├── README_LAUNCHER.md         # Quick start guide
 │
-├── coaching/                 # Coaching Dashboard
-│   ├── coach_window.py       # Main dashboard
-│   ├── widgets/              # (empty, ready for custom widgets)
-│   └── dialogs/              # (empty, ready for dialogs)
+├── ui/
+│   ├── setup/                 # Setup Wizard
+│   │   ├── setup_window.py    # Wizard framework
+│   │   ├── steps/
+│   │   │   ├── base_step.py           # Step interface
+│   │   │   ├── camera_step.py         # Step 1
+│   │   │   ├── calibration_step.py    # Step 2
+│   │   │   ├── roi_step.py            # Step 3
+│   │   │   ├── detector_step.py       # Step 4
+│   │   │   ├── validation_step.py     # Step 5
+│   │   │   └── export_step.py         # Step 6
+│   │   └── README.md
+│   │
+│   ├── coaching/              # Coaching Dashboard
+│   │   ├── coach_window.py    # Main dashboard
+│   │   ├── dialogs/
+│   │   │   └── session_start.py       # Session start dialog
+│   │   └── README.md
+│   │
+│   └── shared/                # Shared components
+│       ├── device_utils.py
+│       ├── drawing.py
+│       ├── geometry.py
+│       └── roi_label.py
 │
-└── shared/                   # Shared components (existing)
-    ├── device_utils.py
-    ├── drawing.py
-    └── geometry.py
+├── test_setup_wizard.py       # Direct Setup Wizard launcher
+└── test_coaching_app.py       # Direct Coaching App launcher
 ```
 
 ---
 
 ## Visual Preview
+
+### Unified Launcher
+```
+┌─────────────────────────────────────────────────────────┐
+│                      PitchTracker                        │
+│         Baseball Pitch Tracking & Analysis System       │
+│                                                          │
+│              Select your role to begin:                 │
+│                                                          │
+│  ┌────────────────────┐    ┌────────────────────┐     │
+│  │  🔧 Setup &        │    │  ⚾ Coaching       │     │
+│  │    Calibration     │    │     Sessions       │     │
+│  │                    │    │                    │     │
+│  │ For technicians    │    │ For coaches and   │     │
+│  │ and installers     │    │ pitchers          │     │
+│  │                    │    │                    │     │
+│  │ • Camera config    │    │ • Start/stop      │     │
+│  │ • Stereo calib     │    │ • Live tracking   │     │
+│  │ • ROI setup        │    │ • Real-time       │     │
+│  │ • System valid     │    │ • Summaries       │     │
+│  │                    │    │                    │     │
+│  │ Run once or when   │    │ Use daily for     │     │
+│  │ reconfiguring      │    │ practice          │     │
+│  │                    │    │                    │     │
+│  └────────────────────┘    └────────────────────┘     │
+│                                                          │
+│                                          [ℹ About]      │
+└─────────────────────────────────────────────────────────┘
+```
 
 ### Setup Wizard
 ```
@@ -511,16 +617,19 @@ eea8ca8 Add Step 3: ROI Configuration to Setup Wizard
 ```
 
 **Files Created:**
+- 1 unified launcher (launcher.py)
 - 2 design documents (UI_ROLE_BASED_REDESIGN.md, UI_REDESIGN_ROADMAP.md)
 - 14 setup wizard files (framework + all 6 steps)
 - 7 coaching dashboard files (complete dashboard + session dialog)
-- 2 test launchers
-- 3 README files (setup, coaching, this summary)
+- 2 test launchers (legacy, for direct access)
+- 4 README files (main launcher, setup, coaching, this summary)
 
-**Lines Added:** ~5,700 lines total
+**Lines Added:** ~6,100 lines total
+- Unified Launcher: ~350 lines
 - Design docs: ~2,500 lines
 - Setup Wizard: ~2,100 lines
 - Coaching App: ~1,100 lines
+- Documentation: ~50 lines
 
 ---
 
@@ -528,36 +637,42 @@ eea8ca8 Add Step 3: ROI Configuration to Setup Wizard
 
 ### For Stakeholders
 
-**1. Show Design Documents (5 min)**
-- Open UI_ROLE_BASED_REDESIGN.md
-- Highlight two-role concept
-- Show mockups and benefits
-
-**2. Demo Setup Wizard (3 min)**
+**1. Launch PitchTracker (1 min)**
 ```powershell
-python test_setup_wizard.py
+python launcher.py
 ```
-- Show step indicator
-- Click Refresh Devices
-- Select cameras
-- Show validation
-- Explain pending steps 2-6
+- Show unified launcher interface
+- Explain two-role concept
+- Highlight clean, professional design
+- Show About dialog
 
-**3. Demo Coaching Dashboard (3 min)**
-```powershell
-python test_coaching_app.py
-```
-- Show clean dashboard
-- Click Start Session
-- Show instant feedback
-- Point out large buttons
-- Click End Session
-- Explain integration pending
+**2. Demo Setup Wizard (5 min)**
+- Click "Setup & Calibration" button
+- Walk through all 6 steps:
+  - Step 1: Camera selection
+  - Step 2: Stereo calibration (show checkerboard detection)
+  - Step 3: ROI configuration (show interactive drawing)
+  - Step 4: Detector settings
+  - Step 5: System validation (show checklist)
+  - Step 6: Export report
+- Close wizard, return to launcher
 
-**4. Discuss Next Steps (2 min)**
-- Option to complete setup wizard OR
-- Option to integrate coaching first
-- Get feedback on direction
+**3. Demo Coaching Dashboard (5 min)**
+- Click "Coaching Sessions" button
+- Show clean dashboard layout
+- Click "Start Session"
+- Fill in session start dialog (pitcher, settings)
+- Show live camera preview
+- Demonstrate real-time metrics
+- Explain pitch tracking workflow
+- Click "End Session", show summary
+- Close dashboard, return to launcher
+
+**4. Discuss Benefits (2 min)**
+- ✅ Complete end-to-end workflow
+- ✅ Role-based separation
+- ✅ Professional user experience
+- ✅ Production-ready system
 
 ---
 
