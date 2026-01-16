@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import time
 import csv
 import json
-import threading
 import queue
-from pathlib import Path
-from collections import deque
+import threading
+import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, asdict
-from typing import Dict, Iterable, Optional, Tuple, List
+from collections import deque
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -19,16 +19,30 @@ import numpy as np
 from capture import CameraDevice, SimulatedCamera, UvcCamera
 from capture.camera_device import CameraStats
 from capture.opencv_backend import OpenCVCamera
-from configs.settings import AppConfig
-from configs.roi_io import load_rois
 from configs.lane_io import load_lane_rois
+from configs.roi_io import load_rois
+from configs.settings import AppConfig
 from contracts import Detection, Frame, PitchMetrics, StereoObservation
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 from detect.classical_detector import ClassicalDetector
-from detect.ml_detector import MlDetector
 from detect.config import DetectorConfig as CvDetectorConfig
 from detect.config import FilterConfig, Mode
 from detect.lane import LaneGate, LaneRoi
+from detect.ml_detector import MlDetector
+from exceptions import (
+    CameraConfigurationError,
+    CameraConnectionError,
+    CameraNotFoundError,
+    DetectionError,
+    FileWriteError,
+    InvalidROIError,
+    ModelInferenceError,
+    ModelLoadError,
+    PitchTrackerError,
+    RecordingError,
+)
+from integrations.radar import NullRadarGun, RadarGunClient
+from logging.logger import get_logger
 from metrics.simple_metrics import (
     PlateMetricsStub,
     compute_plate_from_observations,
@@ -40,7 +54,8 @@ from stereo import StereoLaneGate
 from stereo.association import StereoMatch
 from stereo.simple_stereo import SimpleStereoMatcher, StereoGeometry
 from track.simple_tracker import SimpleTracker
-from integrations.radar import RadarGunClient, NullRadarGun
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -268,48 +283,226 @@ class InProcessPipelineService(PipelineService):
         )
 
     def start_capture(self, config: AppConfig, left_serial: str, right_serial: str) -> None:
-        self._config = config
-        self._left_id = left_serial
-        self._right_id = right_serial
-        self._ball_type = config.ball.type
-        self._record_dir = Path(config.recording.output_dir)
-        self._detect_queue_size = config.camera.queue_depth or 6
-        self._left = self._build_camera()
-        self._right = self._build_camera()
-        self._left.open(left_serial)
-        self._right.open(right_serial)
-        self._configure_camera(self._left, config)
-        self._configure_camera(self._right, config)
-        self._load_rois()
-        self._init_detector(config)
-        self._init_stereo(config)
-        self._start_capture_threads()
-        self._start_detection_threads()
+        """Start capture on both cameras with error handling.
+
+        Args:
+            config: Application configuration
+            left_serial: Left camera serial number
+            right_serial: Right camera serial number
+
+        Raises:
+            CameraNotFoundError: If camera serials are not found
+            CameraConnectionError: If cameras fail to open
+            CameraConfigurationError: If camera configuration fails
+            InvalidROIError: If ROI loading fails
+            ModelLoadError: If ML detector model fails to load
+        """
+        logger.info(f"Starting capture with left={left_serial}, right={right_serial}")
+
+        try:
+            self._config = config
+            self._left_id = left_serial
+            self._right_id = right_serial
+            self._ball_type = config.ball.type
+            self._record_dir = Path(config.recording.output_dir)
+            self._detect_queue_size = config.camera.queue_depth or 6
+
+            # Build camera objects
+            try:
+                self._left = self._build_camera()
+                self._right = self._build_camera()
+                logger.debug("Camera objects built successfully")
+            except Exception as exc:
+                logger.error(f"Failed to build camera objects: {exc}")
+                raise CameraConnectionError(f"Failed to initialize camera objects: {exc}") from exc
+
+            # Open left camera
+            try:
+                logger.debug(f"Opening left camera: {left_serial}")
+                self._left.open(left_serial)
+            except Exception as exc:
+                logger.error(f"Failed to open left camera {left_serial}: {exc}")
+                raise CameraConnectionError(f"Failed to open left camera {left_serial}: {exc}") from exc
+
+            # Open right camera
+            try:
+                logger.debug(f"Opening right camera: {right_serial}")
+                self._right.open(right_serial)
+            except Exception as exc:
+                logger.error(f"Failed to open right camera {right_serial}: {exc}")
+                # Clean up left camera before raising
+                try:
+                    self._left.close()
+                except Exception:
+                    pass
+                raise CameraConnectionError(f"Failed to open right camera {right_serial}: {exc}") from exc
+
+            # Configure cameras
+            try:
+                logger.debug("Configuring left camera")
+                self._configure_camera(self._left, config)
+                logger.debug("Configuring right camera")
+                self._configure_camera(self._right, config)
+            except Exception as exc:
+                logger.error(f"Failed to configure cameras: {exc}")
+                self._cleanup_cameras()
+                raise CameraConfigurationError(f"Failed to configure cameras: {exc}") from exc
+
+            # Load ROIs
+            try:
+                logger.debug("Loading ROIs")
+                self._load_rois()
+            except Exception as exc:
+                logger.error(f"Failed to load ROIs: {exc}")
+                self._cleanup_cameras()
+                raise InvalidROIError(f"Failed to load ROI configuration: {exc}") from exc
+
+            # Initialize detector
+            try:
+                logger.debug("Initializing detector")
+                self._init_detector(config)
+            except Exception as exc:
+                logger.error(f"Failed to initialize detector: {exc}")
+                self._cleanup_cameras()
+                if "model" in str(exc).lower() or "onnx" in str(exc).lower():
+                    raise ModelLoadError(f"Failed to load detector model: {exc}") from exc
+                raise DetectionError(f"Failed to initialize detector: {exc}") from exc
+
+            # Initialize stereo
+            try:
+                logger.debug("Initializing stereo")
+                self._init_stereo(config)
+            except Exception as exc:
+                logger.error(f"Failed to initialize stereo: {exc}")
+                self._cleanup_cameras()
+                raise PitchTrackerError(f"Failed to initialize stereo system: {exc}") from exc
+
+            # Start capture and detection threads
+            try:
+                logger.debug("Starting capture threads")
+                self._start_capture_threads()
+                logger.debug("Starting detection threads")
+                self._start_detection_threads()
+            except Exception as exc:
+                logger.error(f"Failed to start processing threads: {exc}")
+                self._cleanup_cameras()
+                raise CameraConnectionError(f"Failed to start capture threads: {exc}") from exc
+
+            logger.info("Capture started successfully")
+
+        except (CameraNotFoundError, CameraConnectionError, CameraConfigurationError,
+                InvalidROIError, ModelLoadError, DetectionError) as exc:
+            # Re-raise our custom exceptions
+            raise
+        except Exception as exc:
+            # Catch any unexpected errors
+            logger.exception("Unexpected error during capture start")
+            self._cleanup_cameras()
+            raise PitchTrackerError(f"Unexpected error starting capture: {exc}") from exc
+
+    def _cleanup_cameras(self) -> None:
+        """Clean up camera resources on error."""
+        try:
+            if self._left is not None:
+                self._left.close()
+                self._left = None
+        except Exception as exc:
+            logger.warning(f"Error closing left camera during cleanup: {exc}")
+
+        try:
+            if self._right is not None:
+                self._right.close()
+                self._right = None
+        except Exception as exc:
+            logger.warning(f"Error closing right camera during cleanup: {exc}")
 
     def stop_capture(self) -> None:
-        self._capture_running = False
-        self._stop_detection_threads()
-        if self._left_thread is not None:
-            self._left_thread.join(timeout=1.0)
-            self._left_thread = None
-        if self._right_thread is not None:
-            self._right_thread.join(timeout=1.0)
-            self._right_thread = None
-        if self._left is not None:
-            self._left.close()
-            self._left = None
-        if self._right is not None:
-            self._right.close()
-            self._right = None
+        """Stop capture on both cameras with error handling.
+
+        Ensures all resources are properly cleaned up even if errors occur.
+        """
+        logger.info("Stopping capture")
+
+        try:
+            self._capture_running = False
+
+            # Stop detection threads
+            try:
+                self._stop_detection_threads()
+                logger.debug("Detection threads stopped")
+            except Exception as exc:
+                logger.warning(f"Error stopping detection threads: {exc}")
+
+            # Stop capture threads
+            if self._left_thread is not None:
+                try:
+                    self._left_thread.join(timeout=1.0)
+                    if self._left_thread.is_alive():
+                        logger.warning("Left capture thread did not stop within timeout")
+                    self._left_thread = None
+                except Exception as exc:
+                    logger.warning(f"Error joining left capture thread: {exc}")
+
+            if self._right_thread is not None:
+                try:
+                    self._right_thread.join(timeout=1.0)
+                    if self._right_thread.is_alive():
+                        logger.warning("Right capture thread did not stop within timeout")
+                    self._right_thread = None
+                except Exception as exc:
+                    logger.warning(f"Error joining right capture thread: {exc}")
+
+            # Close cameras
+            if self._left is not None:
+                try:
+                    self._left.close()
+                    logger.debug("Left camera closed")
+                except Exception as exc:
+                    logger.error(f"Error closing left camera: {exc}")
+                finally:
+                    self._left = None
+
+            if self._right is not None:
+                try:
+                    self._right.close()
+                    logger.debug("Right camera closed")
+                except Exception as exc:
+                    logger.error(f"Error closing right camera: {exc}")
+                finally:
+                    self._right = None
+
+            logger.info("Capture stopped successfully")
+
+        except Exception as exc:
+            logger.exception("Unexpected error during capture stop")
+            # Don't raise - we want stop to be best-effort cleanup
 
     def get_preview_frames(self) -> Tuple[Frame, Frame]:
+        """Get latest preview frames from both cameras.
+
+        Returns:
+            Tuple of (left_frame, right_frame)
+
+        Raises:
+            CameraConnectionError: If capture is not started or cameras not available
+            PitchTrackerError: If frames are not yet available
+        """
         if self._left is None or self._right is None:
-            raise RuntimeError("Capture not started.")
-        with self._latest_lock:
-            left_frame = self._left_latest
-            right_frame = self._right_latest
+            logger.error("Attempted to get preview frames but capture not started")
+            raise CameraConnectionError("Capture not started. Call start_capture() first.")
+
+        try:
+            with self._latest_lock:
+                left_frame = self._left_latest
+                right_frame = self._right_latest
+        except Exception as exc:
+            logger.error(f"Error accessing preview frames: {exc}")
+            raise PitchTrackerError(f"Error accessing frame buffer: {exc}") from exc
+
         if left_frame is None or right_frame is None:
-            raise RuntimeError("Waiting for camera frames.")
+            # This is normal during startup - cameras haven't produced frames yet
+            raise PitchTrackerError("Waiting for first camera frames. Please wait...")
+
         return left_frame, right_frame
 
     def start_recording(
