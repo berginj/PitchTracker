@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional
 
 import numpy as np
 
-from trajectory.contracts import FailureCode, TrajectoryFitRequest, TrajectoryFitResult
+from trajectory.contracts import FailureCode, TrajectoryDiagnostics, TrajectoryFitRequest, TrajectoryFitResult
 from trajectory.physics import PhysicsDragFitter, _find_plate_crossing
 
 
@@ -36,17 +36,30 @@ class PhysicsDragRadarFitter(PhysicsDragFitter):
         corrected = self._bias.get_corrected_speed(radar_speed)
         predicted = _speed_reference(base_result, request)
         if predicted is None:
-            base_result.diagnostics.failure_codes.append(FailureCode.RADAR_OUTLIER)
-            return base_result
+            failure_codes = list(base_result.diagnostics.failure_codes)
+            failure_codes.append(FailureCode.RADAR_OUTLIER)
+            updated_diagnostics = replace(base_result.diagnostics, failure_codes=failure_codes)
+            return replace(base_result, diagnostics=updated_diagnostics)
+
         residual = corrected - predicted
         inlier_prob = _radar_inlier_probability(residual)
-        base_result.diagnostics.radar_residual_mph = residual
-        base_result.diagnostics.radar_inlier_probability = inlier_prob
+
+        failure_codes = list(base_result.diagnostics.failure_codes)
         if inlier_prob < 0.2:
-            base_result.diagnostics.failure_codes.append(FailureCode.RADAR_OUTLIER)
-            return base_result
-        self._bias.update(residual)
-        return base_result
+            failure_codes.append(FailureCode.RADAR_OUTLIER)
+
+        # Build updated diagnostics with radar fields
+        updated_diagnostics = replace(
+            base_result.diagnostics,
+            radar_residual_mph=residual,
+            radar_inlier_probability=inlier_prob,
+            failure_codes=failure_codes,
+        )
+
+        if inlier_prob >= 0.2:
+            self._bias.update(residual)
+
+        return replace(base_result, diagnostics=updated_diagnostics)
 
 
 def _speed_reference(result: TrajectoryFitResult, request: TrajectoryFitRequest) -> Optional[float]:

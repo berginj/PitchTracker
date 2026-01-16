@@ -57,6 +57,13 @@ from track.simple_tracker import SimpleTracker
 from trajectory.contracts import TrajectoryFitRequest
 from trajectory.physics import PhysicsDragFitter
 
+from app.pipeline.utils import (
+    build_session_summary,
+    build_stereo_matches,
+    gate_detections,
+    stats_to_dict,
+)
+
 logger = get_logger(__name__)
 
 
@@ -557,7 +564,7 @@ class InProcessPipelineService(PipelineService):
         self._pitch_active_frames = 0
         self._pitch_gap_frames = 0
         self._current_pitch_observations = []
-        self._last_session_summary = _build_session_summary(
+        self._last_session_summary = build_session_summary(
             self._record_session or "session",
             self._session_pitches,
         )
@@ -602,8 +609,8 @@ class InProcessPipelineService(PipelineService):
         if self._left is None or self._right is None:
             return {}
         return {
-            "left": _stats_to_dict(self._left.get_stats()),
-            "right": _stats_to_dict(self._right.get_stats()),
+            "left": stats_to_dict(self._left.get_stats()),
+            "right": stats_to_dict(self._right.get_stats()),
         }
 
     def get_plate_metrics(self) -> PlateMetricsStub:
@@ -1184,13 +1191,13 @@ class InProcessPipelineService(PipelineService):
                 right_frame.camera_id: right_detections,
             }
         detections = left_detections + right_detections
-        gated = _gate_detections(self._lane_gate, detections)
+        gated = gate_detections(self._lane_gate, detections)
         left_gated = [d for d in gated if d.camera_id == self._left_id]
         right_gated = [d for d in gated if d.camera_id == self._right_id]
         plate_left = []
         plate_right = []
         if self._plate_gate is not None:
-            plate = _gate_detections(self._plate_gate, gated)
+            plate = gate_detections(self._plate_gate, gated)
             plate_left = [d for d in plate if d.camera_id == self._left_id]
             plate_right = [d for d in plate if d.camera_id == self._right_id]
         with self._detect_lock:
@@ -1212,7 +1219,7 @@ class InProcessPipelineService(PipelineService):
                     self._last_plate_metrics = compute_plate_stub([])
                     self._strike_result = StrikeResult(is_strike=False, sample_count=0)
                 return
-        matches = _build_stereo_matches(left_gated, right_gated)
+        matches = build_stereo_matches(left_gated, right_gated)
         if self._stereo_gate is not None:
             matches = self._stereo_gate.filter_matches(matches)
         if self._plate_stereo_gate is not None:
@@ -1346,7 +1353,7 @@ class InProcessPipelineService(PipelineService):
         self._session_pitches.append(summary)
         if self._current_pitch_observations:
             self._recent_pitch_paths.append(list(self._current_pitch_observations))
-        self._last_session_summary = _build_session_summary(
+        self._last_session_summary = build_session_summary(
             self._record_session or "session",
             self._session_pitches,
         )
@@ -1563,63 +1570,3 @@ class InProcessPipelineService(PipelineService):
             "config_path": config_path,
         }
         (pitch_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
-
-
-def _stats_to_dict(stats: CameraStats) -> Dict[str, float]:
-    return {
-        "fps_avg": stats.fps_avg,
-        "fps_instant": stats.fps_instant,
-        "jitter_p95_ms": stats.jitter_p95_ms,
-        "dropped_frames": float(stats.dropped_frames),
-        "queue_depth": float(stats.queue_depth),
-        "capture_latency_ms": stats.capture_latency_ms,
-    }
-
-
-def _gate_detections(
-    lane_gate: Optional[LaneGate], detections: Iterable
-) -> list:
-    if lane_gate is None:
-        return list(detections)
-    return lane_gate.filter_detections(detections)
-
-
-def _build_stereo_matches(
-    left_detections: Iterable, right_detections: Iterable
-) -> list[StereoMatch]:
-    matches: list[StereoMatch] = []
-    for left in left_detections:
-        for right in right_detections:
-            matches.append(
-                StereoMatch(
-                    left=left,
-                    right=right,
-                    epipolar_error_px=abs(left.v - right.v),
-                    score=min(left.confidence, right.confidence),
-                )
-            )
-    return matches
-
-
-def _build_session_summary(session_id: str, pitches: List[PitchSummary]) -> SessionSummary:
-    heatmap = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-    strikes = 0
-    balls = 0
-    for pitch in pitches:
-        if pitch.is_strike:
-            strikes += 1
-        else:
-            balls += 1
-        if pitch.zone_row and pitch.zone_col:
-            row = max(1, min(3, pitch.zone_row))
-            row = 3 - row
-            col = max(1, min(3, pitch.zone_col)) - 1
-            heatmap[row][col] += 1
-    return SessionSummary(
-        session_id=session_id,
-        pitch_count=len(pitches),
-        strikes=strikes,
-        balls=balls,
-        heatmap=heatmap,
-        pitches=list(pitches),
-    )
