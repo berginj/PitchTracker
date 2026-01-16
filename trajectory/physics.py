@@ -79,7 +79,6 @@ class PhysicsDragFitter(TrajectoryFitterBase):
         times_s = np.array([(obs.t_ns - obs_sorted[0].t_ns) / 1e9 for obs in obs_sorted])
         positions = np.array([[obs.X, obs.Y, obs.Z] for obs in obs_sorted])
         max_gap_ms = float(np.max(np.diff(times_s)) * 1000.0) if len(times_s) > 1 else 0.0
-        diagnostics.max_gap_ms = max_gap_ms
 
         seed_state = _seed_state(times_s, positions)
         k0 = request.drag_k0
@@ -91,7 +90,7 @@ class PhysicsDragFitter(TrajectoryFitterBase):
 
         bounds = (
             np.array(
-                [-100.0, -10.0, -10.0, -200.0, -200.0, 10.0, 0.0, -request.time_offset_bounds_ms / 1000.0],
+                [-100.0, -10.0, -10.0, -200.0, -200.0, -400.0, 0.0, -request.time_offset_bounds_ms / 1000.0],
                 dtype=float,
             ),
             np.array(
@@ -119,24 +118,36 @@ class PhysicsDragFitter(TrajectoryFitterBase):
             f_scale=1.5,
         )
 
+        failure_codes = list(diagnostics.failure_codes)
         if not result.success:
-            diagnostics.failure_codes.append(FailureCode.OPT_DID_NOT_CONVERGE)
+            failure_codes.append(FailureCode.OPT_DID_NOT_CONVERGE)
 
         params = result.x
         samples = _integrate_trajectory(params, times_s, obs_sorted[0].t_ns, request.wind_ft_s)
         plate_crossing = _find_plate_crossing(samples, request.plate_plane_z_ft)
         if plate_crossing is None:
-            diagnostics.failure_codes.append(FailureCode.NO_PLATE_CROSSING)
+            failure_codes.append(FailureCode.NO_PLATE_CROSSING)
         if not _is_monotonic_z(samples):
-            diagnostics.failure_codes.append(FailureCode.NON_MONOTONIC_Z)
+            failure_codes.append(FailureCode.NON_MONOTONIC_Z)
 
         residuals = _build_residual_reports(samples, obs_sorted)
         rmse = _rmse([res.residual_3d_ft for res in residuals if res.residual_3d_ft is not None])
-        diagnostics.rmse_3d_ft = rmse
-        diagnostics.drag_param = float(params[6])
-        diagnostics.drag_param_ok = params[6] >= 0.0
-        diagnostics.inlier_ratio = _inlier_ratio(residuals)
-        diagnostics.condition_number = _condition_number(result.jac)
+        drag_param = float(params[6])
+        drag_param_ok = params[6] >= 0.0
+        inlier_ratio = _inlier_ratio(residuals)
+        condition_number = _condition_number(result.jac)
+
+        # Build diagnostics with all computed values
+        diagnostics = TrajectoryDiagnostics(
+            rmse_3d_ft=rmse,
+            inlier_ratio=inlier_ratio,
+            condition_number=condition_number,
+            drag_param=drag_param,
+            drag_param_ok=drag_param_ok,
+            max_gap_ms=max_gap_ms,
+            failure_codes=failure_codes,
+            notes=list(diagnostics.notes),
+        )
 
         expected_error = self._scorer.expected_plate_error_ft(
             residual_scale=rmse,
