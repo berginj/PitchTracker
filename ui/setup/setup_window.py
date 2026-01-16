@@ -7,7 +7,15 @@ from typing import List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ui.setup.steps import BaseStep, CameraStep, CalibrationStep, RoiStep
+from ui.setup.steps import (
+    BaseStep,
+    CameraStep,
+    CalibrationStep,
+    DetectorStep,
+    ExportStep,
+    RoiStep,
+    ValidationStep,
+)
 
 
 class SetupWindow(QtWidgets.QMainWindow):
@@ -51,10 +59,14 @@ class SetupWindow(QtWidgets.QMainWindow):
         # Step 3: ROI Configuration
         self._steps.append(RoiStep(self._backend))
 
-        # TODO: Add remaining steps
-        # self._steps.append(DetectorStep())
-        # self._steps.append(ValidationStep())
-        # self._steps.append(ExportStep())
+        # Step 4: Detector Tuning
+        self._steps.append(DetectorStep())
+
+        # Step 5: System Validation
+        self._steps.append(ValidationStep())
+
+        # Step 6: Export Package
+        self._steps.append(ExportStep())
 
     def _build_ui(self) -> None:
         """Build wizard UI with step indicator, content area, and navigation."""
