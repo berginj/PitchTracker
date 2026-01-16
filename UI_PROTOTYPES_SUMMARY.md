@@ -2,7 +2,7 @@
 
 ## ✅ Completed Today
 
-Both role-based UI prototypes are now functional!
+Both role-based UI prototypes are now functional, and the Coaching App is integrated with the pipeline service!
 
 ---
 
@@ -67,22 +67,49 @@ python test_setup_wizard.py
 **Dashboard Layout:**
 - Session info bar (session/pitcher/pitch count)
 - Recording indicator (● Recording)
-- Dual camera views (placeholders)
+- Dual camera views (LIVE PREVIEW - 30 FPS!)
 - Strike zone visualization (3x3 grid - rendered!)
-- Latest pitch metrics display
+- Latest pitch metrics display (REAL-TIME!)
 - Location heat map placeholder
-- Recent pitches list widget
+- Recent pitches list widget (LIVE UPDATES!)
 - Large, obvious control buttons
 
+**Session Start Dialog (NEW!):**
+- Pitcher selection from saved list
+- Add new pitcher on-the-fly
+- Auto-generated session names with timestamp
+- Batter height adjustment (48-84 inches)
+- Ball type selection (baseball/softball)
+- Calibration status indicator
+- Validation before starting
+
+**Pipeline Integration (NEW!):**
+- Automatically starts capture when session begins
+- Starts recording with session lifecycle
+- Live camera preview at 30 FPS
+- Real-time pitch detection and metrics
+- Graceful error handling with user feedback
+- Clean shutdown on window close
+- Stop recording with session summary
+
 **Session Management:**
-- One-click "Start Session" (instant feedback)
-- Auto-generates session name with timestamp
-- Sets placeholder pitcher name
+- "Start Session" shows dialog → validates → starts capture
+- Auto-loads calibration from setup
+- Updates config from dialog (batter height, ball type)
 - Shows recording indicator
 - Enables pause/end buttons
 - Color-coded status bar (green=active, yellow=paused)
 - "End Session" with confirmation dialog
+- Displays session summary (pitch count, strikes, balls)
 - Resets dashboard on session end
+
+**Real-Time Metrics (NEW!):**
+- Updates at 10 Hz during session
+- Latest pitch speed (mph)
+- Horizontal/vertical break (inches)
+- Strike/ball result (color-coded)
+- Recent pitches list (last 10)
+- Automatic pitch count updates
 
 **UI Polish:**
 - Clean, focused layout
@@ -90,42 +117,54 @@ python test_setup_wizard.py
 - Large buttons (50px height)
 - Responsive layout with proper spacing
 - Professional styling
+- Smooth live preview
 
 ### 🚧 What's Next
 
-**Integration (Priority):**
-1. Session start dialog (pitcher selection)
-2. Pipeline service connection
-3. Real camera preview
-4. Live metric updates
-5. Heat map population
-6. Recent pitches list population
+**Enhancements (Priority):**
+1. Heat map population with pitch locations
+2. Strike zone overlay on camera preview
+3. Trajectory visualization
+4. Pause/resume functionality (currently placeholder)
 
 **Additional Features:**
-1. Replay functionality
-2. Session summary dialog
-3. Export for player review
-4. Quick settings (batter height, ball type)
+1. Replay functionality (last pitch replay)
+2. Enhanced session summary dialog with charts
+3. Export for player review (video + stats)
+4. Settings dialog (advanced configuration)
+5. Keyboard shortcuts (space = start/stop, etc.)
 
 ### How to Test
 
 ```powershell
-# Launch coaching app
+# Launch coaching app (requires cameras configured)
 python test_coaching_app.py
 ```
 
 **What to Try:**
 1. Observe clean dashboard layout
-2. Click "Start Session" - instant feedback
-3. Check session bar updates (name, pitcher, indicator)
-4. Notice recording indicator appears
-5. See buttons enable/disable correctly
-6. Click "End Session" - confirmation dialog
-7. Confirm - dashboard resets
-8. Check status bar color changes
+2. Click "Start Session" - session start dialog appears
+3. Select/enter pitcher name
+4. Adjust batter height if needed
+5. Click OK - cameras start automatically
+6. Observe live camera preview at 30 FPS
+7. Check session bar updates (name, pitcher, indicator)
+8. Notice recording indicator appears
+9. Throw pitches - watch metrics update in real-time
+10. See pitch count increment automatically
+11. Check recent pitches list populates
+12. Click "End Session" - confirmation dialog
+13. Confirm - see session summary with statistics
+14. Dashboard resets for next session
+
+**Notes:**
+- Requires calibrated cameras from Setup Wizard
+- Pitch detection requires proper ROI configuration
+- Preview works even without pitch detection
 
 **Files:**
-- `ui/coaching/coach_window.py` - Dashboard (375 lines)
+- `ui/coaching/coach_window.py` - Dashboard (612 lines)
+- `ui/coaching/dialogs/session_start.py` - Session start dialog (269 lines)
 - `test_coaching_app.py` - Test launcher
 - `ui/coaching/README.md` - Documentation
 
@@ -249,19 +288,30 @@ ui/
 **Time:** ~3 hours
 **Lines:** 613 lines across 6 files
 
-### Phase 3: Integration (Next)
+### Phase 3: Coaching Dashboard Integration ✅ COMPLETE
+- [x] Session start dialog (pitcher selection, settings)
+- [x] Connect to pipeline service
+- [x] Real camera preview (30 FPS)
+- [x] Live metrics updates (10 Hz)
+- [x] Automatic capture start/stop
+- [x] Session summary on end
+- [x] Error handling and cleanup
+
+**Time:** ~4 hours
+**Lines:** +541 lines (session dialog + integration)
+
+### Phase 4: Future Enhancements (Next)
+**Coaching Dashboard:**
+- [ ] Heat map population
+- [ ] Strike zone overlay on preview
+- [ ] Trajectory visualization
+- [ ] Replay functionality
+- [ ] Enhanced session summary dialog
+
 **Setup Wizard:**
 - [ ] Add Steps 2-6 (calibration, ROI, detector, validation, export)
 - [ ] Integrate pipeline service for testing
 - [ ] Add camera preview (not just placeholders)
-
-**Coaching Dashboard:**
-- [ ] Session start dialog
-- [ ] Connect to pipeline service
-- [ ] Real camera preview
-- [ ] Live metrics updates
-- [ ] Replay functionality
-- [ ] Session summary
 
 ---
 
@@ -282,13 +332,23 @@ python test_coaching_app.py      # Shows dashboard
 ```
 
 ### Functional Tests ✅
+**Setup Wizard:**
 - Setup wizard navigation works
 - Camera discovery works
 - Validation works
+
+**Coaching Dashboard:**
+- Session start dialog works
+- Pipeline integration works
+- Live camera preview works (30 FPS)
+- Real-time metrics updates work (10 Hz)
+- Pitch detection and tracking work
+- Session summary displays correctly
 - Coaching session flow works
 - UI elements render correctly
 - Color coding works
 - Button states correct
+- Clean shutdown works
 
 ---
 
@@ -298,23 +358,32 @@ python test_coaching_app.py      # Shows dashboard
 **Effort:** ~8 hours
 **Value:** Full setup workflow functional
 **Priority:** High - enables end-to-end setup
+**Status:** Not started
 
-### Option 2: Integrate Coaching Dashboard
-**Effort:** ~6 hours
+### Option 2: ~~Integrate Coaching Dashboard~~ ✅ DONE
+**Effort:** ~6 hours (actual: 4 hours)
 **Value:** Working coaching sessions
 **Priority:** High - demonstrates daily workflow
+**Status:** Complete!
 
-### Option 3: Create Role Selector Entry Point
+### Option 3: Enhance Coaching Dashboard
+**Effort:** ~4 hours
+**Value:** Heat map, overlays, trajectory visualization
+**Priority:** Medium - polish existing functionality
+**Status:** Not started
+
+### Option 4: Create Role Selector Entry Point
 **Effort:** ~2 hours
 **Value:** Unified launch experience
-**Priority:** Medium - nice to have
+**Priority:** Low - nice to have
+**Status:** Not started
 
-### Recommendation: Do Option 2 First
+### Recommendation: Do Option 1 Next
 **Why:**
-- Coaching app is more impressive (daily use case)
-- Pipeline service already works
-- Faster to show working demo
-- Setup wizard can be finished after
+- Coaching app now fully functional ✅
+- Setup wizard needs completion for end-to-end workflow
+- Steps 2-6 enable full system configuration
+- Can then demo complete coaching workflow from setup to session
 
 ---
 
@@ -332,8 +401,12 @@ python test_coaching_app.py      # Shows dashboard
 - ✅ Session management works
 - ✅ UI polish complete
 - ✅ Fast startup (<1 second)
-- ⏳ Pipeline integration
-- ⏳ Real-time updates
+- ✅ Pipeline integration complete
+- ✅ Real-time updates (30 FPS preview, 10 Hz metrics)
+- ✅ Session start dialog
+- ✅ Live camera preview
+- ✅ Pitch tracking and metrics
+- ✅ Session summary
 
 ### Overall
 - ✅ Two distinct UIs created
@@ -349,25 +422,26 @@ python test_coaching_app.py      # Shows dashboard
 
 **Branch:** main
 **Status:** Clean, all pushed to origin
-**Commits Today:** 15 total
+**Commits Today:** 16 total
 
 **Recent Commits:**
 ```
+84f61ac Integrate pipeline service with Coaching App
+2fda1e7 Add UI prototypes summary and demo guide
 f17fca7 Add Coaching App prototype with dashboard layout
 9b61a74 Add Setup Wizard prototype (Step 1: Camera Setup)
 c11bb0d Add role-based UI redesign proposal and implementation roadmap
-c1793a3 Add unit tests and refactoring documentation
-ed547ea Fix import errors in refactored pipeline modules
 ```
 
 **Files Created:**
 - 2 design documents (UI_ROLE_BASED_REDESIGN.md, UI_REDESIGN_ROADMAP.md)
 - 8 setup wizard files (framework + Step 1)
 - 6 coaching dashboard files (complete dashboard)
+- 1 session start dialog (new)
 - 2 test launchers
 - 3 README files (setup, coaching, this summary)
 
-**Lines Added:** ~2,500 lines (design docs + prototypes)
+**Lines Added:** ~3,100 lines (design docs + prototypes + integration)
 
 ---
 
