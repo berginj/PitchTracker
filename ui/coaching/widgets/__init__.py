@@ -1,5 +1,5 @@
 """Widgets for coaching application."""
 
-from .heat_map import HeatMapWidget, StrikeZoneOverlay
+from .heat_map import HeatMapWidget, StrikeZoneOverlay, TrajectoryWidget
 
-__all__ = ["HeatMapWidget", "StrikeZoneOverlay"]
+__all__ = ["HeatMapWidget", "StrikeZoneOverlay", "TrajectoryWidget"]

@@ -10,7 +10,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from app.pipeline_service import InProcessPipelineService
 from configs.settings import load_config
 from ui.coaching.dialogs import SessionStartDialog
-from ui.coaching.widgets import HeatMapWidget, StrikeZoneOverlay
+from ui.coaching.widgets import HeatMapWidget, StrikeZoneOverlay, TrajectoryWidget
 
 
 class CoachWindow(QtWidgets.QMainWindow):
@@ -142,12 +142,12 @@ class CoachWindow(QtWidgets.QMainWindow):
         left_layout.addWidget(self._left_view)
         left_group.setLayout(left_layout)
 
-        # Strike zone visualization
-        strike_group = QtWidgets.QGroupBox("Strike Zone")
-        self._strike_zone = self._build_strike_zone_widget()
-        strike_layout = QtWidgets.QVBoxLayout()
-        strike_layout.addWidget(self._strike_zone)
-        strike_group.setLayout(strike_layout)
+        # Trajectory visualization
+        trajectory_group = QtWidgets.QGroupBox("Pitch Trajectory (Side View)")
+        self._trajectory = TrajectoryWidget()
+        trajectory_layout = QtWidgets.QVBoxLayout()
+        trajectory_layout.addWidget(self._trajectory)
+        trajectory_group.setLayout(trajectory_layout)
 
         # Latest pitch metrics
         metrics_group = QtWidgets.QGroupBox("Latest Pitch")
@@ -188,13 +188,13 @@ class CoachWindow(QtWidgets.QMainWindow):
         recent_group.setLayout(recent_layout)
 
         # Layout: 2 rows
-        # Top row: [Left Camera] [Strike Zone + Metrics] [Right Camera]
+        # Top row: [Left Camera] [Trajectory + Metrics] [Right Camera]
         # Bottom row: [Heat Map] [Recent Pitches]
         top_row = QtWidgets.QHBoxLayout()
         top_row.addWidget(left_group, 3)
 
         middle_column = QtWidgets.QVBoxLayout()
-        middle_column.addWidget(strike_group)
+        middle_column.addWidget(trajectory_group)
         middle_column.addWidget(metrics_group)
         middle_widget = QtWidgets.QWidget()
         middle_widget.setLayout(middle_column)
@@ -213,36 +213,6 @@ class CoachWindow(QtWidgets.QMainWindow):
         widget = QtWidgets.QWidget()
         widget.setLayout(layout)
         return widget
-
-    def _build_strike_zone_widget(self) -> QtWidgets.QWidget:
-        """Build strike zone visualization (3x3 grid)."""
-        # Placeholder - actual implementation would draw 3x3 grid
-        label = QtWidgets.QLabel()
-        label.setMinimumSize(200, 200)
-        label.setFrameStyle(QtWidgets.QFrame.Shape.Box)
-        label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        label.setStyleSheet("background-color: white;")
-
-        # Draw simple 3x3 grid as placeholder
-        from PySide6.QtGui import QPixmap, QPainter, QPen
-        pixmap = QPixmap(200, 200)
-        pixmap.fill(QtCore.Qt.GlobalColor.white)
-        painter = QPainter(pixmap)
-        pen = QPen(QtCore.Qt.GlobalColor.black, 2)
-        painter.setPen(pen)
-
-        # Draw grid
-        for i in range(1, 3):
-            x = int(200 * i / 3)
-            painter.drawLine(x, 0, x, 200)
-        for i in range(1, 3):
-            y = int(200 * i / 3)
-            painter.drawLine(0, y, 200, y)
-
-        painter.end()
-        label.setPixmap(pixmap)
-
-        return label
 
     def _build_metrics_display(self) -> QtWidgets.QWidget:
         """Build latest pitch metrics display."""
@@ -372,6 +342,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._heat_map.clear()
         self._left_overlay.clear_latest_pitch()
         self._right_overlay.clear_latest_pitch()
+        self._trajectory.clear()
 
         # Update buttons
         self._start_button.setEnabled(False)
@@ -593,6 +564,9 @@ class CoachWindow(QtWidgets.QMainWindow):
                         # Calculate strike zone and update visualizations
                         self._update_pitch_location(latest.plate_x_in, latest.plate_z_in)
 
+                        # Update trajectory visualization
+                        self._update_trajectory(latest)
+
                     # Update result
                     result = "STRIKE" if latest.is_strike else "BALL"
                     result_color = "#4CAF50" if latest.is_strike else "#FF5722"
@@ -605,6 +579,50 @@ class CoachWindow(QtWidgets.QMainWindow):
         except Exception:
             # Silently ignore metrics errors
             pass
+
+    def _update_trajectory(self, pitch_summary) -> None:
+        """Update trajectory visualization with pitch path.
+
+        Args:
+            pitch_summary: PitchSummary with trajectory data
+        """
+        # Get plate crossing point (convert inches to feet)
+        plate_y = 0.0  # Plate position
+        plate_z = pitch_summary.plate_z_in / 12.0 if pitch_summary.plate_z_in is not None else 2.5
+
+        # Estimate release point (typical values)
+        # Pitchers release around 54-56 feet from plate, 5-7 feet high
+        release_y = 55.0  # feet from plate
+        release_z = 6.0  # feet above ground
+
+        # Create simple parabolic trajectory
+        # Use 20 points from release to plate
+        num_points = 20
+        y_positions = []
+        z_positions = []
+
+        for i in range(num_points):
+            t = i / (num_points - 1)  # 0.0 to 1.0
+
+            # Linear interpolation for Y (distance)
+            y = release_y * (1 - t) + plate_y * t
+
+            # Parabolic arc for Z (height) - simple quadratic
+            # z = at^2 + bt + c
+            # At t=0: z = release_z
+            # At t=1: z = plate_z
+            # Peak somewhere in middle (use simple parabola)
+            a = release_z - 2 * release_z + plate_z  # Coefficient for parabola
+            b = 2 * (release_z - plate_z) - a
+            c = release_z
+
+            z = a * t * t + b * t + c
+
+            y_positions.append(y)
+            z_positions.append(z)
+
+        # Add trajectory to widget
+        self._trajectory.add_trajectory(y_positions, z_positions)
 
     def _update_pitch_location(self, plate_x_in: float, plate_z_in: float) -> None:
         """Update heat map and strike zone overlays with pitch location.

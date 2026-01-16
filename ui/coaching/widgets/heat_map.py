@@ -247,4 +247,160 @@ class StrikeZoneOverlay(QtWidgets.QWidget):
         )
 
 
-__all__ = ["HeatMapWidget", "StrikeZoneOverlay"]
+class TrajectoryWidget(QtWidgets.QWidget):
+    """Trajectory visualization widget showing pitch path from release to plate.
+
+    Displays a 2D side view (Y-Z plane) with:
+    - Mound and plate positions
+    - Pitch trajectories (last 5 pitches)
+    - Release point and plate crossing
+    """
+
+    def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
+        super().__init__(parent)
+        self.setMinimumSize(300, 200)
+
+        # Trajectory data: list of (y_positions, z_positions) tuples
+        self._trajectories: list[tuple[list[float], list[float]]] = []
+        self._max_trajectories = 5
+
+        # Field dimensions (in feet)
+        self._mound_y = 60.5  # Distance from plate to mound
+        self._plate_y = 0.0
+        self._ground_z = 0.0
+
+    def add_trajectory(self, y_positions: list[float], z_positions: list[float]) -> None:
+        """Add a trajectory to display.
+
+        Args:
+            y_positions: Y coordinates in feet (distance from plate)
+            z_positions: Z coordinates in feet (height above ground)
+        """
+        if len(y_positions) != len(z_positions) or len(y_positions) == 0:
+            return
+
+        # Add trajectory (keep last N)
+        self._trajectories.append((y_positions, z_positions))
+        if len(self._trajectories) > self._max_trajectories:
+            self._trajectories.pop(0)
+
+        self.update()
+
+    def clear(self) -> None:
+        """Clear all trajectories."""
+        self._trajectories.clear()
+        self.update()
+
+    def paintEvent(self, event: QtGui.QPaintEvent) -> None:
+        """Paint the trajectory view."""
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+
+        width = self.width()
+        height = self.height()
+
+        # Set up coordinate system
+        # Y: 0 (plate) to 70 feet (past mound)
+        # Z: 0 (ground) to 10 feet (above ground)
+        margin = 20
+        plot_width = width - 2 * margin
+        plot_height = height - 2 * margin
+
+        y_min, y_max = -5, 70  # feet
+        z_min, z_max = 0, 10  # feet
+
+        def to_screen_x(y_ft: float) -> int:
+            """Convert Y coordinate (feet) to screen X."""
+            norm = (y_ft - y_min) / (y_max - y_min)
+            return int(margin + norm * plot_width)
+
+        def to_screen_y(z_ft: float) -> int:
+            """Convert Z coordinate (feet) to screen Y (inverted)."""
+            norm = (z_ft - z_min) / (z_max - z_min)
+            return int(height - margin - norm * plot_height)
+
+        # Draw background
+        painter.fillRect(0, 0, width, height, QtGui.QColor(240, 240, 240))
+
+        # Draw ground line
+        ground_y = to_screen_y(0)
+        painter.setPen(QtGui.QPen(QtCore.Qt.GlobalColor.darkGreen, 2))
+        painter.drawLine(margin, ground_y, width - margin, ground_y)
+
+        # Draw mound
+        mound_x = to_screen_x(self._mound_y)
+        painter.setBrush(QtGui.QBrush(QtGui.QColor(139, 69, 19)))
+        painter.drawEllipse(mound_x - 10, ground_y - 10, 20, 10)
+
+        # Draw plate
+        plate_x = to_screen_x(self._plate_y)
+        painter.setBrush(QtGui.QBrush(QtCore.Qt.GlobalColor.white))
+        painter.setPen(QtGui.QPen(QtCore.Qt.GlobalColor.black, 2))
+        plate_points = [
+            QtCore.QPoint(plate_x - 8, ground_y),
+            QtCore.QPoint(plate_x + 8, ground_y),
+            QtCore.QPoint(plate_x + 8, ground_y - 8),
+            QtCore.QPoint(plate_x, ground_y - 12),
+            QtCore.QPoint(plate_x - 8, ground_y - 8),
+        ]
+        painter.drawPolygon(plate_points)
+
+        # Draw strike zone at plate
+        strike_zone_bottom = to_screen_y(1.5)  # ~18 inches
+        strike_zone_top = to_screen_y(3.5)  # ~42 inches
+        strike_zone_width = 20
+        painter.setPen(QtGui.QPen(QtCore.Qt.GlobalColor.blue, 2))
+        painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
+        painter.drawRect(
+            plate_x - strike_zone_width // 2,
+            strike_zone_top,
+            strike_zone_width,
+            strike_zone_bottom - strike_zone_top,
+        )
+
+        # Draw trajectories
+        if self._trajectories:
+            # Oldest to newest (so newest is on top)
+            for i, (y_pos, z_pos) in enumerate(self._trajectories):
+                # Fade older trajectories
+                alpha = int(100 + (155 * i / max(1, len(self._trajectories) - 1)))
+                color = QtGui.QColor(255, 0, 0, alpha)
+                painter.setPen(QtGui.QPen(color, 2))
+
+                # Draw trajectory line
+                points = []
+                for y, z in zip(y_pos, z_pos):
+                    points.append(QtCore.QPoint(to_screen_x(y), to_screen_y(z)))
+
+                if len(points) >= 2:
+                    painter.drawPolyline(points)
+
+                    # Draw release point (first point)
+                    painter.setBrush(QtGui.QBrush(color))
+                    painter.drawEllipse(points[0], 4, 4)
+
+                    # Draw plate crossing (last point)
+                    painter.drawEllipse(points[-1], 5, 5)
+
+        # Draw labels
+        painter.setPen(QtCore.Qt.GlobalColor.black)
+        font = painter.font()
+        font.setPointSize(8)
+        painter.setFont(font)
+
+        # Mound label
+        painter.drawText(mound_x - 20, ground_y + 15, "Mound")
+
+        # Plate label
+        painter.drawText(plate_x - 15, ground_y + 15, "Plate")
+
+        # Distance markers
+        for dist in [20, 40, 60]:
+            x = to_screen_x(dist)
+            painter.setPen(QtGui.QPen(QtCore.Qt.GlobalColor.gray, 1, QtCore.Qt.PenStyle.DashLine))
+            painter.drawLine(x, margin, x, height - margin)
+            painter.setPen(QtCore.Qt.GlobalColor.gray)
+            painter.drawText(x - 10, height - 5, f"{dist}'")
+
+
+__all__ = ["HeatMapWidget", "StrikeZoneOverlay", "TrajectoryWidget"]
