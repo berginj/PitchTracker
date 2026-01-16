@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ui.setup.steps import BaseStep, CameraStep, CalibrationStep
+from ui.setup.steps import BaseStep, CameraStep, CalibrationStep, RoiStep
 
 
 class SetupWindow(QtWidgets.QMainWindow):
@@ -48,8 +48,10 @@ class SetupWindow(QtWidgets.QMainWindow):
         # Step 2: Stereo Calibration
         self._steps.append(CalibrationStep(self._backend))
 
+        # Step 3: ROI Configuration
+        self._steps.append(RoiStep(self._backend))
+
         # TODO: Add remaining steps
-        # self._steps.append(RoiStep())
         # self._steps.append(DetectorStep())
         # self._steps.append(ValidationStep())
         # self._steps.append(ExportStep())
@@ -191,6 +193,14 @@ class SetupWindow(QtWidgets.QMainWindow):
                 right_serial = camera_step.get_right_serial()
                 if left_serial and right_serial:
                     current_step.set_camera_serials(left_serial, right_serial)
+
+        elif index == 2 and isinstance(current_step, RoiStep):
+            # Pass left camera serial from Step 1 to Step 3
+            camera_step = self._steps[0]
+            if isinstance(camera_step, CameraStep):
+                left_serial = camera_step.get_left_serial()
+                if left_serial:
+                    current_step.set_camera_serial(left_serial)
 
         current_step.on_enter()
 
