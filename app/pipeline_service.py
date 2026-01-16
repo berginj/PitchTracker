@@ -65,6 +65,7 @@ from app.pipeline.utils import (
 )
 from app.pipeline.config_service import ConfigService
 from app.pipeline.initialization import PipelineInitializer
+from app.pipeline.camera_management import CameraManager
 
 logger = get_logger(__name__)
 
@@ -218,10 +219,8 @@ class PipelineService(ABC):
 class InProcessPipelineService(PipelineService):
     def __init__(self, backend: str = "uvc", radar_client: Optional[RadarGunClient] = None) -> None:
         self._backend = backend
-        self._left: Optional[CameraDevice] = None
-        self._right: Optional[CameraDevice] = None
-        self._left_id: Optional[str] = None
-        self._right_id: Optional[str] = None
+        self._initializer = PipelineInitializer()
+        self._camera_mgr = CameraManager(backend, self._initializer)
         self._lane_gate: Optional[LaneGate] = None
         self._plate_gate: Optional[LaneGate] = None
         self._stereo_gate: Optional[StereoLaneGate] = None
@@ -238,7 +237,6 @@ class InProcessPipelineService(PipelineService):
         self._pitch_id = "pitch-unknown"
         self._config: Optional[AppConfig] = None
         self._config_service: Optional[ConfigService] = None
-        self._initializer = PipelineInitializer()
         self._config_path: Optional[Path] = None
         self._last_plate_metrics = PlateMetricsStub(run_in=0.0, rise_in=0.0, sample_count=0)
         self._last_detections: Dict[str, list[Detection]] = {}
@@ -270,9 +268,6 @@ class InProcessPipelineService(PipelineService):
         self._manual_speed_mph: Optional[float] = None
         self._record_lock = threading.Lock()
         self._detect_lock = threading.Lock()
-        self._capture_running = False
-        self._left_thread: Optional[threading.Thread] = None
-        self._right_thread: Optional[threading.Thread] = None
         self._detection_mode = "per_camera"
         self._detection_worker_count = 2
         self._detection_running = False
@@ -285,9 +280,6 @@ class InProcessPipelineService(PipelineService):
         self._detect_result_queue: queue.Queue[Tuple[str, Frame, list[Detection]]] = queue.Queue()
         self._detector_busy: Dict[str, bool] = {"left": False, "right": False}
         self._detector_busy_lock = threading.Lock()
-        self._left_latest: Optional[Frame] = None
-        self._right_latest: Optional[Frame] = None
-        self._latest_lock = threading.Lock()
         self._session_active = False
         self._pitch_active = False
         self._pitch_active_frames = 0
@@ -305,6 +297,29 @@ class InProcessPipelineService(PipelineService):
             heatmap=[[0, 0, 0], [0, 0, 0], [0, 0, 0]],
             pitches=[],
         )
+
+        # Wire camera frame callback
+        self._camera_mgr.set_frame_callback(self._on_frame_captured)
+
+    def _on_frame_captured(self, label: str, frame: Frame) -> None:
+        """Callback when camera captures a frame.
+
+        Handles frame routing:
+        1. Write to session recording if active
+        2. Buffer for pitch pre-roll
+        3. Write to pitch recording if active
+        4. Enqueue for detection
+
+        Args:
+            label: Camera label ("left" or "right")
+            frame: Captured frame
+        """
+        # Write to session recording if active
+        if self._recording:
+            self._write_record_frame_single(label, frame)
+
+        # Enqueue for detection
+        self._enqueue_detection_frame(label, frame)
 
     def start_capture(
         self,
@@ -334,51 +349,18 @@ class InProcessPipelineService(PipelineService):
             self._config = config
             self._config_service = ConfigService(config)
             self._config_path = config_path
-            self._left_id = left_serial
-            self._right_id = right_serial
             self._record_dir = Path(config.recording.output_dir)
             self._detect_queue_size = config.camera.queue_depth or 6
 
-            # Build camera objects
+            # Start camera capture (opens, configures, starts threads)
             try:
-                self._left = self._build_camera()
-                self._right = self._build_camera()
-                logger.debug("Camera objects built successfully")
-            except Exception as exc:
-                logger.error(f"Failed to build camera objects: {exc}")
-                raise CameraConnectionError(f"Failed to initialize camera objects: {exc}") from exc
+                self._camera_mgr.start_capture(config, left_serial, right_serial)
+            except (CameraConnectionError, CameraConfigurationError) as exc:
+                # Camera errors - let them propagate
+                raise
 
-            # Open left camera
-            try:
-                logger.debug(f"Opening left camera: {left_serial}")
-                self._left.open(left_serial)
-            except Exception as exc:
-                logger.error(f"Failed to open left camera {left_serial}: {exc}")
-                raise CameraConnectionError(f"Failed to open left camera {left_serial}: {exc}") from exc
-
-            # Open right camera
-            try:
-                logger.debug(f"Opening right camera: {right_serial}")
-                self._right.open(right_serial)
-            except Exception as exc:
-                logger.error(f"Failed to open right camera {right_serial}: {exc}")
-                # Clean up left camera before raising
-                try:
-                    self._left.close()
-                except Exception:
-                    pass
-                raise CameraConnectionError(f"Failed to open right camera {right_serial}: {exc}") from exc
-
-            # Configure cameras
-            try:
-                logger.debug("Configuring left camera")
-                PipelineInitializer.configure_camera(self._left, config)
-                logger.debug("Configuring right camera")
-                PipelineInitializer.configure_camera(self._right, config)
-            except Exception as exc:
-                logger.error(f"Failed to configure cameras: {exc}")
-                self._cleanup_cameras()
-                raise CameraConfigurationError(f"Failed to configure cameras: {exc}") from exc
+            # Get camera IDs from camera manager
+            left_id, right_id = self._camera_mgr.get_camera_ids()
 
             # Load ROIs
             try:
@@ -389,10 +371,10 @@ class InProcessPipelineService(PipelineService):
                     self._stereo_gate,
                     self._plate_gate,
                     self._plate_stereo_gate,
-                ) = PipelineInitializer.load_rois(self._left_id, self._right_id)
+                ) = PipelineInitializer.load_rois(left_id, right_id)
             except Exception as exc:
                 logger.error(f"Failed to load ROIs: {exc}")
-                self._cleanup_cameras()
+                self._camera_mgr.stop_capture()
                 raise InvalidROIError(f"Failed to load ROI configuration: {exc}") from exc
 
             # Initialize detector
@@ -400,13 +382,13 @@ class InProcessPipelineService(PipelineService):
                 logger.debug("Initializing detector")
                 self._initializer.initialize_detector_config(config)
                 self._detectors_by_camera = self._initializer.build_detectors(
-                    self._left_id, self._right_id, self._lane_polygon
+                    left_id, right_id, self._lane_polygon
                 )
                 if self._initializer._detector_type == "ml":
                     self._initializer.warmup_detectors(self._detectors_by_camera, config)
             except Exception as exc:
                 logger.error(f"Failed to initialize detector: {exc}")
-                self._cleanup_cameras()
+                self._camera_mgr.stop_capture()
                 if "model" in str(exc).lower() or "onnx" in str(exc).lower():
                     raise ModelLoadError(f"Failed to load detector model: {exc}") from exc
                 raise DetectionError(f"Failed to initialize detector: {exc}") from exc
@@ -417,19 +399,17 @@ class InProcessPipelineService(PipelineService):
                 self._stereo = PipelineInitializer.create_stereo_matcher(config)
             except Exception as exc:
                 logger.error(f"Failed to initialize stereo: {exc}")
-                self._cleanup_cameras()
+                self._camera_mgr.stop_capture()
                 raise PitchTrackerError(f"Failed to initialize stereo system: {exc}") from exc
 
-            # Start capture and detection threads
+            # Start detection threads
             try:
-                logger.debug("Starting capture threads")
-                self._start_capture_threads()
                 logger.debug("Starting detection threads")
                 self._start_detection_threads()
             except Exception as exc:
-                logger.error(f"Failed to start processing threads: {exc}")
-                self._cleanup_cameras()
-                raise CameraConnectionError(f"Failed to start capture threads: {exc}") from exc
+                logger.error(f"Failed to start detection threads: {exc}")
+                self._camera_mgr.stop_capture()
+                raise CameraConnectionError(f"Failed to start detection threads: {exc}") from exc
 
             logger.info("Capture started successfully")
 
@@ -440,24 +420,8 @@ class InProcessPipelineService(PipelineService):
         except Exception as exc:
             # Catch any unexpected errors
             logger.exception("Unexpected error during capture start")
-            self._cleanup_cameras()
+            self._camera_mgr.stop_capture()
             raise PitchTrackerError(f"Unexpected error starting capture: {exc}") from exc
-
-    def _cleanup_cameras(self) -> None:
-        """Clean up camera resources on error."""
-        try:
-            if self._left is not None:
-                self._left.close()
-                self._left = None
-        except Exception as exc:
-            logger.warning(f"Error closing left camera during cleanup: {exc}")
-
-        try:
-            if self._right is not None:
-                self._right.close()
-                self._right = None
-        except Exception as exc:
-            logger.warning(f"Error closing right camera during cleanup: {exc}")
 
     def stop_capture(self) -> None:
         """Stop capture on both cameras with error handling.
@@ -467,8 +431,6 @@ class InProcessPipelineService(PipelineService):
         logger.info("Stopping capture")
 
         try:
-            self._capture_running = False
-
             # Stop detection threads
             try:
                 self._stop_detection_threads()
@@ -476,43 +438,8 @@ class InProcessPipelineService(PipelineService):
             except Exception as exc:
                 logger.warning(f"Error stopping detection threads: {exc}")
 
-            # Stop capture threads
-            if self._left_thread is not None:
-                try:
-                    self._left_thread.join(timeout=1.0)
-                    if self._left_thread.is_alive():
-                        logger.warning("Left capture thread did not stop within timeout")
-                    self._left_thread = None
-                except Exception as exc:
-                    logger.warning(f"Error joining left capture thread: {exc}")
-
-            if self._right_thread is not None:
-                try:
-                    self._right_thread.join(timeout=1.0)
-                    if self._right_thread.is_alive():
-                        logger.warning("Right capture thread did not stop within timeout")
-                    self._right_thread = None
-                except Exception as exc:
-                    logger.warning(f"Error joining right capture thread: {exc}")
-
-            # Close cameras
-            if self._left is not None:
-                try:
-                    self._left.close()
-                    logger.debug("Left camera closed")
-                except Exception as exc:
-                    logger.error(f"Error closing left camera: {exc}")
-                finally:
-                    self._left = None
-
-            if self._right is not None:
-                try:
-                    self._right.close()
-                    logger.debug("Right camera closed")
-                except Exception as exc:
-                    logger.error(f"Error closing right camera: {exc}")
-                finally:
-                    self._right = None
+            # Stop camera capture (stops threads, closes cameras)
+            self._camera_mgr.stop_capture()
 
             logger.info("Capture stopped successfully")
 
@@ -530,23 +457,7 @@ class InProcessPipelineService(PipelineService):
             CameraConnectionError: If capture is not started or cameras not available
             PitchTrackerError: If frames are not yet available
         """
-        if self._left is None or self._right is None:
-            logger.error("Attempted to get preview frames but capture not started")
-            raise CameraConnectionError("Capture not started. Call start_capture() first.")
-
-        try:
-            with self._latest_lock:
-                left_frame = self._left_latest
-                right_frame = self._right_latest
-        except Exception as exc:
-            logger.error(f"Error accessing preview frames: {exc}")
-            raise PitchTrackerError(f"Error accessing frame buffer: {exc}") from exc
-
-        if left_frame is None or right_frame is None:
-            # This is normal during startup - cameras haven't produced frames yet
-            raise PitchTrackerError("Waiting for first camera frames. Please wait...")
-
-        return left_frame, right_frame
+        return self._camera_mgr.get_preview_frames()
 
     def start_recording(
         self,
@@ -612,12 +523,7 @@ class InProcessPipelineService(PipelineService):
         return CalibrationProfile(profile_id=profile_id, created_utc=created_utc, schema_version="1.0.0")
 
     def get_stats(self) -> Dict[str, Dict[str, float]]:
-        if self._left is None or self._right is None:
-            return {}
-        return {
-            "left": stats_to_dict(self._left.get_stats()),
-            "right": stats_to_dict(self._right.get_stats()),
-        }
+        return self._camera_mgr.get_stats()
 
     def get_plate_metrics(self) -> PlateMetricsStub:
         with self._detect_lock:
@@ -644,9 +550,10 @@ class InProcessPipelineService(PipelineService):
             model_class_id,
             model_format,
         )
-        if self._left_id and self._right_id:
+        left_id, right_id = self._camera_mgr.get_camera_ids()
+        if left_id and right_id:
             self._detectors_by_camera = self._initializer.build_detectors(
-                self._left_id, self._right_id, self._lane_polygon
+                left_id, right_id, self._lane_polygon
             )
 
     def set_detection_threading(self, mode: str, worker_count: int) -> None:
@@ -694,45 +601,6 @@ class InProcessPipelineService(PipelineService):
 
     def get_session_dir(self) -> Optional[Path]:
         return self._session_dir
-
-    def _build_camera(self) -> CameraDevice:
-        if self._backend == "opencv":
-            return OpenCVCamera()
-        if self._backend == "sim":
-            return SimulatedCamera()
-        return UvcCamera()
-
-    def _start_capture_threads(self) -> None:
-        if self._left is None or self._right is None:
-            return
-        self._capture_running = True
-        self._left_thread = threading.Thread(
-            target=self._capture_loop,
-            args=("left", self._left),
-            daemon=True,
-        )
-        self._right_thread = threading.Thread(
-            target=self._capture_loop,
-            args=("right", self._right),
-            daemon=True,
-        )
-        self._left_thread.start()
-        self._right_thread.start()
-
-    def _capture_loop(self, label: str, camera: CameraDevice) -> None:
-        while self._capture_running:
-            try:
-                frame = camera.read_frame(timeout_ms=200)
-            except Exception:
-                continue
-            with self._latest_lock:
-                if label == "left":
-                    self._left_latest = frame
-                else:
-                    self._right_latest = frame
-            if self._recording:
-                self._write_record_frame_single(label, frame)
-            self._enqueue_detection_frame(label, frame)
 
     def _reset_detection_queues(self) -> None:
         self._left_detect_queue = queue.Queue(maxsize=self._detect_queue_size)
