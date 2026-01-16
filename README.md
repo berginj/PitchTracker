@@ -65,12 +65,13 @@ python -m detect.validate_ml --model models\ball.onnx --image samples\frame.png
 - [README.md](README.md) - This quick start guide
 - [CHANGELOG.md](CHANGELOG.md) - Version history and changes
 - [REQ.md](REQ.md) - Requirements and specifications
+- [MANIFEST_SCHEMA.md](MANIFEST_SCHEMA.md) - Session and pitch manifest schemas (v1.2.0)
 
 ### Architecture & Design
 - [DESIGN_PRINCIPLES.md](DESIGN_PRINCIPLES.md) - System design principles
 - [REFACTORING_PROGRESS.md](REFACTORING_PROGRESS.md) - Pipeline service refactoring
 
-### Pitch Tracking V2 (NEW)
+### Pitch Tracking V2
 - **[PITCH_TRACKING_V2_GUIDE.md](PITCH_TRACKING_V2_GUIDE.md)** - Complete integration guide
 - **[PITCH_TRACKING_V2_SUMMARY.md](PITCH_TRACKING_V2_SUMMARY.md)** - Quick V1 vs V2 comparison
 - **[PITCH_TRACKING_V2_INTEGRATION.md](PITCH_TRACKING_V2_INTEGRATION.md)** - Integration changes
@@ -84,3 +85,36 @@ python -m detect.validate_ml --model models\ball.onnx --image samples\frame.png
 - Accurate timing (<33ms error vs ±330ms in V1)
 - Pre-roll buffering that actually works
 - Data validation and false trigger filtering
+
+### ML Training & Automation (NEW)
+- **[ML_QUICK_REFERENCE.md](ML_QUICK_REFERENCE.md)** - Quick start guide for ML features ⭐ START HERE
+- **[ML_TRAINING_DATA_STRATEGY.md](ML_TRAINING_DATA_STRATEGY.md)** - 18-month automation roadmap
+- **[ML_TRAINING_IMPLEMENTATION_GUIDE.md](ML_TRAINING_IMPLEMENTATION_GUIDE.md)** - Week 1 implementation details
+
+**Current Status (v1.2.0):**
+- ✅ Detection export (pixel coordinates, confidence scores)
+- ✅ Observation export (3D trajectory points)
+- ✅ Frame extraction (key frames as PNG)
+- ✅ Calibration export (geometry, intrinsics, ROIs)
+- ✅ Performance metrics in manifest
+
+**Automation Roadmap:**
+- 6 months: Ball detector model (eliminate HSV tuning)
+- 9 months: Field segmentation (auto-detect ROIs)
+- 12 months: Batter pose estimation (auto-calculate strike zone)
+- 18 months: Self-calibration (reduce setup to <2 min)
+
+**Enable ML Data Collection:**
+```yaml
+# configs/default.yaml
+recording:
+  save_detections: true       # Export detection JSON
+  save_observations: true     # Export 3D observations
+  save_training_frames: true  # Save key frames
+  frame_save_interval: 5      # Frame sampling rate
+```
+
+**Validate Export:**
+```powershell
+python test_ml_data_export.py "recordings\session-2026-01-16_001"
+```

@@ -66,6 +66,11 @@ class RecordingConfig:
     output_dir: str
     session_min_active_frames: int
     session_end_gap_frames: int
+    # ML training data collection
+    save_detections: bool = False
+    save_observations: bool = False
+    save_training_frames: bool = False
+    frame_save_interval: int = 5
 
 
 @dataclass(frozen=True)

@@ -8,14 +8,15 @@ import logging
 import threading
 from collections import deque
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 
 from configs.settings import AppConfig
-from contracts import Frame
+from contracts import Frame, Detection, StereoObservation
 
 from app.pipeline.recording.manifest import create_pitch_manifest
+from app.pipeline.recording.frame_extractor import FrameExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,24 @@ class PitchRecorder:
         self._post_roll_end_ns: Optional[int] = None
         self._latest_ns: Dict[str, int] = {"left": 0, "right": 0}
 
+        # ML training data: Detection storage
+        self._save_detections = getattr(config.recording, "save_detections", False)
+        self._detections: Dict[str, List[Dict]] = {"left": [], "right": []}
+        self._detection_count: Dict[str, int] = {"left": 0, "right": 0}
+
+        # ML training data: Observation storage
+        self._save_observations = getattr(config.recording, "save_observations", False)
+        self._observations: List[Dict] = []
+
+        # ML training data: Frame extraction
+        self._save_frames = getattr(config.recording, "save_training_frames", False)
+        self._frame_extractor = FrameExtractor(self._pitch_dir, enabled=self._save_frames)
+        self._frame_interval = getattr(config.recording, "frame_save_interval", 5)
+
+        # Track pitch phase for keypoint extraction
+        self._pitch_started = False
+        self._pitch_ended = False
+
         # Thread safety
         self._lock = threading.Lock()
 
@@ -87,6 +106,7 @@ class PitchRecorder:
         """
         self._open_writers()
         self._flush_pre_roll()
+        self._pitch_started = True
 
     def write_frame(self, label: str, frame: Frame) -> None:
         """Write frame to pitch recording.
@@ -118,6 +138,71 @@ class PitchRecorder:
                     )
                 self._latest_ns["right"] = frame.t_capture_monotonic_ns
 
+    def write_frame_with_detections(
+        self, label: str, frame: Frame, detections: Optional[List[Detection]] = None
+    ) -> None:
+        """Write frame and optionally store detection data.
+
+        Args:
+            label: Camera label ("left" or "right")
+            frame: Frame to write
+            detections: Optional list of detections in this frame
+        """
+        # Write video frame (existing)
+        self.write_frame(label, frame)
+
+        # Store detection data for ML training
+        if self._save_detections and detections:
+            for det in detections:
+                self._detections[label].append({
+                    "frame_index": frame.frame_index,
+                    "timestamp_ns": det.t_capture_monotonic_ns,
+                    "u_px": float(det.u),
+                    "v_px": float(det.v),
+                    "radius_px": float(det.radius_px),
+                    "confidence": float(det.confidence),
+                })
+                self._detection_count[label] += 1
+
+        # Extract frames for ML training
+        if self._save_frames:
+            # Save first pre-roll frame
+            if not self._pitch_started:
+                self._frame_extractor.save_pre_roll_first(label, frame)
+
+            # Save first detection frame
+            if self._pitch_started and detections and len(detections) > 0:
+                self._frame_extractor.save_first_detection(label, frame)
+
+            # Save uniform intervals
+            self._frame_extractor.save_uniform(label, frame, self._frame_interval)
+
+            # Save last detection (continuously updated)
+            if detections and len(detections) > 0:
+                self._frame_extractor.save_last_detection(label, frame)
+
+            # Save post-roll last frame
+            if self._pitch_ended:
+                self._frame_extractor.save_post_roll_last(label, frame)
+
+    def add_observation(self, obs: StereoObservation) -> None:
+        """Store stereo observation for export.
+
+        Args:
+            obs: Stereo observation to store
+        """
+        if self._save_observations:
+            self._observations.append({
+                "timestamp_ns": obs.t_ns,
+                "left_px": [float(obs.left[0]), float(obs.left[1])],
+                "right_px": [float(obs.right[0]), float(obs.right[1])],
+                "X_ft": float(obs.X),
+                "Y_ft": float(obs.Y),
+                "Z_ft": float(obs.Z),
+                "quality": float(obs.quality),
+                "confidence": float(obs.confidence),
+            })
+
     def end_pitch(self, end_ns: int) -> None:
         """Mark pitch as ended, continue recording post-roll.
 
@@ -125,6 +210,7 @@ class PitchRecorder:
             end_ns: Nanosecond timestamp when pitch ended
         """
         self._post_roll_end_ns = end_ns + self._post_roll_ns
+        self._pitch_ended = True
 
     def should_close(self) -> bool:
         """Check if post-roll is complete and recording should close.
@@ -162,14 +248,26 @@ class PitchRecorder:
                 self._post_roll_end_ns = None
                 self._latest_ns = {"left": 0, "right": 0}
 
-    def write_manifest(self, summary, config_path: Optional[str]) -> None:
+        # Export ML training data (outside lock)
+        if self._save_detections and (
+            self._detection_count["left"] > 0 or self._detection_count["right"] > 0
+        ):
+            self._export_detections()
+
+        if self._save_observations and self._observations:
+            self._export_observations()
+
+    def write_manifest(
+        self, summary, config_path: Optional[str], performance_metrics: Optional[Dict] = None
+    ) -> None:
         """Write pitch manifest to JSON file.
 
         Args:
             summary: PitchSummary object
             config_path: Path to config file used
+            performance_metrics: Optional performance metrics dict
         """
-        manifest = create_pitch_manifest(summary, config_path)
+        manifest = create_pitch_manifest(summary, config_path, performance_metrics)
         (self._pitch_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
 
     def is_active(self) -> bool:
@@ -240,3 +338,36 @@ class PitchRecorder:
             self.write_frame("left", frame)
         for frame in list(self._pre_roll_right):
             self.write_frame("right", frame)
+
+    def _export_detections(self) -> None:
+        """Export detection data to JSON files."""
+        detections_dir = self._pitch_dir / "detections"
+        detections_dir.mkdir(exist_ok=True)
+
+        for camera in ["left", "right"]:
+            if self._detections[camera]:
+                detection_file = detections_dir / f"{camera}_detections.json"
+                data = {
+                    "pitch_id": self._pitch_id,
+                    "camera": camera,
+                    "detection_count": self._detection_count[camera],
+                    "detections": self._detections[camera],
+                }
+                detection_file.write_text(json.dumps(data, indent=2))
+                logger.info(
+                    f"Exported {self._detection_count[camera]} detections to {detection_file}"
+                )
+
+    def _export_observations(self) -> None:
+        """Export stereo observations to JSON file."""
+        obs_dir = self._pitch_dir / "observations"
+        obs_dir.mkdir(exist_ok=True)
+
+        obs_file = obs_dir / "stereo_observations.json"
+        data = {
+            "pitch_id": self._pitch_id,
+            "observation_count": len(self._observations),
+            "observations": self._observations,
+        }
+        obs_file.write_text(json.dumps(data, indent=2))
+        logger.info(f"Exported {len(self._observations)} observations to {obs_file}")

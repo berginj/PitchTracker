@@ -70,6 +70,7 @@ from app.pipeline.detection.threading_pool import DetectionThreadPool
 from app.pipeline.detection.processor import DetectionProcessor
 from app.pipeline.recording.session_recorder import SessionRecorder
 from app.pipeline.recording.pitch_recorder import PitchRecorder
+from app.pipeline.recording.calibration_export import export_calibration_metadata
 from app.pipeline.analysis.pitch_summary import PitchAnalyzer
 from app.pipeline.analysis.session_summary import SessionManager
 from app.pipeline.pitch_tracking_v2 import PitchStateMachineV2, PitchConfig, PitchData
@@ -320,6 +321,10 @@ class InProcessPipelineService(PipelineService):
             frame: Detected frame
             detections: Detection results
         """
+        # Store detections for ML training export
+        if self._pitch_recorder and self._pitch_recorder.is_active() and detections:
+            self._pitch_recorder.write_frame_with_detections(label, frame, detections)
+
         if self._detection_processor:
             self._detection_processor.process_detection_result(label, frame, detections)
 
@@ -348,6 +353,9 @@ class InProcessPipelineService(PipelineService):
         if self._pitch_tracker:
             for obs in observations:
                 self._pitch_tracker.add_observation(obs)
+                # Also add to pitch recorder for ML training export
+                if self._pitch_recorder and self._pitch_recorder.is_active():
+                    self._pitch_recorder.add_observation(obs)
 
             frame_ns = max(left_frame.t_capture_monotonic_ns, right_frame.t_capture_monotonic_ns)
             obs_count = len(observations)
@@ -403,9 +411,29 @@ class InProcessPipelineService(PipelineService):
         # End pitch recording (continue for post-roll)
         if self._pitch_recorder:
             self._pitch_recorder.end_pitch(end_ns)
-            # Write manifest
+
+            # Collect performance metrics for ML training
+            duration_ns = end_ns - start_ns
+            performance_metrics = {
+                "detection_quality": {
+                    "stereo_observations": len(observations),
+                    "detection_rate_hz": (
+                        float(len(observations)) / (duration_ns / 1e9)
+                        if duration_ns > 0
+                        else 0.0
+                    ),
+                },
+                "timing_accuracy": {
+                    "pre_roll_frames_captured": len(pitch_data.pre_roll_frames),
+                    "duration_ns": duration_ns,
+                    "start_ns": start_ns,
+                    "end_ns": end_ns,
+                },
+            }
+
+            # Write manifest with metrics
             config_path = str(self._config_path) if self._config_path else None
-            self._pitch_recorder.write_manifest(summary, config_path)
+            self._pitch_recorder.write_manifest(summary, config_path, performance_metrics)
 
     def start_capture(
         self,
@@ -736,6 +764,20 @@ class InProcessPipelineService(PipelineService):
         session_dir = self._session_recorder.start_session(
             self._record_session or "session", self._pitch_id
         )
+
+        # Export calibration metadata for ML training
+        if session_dir:
+            left_serial = self._camera_mgr._left.camera_id if self._camera_mgr and self._camera_mgr._left else "left"
+            right_serial = self._camera_mgr._right.camera_id if self._camera_mgr and self._camera_mgr._right else "right"
+            export_calibration_metadata(
+                session_dir=session_dir,
+                stereo=self._stereo,
+                left_camera_id=left_serial,
+                right_camera_id=right_serial,
+                lane_gate=self._lane_gate,
+                plate_gate=self._plate_gate,
+            )
+            logger.info(f"Exported calibration metadata to {session_dir / 'calibration'}")
 
         # Initialize pitch analyzer
         self._pitch_analyzer = PitchAnalyzer(

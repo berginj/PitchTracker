@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 
@@ -59,12 +59,15 @@ def create_session_manifest(
     return manifest
 
 
-def create_pitch_manifest(summary, config_path: str) -> Dict[str, Any]:
+def create_pitch_manifest(
+    summary, config_path: str, performance_metrics: Optional[Dict] = None
+) -> Dict[str, Any]:
     """Create pitch manifest.
 
     Args:
         summary: PitchSummary object
         config_path: Path to config file
+        performance_metrics: Optional dict with detection/tracking metrics
 
     Returns:
         Complete pitch manifest dictionary
@@ -98,4 +101,9 @@ def create_pitch_manifest(summary, config_path: str) -> Dict[str, Any]:
         "right_timestamps": "right_timestamps.csv",
         "config_path": config_path or "configs/default.yaml",
     })
+
+    # Add performance metrics if provided
+    if performance_metrics:
+        manifest["performance_metrics"] = performance_metrics
+
     return manifest
