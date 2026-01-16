@@ -26,11 +26,11 @@ class TestGeometryFunctions:
         rect = points_to_rect(start, end)
 
         assert rect is not None
-        assert rect == (10, 20, 90, 60)  # x, y, w, h
+        assert rect == (10, 20, 100, 80)  # x1, y1, x2, y2
 
     def test_normalize_rect_within_bounds(self):
         """Test normalizing rectangle within image bounds."""
-        rect = (10, 20, 100, 80)
+        rect = (10, 20, 100, 80)  # x1, y1, x2, y2
         image_size = (640, 480)
 
         normalized = normalize_rect(rect, image_size)
@@ -38,34 +38,34 @@ class TestGeometryFunctions:
 
     def test_normalize_rect_out_of_bounds(self):
         """Test normalizing rectangle that extends beyond bounds."""
-        rect = (600, 400, 100, 100)  # Extends beyond 640x480
+        rect = (600, 400, 700, 500)  # Extends beyond 640x480
         image_size = (640, 480)
 
         normalized = normalize_rect(rect, image_size)
         assert normalized is not None
-        x, y, w, h = normalized
-        assert x + w <= 640
-        assert y + h <= 480
+        x1, y1, x2, y2 = normalized
+        assert x2 <= 639
+        assert y2 <= 479
 
     def test_rect_to_polygon(self):
         """Test converting rectangle to polygon points."""
-        rect = (10, 20, 100, 80)
+        rect = (10, 20, 100, 80)  # x1, y1, x2, y2
         polygon = rect_to_polygon(rect)
 
         assert polygon is not None
         assert len(polygon) == 4
         assert polygon[0] == (10, 20)  # Top-left
-        assert polygon[1] == (110, 20)  # Top-right
-        assert polygon[2] == (110, 100)  # Bottom-right
-        assert polygon[3] == (10, 100)  # Bottom-left
+        assert polygon[1] == (100, 20)  # Top-right
+        assert polygon[2] == (100, 80)  # Bottom-right
+        assert polygon[3] == (10, 80)  # Bottom-left
 
     def test_polygon_to_rect(self):
         """Test converting polygon to bounding rectangle."""
-        polygon = [(10, 20), (110, 20), (110, 100), (10, 100)]
+        polygon = [(10, 20), (100, 20), (100, 80), (10, 80)]
         rect = polygon_to_rect(polygon)
 
         assert rect is not None
-        assert rect == (10, 20, 100, 80)
+        assert rect == (10, 20, 100, 80)  # x1, y1, x2, y2
 
     def test_roi_overlays_empty(self):
         """Test generating overlays with no ROIs."""

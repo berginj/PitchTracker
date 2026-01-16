@@ -15,7 +15,7 @@ from typing import Optional
 
 from PySide6 import QtWidgets
 
-from configs.settings import Config
+from configs.settings import AppConfig
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 from record.training_report import build_training_report
 
@@ -23,7 +23,7 @@ from record.training_report import build_training_report
 def upload_session(
     parent: QtWidgets.QWidget,
     summary,
-    config: Config,
+    config: AppConfig,
     session_dir: Optional[Path],
     pitcher_name: str,
     location_profile: str,
