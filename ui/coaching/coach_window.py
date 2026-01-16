@@ -10,6 +10,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from app.pipeline_service import InProcessPipelineService
 from configs.settings import load_config
 from ui.coaching.dialogs import SessionStartDialog
+from ui.coaching.widgets import HeatMapWidget, StrikeZoneOverlay
 
 
 class CoachWindow(QtWidgets.QMainWindow):
@@ -125,13 +126,18 @@ class CoachWindow(QtWidgets.QMainWindow):
 
     def _build_main_content(self) -> QtWidgets.QWidget:
         """Build main content area with cameras and metrics."""
-        # Left camera view
+        # Left camera view with strike zone overlay
         left_group = QtWidgets.QGroupBox("Left Camera")
         self._left_view = QtWidgets.QLabel("Camera Preview")
         self._left_view.setMinimumSize(500, 375)
         self._left_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._left_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._left_view.setStyleSheet("background-color: #f5f5f5;")
+
+        # Create overlay for strike zone
+        self._left_overlay = StrikeZoneOverlay(self._left_view)
+        self._left_overlay.setGeometry(self._left_view.geometry())
+
         left_layout = QtWidgets.QVBoxLayout()
         left_layout.addWidget(self._left_view)
         left_group.setLayout(left_layout)
@@ -150,13 +156,18 @@ class CoachWindow(QtWidgets.QMainWindow):
         metrics_layout.addWidget(self._metrics_display)
         metrics_group.setLayout(metrics_layout)
 
-        # Right camera view
+        # Right camera view with strike zone overlay
         right_group = QtWidgets.QGroupBox("Right Camera")
         self._right_view = QtWidgets.QLabel("Camera Preview")
         self._right_view.setMinimumSize(400, 300)
         self._right_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._right_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._right_view.setStyleSheet("background-color: #f5f5f5;")
+
+        # Create overlay for strike zone
+        self._right_overlay = StrikeZoneOverlay(self._right_view)
+        self._right_overlay.setGeometry(self._right_view.geometry())
+
         right_layout = QtWidgets.QVBoxLayout()
         right_layout.addWidget(self._right_view)
         right_group.setLayout(right_layout)
@@ -254,14 +265,11 @@ class CoachWindow(QtWidgets.QMainWindow):
         widget.setLayout(layout)
         return widget
 
-    def _build_heat_map_widget(self) -> QtWidgets.QWidget:
+    def _build_heat_map_widget(self) -> HeatMapWidget:
         """Build heat map widget (counts per zone)."""
-        label = QtWidgets.QLabel("Heat Map\n(Pitch count by location)")
-        label.setMinimumSize(200, 150)
-        label.setFrameStyle(QtWidgets.QFrame.Shape.Box)
-        label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        label.setStyleSheet("background-color: white;")
-        return label
+        heat_map = HeatMapWidget()
+        heat_map.setMinimumSize(200, 150)
+        return heat_map
 
     def _build_controls(self) -> QtWidgets.QWidget:
         """Build control buttons."""
@@ -359,6 +367,11 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._pitcher_label.setText(f"Pitcher: {self._pitcher_name}")
         self._pitch_count_label.setText("Pitches: 0")
         self._recording_indicator.show()
+
+        # Clear visualizations
+        self._heat_map.clear()
+        self._left_overlay.clear_latest_pitch()
+        self._right_overlay.clear_latest_pitch()
 
         # Update buttons
         self._start_button.setEnabled(False)
@@ -500,6 +513,10 @@ class CoachWindow(QtWidgets.QMainWindow):
                     )
                     self._right_view.setPixmap(scaled)
 
+            # Update overlay sizes to match camera views
+            self._left_overlay.setGeometry(self._left_view.geometry())
+            self._right_overlay.setGeometry(self._right_view.geometry())
+
         except Exception:
             # Silently ignore preview errors
             pass
@@ -568,10 +585,13 @@ class CoachWindow(QtWidgets.QMainWindow):
                     speed_mph = latest.measured_speed_mph or 0.0
                     self._speed_label.setText(f"Speed: {speed_mph:.1f} mph")
 
-                    # Update break
+                    # Update break and track location
                     if latest.plate_x_in is not None and latest.plate_z_in is not None:
                         self._hbreak_label.setText(f"H-Break: {latest.plate_x_in:+.1f} in")
                         self._vbreak_label.setText(f"V-Break: {latest.plate_z_in:+.1f} in")
+
+                        # Calculate strike zone and update visualizations
+                        self._update_pitch_location(latest.plate_x_in, latest.plate_z_in)
 
                     # Update result
                     result = "STRIKE" if latest.is_strike else "BALL"
@@ -585,6 +605,59 @@ class CoachWindow(QtWidgets.QMainWindow):
         except Exception:
             # Silently ignore metrics errors
             pass
+
+    def _update_pitch_location(self, plate_x_in: float, plate_z_in: float) -> None:
+        """Update heat map and strike zone overlays with pitch location.
+
+        Args:
+            plate_x_in: Horizontal position in inches from plate center (- is left, + is right)
+            plate_z_in: Vertical position in inches from ground
+        """
+        # Get strike zone dimensions from config
+        sz_config = self._config.strike_zone
+
+        # Strike zone boundaries (in inches)
+        zone_width = 17.0  # Home plate width
+        zone_height = sz_config.height_in
+        zone_left = -zone_width / 2
+        zone_right = zone_width / 2
+        zone_bottom = sz_config.bottom_in
+        zone_top = zone_bottom + zone_height
+
+        # Calculate normalized position (0.0 = left/bottom, 1.0 = right/top)
+        # Add some margin around strike zone for visualization
+        margin_x = zone_width * 0.5  # 50% margin on each side
+        margin_z = zone_height * 0.3  # 30% margin top/bottom
+
+        viz_left = zone_left - margin_x
+        viz_right = zone_right + margin_x
+        viz_bottom = zone_bottom - margin_z
+        viz_top = zone_top + margin_z
+
+        # Normalize to 0.0-1.0
+        norm_x = (plate_x_in - viz_left) / (viz_right - viz_left)
+        norm_z = 1.0 - ((plate_z_in - viz_bottom) / (viz_top - viz_bottom))  # Invert Y (screen coords)
+
+        # Clamp to visible range
+        norm_x = max(0.0, min(1.0, norm_x))
+        norm_z = max(0.0, min(1.0, norm_z))
+
+        # Update strike zone overlays
+        self._left_overlay.set_latest_pitch(norm_x, norm_z)
+        self._right_overlay.set_latest_pitch(norm_x, norm_z)
+
+        # Calculate which zone (0-2, 0-2) the pitch landed in for heat map
+        # Only count if inside actual strike zone
+        if zone_left <= plate_x_in <= zone_right and zone_bottom <= plate_z_in <= zone_top:
+            zone_x = int((plate_x_in - zone_left) / zone_width * 3)
+            zone_z = int((plate_z_in - zone_bottom) / zone_height * 3)
+
+            # Clamp to 0-2 range
+            zone_x = max(0, min(2, zone_x))
+            zone_z = max(0, min(2, zone_z))
+
+            # Add to heat map (note: zone_z is already in correct coordinates for grid)
+            self._heat_map.add_pitch(zone_x, zone_z)
 
     def _update_recent_pitches_list(self, pitches) -> None:
         """Update recent pitches list widget."""
