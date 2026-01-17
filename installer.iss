@@ -20,7 +20,7 @@ DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 OutputDir=installer_output
 OutputBaseFilename=PitchTracker-Setup-v{#AppVersion}
-SetupIconFile=assets\icon.ico
+; SetupIconFile=assets\icon.ico  ; Commented out - no icon file yet
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -55,7 +55,7 @@ Source: "dist\PitchTracker\*"; DestDir: "{app}"; Flags: ignoreversion recursesub
 
 ; Config and assets
 Source: "configs\*.yaml"; DestDir: "{app}\configs"; Flags: ignoreversion confirmoverwrite
-Source: "assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs; Attribs: readonly
+; Source: "assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs; Attribs: readonly  ; Commented out - no assets yet
 
 ; Documentation
 Source: "README_LAUNCHER.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
