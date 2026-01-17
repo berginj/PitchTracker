@@ -1,6 +1,22 @@
 # PitchTracker Quick Start (Windows)
 
-## Setup
+## For End Users (Coaches)
+
+If you received the installer, see [README_INSTALL.md](README_INSTALL.md) for installation instructions.
+
+**Quick Install:**
+1. Download `PitchTracker-Setup-v1.0.0.exe`
+2. Run installer (requires Windows 10+)
+3. Launch from Start Menu
+4. Complete 6-step Setup Wizard
+
+The application includes automatic updates - you'll be notified when new versions are available.
+
+---
+
+## For Developers
+
+### Setup
 ```powershell
 cd C:\Users\bergi\App\PitchTracker
 .\setup.ps1
@@ -59,10 +75,40 @@ Quick validation:
 python -m detect.validate_ml --model models\ball.onnx --image samples\frame.png
 ```
 
+## Building the Installer
+
+To create a distributable installer for end users:
+
+```powershell
+# Install build tools (one-time setup)
+pip install pyinstaller
+
+# Download and install Inno Setup 6 from:
+# https://jrsoftware.org/isdl.php
+
+# Build installer (creates PitchTracker-Setup-v1.0.0.exe)
+.\build_installer.ps1 -Clean
+```
+
+**Output:** `installer_output\PitchTracker-Setup-v1.0.0.exe` (~100-150 MB)
+
+See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for detailed build documentation including:
+- Prerequisites and dependencies
+- Bundle size optimization
+- Version management
+- Testing checklist
+- Distribution via GitHub Releases
+
+**Auto-Update Mechanism:** The installer includes automatic update checking via GitHub Releases API. When you publish a new release with a tagged version (e.g., `v1.0.1`) and attach the installer as an asset, users will be notified and can install updates with one click.
+
+---
+
 ## Documentation
 
 ### Core Documentation
 - [README.md](README.md) - This quick start guide
+- [README_INSTALL.md](README_INSTALL.md) - End-user installation guide
+- [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) - Building the installer
 - [CHANGELOG.md](CHANGELOG.md) - Version history and changes
 - [REQ.md](REQ.md) - Requirements and specifications
 - [MANIFEST_SCHEMA.md](MANIFEST_SCHEMA.md) - Session and pitch manifest schemas (v1.2.0)
