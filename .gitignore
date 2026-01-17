@@ -10,3 +10,9 @@ configs/locations/
 
 # Claude Code local settings
 .claude/
+
+# Build artifacts
+build/
+dist/
+installer_output/
+*.spec.bak
