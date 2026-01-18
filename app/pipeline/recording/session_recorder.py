@@ -290,6 +290,18 @@ class SessionRecorder:
                         )
                         self._last_write_warning = current_time
 
+                        # Publish error event
+                        severity = ErrorSeverity.CRITICAL if self._write_failures >= 10 else ErrorSeverity.ERROR
+                        publish_error(
+                            category=ErrorCategory.RECORDING,
+                            severity=severity,
+                            message=f"Video write failed for LEFT camera (frame {frame.frame_index})",
+                            source="SessionRecorder.write_frame",
+                            camera="left",
+                            frame_index=frame.frame_index,
+                            total_failures=self._write_failures,
+                        )
+
                 # Write CSV timestamp regardless
                 if self._left_csv is not None:
                     self._left_csv[1].writerow(
@@ -310,6 +322,18 @@ class SessionRecorder:
                             f"   Total failures: {self._write_failures}"
                         )
                         self._last_write_warning = current_time
+
+                        # Publish error event
+                        severity = ErrorSeverity.CRITICAL if self._write_failures >= 10 else ErrorSeverity.ERROR
+                        publish_error(
+                            category=ErrorCategory.RECORDING,
+                            severity=severity,
+                            message=f"Video write failed for RIGHT camera (frame {frame.frame_index})",
+                            source="SessionRecorder.write_frame",
+                            camera="right",
+                            frame_index=frame.frame_index,
+                            total_failures=self._write_failures,
+                        )
 
                 # Write CSV timestamp regardless
                 if self._right_csv is not None:
