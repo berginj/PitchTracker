@@ -252,12 +252,29 @@ class CalibrationStep(BaseStep):
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
 
-                # Extract index from "Camera N" format
-                left_index = int(self._left_serial.split()[-1])
-                right_index = int(self._right_serial.split()[-1])
+                # Extract index from "Camera N" format or use serial directly if it's a number
+                if self._left_serial.isdigit():
+                    left_index = self._left_serial
+                else:
+                    left_index = self._left_serial.split()[-1]
 
-                self._left_camera = OpenCVCamera(index=left_index)
-                self._right_camera = OpenCVCamera(index=right_index)
+                if self._right_serial.isdigit():
+                    right_index = self._right_serial
+                else:
+                    right_index = self._right_serial.split()[-1]
+
+                self._left_camera = OpenCVCamera()
+                self._right_camera = OpenCVCamera()
+
+                print(f"DEBUG: Opening left camera with index: {left_index}")
+                self._left_camera.open(left_index)
+
+                print(f"DEBUG: Opening right camera with index: {right_index}")
+                self._right_camera.open(right_index)
+
+                # Configure cameras with basic settings
+                self._left_camera.set_mode(640, 480, 30, "GRAY8")
+                self._right_camera.set_mode(640, 480, 30, "GRAY8")
 
             else:  # uvc
                 from capture import UvcCamera
@@ -291,12 +308,8 @@ class CalibrationStep(BaseStep):
                             raise
 
                 # Configure cameras with basic settings
-                self._left_camera.set_mode(640, 480, 120, "GRAY8")
-                self._right_camera.set_mode(640, 480, 120, "GRAY8")
-
-            # Start cameras
-            self._left_camera.start()
-            self._right_camera.start()
+                self._left_camera.set_mode(640, 480, 30, "GRAY8")
+                self._right_camera.set_mode(640, 480, 30, "GRAY8")
 
         except Exception as e:
             # Clean up any partially opened cameras
@@ -407,8 +420,8 @@ class CalibrationStep(BaseStep):
 
         try:
             # Get frames
-            left_frame = self._left_camera.read()
-            right_frame = self._right_camera.read()
+            left_frame = self._left_camera.read_frame(timeout_ms=1000)
+            right_frame = self._right_camera.read_frame(timeout_ms=1000)
 
             if left_frame is None or right_frame is None:
                 return
@@ -514,8 +527,8 @@ class CalibrationStep(BaseStep):
 
         try:
             # Get frames
-            left_frame = self._left_camera.read()
-            right_frame = self._right_camera.read()
+            left_frame = self._left_camera.read_frame(timeout_ms=1000)
+            right_frame = self._right_camera.read_frame(timeout_ms=1000)
 
             if left_frame is None or right_frame is None:
                 QtWidgets.QMessageBox.warning(

@@ -157,19 +157,22 @@ class RoiStep(BaseStep):
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
 
-                # Extract index from "Camera N" format
-                left_index = int(self._left_serial.split()[-1])
-                self._left_camera = OpenCVCamera(index=left_index)
+                # Extract index from "Camera N" format or use serial directly if it's a number
+                if self._left_serial.isdigit():
+                    left_index = self._left_serial
+                else:
+                    left_index = self._left_serial.split()[-1]
+
+                self._left_camera = OpenCVCamera()
+                self._left_camera.open(left_index)
+                self._left_camera.set_mode(640, 480, 30, "GRAY8")
 
             else:  # uvc
                 from capture import UvcCamera
 
                 self._left_camera = UvcCamera()
                 self._left_camera.open(self._left_serial)
-                self._left_camera.set_mode(640, 480, 120, "GRAY8")
-
-            # Start camera
-            self._left_camera.start()
+                self._left_camera.set_mode(640, 480, 30, "GRAY8")
 
             self._status_label.setText("Camera preview active. Select an ROI to edit.")
             self._status_label.setStyleSheet("color: green; font-weight: bold; padding: 5px;")
@@ -200,7 +203,7 @@ class RoiStep(BaseStep):
 
         try:
             # Get frame
-            frame = self._left_camera.read()
+            frame = self._left_camera.read_frame(timeout_ms=1000)
             if frame is None:
                 return
 
