@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -75,6 +76,9 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         # Last known pitch count
         self._last_pitch_count = 0
+
+        # Proactively warm camera cache in background for faster dialog opening
+        self._warm_camera_cache_async()
 
     def _build_ui(self) -> None:
         """Build coaching dashboard UI."""
@@ -307,6 +311,34 @@ class CoachWindow(QtWidgets.QMainWindow):
         widget = QtWidgets.QWidget()
         widget.setLayout(layout)
         return widget
+
+    def _warm_camera_cache_async(self) -> None:
+        """Proactively warm camera cache in background thread.
+
+        This makes the session start dialog open instantly since the cache
+        will already be warm by the time the user clicks "Setup Session".
+        """
+        def _warm_cache():
+            try:
+                from ui.device_utils import probe_uvc_devices, probe_opencv_indices
+
+                logger.debug("Background: Warming camera cache...")
+
+                # Warm UVC device cache (2-4 seconds on first run)
+                probe_uvc_devices(use_cache=True)
+
+                # Warm OpenCV indices cache (3-6 seconds on first run, checks 10 cameras)
+                probe_opencv_indices(max_index=10, use_cache=True)
+
+                logger.info("Background: Camera cache warmed successfully")
+
+            except Exception as e:
+                # Don't crash if cache warming fails - dialog will just probe on-demand
+                logger.warning(f"Background: Camera cache warming failed: {e}")
+
+        # Start background thread (daemon so it doesn't block app shutdown)
+        thread = threading.Thread(target=_warm_cache, daemon=True, name="CameraCache")
+        thread.start()
 
     def _setup_session(self) -> None:
         """Setup coaching session (cameras and configuration only, no recording yet)."""
