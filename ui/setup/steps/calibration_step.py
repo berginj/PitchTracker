@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import cv2
 import numpy as np
@@ -13,6 +13,42 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from calib.quick_calibrate import calibrate_and_write
 from capture import CameraDevice
 from ui.setup.steps.base_step import BaseStep
+
+
+class CalibrationWorker(QtCore.QThread):
+    """Background worker for running calibration."""
+
+    finished = QtCore.Signal(dict)  # Emits calibration results
+    error = QtCore.Signal(str)  # Emits error message
+
+    def __init__(
+        self,
+        left_paths: List[Path],
+        right_paths: List[Path],
+        pattern: str,
+        square_mm: float,
+        config_path: Path,
+    ):
+        super().__init__()
+        self.left_paths = left_paths
+        self.right_paths = right_paths
+        self.pattern = pattern
+        self.square_mm = square_mm
+        self.config_path = config_path
+
+    def run(self):
+        """Run calibration in background thread."""
+        try:
+            result = calibrate_and_write(
+                self.left_paths,
+                self.right_paths,
+                self.pattern,
+                self.square_mm,
+                self.config_path,
+            )
+            self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
 
 
 class CalibrationStep(BaseStep):
@@ -689,71 +725,75 @@ class CalibrationStep(BaseStep):
             )
             return
 
-        try:
-            # Show progress bar
-            self._progress_bar.show()
-            self._results_text.hide()
-            self._calibrate_button.setEnabled(False)
-            self._capture_button.setEnabled(False)
-            QtWidgets.QApplication.processEvents()
+        # Show progress bar
+        self._progress_bar.show()
+        self._results_text.hide()
+        self._calibrate_button.setEnabled(False)
+        self._capture_button.setEnabled(False)
 
-            # Get image paths
-            left_paths = sorted(self._temp_dir.glob("left_*.png"))
-            right_paths = sorted(self._temp_dir.glob("right_*.png"))
+        # Get image paths
+        left_paths = sorted(self._temp_dir.glob("left_*.png"))
+        right_paths = sorted(self._temp_dir.glob("right_*.png"))
 
-            # Run calibration
-            pattern = f"{self._pattern_cols}x{self._pattern_rows}"
-            result = calibrate_and_write(
-                left_paths,
-                right_paths,
-                pattern,
-                self._square_mm,
-                self._config_path,
-            )
+        # Create and start worker thread
+        pattern = f"{self._pattern_cols}x{self._pattern_rows}"
+        self._calibration_worker = CalibrationWorker(
+            left_paths,
+            right_paths,
+            pattern,
+            self._square_mm,
+            self._config_path,
+        )
+        self._calibration_worker.finished.connect(self._on_calibration_complete)
+        self._calibration_worker.error.connect(self._on_calibration_error)
+        self._calibration_worker.start()
 
-            self._calibration_result = result
+    def _on_calibration_complete(self, result: dict) -> None:
+        """Handle successful calibration."""
+        self._calibration_result = result
 
-            # Hide progress bar
-            self._progress_bar.hide()
+        # Hide progress bar
+        self._progress_bar.hide()
 
-            # Show results
-            results_text = (
-                "✅ Calibration Complete!\n\n"
-                f"Baseline: {result['baseline_ft']:.3f} ft\n"
-                f"Focal Length: {result['focal_length_px']:.1f} px\n"
-                f"Principal Point: ({result['cx']:.1f}, {result['cy']:.1f})\n\n"
-                f"Calibration saved to {self._config_path}"
-            )
-            self._results_text.setText(results_text)
-            self._results_text.setStyleSheet("background-color: #c8e6c9; color: #2e7d32;")
-            self._results_text.show()
+        # Show results
+        results_text = (
+            "✅ Calibration Complete!\n\n"
+            f"Baseline: {result['baseline_ft']:.3f} ft\n"
+            f"Focal Length: {result['focal_length_px']:.1f} px\n"
+            f"Principal Point: ({result['cx']:.1f}, {result['cy']:.1f})\n\n"
+            f"Calibration saved to {self._config_path}"
+        )
+        self._results_text.setText(results_text)
+        self._results_text.setStyleSheet("background-color: #c8e6c9; color: #2e7d32;")
+        self._results_text.show()
 
-            # Re-enable buttons
-            self._capture_button.setEnabled(True)
-            self._calibrate_button.setEnabled(True)
+        # Re-enable buttons
+        self._capture_button.setEnabled(True)
+        self._calibrate_button.setEnabled(True)
 
-            QtWidgets.QMessageBox.information(
-                self,
-                "Calibration Complete",
-                "Stereo calibration completed successfully!\n\n"
-                "You can now proceed to the next step.",
-            )
+        QtWidgets.QMessageBox.information(
+            self,
+            "Calibration Complete",
+            "Stereo calibration completed successfully!\n\n"
+            "You can now proceed to the next step.",
+        )
 
-        except Exception as e:
-            # Hide progress bar
-            self._progress_bar.hide()
+    def _on_calibration_error(self, error_msg: str) -> None:
+        """Handle calibration error."""
+        # Hide progress bar
+        self._progress_bar.hide()
 
-            # Show error
-            self._results_text.setText(f"❌ Calibration Failed:\n{str(e)}")
-            self._results_text.setStyleSheet("background-color: #ffcdd2; color: #c62828;")
-            self._results_text.show()
+        # Show error
+        self._results_text.setText(f"❌ Calibration Failed:\n{error_msg}")
+        self._results_text.setStyleSheet("background-color: #ffcdd2; color: #c62828;")
+        self._results_text.show()
 
-            # Re-enable buttons
-            self._capture_button.setEnabled(True)
-            self._calibrate_button.setEnabled(True)
+        # Re-enable buttons
+        self._capture_button.setEnabled(True)
+        self._calibrate_button.setEnabled(True)
 
-            QtWidgets.QMessageBox.critical(
-                self,
-                "Calibration Error",
-                f"Calibration failed:\n{str(e)}",
-            )
+        QtWidgets.QMessageBox.critical(
+            self,
+            "Calibration Error",
+            f"Calibration failed:\n{error_msg}",
+        )

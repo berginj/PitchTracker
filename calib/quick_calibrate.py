@@ -38,13 +38,17 @@ def _collect_corners(
     objp = np.zeros((pattern_size[0] * pattern_size[1], 3), np.float32)
     objp[:, :2] = np.mgrid[0 : pattern_size[0], 0 : pattern_size[1]].T.reshape(-1, 2)
 
-    for path in paths:
+    print(f"Processing {len(paths)} images for corner detection...")
+    for i, path in enumerate(paths, 1):
+        print(f"  [{i}/{len(paths)}] {path.name}...", end=" ", flush=True)
         image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
         if image is None:
+            print("❌ Failed to load")
             continue
         img_size = (image.shape[1], image.shape[0])
         found, corners = cv2.findChessboardCorners(image, pattern_size)
         if not found:
+            print("❌ No corners")
             continue
         corners = cv2.cornerSubPix(
             image,
@@ -55,7 +59,9 @@ def _collect_corners(
         )
         objpoints.append(objp.copy())
         imgpoints.append(corners)
+        print("✓")
 
+    print(f"Found corners in {len(objpoints)} images")
     if img_size is None:
         raise RuntimeError("No valid images found for calibration.")
     return objpoints, imgpoints, img_size
@@ -67,24 +73,34 @@ def _calibrate(
     pattern_size: Tuple[int, int],
     square_mm: float,
 ) -> dict:
+    print("\n=== LEFT CAMERA ===")
     left_obj, left_img, img_size = _collect_corners(left_paths, pattern_size)
+    print("\n=== RIGHT CAMERA ===")
     right_obj, right_img, _ = _collect_corners(right_paths, pattern_size)
+
     if len(left_obj) != len(right_obj):
         raise RuntimeError("Left/right image counts do not match after corner detection.")
     if not left_obj:
         raise RuntimeError("No chessboard corners detected.")
 
+    print(f"\nCalibrating with {len(left_obj)} image pairs...")
     objp = left_obj[0].copy()
     objp[:, :2] *= float(square_mm)
     objpoints = [objp for _ in left_obj]
 
+    print("Calibrating left camera intrinsics...", flush=True)
     _, mtx_left, dist_left, _, _ = cv2.calibrateCamera(
         objpoints, left_img, img_size, None, None
     )
+    print("✓ Left camera calibrated")
+
+    print("Calibrating right camera intrinsics...", flush=True)
     _, mtx_right, dist_right, _, _ = cv2.calibrateCamera(
         objpoints, right_img, img_size, None, None
     )
+    print("✓ Right camera calibrated")
 
+    print("Computing stereo calibration...", flush=True)
     _, _, _, _, _, R, T, _, _ = cv2.stereoCalibrate(
         objpoints,
         left_img,
@@ -96,6 +112,7 @@ def _calibrate(
         img_size,
         flags=cv2.CALIB_FIX_INTRINSIC,
     )
+    print("✓ Stereo calibration complete")
 
     baseline_mm = float(np.linalg.norm(T))
     baseline_ft = baseline_mm / 304.8
