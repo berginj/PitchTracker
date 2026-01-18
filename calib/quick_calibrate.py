@@ -108,6 +108,14 @@ def _calibrate(
         "focal_length_px": focal_length_px,
         "cx": cx,
         "cy": cy,
+        # Include full calibration matrices for saving
+        "mtx_left": mtx_left,
+        "mtx_right": mtx_right,
+        "dist_left": dist_left,
+        "dist_right": dist_right,
+        "R": R,
+        "T": T,
+        "img_size": img_size,
     }
 
 
@@ -117,6 +125,29 @@ def _write_config(config_path: Path, updates: dict) -> None:
     for key, value in updates.items():
         data["stereo"][key] = value
     config_path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+
+def _save_calibration_file(updates: dict) -> None:
+    """Save full calibration matrices to npz file."""
+    calib_dir = Path("calibration")
+    calib_dir.mkdir(parents=True, exist_ok=True)
+
+    calib_path = calib_dir / "stereo_calibration.npz"
+
+    np.savez(
+        calib_path,
+        mtx_left=updates["mtx_left"],
+        mtx_right=updates["mtx_right"],
+        dist_left=updates["dist_left"],
+        dist_right=updates["dist_right"],
+        R=updates["R"],
+        T=updates["T"],
+        img_size=updates["img_size"],
+        baseline_ft=updates["baseline_ft"],
+        focal_length_px=updates["focal_length_px"],
+        cx=updates["cx"],
+        cy=updates["cy"],
+    )
 
 
 def calibrate_and_write(
@@ -129,6 +160,7 @@ def calibrate_and_write(
     pattern_size = _parse_pattern(pattern)
     updates = _calibrate(left_paths, right_paths, pattern_size, square_mm)
     _write_config(config_path, updates)
+    _save_calibration_file(updates)
     return updates
 
 
