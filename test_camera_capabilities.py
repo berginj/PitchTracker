@@ -20,19 +20,107 @@ import psutil
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+from ui.device_utils import probe_uvc_devices, probe_opencv_indices
 
-def test_camera_modes(camera_index: int, backend=cv2.CAP_DSHOW):
+
+def enumerate_cameras(max_cameras: int) -> dict[int, dict[str, str]]:
+    """Enumerate all cameras and get their information.
+
+    Args:
+        max_cameras: Maximum number of cameras to check
+
+    Returns:
+        Dict mapping camera index to info dict with 'name' and 'backend' keys
+    """
+    camera_info = {}
+
+    # Try to get UVC device names
+    try:
+        uvc_devices = probe_uvc_devices(use_cache=False)
+        uvc_by_index = {i: dev for i, dev in enumerate(uvc_devices)}
+    except Exception as e:
+        print(f"⚠️ Could not enumerate UVC devices: {e}")
+        uvc_by_index = {}
+
+    # Probe OpenCV indices
+    try:
+        opencv_indices = probe_opencv_indices(max_index=max_cameras, use_cache=False)
+    except Exception as e:
+        print(f"⚠️ Could not enumerate OpenCV devices: {e}")
+        opencv_indices = list(range(max_cameras))
+
+    # For each camera index, try to get its name
+    for idx in range(max_cameras):
+        info = {
+            'index': idx,
+            'name': f"Camera {idx}",
+            'available': idx in opencv_indices,
+            'backend': 'Unknown'
+        }
+
+        # Try to get friendly name from UVC
+        if idx in uvc_by_index:
+            friendly_name = uvc_by_index[idx].get('friendly_name', '')
+            serial = uvc_by_index[idx].get('serial', '')
+            if friendly_name:
+                info['name'] = friendly_name
+            if serial:
+                info['serial'] = serial
+            info['backend'] = 'UVC/DirectShow'
+
+        # Try to open with OpenCV and get backend name
+        if info['available']:
+            try:
+                cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
+                if cap.isOpened():
+                    backend_name = cap.getBackendName()
+                    info['backend'] = backend_name
+                    cap.release()
+            except Exception:
+                pass
+
+        camera_info[idx] = info
+
+    return camera_info
+
+
+def print_camera_enumeration(camera_info: dict[int, dict[str, str]]):
+    """Print a table of enumerated cameras.
+
+    Args:
+        camera_info: Dict from enumerate_cameras()
+    """
+    print("\n" + "=" * 80)
+    print("CAMERA ENUMERATION")
+    print("=" * 80)
+    print(f"{'Index':<8} {'Available':<12} {'Backend':<20} {'Name':<40}")
+    print("-" * 80)
+
+    for idx in sorted(camera_info.keys()):
+        info = camera_info[idx]
+        available = "✅ Yes" if info['available'] else "❌ No"
+        print(f"{idx:<8} {available:<12} {info['backend']:<20} {info['name']:<40}")
+
+    print("=" * 80)
+    print()
+
+
+def test_camera_modes(camera_index: int, backend=cv2.CAP_DSHOW, camera_name: str = None):
     """Test which modes a camera supports.
 
     Args:
         camera_index: Camera index to test (0, 1, 2, etc.)
         backend: OpenCV backend to use (CAP_DSHOW or CAP_MSMF)
+        camera_name: Optional friendly name of camera
 
     Returns:
         List of supported (width, height, fps) tuples
     """
     backend_name = "DSHOW" if backend == cv2.CAP_DSHOW else "MSMF"
-    print(f"\n=== Testing Camera {camera_index} with {backend_name} ===\n")
+    cam_label = f"Camera {camera_index}"
+    if camera_name:
+        cam_label = f"{cam_label} ({camera_name})"
+    print(f"\n=== Testing {cam_label} with {backend_name} ===\n")
 
     test_modes = [
         (640, 480, 15),
@@ -266,6 +354,11 @@ def main():
         num_cameras = 6
         print(f"Using default: {num_cameras} cameras")
 
+    # Enumerate cameras first
+    print("\nEnumerating cameras...")
+    camera_info = enumerate_cameras(num_cameras)
+    print_camera_enumeration(camera_info)
+
     # Create output directory
     output_dir = Path("camera_tests")
     output_dir.mkdir(exist_ok=True)
@@ -275,6 +368,20 @@ def main():
     report_lines.append("CAMERA CAPABILITY TEST REPORT")
     report_lines.append(f"Date: {time.strftime('%Y-%m-%d %H:%M:%S')}")
     report_lines.append(f"Testing cameras: 0 to {num_cameras - 1}")
+    report_lines.append("=" * 70)
+
+    # Add camera enumeration to report
+    report_lines.append("\n\nCAMERA ENUMERATION")
+    report_lines.append("=" * 70)
+    report_lines.append(f"{'Index':<8} {'Available':<12} {'Backend':<20} {'Name':<30}")
+    report_lines.append("-" * 70)
+    for idx in sorted(camera_info.keys()):
+        info = camera_info[idx]
+        available = "Yes" if info['available'] else "No"
+        name = info['name']
+        if 'serial' in info:
+            name += f" (SN: {info['serial']})"
+        report_lines.append(f"{idx:<8} {available:<12} {info['backend']:<20} {name:<30}")
     report_lines.append("=" * 70)
 
     # Test both backends
@@ -292,9 +399,15 @@ def main():
 
         # Test each camera
         for cam_idx in range(num_cameras):
-            supported = test_camera_modes(cam_idx, backend)
+            cam_name = camera_info[cam_idx].get('name', f"Camera {cam_idx}")
+            supported = test_camera_modes(cam_idx, backend, camera_name=cam_name)
             all_supported[cam_idx] = supported
-            report_lines.append(f"\nCamera {cam_idx} Supported Modes ({len(supported)}):")
+
+            # Add camera name to report
+            cam_label = f"Camera {cam_idx}"
+            if cam_name and cam_name != f"Camera {cam_idx}":
+                cam_label = f"{cam_label} ({cam_name})"
+            report_lines.append(f"\n{cam_label} Supported Modes ({len(supported)}):")
             for mode in supported:
                 report_lines.append(f"  - {mode[0]}x{mode[1]}@{mode[2]}fps")
 
