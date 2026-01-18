@@ -39,9 +39,9 @@ class CalibrationStep(BaseStep):
         self._right_serial: Optional[str] = None
 
         # Calibration settings
-        self._pattern_cols = 9
+        self._pattern_cols = 8
         self._pattern_rows = 6
-        self._square_mm = 25.0  # 25mm square size
+        self._square_mm = 30.0  # 30mm square size
         self._min_captures = 10
         self._config_path = Path("configs/default.yaml")
 
@@ -65,16 +65,23 @@ class CalibrationStep(BaseStep):
 
         # Instructions
         instructions = QtWidgets.QLabel(
-            "Stereo Calibration (Cameras 3ft Apart):\n\n"
-            "1. Position checkerboard in the OVERLAPPING field of view between both cameras\n"
-            "2. Board can be distant/small - it doesn't need to fill the frame\n"
-            "3. When BOTH indicators turn GREEN, click 'Capture'\n"
-            "4. Move board to different positions, angles, and depths (near/far)\n"
-            "5. Capture 10-20 poses covering the tracking volume\n"
-            "6. Click 'Calibrate' when done"
+            "<b style='font-size: 12pt;'>Stereo Calibration - Need 10+ Image Pairs</b><br><br>"
+            "<b>1.</b> Position checkerboard in the overlapping field of view between both cameras<br>"
+            "<b>2.</b> Board can be distant/small - it doesn't need to fill the frame<br>"
+            "<b>3.</b> When BOTH indicators turn <b>GREEN</b>, click <b>'Capture'</b><br>"
+            "<b>4.</b> Move board to different positions, angles, and depths (near/far)<br>"
+            "<b>5.</b> Capture at least 10 poses covering the tracking volume<br>"
+            "<b>6.</b> More captures (15-20) = better calibration accuracy<br>"
+            "<b>7.</b> Click <b>'Calibrate'</b> when you have 10+ captures"
         )
         instructions.setWordWrap(True)
-        instructions.setStyleSheet("font-size: 10pt; padding: 10px; background-color: #e8f5e9; border-radius: 5px;")
+        instructions.setStyleSheet(
+            "font-size: 10pt; padding: 12px; "
+            "background-color: white; "
+            "border: 2px solid #4CAF50; "
+            "border-radius: 5px; "
+            "color: black;"
+        )
         layout.addWidget(instructions)
 
         # Settings row
@@ -84,7 +91,14 @@ class CalibrationStep(BaseStep):
         # Pattern info
         self._pattern_info = QtWidgets.QLabel()
         self._pattern_info.setWordWrap(True)
-        self._pattern_info.setStyleSheet("color: #1976D2; background-color: #E3F2FD; padding: 8px; border-radius: 4px;")
+        self._pattern_info.setStyleSheet(
+            "color: black; "
+            "background-color: #FFF9C4; "
+            "padding: 8px; "
+            "border: 1px solid #F57F17; "
+            "border-radius: 4px; "
+            "font-weight: bold;"
+        )
         self._update_pattern_info()
         layout.addWidget(self._pattern_info)
 
@@ -140,8 +154,13 @@ class CalibrationStep(BaseStep):
         self._release_button.setStyleSheet("background-color: #ff9800; color: white; font-weight: bold;")
         self._release_button.clicked.connect(self._force_release_cameras)
 
-        self._capture_count_label = QtWidgets.QLabel("Captured: 0")
-        self._capture_count_label.setStyleSheet("font-size: 12pt; font-weight: bold;")
+        self._capture_count_label = QtWidgets.QLabel("Captured: 0 / 10 minimum")
+        self._capture_count_label.setStyleSheet(
+            "font-size: 14pt; "
+            "font-weight: bold; "
+            "color: #d32f2f; "
+            "padding: 5px;"
+        )
 
         self._calibrate_button = QtWidgets.QPushButton("🔧 Calibrate")
         self._calibrate_button.setMinimumHeight(40)
@@ -612,7 +631,16 @@ class CalibrationStep(BaseStep):
 
             # Update UI
             count = len(self._captures)
-            self._capture_count_label.setText(f"Captured: {count}")
+            if count < self._min_captures:
+                self._capture_count_label.setText(f"Captured: {count} / {self._min_captures} minimum")
+                self._capture_count_label.setStyleSheet(
+                    "font-size: 14pt; font-weight: bold; color: #d32f2f; padding: 5px;"
+                )
+            else:
+                self._capture_count_label.setText(f"Captured: {count} ✓ (Ready to calibrate)")
+                self._capture_count_label.setStyleSheet(
+                    "font-size: 14pt; font-weight: bold; color: #388e3c; padding: 5px;"
+                )
 
             # Enable calibrate button if enough captures
             if count >= self._min_captures:
