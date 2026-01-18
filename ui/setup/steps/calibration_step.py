@@ -302,6 +302,17 @@ class CalibrationStep(BaseStep):
 
     def on_enter(self) -> None:
         """Called when step becomes active."""
+        # Clear any old calibration images from temp directory
+        self._clear_temp_images()
+
+        # Reset capture state
+        self._captures.clear()
+        self._capture_count_label.setText(f"Captured: 0 / {self._min_captures} minimum")
+        self._capture_count_label.setStyleSheet(
+            "font-size: 14pt; font-weight: bold; color: #d32f2f; padding: 5px;"
+        )
+        self._calibrate_button.setEnabled(False)
+
         # Close any existing cameras first to release resources
         if self._left_camera or self._right_camera:
             self._close_cameras()
@@ -342,6 +353,21 @@ class CalibrationStep(BaseStep):
             f"<b>Stereo tip:</b> Board doesn't need to fill frame - move it to different positions "
             f"and angles in the shared view area between cameras. Capture 10+ poses for good calibration."
         )
+
+    def _clear_temp_images(self) -> None:
+        """Clear old calibration images from temp directory."""
+        import shutil
+
+        if self._temp_dir.exists():
+            # Remove all files in temp directory
+            for file in self._temp_dir.glob("*.png"):
+                try:
+                    file.unlink()
+                except Exception:
+                    pass
+        else:
+            # Create temp directory if it doesn't exist
+            self._temp_dir.mkdir(parents=True, exist_ok=True)
 
     def _open_cameras(self) -> None:
         """Open camera devices."""
