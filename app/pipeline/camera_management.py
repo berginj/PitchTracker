@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from pathlib import Path
 from typing import Callable, Optional, Tuple
 
@@ -20,6 +21,12 @@ from exceptions import (
 from .initialization import PipelineInitializer
 
 logger = logging.getLogger(__name__)
+
+# Maximum consecutive frame read failures before stopping capture
+MAX_CONSECUTIVE_FAILURES = 10
+
+# Time without frames before considering camera stalled (seconds)
+FRAME_STALL_TIMEOUT = 5.0
 
 
 class CameraManager:
@@ -59,6 +66,9 @@ class CameraManager:
         # Callback for frame captured events
         self._on_frame_captured: Optional[Callable[[str, Frame], None]] = None
 
+        # Callback for camera errors
+        self._on_camera_error: Optional[Callable[[str, str], None]] = None
+
     def set_frame_callback(self, callback: Callable[[str, Frame], None]) -> None:
         """Set callback for frame captured events.
 
@@ -66,6 +76,14 @@ class CameraManager:
             callback: Function to call when frame is captured, receives (label, frame)
         """
         self._on_frame_captured = callback
+
+    def set_error_callback(self, callback: Callable[[str, str], None]) -> None:
+        """Set callback for camera error events.
+
+        Args:
+            callback: Function to call on camera error, receives (label, error_message)
+        """
+        self._on_camera_error = callback
 
     def start_capture(
         self,
@@ -322,26 +340,132 @@ class CameraManager:
         1. Updates latest frame for preview
         2. Calls frame callback if set
 
+        Implements robust error handling:
+        - Logs all exceptions with full traceback
+        - Tracks consecutive failures
+        - Detects stalled cameras (no frames for N seconds)
+        - Calls error callback on fatal errors
+        - Stops loop after too many consecutive failures
+
         Args:
             label: Camera label ("left" or "right")
             camera: Camera device to read from
         """
+        consecutive_failures = 0
+        last_frame_time = time.monotonic()
+        total_frames = 0
+
+        logger.info(f"Camera {label}: Capture loop started")
+
         while self._capture_running:
             try:
                 frame = camera.read_frame(timeout_ms=200)
-            except Exception:
+
+                # Frame read succeeded - reset failure counter
+                consecutive_failures = 0
+                last_frame_time = time.monotonic()
+                total_frames += 1
+
+                # Validate frame
+                if not self._validate_frame(label, frame):
+                    logger.warning(f"Camera {label}: Invalid frame received (frame {total_frames})")
+                    continue
+
+                # Update latest frame for preview
+                with self._latest_lock:
+                    if label == "left":
+                        self._left_latest = frame
+                    else:
+                        self._right_latest = frame
+
+                # Notify parent via callback
+                if self._on_frame_captured:
+                    try:
+                        self._on_frame_captured(label, frame)
+                    except Exception as e:
+                        logger.error(
+                            f"Camera {label}: Error in frame callback: {e}",
+                            exc_info=True
+                        )
+
+            except TimeoutError:
+                # Timeout is expected occasionally, don't log as error
+                logger.debug(f"Camera {label}: Frame read timeout")
                 continue
 
-            # Update latest frame for preview
-            with self._latest_lock:
-                if label == "left":
-                    self._left_latest = frame
-                else:
-                    self._right_latest = frame
+            except Exception as exc:
+                consecutive_failures += 1
+                logger.error(
+                    f"Camera {label}: Frame read failed "
+                    f"(attempt {consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}): {exc}",
+                    exc_info=True
+                )
 
-            # Notify parent via callback
-            if self._on_frame_captured:
-                self._on_frame_captured(label, frame)
+                # Check for fatal error conditions
+                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    error_msg = (
+                        f"Camera {label} failed after {MAX_CONSECUTIVE_FAILURES} consecutive attempts. "
+                        f"Last error: {exc}"
+                    )
+                    logger.critical(error_msg)
+
+                    if self._on_camera_error:
+                        self._on_camera_error(label, error_msg)
+
+                    break
+
+            # Health check: detect stalled camera
+            time_since_frame = time.monotonic() - last_frame_time
+            if time_since_frame > FRAME_STALL_TIMEOUT:
+                error_msg = (
+                    f"Camera {label} stalled - no frames for {time_since_frame:.1f} seconds"
+                )
+                logger.critical(error_msg)
+
+                if self._on_camera_error:
+                    self._on_camera_error(label, error_msg)
+
+                break
+
+        logger.info(
+            f"Camera {label}: Capture loop stopped "
+            f"(total_frames={total_frames}, failures={consecutive_failures})"
+        )
+
+    def _validate_frame(self, label: str, frame: Frame) -> bool:
+        """Validate that frame is usable.
+
+        Args:
+            label: Camera label for logging
+            frame: Frame to validate
+
+        Returns:
+            True if frame is valid, False otherwise
+        """
+        import numpy as np
+
+        # Check frame exists
+        if frame is None:
+            logger.error(f"Camera {label}: Frame is None")
+            return False
+
+        # Check image data exists
+        if frame.image is None:
+            logger.error(f"Camera {label}: Frame image is None")
+            return False
+
+        # Check dimensions are reasonable
+        if frame.width <= 0 or frame.height <= 0:
+            logger.error(f"Camera {label}: Invalid dimensions {frame.width}x{frame.height}")
+            return False
+
+        # Check for all-zero frames (common failure mode)
+        if isinstance(frame.image, np.ndarray):
+            if np.all(frame.image == 0):
+                logger.warning(f"Camera {label}: All-zero frame detected")
+                return False
+
+        return True
 
     def _cleanup_cameras(self) -> None:
         """Clean up camera resources on error."""
