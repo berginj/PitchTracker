@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -11,6 +12,8 @@ from app.pipeline_service import InProcessPipelineService
 from configs.settings import load_config
 from ui.coaching.dialogs import SessionStartDialog
 from ui.coaching.widgets import HeatMapWidget, StrikeZoneOverlay, TrajectoryWidget
+
+logger = logging.getLogger(__name__)
 
 
 class CoachWindow(QtWidgets.QMainWindow):
@@ -304,6 +307,7 @@ class CoachWindow(QtWidgets.QMainWindow):
                 left_serial = dialog.left_serial
                 right_serial = dialog.right_serial
 
+                logger.info(f"Starting capture with left={left_serial}, right={right_serial}")
                 self._status_label.setText("Starting cameras...")
                 QtWidgets.QApplication.processEvents()
 
@@ -313,8 +317,12 @@ class CoachWindow(QtWidgets.QMainWindow):
                     right_serial,
                     str(self._config_path),
                 )
+                logger.info("Capture started successfully")
+            else:
+                logger.info("Capture already running, skipping camera start")
 
             # Start recording
+            logger.info(f"Starting recording for session: {self._session_name}")
             self._status_label.setText("Starting recording...")
             QtWidgets.QApplication.processEvents()
 
@@ -323,8 +331,10 @@ class CoachWindow(QtWidgets.QMainWindow):
                 session_name=self._session_name,
                 mode="session",
             )
+            logger.info("Recording started successfully")
 
         except Exception as e:
+            logger.error(f"Failed to start session: {e}", exc_info=True)
             QtWidgets.QMessageBox.critical(
                 self,
                 "Session Start Error",
@@ -488,9 +498,9 @@ class CoachWindow(QtWidgets.QMainWindow):
             self._left_overlay.setGeometry(self._left_view.geometry())
             self._right_overlay.setGeometry(self._right_view.geometry())
 
-        except Exception:
-            # Silently ignore preview errors
-            pass
+        except Exception as e:
+            # Log preview errors for debugging
+            logger.error(f"Preview update failed: {e}", exc_info=True)
 
     def _frame_to_pixmap(self, image) -> Optional[QtGui.QPixmap]:
         """Convert numpy image to QPixmap."""
@@ -529,7 +539,8 @@ class CoachWindow(QtWidgets.QMainWindow):
 
             return QtGui.QPixmap.fromImage(q_image)
 
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to convert frame to pixmap: {e}")
             return None
 
     def _update_metrics(self) -> None:
