@@ -228,6 +228,9 @@ class CalibrationStep(BaseStep):
     def _open_cameras(self) -> None:
         """Open camera devices."""
         try:
+            if not self._left_serial or not self._right_serial:
+                raise ValueError("Camera serials not set. Please select cameras in Step 1.")
+
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
 
@@ -245,7 +248,10 @@ class CalibrationStep(BaseStep):
                 self._right_camera = UvcCamera()
 
                 # Open cameras with their serials
+                print(f"DEBUG: Opening left camera with serial: {self._left_serial}")
                 self._left_camera.open(self._left_serial)
+
+                print(f"DEBUG: Opening right camera with serial: {self._right_serial}")
                 self._right_camera.open(self._right_serial)
 
                 # Configure cameras with basic settings
@@ -257,10 +263,12 @@ class CalibrationStep(BaseStep):
             self._right_camera.start()
 
         except Exception as e:
+            self._left_camera = None
+            self._right_camera = None
             QtWidgets.QMessageBox.critical(
                 self,
                 "Camera Error",
-                f"Failed to open cameras:\n{str(e)}",
+                f"Failed to open cameras:\n{str(e)}\n\nLeft: {self._left_serial}\nRight: {self._right_serial}",
             )
 
     def _close_cameras(self) -> None:
@@ -327,7 +335,7 @@ class CalibrationStep(BaseStep):
         Returns:
             (detected, annotated_image)
         """
-        # Convert to grayscale
+        # Convert to grayscale for detection
         if len(image.shape) == 3:
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         else:
@@ -337,8 +345,13 @@ class CalibrationStep(BaseStep):
         pattern_size = (self._pattern_cols, self._pattern_rows)
         found, corners = cv2.findChessboardCorners(gray, pattern_size)
 
+        # Prepare annotated image - convert to BGR if grayscale for drawing
+        if len(image.shape) == 2:
+            annotated = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        else:
+            annotated = image.copy()
+
         # Draw corners if found
-        annotated = image.copy()
         if found:
             cv2.drawChessboardCorners(annotated, pattern_size, corners, found)
 
