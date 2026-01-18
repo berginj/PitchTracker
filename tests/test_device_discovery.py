@@ -17,12 +17,20 @@ from ui.device_utils import (
 )
 
 
+@pytest.fixture(autouse=True)
+def clear_cache_before_each_test():
+    """Clear device cache before each test to ensure isolation."""
+    clear_device_cache()
+    yield
+    clear_device_cache()
+
+
 class TestUVCDeviceProbing:
     """Test UVC device enumeration."""
 
     def test_probe_uvc_devices_filters_virtual_cameras(self):
         """Should filter out virtual/software cameras."""
-        with patch("capture.uvc_backend.list_uvc_devices") as mock_list:
+        with patch("ui.device_utils.list_uvc_devices") as mock_list:
             mock_list.return_value = [
                 {"serial": "REAL1", "friendly_name": "HD Camera"},
                 {"serial": "OBS1", "friendly_name": "OBS Virtual Camera"},
@@ -44,7 +52,7 @@ class TestUVCDeviceProbing:
 
     def test_probe_uvc_devices_caching(self):
         """Should cache results to avoid repeated PowerShell calls."""
-        with patch("capture.uvc_backend.list_uvc_devices") as mock_list:
+        with patch("ui.device_utils.list_uvc_devices") as mock_list:
             mock_list.return_value = [
                 {"serial": "TEST1", "friendly_name": "Test Camera"}
             ]
@@ -62,7 +70,7 @@ class TestUVCDeviceProbing:
 
     def test_probe_uvc_devices_bypass_cache(self):
         """Should bypass cache when use_cache=False."""
-        with patch("capture.uvc_backend.list_uvc_devices") as mock_list:
+        with patch("ui.device_utils.list_uvc_devices") as mock_list:
             mock_list.return_value = [
                 {"serial": "TEST1", "friendly_name": "Test Camera"}
             ]
@@ -77,7 +85,7 @@ class TestUVCDeviceProbing:
 
     def test_clear_device_cache(self):
         """Cache should be cleared when clear_device_cache() is called."""
-        with patch("capture.uvc_backend.list_uvc_devices") as mock_list:
+        with patch("ui.device_utils.list_uvc_devices") as mock_list:
             mock_list.return_value = [
                 {"serial": "TEST1", "friendly_name": "Test Camera"}
             ]
@@ -195,7 +203,7 @@ class TestUnifiedProbing:
 
     def test_prefers_uvc_when_available(self):
         """Should use UVC devices when available, skip OpenCV."""
-        with patch("capture.uvc_backend.list_uvc_devices") as mock_uvc:
+        with patch("ui.device_utils.list_uvc_devices") as mock_uvc:
             mock_uvc.return_value = [
                 {"serial": "UVC1", "friendly_name": "UVC Camera"}
             ]
@@ -212,7 +220,7 @@ class TestUnifiedProbing:
 
     def test_fallback_to_opencv_when_no_uvc(self):
         """Should fall back to OpenCV when no UVC devices found."""
-        with patch("capture.uvc_backend.list_uvc_devices") as mock_uvc:
+        with patch("ui.device_utils.list_uvc_devices") as mock_uvc:
             mock_uvc.return_value = []
 
             with patch("cv2.VideoCapture") as mock_cv:
@@ -231,7 +239,7 @@ class TestUnifiedProbing:
 
     def test_caching_applies_to_unified_probe(self):
         """Caching should work for unified probe."""
-        with patch("capture.uvc_backend.list_uvc_devices") as mock_uvc:
+        with patch("ui.device_utils.list_uvc_devices") as mock_uvc:
             mock_uvc.return_value = [
                 {"serial": "TEST1", "friendly_name": "Test Camera"}
             ]
@@ -252,7 +260,7 @@ class TestDeviceDiscoveryPerformance:
         """UVC probing should be fast (no camera open)."""
         import time
 
-        with patch("capture.uvc_backend.list_uvc_devices") as mock_list:
+        with patch("ui.device_utils.list_uvc_devices") as mock_list:
             # Simulate fast PowerShell query
             mock_list.return_value = [
                 {"serial": f"CAM{i}", "friendly_name": f"Camera {i}"}
@@ -271,7 +279,7 @@ class TestDeviceDiscoveryPerformance:
         """Cached probes should be near-instantaneous."""
         import time
 
-        with patch("capture.uvc_backend.list_uvc_devices") as mock_list:
+        with patch("ui.device_utils.list_uvc_devices") as mock_list:
             mock_list.return_value = [
                 {"serial": "TEST1", "friendly_name": "Test Camera"}
             ]

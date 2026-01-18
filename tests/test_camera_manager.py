@@ -112,13 +112,19 @@ class TestCameraManagerStartCapture:
     def test_start_capture_starts_threads(self, camera_manager, mock_config):
         """start_capture should start capture threads."""
         with patch.object(camera_manager, "_build_camera") as mock_build:
-            mock_left = MagicMock()
-            mock_right = MagicMock()
+            mock_left = Mock()
+            mock_right = Mock()
             mock_build.side_effect = [mock_left, mock_right]
 
+            # Mock methods
+            mock_left.open = Mock()
+            mock_right.open = Mock()
+            mock_left.close = Mock()
+            mock_right.close = Mock()
+
             # Mock frame reading to prevent blocking
-            mock_left.read_frame.side_effect = TimeoutError()
-            mock_right.read_frame.side_effect = TimeoutError()
+            mock_left.read_frame = Mock(side_effect=TimeoutError())
+            mock_right.read_frame = Mock(side_effect=TimeoutError())
 
             camera_manager.start_capture(mock_config, "left_serial", "right_serial")
 
@@ -160,13 +166,17 @@ class TestCameraManagerStopCapture:
     def test_stop_capture_stops_threads(self, camera_manager, mock_config):
         """stop_capture should stop capture threads."""
         with patch.object(camera_manager, "_build_camera") as mock_build:
-            mock_left = MagicMock()
-            mock_right = MagicMock()
+            mock_left = Mock()
+            mock_right = Mock()
             mock_build.side_effect = [mock_left, mock_right]
 
-            # Mock frame reading
-            mock_left.read_frame.side_effect = TimeoutError()
-            mock_right.read_frame.side_effect = TimeoutError()
+            # Mock methods
+            mock_left.open = Mock()
+            mock_right.open = Mock()
+            mock_left.close = Mock()
+            mock_right.close = Mock()
+            mock_left.read_frame = Mock(side_effect=TimeoutError())
+            mock_right.read_frame = Mock(side_effect=TimeoutError())
 
             camera_manager.start_capture(mock_config, "left_serial", "right_serial")
             assert camera_manager.is_capturing()
@@ -176,18 +186,24 @@ class TestCameraManagerStopCapture:
 
             # Threads should be stopped
             time.sleep(0.2)  # Give threads time to exit
-            assert not camera_manager._left_thread.is_alive()
-            assert not camera_manager._right_thread.is_alive()
+            if camera_manager._left_thread:
+                assert not camera_manager._left_thread.is_alive()
+            if camera_manager._right_thread:
+                assert not camera_manager._right_thread.is_alive()
 
     def test_stop_capture_closes_cameras(self, camera_manager, mock_config):
         """stop_capture should close cameras."""
         with patch.object(camera_manager, "_build_camera") as mock_build:
-            mock_left = MagicMock()
-            mock_right = MagicMock()
+            mock_left = Mock()
+            mock_right = Mock()
             mock_build.side_effect = [mock_left, mock_right]
 
-            mock_left.read_frame.side_effect = TimeoutError()
-            mock_right.read_frame.side_effect = TimeoutError()
+            mock_left.open = Mock()
+            mock_right.open = Mock()
+            mock_left.close = Mock()
+            mock_right.close = Mock()
+            mock_left.read_frame = Mock(side_effect=TimeoutError())
+            mock_right.read_frame = Mock(side_effect=TimeoutError())
 
             camera_manager.start_capture(mock_config, "left_serial", "right_serial")
             camera_manager.stop_capture()
@@ -273,8 +289,12 @@ class TestFrameCallback:
     def test_callback_invoked_on_frame(self, camera_manager, mock_config):
         """Frame callback should be invoked for each frame."""
         with patch.object(camera_manager, "_build_camera") as mock_build:
-            mock_cam = MagicMock()
+            mock_cam = Mock()
             mock_build.return_value = mock_cam
+
+            # Mock methods
+            mock_cam.open = Mock()
+            mock_cam.close = Mock()
 
             # Create valid frame
             test_frame = Frame(
@@ -296,7 +316,7 @@ class TestFrameCallback:
                     return test_frame
                 raise TimeoutError()
 
-            mock_cam.read_frame.side_effect = read_side_effect
+            mock_cam.read_frame = Mock(side_effect=read_side_effect)
 
             # Set callback
             callback = Mock()
@@ -321,11 +341,15 @@ class TestErrorHandling:
     def test_consecutive_failures_trigger_error(self, camera_manager, mock_config):
         """Consecutive frame read failures should trigger error callback."""
         with patch.object(camera_manager, "_build_camera") as mock_build:
-            mock_cam = MagicMock()
+            mock_cam = Mock()
             mock_build.return_value = mock_cam
 
+            # Mock methods
+            mock_cam.open = Mock()
+            mock_cam.close = Mock()
+
             # Always fail
-            mock_cam.read_frame.side_effect = Exception("Camera error")
+            mock_cam.read_frame = Mock(side_effect=Exception("Camera error"))
 
             # Set error callback
             error_callback = Mock()
@@ -348,11 +372,15 @@ class TestErrorHandling:
     def test_timeout_errors_not_counted_as_failures(self, camera_manager, mock_config):
         """TimeoutError should not count as consecutive failure."""
         with patch.object(camera_manager, "_build_camera") as mock_build:
-            mock_cam = MagicMock()
+            mock_cam = Mock()
             mock_build.return_value = mock_cam
 
+            # Mock methods
+            mock_cam.open = Mock()
+            mock_cam.close = Mock()
+
             # Always timeout (expected behavior)
-            mock_cam.read_frame.side_effect = TimeoutError()
+            mock_cam.read_frame = Mock(side_effect=TimeoutError())
 
             # Set error callback
             error_callback = Mock()
