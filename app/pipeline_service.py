@@ -790,8 +790,9 @@ class InProcessPipelineService(PipelineService):
 
         # Export calibration metadata for ML training
         if session_dir:
-            left_serial = self._camera_mgr._left.camera_id if self._camera_mgr and self._camera_mgr._left else "left"
-            right_serial = self._camera_mgr._right.camera_id if self._camera_mgr and self._camera_mgr._right else "right"
+            # Get camera identifiers safely (OpenCV cameras use _serial, not camera_id)
+            left_serial = getattr(self._camera_mgr._left, '_serial', 'left') if self._camera_mgr and self._camera_mgr._left else "left"
+            right_serial = getattr(self._camera_mgr._right, '_serial', 'right') if self._camera_mgr and self._camera_mgr._right else "right"
             export_calibration_metadata(
                 session_dir=session_dir,
                 stereo=self._stereo,

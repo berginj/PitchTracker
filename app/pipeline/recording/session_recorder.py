@@ -253,22 +253,52 @@ class SessionRecorder:
 
         left_path = self._session_dir / "session_left.avi"
         right_path = self._session_dir / "session_right.avi"
+
+        # Try MJPG first, fallback to XVID if not available
         fourcc = cv2.VideoWriter_fourcc(*"MJPG")
 
         self._left_writer = cv2.VideoWriter(
             str(left_path),
             fourcc,
-            self._config.camera.fps,
+            float(self._config.camera.fps),
             (self._config.camera.width, self._config.camera.height),
             True,
         )
+
+        # Check if writer opened successfully, try fallback codec
+        if not self._left_writer.isOpened():
+            logger.warning("MJPG codec failed for left camera, trying XVID")
+            fourcc = cv2.VideoWriter_fourcc(*"XVID")
+            self._left_writer = cv2.VideoWriter(
+                str(left_path),
+                fourcc,
+                float(self._config.camera.fps),
+                (self._config.camera.width, self._config.camera.height),
+                True,
+            )
+
         self._right_writer = cv2.VideoWriter(
             str(right_path),
             fourcc,
-            self._config.camera.fps,
+            float(self._config.camera.fps),
             (self._config.camera.width, self._config.camera.height),
             True,
         )
+
+        # Check if writer opened successfully
+        if not self._right_writer.isOpened():
+            logger.warning("Video codec failed for right camera, trying XVID")
+            fourcc_fallback = cv2.VideoWriter_fourcc(*"XVID")
+            self._right_writer = cv2.VideoWriter(
+                str(right_path),
+                fourcc_fallback,
+                float(self._config.camera.fps),
+                (self._config.camera.width, self._config.camera.height),
+                True,
+            )
+
+        # Log final codec used
+        logger.info(f"Session recording initialized: {self._config.camera.width}x{self._config.camera.height}@{self._config.camera.fps}fps")
 
         # Open CSV files
         left_csv = (self._session_dir / "session_left_timestamps.csv").open("w", newline="")
