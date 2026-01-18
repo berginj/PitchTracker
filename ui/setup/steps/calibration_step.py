@@ -204,8 +204,14 @@ class CalibrationStep(BaseStep):
 
     def on_enter(self) -> None:
         """Called when step becomes active."""
+        # Close any existing cameras first to release resources
+        if self._left_camera or self._right_camera:
+            self._close_cameras()
+            # Give Windows time to release camera handles
+            time.sleep(0.5)
+
         # Open cameras if serials are set
-        if self._left_serial and self._right_serial and not self._left_camera:
+        if self._left_serial and self._right_serial:
             self._open_cameras()
 
         # Start preview timer
@@ -263,12 +269,24 @@ class CalibrationStep(BaseStep):
             self._right_camera.start()
 
         except Exception as e:
-            self._left_camera = None
-            self._right_camera = None
+            # Clean up any partially opened cameras
+            self._close_cameras()
+
+            error_msg = (
+                f"Failed to open cameras:\n{str(e)}\n\n"
+                f"Left Camera: {self._left_serial}\n"
+                f"Right Camera: {self._right_serial}\n\n"
+                "Common causes:\n"
+                "• Cameras are in use by another application (close other apps)\n"
+                "• Cameras were not properly released (try going back to Step 1)\n"
+                "• Incorrect permissions or driver issues\n"
+                "• Cameras disconnected"
+            )
+
             QtWidgets.QMessageBox.critical(
                 self,
                 "Camera Error",
-                f"Failed to open cameras:\n{str(e)}\n\nLeft: {self._left_serial}\nRight: {self._right_serial}",
+                error_msg,
             )
 
     def _close_cameras(self) -> None:
@@ -276,16 +294,24 @@ class CalibrationStep(BaseStep):
         if self._left_camera:
             try:
                 self._left_camera.stop()
-                self._left_camera = None
+                self._left_camera.close()
             except Exception:
                 pass
+            finally:
+                self._left_camera = None
 
         if self._right_camera:
             try:
                 self._right_camera.stop()
-                self._right_camera = None
+                self._right_camera.close()
             except Exception:
                 pass
+            finally:
+                self._right_camera = None
+
+        # Force garbage collection to release any lingering handles
+        import gc
+        gc.collect()
 
     def _update_preview(self) -> None:
         """Update camera previews and check for checkerboard."""

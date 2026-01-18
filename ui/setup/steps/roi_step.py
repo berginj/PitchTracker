@@ -183,9 +183,15 @@ class RoiStep(BaseStep):
         if self._left_camera:
             try:
                 self._left_camera.stop()
-                self._left_camera = None
+                self._left_camera.close()
             except Exception:
                 pass
+            finally:
+                self._left_camera = None
+
+            # Force garbage collection to release any lingering handles
+            import gc
+            gc.collect()
 
     def _update_preview(self) -> None:
         """Update camera preview with ROI overlays."""
