@@ -95,7 +95,7 @@ class TestResourceLeakVerification(unittest.TestCase):
 
         # Create detector
         filter_config = FilterConfig()
-        cv_config = CvDetectorConfig(filter=filter_config, mode=Mode.MODE_A)
+        cv_config = CvDetectorConfig(filters=filter_config)
         detector = ClassicalDetector(cv_config)
 
         # Start and stop detection pool 10 times
@@ -154,7 +154,7 @@ class TestResourceLeakVerification(unittest.TestCase):
 
         # Create detector
         filter_config = FilterConfig()
-        cv_config = CvDetectorConfig(filter=filter_config, mode=Mode.MODE_A)
+        cv_config = CvDetectorConfig(filters=filter_config)
         detector = ClassicalDetector(cv_config)
 
         # Start detection pool
@@ -220,7 +220,7 @@ class TestResourceLeakVerification(unittest.TestCase):
 
         # Create detector
         filter_config = FilterConfig()
-        cv_config = CvDetectorConfig(filter=filter_config, mode=Mode.MODE_A)
+        cv_config = CvDetectorConfig(filters=filter_config)
         detector = ClassicalDetector(cv_config)
 
         # Start detection pool
