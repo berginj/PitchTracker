@@ -312,13 +312,42 @@ class CoachWindow(QtWidgets.QMainWindow):
                 self._status_label.setText("Starting cameras...")
                 QtWidgets.QApplication.processEvents()
 
+                # Use lower resolution for coaching app to avoid memory allocation errors
+                # Create modified config with conservative camera settings
+                from configs.settings import CameraConfig
+                coaching_camera_config = CameraConfig(
+                    width=640,
+                    height=480,
+                    fps=30,
+                    pixfmt=self._config.camera.pixfmt,
+                    exposure_us=self._config.camera.exposure_us,
+                    gain=self._config.camera.gain,
+                    wb_mode=self._config.camera.wb_mode,
+                    wb=self._config.camera.wb,
+                    queue_depth=self._config.camera.queue_depth,
+                )
+
+                coaching_config = self._config.__class__(
+                    camera=coaching_camera_config,
+                    stereo=self._config.stereo,
+                    tracking=self._config.tracking,
+                    metrics=self._config.metrics,
+                    recording=self._config.recording,
+                    ui=self._config.ui,
+                    telemetry=self._config.telemetry,
+                    detector=self._config.detector,
+                    strike_zone=self._config.strike_zone,
+                    ball=self._config.ball,
+                    upload=self._config.upload,
+                )
+
                 self._service.start_capture(
-                    self._config,
+                    coaching_config,
                     left_serial,
                     right_serial,
                     str(self._config_path),
                 )
-                logger.info("Capture started successfully")
+                logger.info("Capture started successfully with 640x480@30fps")
             else:
                 logger.info("Capture already running, skipping camera start")
 
