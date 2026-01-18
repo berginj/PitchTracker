@@ -124,7 +124,9 @@ def check_configuration() -> tuple[list[str], list[str]]:
     else:
         info.append(f"Configuration found: {config_path}")
 
-    # Check calibration
+    # Check calibration and quality
+    from calib.quick_calibrate import load_calibration_quality
+
     calib_path = Path("calibration/stereo_calibration.npz")
     if not calib_path.exists():
         warnings.append(
@@ -132,7 +134,23 @@ def check_configuration() -> tuple[list[str], list[str]]:
             "Run the Setup Wizard to calibrate your cameras."
         )
     else:
-        info.append(f"Calibration found: {calib_path}")
+        quality = load_calibration_quality()
+        if quality:
+            rating = quality["rating"]
+            rms = quality["rms_error_px"]
+            if rating == "POOR":
+                warnings.append(
+                    f"Calibration quality is POOR (RMS: {rms:.3f} px)\n\n"
+                    f"{quality['description']}\n\n"
+                    "Re-calibrate for accurate measurements."
+                )
+            elif rating == "ACCEPTABLE":
+                info.append(f"Calibration found: {calib_path} (Quality: {rating}, RMS: {rms:.3f} px)")
+                info.append("⚠ Consider re-calibrating for better accuracy")
+            else:  # EXCELLENT or GOOD
+                info.append(f"Calibration found: {calib_path} (Quality: {rating}, RMS: {rms:.3f} px)")
+        else:
+            info.append(f"Calibration found: {calib_path} (Quality: Unknown - re-calibrate to get metrics)")
 
     # Check ROIs
     roi_path = Path("rois/shared_rois.json")

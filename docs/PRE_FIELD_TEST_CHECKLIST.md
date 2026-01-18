@@ -163,12 +163,19 @@ Status: ✓ Recording
 
 2. **Verify Calibration Quality**
    ```bash
-   # Run quick calibration check
-   python run_setup_wizard.py
+   # Check calibration quality programmatically
+   python -c "from calib.quick_calibrate import load_calibration_quality; q = load_calibration_quality(); print(f'Quality: {q[\"rating\"]} (RMS: {q[\"rms_error_px\"]:.3f} px)\\n{q[\"description\"]}') if q else print('No quality metrics - re-calibrate!')"
 
-   # Confirm calibration rating is GOOD or EXCELLENT
-   # Check RMS error < 1.0 px
+   # REQUIRED: Rating must be GOOD or EXCELLENT
+   # REQUIRED: RMS error < 1.0 px
+   # If ACCEPTABLE or POOR: Re-calibrate before test!
    ```
+
+   **What each rating means:**
+   - **EXCELLENT** (RMS < 0.5 px): Perfect for field test ✅
+   - **GOOD** (RMS < 1.0 px): Acceptable for field test ✅
+   - **ACCEPTABLE** (RMS < 2.0 px): Re-calibrate recommended ⚠️
+   - **POOR** (RMS ≥ 2.0 px): MUST re-calibrate before test ❌
 
 3. **Test Camera Capture (5 test pitches)**
    ```bash
@@ -371,7 +378,8 @@ After 100 pitches, you should have:
 
 **24 Hours Before:**
 - [ ] Run camera validation tests (all 51 tests pass)
-- [ ] Complete calibration, verify GOOD or EXCELLENT rating
+- [ ] Complete calibration, verify GOOD or EXCELLENT rating (RMS < 1.0 px)
+- [ ] Check calibration quality: `python -c "from calib.quick_calibrate import load_calibration_quality; print(load_calibration_quality())"`
 - [ ] Test record 10 pitches, verify all systems working
 - [ ] Prepare backup storage (50GB+ free)
 - [ ] Charge laptop/ensure power supply
@@ -379,7 +387,7 @@ After 100 pitches, you should have:
 **1 Hour Before:**
 - [ ] Check disk space (>50GB free)
 - [ ] Verify cameras detected and capturing at 30 FPS
-- [ ] Check calibration still valid
+- [ ] Verify calibration quality is still GOOD or EXCELLENT (coaching app will show this)
 - [ ] Close all unnecessary apps
 - [ ] Set up manual log (spreadsheet or notepad)
 - [ ] Position backup drive

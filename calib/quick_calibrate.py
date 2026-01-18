@@ -297,14 +297,18 @@ def _write_config(config_path: Path, updates: dict) -> None:
 
 
 def _save_calibration_file(updates: dict) -> None:
-    """Save full calibration matrices to npz file."""
+    """Save full calibration matrices and quality metrics to npz file."""
     calib_dir = Path("calibration")
     calib_dir.mkdir(parents=True, exist_ok=True)
 
     calib_path = calib_dir / "stereo_calibration.npz"
 
+    # Extract quality info for saving
+    quality = updates.get("quality", {})
+
     np.savez(
         calib_path,
+        # Camera matrices
         mtx_left=updates["mtx_left"],
         mtx_right=updates["mtx_right"],
         dist_left=updates["dist_left"],
@@ -312,11 +316,50 @@ def _save_calibration_file(updates: dict) -> None:
         R=updates["R"],
         T=updates["T"],
         img_size=updates["img_size"],
+        # Stereo geometry
         baseline_ft=updates["baseline_ft"],
         focal_length_px=updates["focal_length_px"],
         cx=updates["cx"],
         cy=updates["cy"],
+        # Quality metrics
+        rms_error_px=updates.get("rms_error_px", 0.0),
+        num_images=updates.get("num_images", 0),
+        per_image_errors=updates.get("per_image_errors", []),
+        quality_rating=quality.get("rating", "UNKNOWN"),
+        quality_description=quality.get("description", ""),
     )
+
+
+def load_calibration_quality(calib_path: Optional[Path] = None) -> Optional[dict]:
+    """Load calibration quality metrics from saved calibration file.
+
+    Args:
+        calib_path: Path to calibration file (default: calibration/stereo_calibration.npz)
+
+    Returns:
+        Dict with quality metrics or None if file doesn't exist or has no quality data
+    """
+    if calib_path is None:
+        calib_path = Path("calibration/stereo_calibration.npz")
+
+    if not calib_path.exists():
+        return None
+
+    try:
+        data = np.load(calib_path, allow_pickle=True)
+
+        # Check if quality metrics exist (newer calibration files have them)
+        if "quality_rating" not in data:
+            return None
+
+        return {
+            "rms_error_px": float(data.get("rms_error_px", 0.0)),
+            "num_images": int(data.get("num_images", 0)),
+            "rating": str(data.get("quality_rating", "UNKNOWN")),
+            "description": str(data.get("quality_description", "")),
+        }
+    except Exception:
+        return None
 
 
 def calibrate_and_write(

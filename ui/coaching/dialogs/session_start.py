@@ -232,27 +232,69 @@ class SessionStartDialog(QtWidgets.QDialog):
         return group
 
     def _build_calibration_status(self) -> QtWidgets.QWidget:
-        """Build calibration status indicator."""
+        """Build calibration status indicator with quality metrics."""
+        from calib.quick_calibrate import load_calibration_quality
+
         widget = QtWidgets.QWidget()
 
-        # Check if calibration exists
+        # Check if calibration exists and load quality
         calibration_file = Path("calibration/stereo_calibration.npz")
         has_calibration = calibration_file.exists()
-
-        icon = "✓" if has_calibration else "⚠"
-        color = "#4CAF50" if has_calibration else "#FF9800"
-        message = "Calibration loaded" if has_calibration else "No calibration found"
-
-        label = QtWidgets.QLabel(f"{icon} {message}")
-        label.setStyleSheet(f"color: {color}; font-weight: bold; padding: 5px;")
+        quality = load_calibration_quality() if has_calibration else None
 
         if not has_calibration:
+            icon = "⚠"
+            color = "#FF9800"
+            message = "No calibration found"
+            label = QtWidgets.QLabel(f"{icon} {message}")
+            label.setStyleSheet(f"color: {color}; font-weight: bold; padding: 5px;")
             help_label = QtWidgets.QLabel("Run Setup Wizard first to calibrate the system.")
             help_label.setStyleSheet("color: #666; font-style: italic;")
 
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(label)
-        if not has_calibration:
+            layout = QtWidgets.QVBoxLayout()
+            layout.addWidget(label)
+            layout.addWidget(help_label)
+        elif quality:
+            # Show quality rating with appropriate color
+            rating = quality["rating"]
+            rms = quality["rms_error_px"]
+            description = quality["description"]
+
+            if rating == "EXCELLENT":
+                icon = "🟢"
+                color = "#4CAF50"
+            elif rating == "GOOD":
+                icon = "🟢"
+                color = "#4CAF50"
+            elif rating == "ACCEPTABLE":
+                icon = "🟡"
+                color = "#FF9800"
+            else:  # POOR
+                icon = "🔴"
+                color = "#F44336"
+
+            label = QtWidgets.QLabel(f"{icon} Calibration: {rating}")
+            label.setStyleSheet(f"color: {color}; font-weight: bold; padding: 5px;")
+
+            detail_label = QtWidgets.QLabel(f"RMS Error: {rms:.3f} px - {description}")
+            detail_label.setStyleSheet("color: #666; font-size: 10pt;")
+
+            layout = QtWidgets.QVBoxLayout()
+            layout.addWidget(label)
+            layout.addWidget(detail_label)
+        else:
+            # Old calibration without quality metrics
+            icon = "✓"
+            color = "#4CAF50"
+            message = "Calibration loaded (quality unknown)"
+            label = QtWidgets.QLabel(f"{icon} {message}")
+            label.setStyleSheet(f"color: {color}; font-weight: bold; padding: 5px;")
+
+            help_label = QtWidgets.QLabel("Re-calibrate to get quality metrics.")
+            help_label.setStyleSheet("color: #666; font-style: italic;")
+
+            layout = QtWidgets.QVBoxLayout()
+            layout.addWidget(label)
             layout.addWidget(help_label)
 
         widget.setLayout(layout)
@@ -323,7 +365,9 @@ class SessionStartDialog(QtWidgets.QDialog):
             )
             return
 
-        # Check calibration
+        # Check calibration quality
+        from calib.quick_calibrate import load_calibration_quality
+
         calibration_file = Path("calibration/stereo_calibration.npz")
         if not calibration_file.exists():
             reply = QtWidgets.QMessageBox.question(
@@ -336,6 +380,23 @@ class SessionStartDialog(QtWidgets.QDialog):
             )
             if reply == QtWidgets.QMessageBox.StandardButton.No:
                 return
+        else:
+            # Check calibration quality
+            quality = load_calibration_quality()
+            if quality and quality["rating"] == "POOR":
+                reply = QtWidgets.QMessageBox.warning(
+                    self,
+                    "Poor Calibration Quality",
+                    f"Calibration quality is POOR (RMS: {quality['rms_error_px']:.3f} px)\n\n"
+                    f"{quality['description']}\n\n"
+                    "This may result in inaccurate measurements.\n"
+                    "Re-calibrate for better results?\n\n"
+                    "Continue anyway?",
+                    QtWidgets.QMessageBox.StandardButton.Yes
+                    | QtWidgets.QMessageBox.StandardButton.No,
+                )
+                if reply == QtWidgets.QMessageBox.StandardButton.No:
+                    return
 
         # Get camera serials
         left_serial = self._left_camera_combo.currentData()
