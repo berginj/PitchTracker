@@ -142,8 +142,12 @@ class PipelineService(ABC):
         pitch_id: Optional[str] = None,
         session_name: Optional[str] = None,
         mode: Optional[str] = None,
-    ) -> None:
-        """Begin recording frames and metadata."""
+    ) -> str:
+        """Begin recording frames and metadata.
+
+        Returns:
+            Warning message if disk space is low, empty string otherwise
+        """
 
     @abstractmethod
     def set_record_directory(self, path: Optional[Path]) -> None:
@@ -600,7 +604,12 @@ class InProcessPipelineService(PipelineService):
         pitch_id: Optional[str] = None,
         session_name: Optional[str] = None,
         mode: Optional[str] = None,
-    ) -> None:
+    ) -> str:
+        """Start recording session.
+
+        Returns:
+            Warning message if disk space is low, empty string otherwise
+        """
         self._recording = True
         self._recorded_frames = []
         if pitch_id:
@@ -620,7 +629,8 @@ class InProcessPipelineService(PipelineService):
             heatmap=[[0, 0, 0], [0, 0, 0], [0, 0, 0]],
             pitches=[],
         )
-        self._start_recording_io()
+        warning = self._start_recording_io()
+        return warning
 
     def set_record_directory(self, path: Optional[Path]) -> None:
         self._record_dir = path
@@ -763,13 +773,18 @@ class InProcessPipelineService(PipelineService):
             return self._session_recorder.get_session_dir()
         return None
 
-    def _start_recording_io(self) -> None:
+    def _start_recording_io(self) -> str:
+        """Start recording IO and return any disk space warning.
+
+        Returns:
+            Warning message if disk space is low, empty string otherwise
+        """
         if self._config is None:
-            return
+            return ""
 
         # Initialize session recorder
         self._session_recorder = SessionRecorder(self._config, self._record_dir)
-        session_dir = self._session_recorder.start_session(
+        session_dir, warning = self._session_recorder.start_session(
             self._record_session or "session", self._pitch_id
         )
 
@@ -812,6 +827,8 @@ class InProcessPipelineService(PipelineService):
             on_pitch_start=self._on_pitch_start,
             on_pitch_end=self._on_pitch_end,
         )
+
+        return warning
 
     def _stop_recording_io(self) -> None:
         # Close pitch recording if active

@@ -356,12 +356,20 @@ class CoachWindow(QtWidgets.QMainWindow):
             self._status_label.setText("Starting recording...")
             QtWidgets.QApplication.processEvents()
 
-            self._service.start_recording(
+            disk_warning = self._service.start_recording(
                 pitch_id="session",
                 session_name=self._session_name,
                 mode="session",
             )
             logger.info("Recording started successfully")
+
+            # Show disk space warning if present (non-blocking)
+            if disk_warning:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Disk Space Warning",
+                    disk_warning + "\n\nYou can continue, but recording may fail if disk fills up.",
+                )
 
             # Save camera serials to app state for next time
             state = load_state()

@@ -56,14 +56,16 @@ class SessionRecorder:
         self._write_failures = 0
         self._last_write_warning = 0.0
 
-    def _check_disk_space(self, required_gb: float = 50.0) -> None:
-        """Verify sufficient disk space before starting recording.
+    def _check_disk_space(self, required_gb: float = 50.0) -> tuple[bool, str]:
+        """Check disk space and return warning message if low.
 
         Args:
-            required_gb: Minimum required free space in GB
+            required_gb: Recommended free space in GB
 
-        Raises:
-            RuntimeError: If insufficient disk space available
+        Returns:
+            Tuple of (has_enough_space, warning_message)
+            - has_enough_space: True if >= required_gb, False otherwise
+            - warning_message: Empty if enough space, warning text otherwise
         """
         usage = shutil.disk_usage(self._record_dir)
         free_gb = usage.free / (1024**3)
@@ -71,21 +73,25 @@ class SessionRecorder:
         logger.info(f"Disk space check: {free_gb:.1f}GB available on {self._record_dir}")
 
         if free_gb < required_gb:
-            raise RuntimeError(
-                f"Insufficient disk space for recording!\n"
+            message = (
+                f"Low disk space warning!\n\n"
                 f"Available: {free_gb:.1f}GB\n"
-                f"Required: {required_gb}GB\n"
-                f"Please free up space before starting session."
+                f"Recommended: {required_gb}GB\n\n"
+                f"Recording may fail if disk fills up during session."
             )
+            logger.warning(f"Low disk space: {free_gb:.1f}GB available (recommended: {required_gb}GB)")
+            return False, message
 
         # Warn if less than 2x required (< 100GB for 100 pitches)
         if free_gb < required_gb * 2:
             logger.warning(
-                f"Low disk space: {free_gb:.1f}GB available. "
+                f"Moderate disk space: {free_gb:.1f}GB available. "
                 f"Recommended: {required_gb * 2:.0f}GB for safety."
             )
 
-    def start_session(self, session_name: str, pitch_id: str) -> Path:
+        return True, ""
+
+    def start_session(self, session_name: str, pitch_id: str) -> tuple[Path, str]:
         """Start session recording.
 
         Creates session directory and opens video/CSV writers.
@@ -95,13 +101,12 @@ class SessionRecorder:
             pitch_id: Initial pitch ID (used if session_name is None)
 
         Returns:
-            Path to session directory
-
-        Raises:
-            RuntimeError: If insufficient disk space
+            Tuple of (session_dir, warning_message)
+            - session_dir: Path to session directory
+            - warning_message: Disk space warning if low, empty string otherwise
         """
-        # CRITICAL: Check disk space before starting
-        self._check_disk_space(required_gb=50.0)
+        # Check disk space before starting (warning, not blocker)
+        has_space, warning = self._check_disk_space(required_gb=50.0)
 
         base = session_name or pitch_id
         safe = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in base)
@@ -111,7 +116,7 @@ class SessionRecorder:
 
         self._open_writers()
         logger.info(f"✓ Session recording started: {self._session_dir}")
-        return self._session_dir
+        return self._session_dir, warning
 
     def stop_session(
         self,
