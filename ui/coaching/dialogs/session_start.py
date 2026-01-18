@@ -164,7 +164,8 @@ class SessionStartDialog(QtWidgets.QDialog):
 
         # Always use OpenCV indices for coaching app (UVC serial numbers can fail)
         # This matches calibration workflow behavior
-        indices = probe_opencv_indices(use_cache=False)
+        # Use max_index=8 to check more camera indices (0-7)
+        indices = probe_opencv_indices(max_index=8, use_cache=False)
         if indices:
             for index in indices:
                 # Mark last used cameras with (Last Used)
