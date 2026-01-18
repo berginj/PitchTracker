@@ -20,7 +20,7 @@ import psutil
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from ui.device_utils import probe_uvc_devices, probe_opencv_indices
+from ui.device_utils import probe_uvc_devices, probe_opencv_indices, is_arducam_device
 
 
 def enumerate_cameras(max_cameras: int) -> dict[int, dict[str, str]]:
@@ -96,11 +96,22 @@ def print_camera_enumeration(camera_info: dict[int, dict[str, str]]):
     print(f"{'Index':<8} {'Available':<12} {'Backend':<20} {'Name':<40}")
     print("-" * 80)
 
+    arducam_count = 0
     for idx in sorted(camera_info.keys()):
         info = camera_info[idx]
         available = "✅ Yes" if info['available'] else "❌ No"
-        print(f"{idx:<8} {available:<12} {info['backend']:<20} {info['name']:<40}")
+        name = info['name']
 
+        # Highlight ArduCam devices
+        if is_arducam_device(name):
+            name = f"⭐ {name}"
+            arducam_count += 1
+
+        print(f"{idx:<8} {available:<12} {info['backend']:<20} {name:<40}")
+
+    print("-" * 80)
+    if arducam_count > 0:
+        print(f"⭐ Found {arducam_count} ArduCam device(s)")
     print("=" * 80)
     print()
 
