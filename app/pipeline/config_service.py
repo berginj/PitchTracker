@@ -23,7 +23,7 @@ class ConfigService:
             config: Initial application configuration
         """
         self._config = config
-        self._ball_type = config.ball.ball_type if config.ball else "baseball"
+        self._ball_type = config.ball.type if config.ball else "baseball"
         self._lock = threading.Lock()
 
     def get_config(self) -> AppConfig:
@@ -63,13 +63,8 @@ class ConfigService:
             if self._config.ball is None:
                 return 1.45  # Default baseball radius
 
-            # Get radius for current ball type from config
-            if self._ball_type == "baseball":
-                return self._config.ball.baseball_radius_in
-            elif self._ball_type == "softball":
-                return self._config.ball.softball_radius_in
-            else:
-                return self._config.ball.baseball_radius_in  # Default
+            # Get radius for current ball type from config dict
+            return self._config.ball.radius_in.get(self._ball_type, 1.45)
 
     def update_batter_height(self, height_in: float) -> None:
         """Update strike zone with new batter height.
