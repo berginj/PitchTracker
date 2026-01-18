@@ -164,7 +164,9 @@ class RoiStep(BaseStep):
             else:  # uvc
                 from capture import UvcCamera
 
-                self._left_camera = UvcCamera(serial_number=self._left_serial)
+                self._left_camera = UvcCamera()
+                self._left_camera.open(self._left_serial)
+                self._left_camera.set_mode(640, 480, 120, "GRAY8")
 
             # Start camera
             self._left_camera.start()

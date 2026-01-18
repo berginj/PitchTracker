@@ -241,8 +241,16 @@ class CalibrationStep(BaseStep):
             else:  # uvc
                 from capture import UvcCamera
 
-                self._left_camera = UvcCamera(serial_number=self._left_serial)
-                self._right_camera = UvcCamera(serial_number=self._right_serial)
+                self._left_camera = UvcCamera()
+                self._right_camera = UvcCamera()
+
+                # Open cameras with their serials
+                self._left_camera.open(self._left_serial)
+                self._right_camera.open(self._right_serial)
+
+                # Configure cameras with basic settings
+                self._left_camera.set_mode(640, 480, 120, "GRAY8")
+                self._right_camera.set_mode(640, 480, 120, "GRAY8")
 
             # Start cameras
             self._left_camera.start()
