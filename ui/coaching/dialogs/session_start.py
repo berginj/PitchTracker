@@ -34,7 +34,7 @@ class SessionStartDialog(QtWidgets.QDialog):
         self._pitcher_name = ""
         self._session_name = ""
         self._batter_height_in = config.strike_zone.batter_height_in
-        self._ball_type = config.tracking.ball_type
+        self._ball_type = config.ball.type
 
         # Result values
         self.pitcher_name = ""

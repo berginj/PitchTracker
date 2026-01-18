@@ -294,7 +294,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         if dialog.batter_height_in != self._config.strike_zone.batter_height_in:
             self._service.set_batter_height_in(dialog.batter_height_in)
 
-        if dialog.ball_type != self._config.tracking.ball_type:
+        if dialog.ball_type != self._config.ball.type:
             self._service.set_ball_type(dialog.ball_type)
 
         # Start capture (if not already running)
