@@ -775,34 +775,87 @@ class CalibrationStep(BaseStep):
         self._calibration_worker.start()
 
     def _on_calibration_complete(self, result: dict) -> None:
-        """Handle successful calibration."""
+        """Handle successful calibration with quality metrics."""
         self._calibration_result = result
 
         # Hide progress bar
         self._progress_bar.hide()
 
-        # Show results
+        # Extract quality metrics
+        quality = result.get('quality', {})
+        rating = quality.get('rating', 'UNKNOWN')
+        emoji = quality.get('emoji', '✅')
+        description = quality.get('description', 'Calibration complete')
+        rms_error = result.get('rms_error_px', 0.0)
+        num_images = result.get('num_images', 0)
+        recommendations = quality.get('recommendations', [])
+
+        # Build results text with quality metrics
         results_text = (
-            "✅ Calibration Complete!\n\n"
+            f"{emoji} Calibration {rating}!\n\n"
             f"Baseline: {result['baseline_ft']:.3f} ft\n"
             f"Focal Length: {result['focal_length_px']:.1f} px\n"
             f"Principal Point: ({result['cx']:.1f}, {result['cy']:.1f})\n\n"
-            f"Calibration saved to {self._config_path}"
+            f"Quality Metrics:\n"
+            f"  Reprojection Error: {rms_error:.3f} px\n"
+            f"  Images Used: {num_images}\n\n"
+            f"{description}\n"
         )
+
+        if recommendations:
+            results_text += "\nRecommendations:\n"
+            results_text += "\n".join(recommendations)
+
+        results_text += f"\n\nCalibration saved to {self._config_path}"
+
+        # Color code based on quality
+        if rating in ['EXCELLENT', 'GOOD']:
+            bg_color = "#c8e6c9"  # Green
+            text_color = "#2e7d32"
+        elif rating == 'ACCEPTABLE':
+            bg_color = "#fff9c4"  # Yellow
+            text_color = "#f57f17"
+        else:  # POOR
+            bg_color = "#ffcdd2"  # Red
+            text_color = "#c62828"
+
         self._results_text.setText(results_text)
-        self._results_text.setStyleSheet("background-color: #c8e6c9; color: #2e7d32;")
+        self._results_text.setStyleSheet(
+            f"background-color: {bg_color}; color: {text_color}; "
+            f"padding: 12px; border-radius: 4px; font-family: monospace;"
+        )
         self._results_text.show()
 
         # Re-enable buttons
         self._capture_button.setEnabled(True)
         self._calibrate_button.setEnabled(True)
 
-        QtWidgets.QMessageBox.information(
-            self,
-            "Calibration Complete",
-            "Stereo calibration completed successfully!\n\n"
-            "You can now proceed to the next step.",
-        )
+        # Show appropriate message dialog based on quality
+        if rating == 'POOR':
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Poor Calibration Quality",
+                f"Calibration quality is poor (RMS error: {rms_error:.2f} px).\n\n"
+                f"We strongly recommend recalibrating:\n\n"
+                + "\n".join(recommendations),
+                QtWidgets.QMessageBox.Ok
+            )
+        elif rating in ['EXCELLENT', 'GOOD']:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Calibration Complete",
+                f"Stereo calibration completed with {rating} quality!\n\n"
+                f"Reprojection error: {rms_error:.3f} px\n\n"
+                "You can now proceed to the next step.",
+            )
+        else:  # ACCEPTABLE
+            QtWidgets.QMessageBox.information(
+                self,
+                "Calibration Complete",
+                f"Stereo calibration completed with acceptable quality.\n\n"
+                f"Reprojection error: {rms_error:.3f} px\n\n"
+                "You can proceed, but consider recalibrating with more images for better accuracy.",
+            )
 
     def _on_calibration_error(self, error_msg: str) -> None:
         """Handle calibration error."""

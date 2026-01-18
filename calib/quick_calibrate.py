@@ -67,6 +67,121 @@ def _collect_corners(
     return objpoints, imgpoints, img_size
 
 
+def _compute_per_image_errors(
+    objpoints: List[np.ndarray],
+    left_img: List[np.ndarray],
+    right_img: List[np.ndarray],
+    mtx_left: np.ndarray,
+    dist_left: np.ndarray,
+    mtx_right: np.ndarray,
+    dist_right: np.ndarray,
+    R: np.ndarray,
+    T: np.ndarray,
+) -> List[dict]:
+    """Calculate reprojection error for each calibration image pair.
+
+    Returns:
+        List of dicts with left_rms, right_rms, combined_rms for each image
+    """
+    errors = []
+    rvec_zero = np.zeros(3)
+    tvec_zero = np.zeros(3)
+
+    for obj_pts, left_pts, right_pts in zip(objpoints, left_img, right_img):
+        # Project to left camera
+        left_projected, _ = cv2.projectPoints(
+            obj_pts, rvec_zero, tvec_zero, mtx_left, dist_left
+        )
+        left_error = np.sqrt(np.mean((left_pts - left_projected.reshape(-1, 2)) ** 2))
+
+        # Project to right camera (with rotation and translation)
+        rvec_r, _ = cv2.Rodrigues(R)
+        right_projected, _ = cv2.projectPoints(
+            obj_pts, rvec_r, T, mtx_right, dist_right
+        )
+        right_error = np.sqrt(np.mean((right_pts - right_projected.reshape(-1, 2)) ** 2))
+
+        combined_error = np.sqrt(left_error**2 + right_error**2)
+
+        errors.append({
+            "left_rms": float(left_error),
+            "right_rms": float(right_error),
+            "combined_rms": float(combined_error),
+        })
+
+    return errors
+
+
+def _rate_calibration_quality(rms_error: float, num_images: int) -> dict:
+    """Rate calibration quality and provide recommendations.
+
+    Args:
+        rms_error: Overall RMS reprojection error in pixels
+        num_images: Number of image pairs used for calibration
+
+    Returns:
+        Dictionary with rating, description, and recommendations
+    """
+    # Quality thresholds
+    EXCELLENT_RMS = 0.5
+    GOOD_RMS = 1.0
+    ACCEPTABLE_RMS = 2.0
+    MIN_IMAGES_GOOD = 15
+    MIN_IMAGES_ACCEPTABLE = 10
+
+    recommendations = []
+
+    # Determine rating
+    if rms_error < EXCELLENT_RMS and num_images >= MIN_IMAGES_GOOD:
+        rating = "EXCELLENT"
+        emoji = "🟢"
+        description = "Outstanding calibration! Ready for high-accuracy tracking."
+    elif rms_error < GOOD_RMS and num_images >= MIN_IMAGES_GOOD:
+        rating = "GOOD"
+        emoji = "🟢"
+        description = "Good calibration. Suitable for most tracking needs."
+    elif rms_error < ACCEPTABLE_RMS and num_images >= MIN_IMAGES_ACCEPTABLE:
+        rating = "ACCEPTABLE"
+        emoji = "🟡"
+        description = "Acceptable calibration. Consider recalibrating for better accuracy."
+        recommendations.append("• Capture more images (aim for 15-20)")
+        recommendations.append("• Cover full tracking volume with varied poses")
+    else:
+        rating = "POOR"
+        emoji = "🔴"
+        description = "Poor calibration. Please recalibrate for reliable tracking."
+
+    # Add specific recommendations based on metrics
+    if rms_error > 1.0:
+        recommendations.extend([
+            "• Hold checkerboard steadier during capture",
+            "• Ensure checkerboard is perfectly flat",
+            "• Check camera focus is sharp",
+            "• Improve lighting (even, no shadows)",
+        ])
+
+    if num_images < MIN_IMAGES_ACCEPTABLE:
+        recommendations.append(f"• Need at least {MIN_IMAGES_ACCEPTABLE} images (have {num_images})")
+    elif num_images < MIN_IMAGES_GOOD:
+        recommendations.append(f"• Capture {MIN_IMAGES_GOOD - num_images} more images for better quality")
+
+    if rms_error > 2.0:
+        recommendations.extend([
+            "• Try recalibrating from scratch",
+            "• Verify checkerboard dimensions are correct",
+            "• Check for lens distortion or damage",
+        ])
+
+    return {
+        "rating": rating,
+        "emoji": emoji,
+        "description": description,
+        "rms_error_px": float(rms_error),
+        "num_images": num_images,
+        "recommendations": recommendations,
+    }
+
+
 def _calibrate(
     left_paths: List[Path],
     right_paths: List[Path],
@@ -101,7 +216,7 @@ def _calibrate(
     print("✓ Right camera calibrated")
 
     print("Computing stereo calibration...", flush=True)
-    _, _, _, _, _, R, T, _, _ = cv2.stereoCalibrate(
+    rms_error, _, _, _, _, R, T, E, F = cv2.stereoCalibrate(
         objpoints,
         left_img,
         right_img,
@@ -112,7 +227,7 @@ def _calibrate(
         img_size,
         flags=cv2.CALIB_FIX_INTRINSIC,
     )
-    print("✓ Stereo calibration complete")
+    print(f"✓ Stereo calibration complete (RMS error: {rms_error:.3f} px)")
 
     baseline_mm = float(np.linalg.norm(T))
     baseline_ft = baseline_mm / 304.8
@@ -120,11 +235,36 @@ def _calibrate(
     cx = float(mtx_left[0, 2])
     cy = float(mtx_left[1, 2])
 
+    # Compute per-image reprojection errors
+    print("Computing per-image reprojection errors...", flush=True)
+    per_image_errors = _compute_per_image_errors(
+        objpoints, left_img, right_img,
+        mtx_left, dist_left, mtx_right, dist_right,
+        R, T
+    )
+
+    # Calculate quality rating
+    num_images = len(objpoints)
+    quality = _rate_calibration_quality(rms_error, num_images)
+
+    # Print quality assessment
+    print(f"\n{quality['emoji']} Calibration Quality: {quality['rating']}")
+    print(f"   {quality['description']}")
+    if quality['recommendations']:
+        print("\nRecommendations:")
+        for rec in quality['recommendations']:
+            print(f"   {rec}")
+
     return {
         "baseline_ft": baseline_ft,
         "focal_length_px": focal_length_px,
         "cx": cx,
         "cy": cy,
+        # Quality metrics
+        "rms_error_px": float(rms_error),
+        "num_images": num_images,
+        "per_image_errors": per_image_errors,
+        "quality": quality,
         # Include full calibration matrices for saving
         "mtx_left": mtx_left,
         "mtx_right": mtx_right,
@@ -132,6 +272,8 @@ def _calibrate(
         "dist_right": dist_right,
         "R": R,
         "T": T,
+        "E": E,
+        "F": F,
         "img_size": img_size,
     }
 
