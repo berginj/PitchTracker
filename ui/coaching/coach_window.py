@@ -53,6 +53,13 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._session_name = ""
         self._pitcher_name = ""
 
+        # Camera settings (load from saved state or use defaults)
+        from configs.app_state import load_state
+        state = load_state()
+        self._camera_width = state.get("coaching_width", 640)
+        self._camera_height = state.get("coaching_height", 480)
+        self._camera_fps = state.get("coaching_fps", 30)
+
         # Build UI
         self._build_ui()
 
@@ -163,7 +170,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         # Right camera view with strike zone overlay
         right_group = QtWidgets.QGroupBox("Right Camera")
         self._right_view = QtWidgets.QLabel("Camera Preview")
-        self._right_view.setMinimumSize(400, 300)
+        self._right_view.setMinimumSize(500, 375)  # Match left camera size for consistency
         self._right_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._right_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._right_view.setStyleSheet("background-color: #f5f5f5;")
@@ -265,6 +272,7 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         self._settings_button = QtWidgets.QPushButton("⚙ Settings")
         self._settings_button.setMinimumHeight(50)
+        self._settings_button.clicked.connect(self._show_settings)
 
         self._help_button = QtWidgets.QPushButton("❓ Help")
         self._help_button.setMinimumHeight(50)
@@ -312,13 +320,13 @@ class CoachWindow(QtWidgets.QMainWindow):
                 self._status_label.setText("Starting cameras...")
                 QtWidgets.QApplication.processEvents()
 
-                # Use lower resolution for coaching app to avoid memory allocation errors
-                # Create modified config with conservative camera settings
+                # Use configurable resolution for coaching app
+                # Create modified config with user-selected camera settings
                 from configs.settings import CameraConfig
                 coaching_camera_config = CameraConfig(
-                    width=640,
-                    height=480,
-                    fps=30,
+                    width=self._camera_width,
+                    height=self._camera_height,
+                    fps=self._camera_fps,
                     pixfmt=self._config.camera.pixfmt,
                     exposure_us=self._config.camera.exposure_us,
                     gain=self._config.camera.gain,
@@ -347,7 +355,7 @@ class CoachWindow(QtWidgets.QMainWindow):
                     right_serial,
                     str(self._config_path),
                 )
-                logger.info("Capture started successfully with 640x480@30fps")
+                logger.info(f"Capture started successfully with {self._camera_width}x{self._camera_height}@{self._camera_fps}fps")
             else:
                 logger.info("Capture already running, skipping camera start")
 
@@ -432,7 +440,11 @@ class CoachWindow(QtWidgets.QMainWindow):
                 self._status_label.setText("Stopping recording...")
                 QtWidgets.QApplication.processEvents()
 
-                summary = self._service.stop_recording()
+                # Get session summary before stopping
+                summary = self._service.get_session_summary()
+
+                # Stop recording
+                self._service.stop_recording()
 
                 # Show summary
                 if summary:
@@ -442,8 +454,8 @@ class CoachWindow(QtWidgets.QMainWindow):
                         f"Session: {self._session_name}\n"
                         f"Pitcher: {self._pitcher_name}\n"
                         f"Pitches: {summary.pitch_count}\n"
-                        f"Strikes: {summary.strike_count}\n"
-                        f"Balls: {summary.ball_count}\n\n"
+                        f"Strikes: {summary.strikes}\n"
+                        f"Balls: {summary.balls}\n\n"
                         f"Session data saved.",
                     )
 
@@ -470,6 +482,120 @@ class CoachWindow(QtWidgets.QMainWindow):
             self._status_label.setStyleSheet("padding: 5px; background-color: #f0f0f0;")
 
             self._session_active = False
+
+    def _show_settings(self) -> None:
+        """Show settings dialog."""
+        # Don't allow settings changes during active session
+        if self._session_active:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Session Active",
+                "Cannot change settings during an active session.\n"
+                "Please end the current session first.",
+            )
+            return
+
+        from ui.coaching.dialogs.settings_dialog import SettingsDialog
+
+        # Get current camera assignments from app state
+        from configs.app_state import load_state
+        state = load_state()
+        current_left = state.get("last_left_camera", "0")
+        current_right = state.get("last_right_camera", "1")
+
+        dialog = SettingsDialog(
+            current_width=self._camera_width,
+            current_height=self._camera_height,
+            current_fps=self._camera_fps,
+            current_left_camera=current_left,
+            current_right_camera=current_right,
+            parent=self,
+        )
+
+        if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return
+
+        # Apply settings if they changed
+        if dialog.settings_changed:
+            # Update stored settings
+            self._camera_width = dialog.width
+            self._camera_height = dialog.height
+            self._camera_fps = dialog.fps
+
+            # Restart capture if it's running
+            if self._service.is_capturing():
+                self._status_label.setText("Applying settings...")
+                QtWidgets.QApplication.processEvents()
+
+                try:
+                    # Stop current capture
+                    self._service.stop_capture()
+
+                    # Clear camera displays
+                    self._left_camera_label.clear()
+                    self._right_camera_label.clear()
+                    self._left_camera_label.setText("Left Camera\n(Starting...)")
+                    self._right_camera_label.setText("Right Camera\n(Starting...)")
+                    QtWidgets.QApplication.processEvents()
+
+                    # Create new camera config with updated settings
+                    from configs.settings import CameraConfig
+                    coaching_camera_config = CameraConfig(
+                        width=self._camera_width,
+                        height=self._camera_height,
+                        fps=self._camera_fps,
+                        pixfmt=self._config.camera.pixfmt,
+                        exposure_us=self._config.camera.exposure_us,
+                        gain=self._config.camera.gain,
+                        wb_mode=self._config.camera.wb_mode,
+                        wb=self._config.camera.wb,
+                        queue_depth=self._config.camera.queue_depth,
+                    )
+
+                    coaching_config = self._config.__class__(
+                        camera=coaching_camera_config,
+                        stereo=self._config.stereo,
+                        tracking=self._config.tracking,
+                        metrics=self._config.metrics,
+                        recording=self._config.recording,
+                        ui=self._config.ui,
+                        telemetry=self._config.telemetry,
+                        detector=self._config.detector,
+                        strike_zone=self._config.strike_zone,
+                        ball=self._config.ball,
+                        upload=self._config.upload,
+                    )
+
+                    # Start capture with new settings
+                    self._service.start_capture(
+                        coaching_config,
+                        dialog.left_camera,
+                        dialog.right_camera,
+                        str(self._config_path),
+                    )
+
+                    self._status_label.setText(
+                        f"Settings applied: {self._camera_width}x{self._camera_height}@{self._camera_fps}fps"
+                    )
+                    logger.info(f"Settings applied: {self._camera_width}x{self._camera_height}@{self._camera_fps}fps")
+
+                except Exception as e:
+                    QtWidgets.QMessageBox.critical(
+                        self,
+                        "Settings Error",
+                        f"Failed to apply settings:\n{e}\n\nYou may need to restart the application.",
+                    )
+                    logger.exception("Failed to apply settings")
+                    self._status_label.setText("Error applying settings")
+            else:
+                # Just show confirmation, settings will apply on next session start
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "Settings Saved",
+                    f"Settings saved successfully.\n\n"
+                    f"Resolution: {self._camera_width}x{self._camera_height}@{self._camera_fps}fps\n"
+                    f"Settings will apply when you start the next session.",
+                )
 
     def closeEvent(self, event) -> None:
         """Handle window close event - stop capture and recording."""
