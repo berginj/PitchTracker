@@ -20,7 +20,8 @@ def main():
     app.setStyle("Fusion")
 
     # Create and show coaching window
-    coach = CoachWindow(backend="uvc")
+    # Use opencv backend for better compatibility (UVC can fail with serial numbers)
+    coach = CoachWindow(backend="opencv")
     coach.show()
 
     sys.exit(app.exec())

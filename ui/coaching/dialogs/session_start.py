@@ -162,29 +162,24 @@ class SessionStartDialog(QtWidgets.QDialog):
         last_left = state.get("last_left_camera")
         last_right = state.get("last_right_camera")
 
-        # Populate cameras (try UVC first, fallback to OpenCV)
-        devices = probe_uvc_devices(use_cache=False)
-        if devices:
-            for device in devices:
-                serial = device["serial"]
-                friendly = device["friendly_name"]
-
-                # Mark last used cameras with (Last Used)
-                suffix_left = " (Last Used)" if serial == last_left else ""
-                suffix_right = " (Last Used)" if serial == last_right else ""
-
-                left_label_text = f"{serial} - {friendly}{suffix_left}"
-                right_label_text = f"{serial} - {friendly}{suffix_right}"
-
-                self._left_camera_combo.addItem(left_label_text, serial)
-                self._right_camera_combo.addItem(right_label_text, serial)
-        else:
-            # Fallback to OpenCV indices
-            indices = probe_opencv_indices(use_cache=False)
+        # Always use OpenCV indices for coaching app (UVC serial numbers can fail)
+        # This matches calibration workflow behavior
+        indices = probe_opencv_indices(use_cache=False)
+        if indices:
             for index in indices:
-                label = f"Camera {index}"
-                self._left_camera_combo.addItem(label, str(index))
-                self._right_camera_combo.addItem(label, str(index))
+                # Mark last used cameras with (Last Used)
+                suffix_left = " (Last Used)" if str(index) == last_left else ""
+                suffix_right = " (Last Used)" if str(index) == last_right else ""
+
+                left_label_text = f"Camera {index}{suffix_left}"
+                right_label_text = f"Camera {index}{suffix_right}"
+
+                self._left_camera_combo.addItem(left_label_text, str(index))
+                self._right_camera_combo.addItem(right_label_text, str(index))
+        else:
+            # No cameras found
+            self._left_camera_combo.addItem("No cameras found", "")
+            self._right_camera_combo.addItem("No cameras found", "")
 
         # Pre-select last used cameras
         if last_left:
