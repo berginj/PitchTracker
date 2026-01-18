@@ -58,13 +58,36 @@ from ui.geometry import (
 )
 from ui.widgets import PlateMapWidget, RoiLabel
 
+# System hardening imports
+from app.events import get_error_bus, ErrorCategory, ErrorSeverity
+from app.events.recovery import get_recovery_manager
+from app.monitoring import get_resource_monitor
+from app.lifecycle import get_cleanup_manager
+from app.validation import ConfigValidator
+from app.config import ResourceLimits, set_resource_limits
+from app.ui.error_notification import ErrorNotificationWidget, ErrorNotificationBridge
+from log_config.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, backend: str, config_path: Path) -> None:
         super().__init__()
         self.setWindowTitle("Pitch Tracker")
         self._config_path_value = Path(config_path)
+
+        # Validate configuration before loading (Phase 4)
+        self._validate_config_at_startup(self._config_path_value)
+
+        # Load configuration
         self._config = load_config(self._config_path_value)
+
+        # Initialize system hardening (Phase 2-4)
+        self._init_error_handling()
+        self._init_resource_monitoring()
+        self._init_resource_limits()
+
         self._service = InProcessPipelineService(backend=backend)
         self._timer = QtCore.QTimer(self)
         self._timer.timeout.connect(self._update_preview)
@@ -288,6 +311,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._controls_widget = QtWidgets.QWidget()
         self._controls_widget.setLayout(controls)
         layout.addWidget(self._controls_widget)
+        # Add error notification widget (Phase 2)
+        self._error_notification = ErrorNotificationWidget(self)
+        self._error_bridge = ErrorNotificationBridge(self._error_notification)
+        layout.addWidget(self._error_notification)
         layout.addLayout(self._views_layout)
         self._health_panel = self._build_health_panel()
         layout.addWidget(self._health_panel)
@@ -353,6 +380,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_plate_map_zone()
         self._update_calib_summary()
         self._set_setup_mode(True)
+
+        # Register cleanup tasks after all components are initialized (Phase 3)
+        self._register_cleanup_tasks()
+
         self._run_startup_dialog()
 
     def _start_capture(self) -> None:
@@ -1859,6 +1890,176 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _config_path(self) -> Path:
         return self._config_path_value
+
+    # ========================================================================
+    # System Hardening Methods (Phase 2-4)
+    # ========================================================================
+
+    def _validate_config_at_startup(self, config_path: Path) -> None:
+        """Validate configuration at startup (Phase 4).
+
+        Args:
+            config_path: Path to configuration file
+        """
+        try:
+            config = load_config(config_path)
+            validator = ConfigValidator()
+            is_valid, issues = validator.validate(config)
+
+            # Show errors (blocking)
+            errors = [i for i in issues if i.severity == "error"]
+            if errors:
+                error_text = "\n".join([f"• {e.field}: {e.message}" for e in errors])
+                QtWidgets.QMessageBox.critical(
+                    None,
+                    "Configuration Error",
+                    f"Configuration validation failed:\n\n{error_text}\n\n"
+                    f"Please fix these errors in {config_path}",
+                )
+                import sys
+                sys.exit(1)
+
+            # Show warnings (non-blocking)
+            warnings = [i for i in issues if i.severity == "warning"]
+            if warnings:
+                warning_text = "\n".join([f"• {w.field}: {w.message}" for w in warnings])
+                QtWidgets.QMessageBox.warning(
+                    None,
+                    "Configuration Warnings",
+                    f"Configuration has warnings:\n\n{warning_text}\n\n"
+                    f"The application will continue, but you may want to review these.",
+                )
+
+        except Exception as exc:
+            QtWidgets.QMessageBox.critical(
+                None,
+                "Configuration Error",
+                f"Failed to validate configuration:\n\n{exc}",
+            )
+            import sys
+            sys.exit(1)
+
+    def _init_error_handling(self) -> None:
+        """Initialize error handling system (Phase 2)."""
+        # Get global error bus (auto-created)
+        self._error_bus = get_error_bus()
+
+        # Setup error recovery
+        self._recovery_manager = get_recovery_manager()
+
+        # Register custom recovery handlers
+        self._recovery_manager.register_handler("stop_session", lambda event: self._stop_recording())
+        self._recovery_manager.register_handler("shutdown", lambda event: self.close())
+
+        # Start recovery manager
+        self._recovery_manager.start()
+
+        logger.info("Error handling system initialized")
+
+    def _init_resource_monitoring(self) -> None:
+        """Start resource monitoring (Phase 3)."""
+        self._resource_monitor = get_resource_monitor()
+
+        # Start monitoring thread
+        self._resource_monitor.start()
+
+        logger.info("Resource monitoring started")
+
+    def _init_resource_limits(self) -> None:
+        """Configure resource limits (Phase 3)."""
+        limits = ResourceLimits(
+            # Memory limits (MB)
+            max_memory_mb=6000.0,  # 6GB for high-end systems
+            warning_memory_mb=3000.0,  # 3GB warning
+
+            # CPU limits (%)
+            max_cpu_percent=90.0,
+            warning_cpu_percent=75.0,
+
+            # Disk space (GB)
+            critical_disk_gb=10.0,
+            warning_disk_gb=50.0,
+
+            # Queue sizes
+            detection_queue_size=10,
+            recording_queue_size=30,
+
+            # Timeouts (seconds)
+            camera_open_timeout=15.0,
+            shutdown_timeout=60.0,
+        )
+
+        # Validate and set
+        set_resource_limits(limits)
+
+        logger.info("Resource limits configured")
+
+    def _register_cleanup_tasks(self) -> None:
+        """Register cleanup tasks for graceful shutdown (Phase 3)."""
+        self._cleanup_manager = get_cleanup_manager()
+
+        # Critical tasks (must succeed)
+        self._cleanup_manager.register_cleanup(
+            "stop_capture",
+            self._service.stop_capture,
+            timeout=10.0,
+            critical=True
+        )
+
+        self._cleanup_manager.register_cleanup(
+            "stop_recording",
+            lambda: self._service.stop_recording() if hasattr(self, "_service") else None,
+            timeout=10.0,
+            critical=True
+        )
+
+        # Non-critical tasks (nice to have)
+        self._cleanup_manager.register_cleanup(
+            "stop_monitoring",
+            lambda: self._resource_monitor.stop(),
+            timeout=2.0,
+            critical=False
+        )
+
+        self._cleanup_manager.register_cleanup(
+            "stop_recovery",
+            lambda: self._recovery_manager.stop(),
+            timeout=2.0,
+            critical=False
+        )
+
+        logger.info("Cleanup tasks registered")
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        """Handle application close with graceful shutdown (Phase 3).
+
+        Args:
+            event: Close event
+        """
+        # Register cleanup tasks if not already done
+        if not hasattr(self, "_cleanup_manager"):
+            self._register_cleanup_tasks()
+
+        logger.info("Performing graceful shutdown...")
+        success = self._cleanup_manager.cleanup()
+
+        if success:
+            logger.info("✅ Shutdown completed successfully")
+            event.accept()
+        else:
+            logger.warning("⚠️ Some critical cleanup tasks failed")
+            # Ask user if they want to force quit
+            reply = QtWidgets.QMessageBox.question(
+                self,
+                "Shutdown Warning",
+                "Some critical cleanup tasks failed. Force quit anyway?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.No
+            )
+            if reply == QtWidgets.QMessageBox.Yes:
+                event.accept()
+            else:
+                event.ignore()
 
 
 
