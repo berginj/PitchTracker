@@ -539,9 +539,23 @@ class MainWindow(QtWidgets.QMainWindow):
         left = str(profile.get("left_serial", ""))
         right = str(profile.get("right_serial", ""))
         if left:
-            self._left_input.setCurrentText(left)
+            # Find item by data (serial) instead of text label
+            for i in range(self._left_input.count()):
+                if self._left_input.itemData(i) == left:
+                    self._left_input.setCurrentIndex(i)
+                    break
+            else:
+                # Fallback: try setting text directly (might work for old profiles)
+                self._left_input.setCurrentText(left)
         if right:
-            self._right_input.setCurrentText(right)
+            # Find item by data (serial) instead of text label
+            for i in range(self._right_input.count()):
+                if self._right_input.itemData(i) == right:
+                    self._right_input.setCurrentIndex(i)
+                    break
+            else:
+                # Fallback: try setting text directly (might work for old profiles)
+                self._right_input.setCurrentText(right)
         apply_profile(profile, self._roi_path)
         self._load_rois()
         self._location_profile = name
@@ -1580,8 +1594,20 @@ class MainWindow(QtWidgets.QMainWindow):
         panel = QtWidgets.QGroupBox("Game")
         layout = QtWidgets.QVBoxLayout()
         self._game_status = QtWidgets.QLabel("Ready.")
+        self._game_status.setStyleSheet(
+            "QLabel { background-color: white; color: black; padding: 6px; "
+            "border: 1px solid #ccc; font-weight: bold; font-size: 11pt; }"
+        )
         self._game_score = QtWidgets.QLabel("Score X:0  O:0  R:0")
+        self._game_score.setStyleSheet(
+            "QLabel { background-color: white; color: black; padding: 6px; "
+            "border: 1px solid #ccc; font-weight: bold; font-size: 11pt; }"
+        )
         self._game_streak_label = QtWidgets.QLabel("Streak: 0")
+        self._game_streak_label.setStyleSheet(
+            "QLabel { background-color: white; color: black; padding: 6px; "
+            "border: 1px solid #ccc; font-weight: bold; font-size: 11pt; }"
+        )
         reset = QtWidgets.QPushButton("Reset Game")
         reset.clicked.connect(self._reset_tic_tac_toe_game)
         layout.addWidget(self._game_status)
