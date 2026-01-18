@@ -80,8 +80,8 @@ class DetectorStep(BaseStep):
         mode_label = QtWidgets.QLabel("Detection Mode:")
         mode_label.setStyleSheet("font-weight: bold;")
 
-        detector_config = self._config.detection
-        mode = detector_config.detector_type
+        detector_config = self._config.detector
+        mode = detector_config.type
         self._mode_value = QtWidgets.QLabel(mode.upper() if mode else "CLASSICAL")
         self._mode_value.setStyleSheet("font-size: 12pt; color: #2196F3;")
 
@@ -89,7 +89,7 @@ class DetectorStep(BaseStep):
         ball_label = QtWidgets.QLabel("Ball Type:")
         ball_label.setStyleSheet("font-weight: bold;")
 
-        ball_type = self._config.tracking.ball_type
+        ball_type = self._config.ball.type
         self._ball_value = QtWidgets.QLabel(ball_type.upper() if ball_type else "BASEBALL")
         self._ball_value.setStyleSheet("font-size: 12pt; color: #2196F3;")
 
@@ -113,7 +113,7 @@ class DetectorStep(BaseStep):
         self._ml_radio = QtWidgets.QRadioButton("ML (Neural Network)")
 
         # Set current mode
-        current_mode = self._config.detection.detector_type
+        current_mode = self._config.detector.type
         if current_mode == "ml":
             self._ml_radio.setChecked(True)
         else:
@@ -168,10 +168,10 @@ class DetectorStep(BaseStep):
 
     def _update_display(self) -> None:
         """Update configuration display."""
-        mode = self._config.detection.detector_type
+        mode = self._config.detector.type
         self._mode_value.setText(mode.upper() if mode else "CLASSICAL")
 
-        ball_type = self._config.tracking.ball_type
+        ball_type = self._config.ball.type
         self._ball_value.setText(ball_type.upper() if ball_type else "BASEBALL")
 
     def _apply_mode(self) -> None:
@@ -187,8 +187,8 @@ class DetectorStep(BaseStep):
             import yaml
 
             data = yaml.safe_load(self._config_path.read_text())
-            data.setdefault("detection", {})
-            data["detection"]["detector_type"] = new_mode
+            data.setdefault("detector", {})
+            data["detector"]["type"] = new_mode
 
             self._config_path.write_text(yaml.safe_dump(data, sort_keys=False))
 
