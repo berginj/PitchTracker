@@ -343,19 +343,61 @@ def _list_camera_devices() -> list[dict[str, str]]:
             continue
         if device.get("status") not in ("OK", None, ""):
             continue
+
         friendly = (device.get("FriendlyName") or "").strip()
         instance = (device.get("InstanceId") or "").strip()
         serial = (device.get("Serial") or "").strip()
+        manufacturer = (device.get("Manufacturer") or "").strip()
+        description = (device.get("Description") or "").strip()
+        hwids = device.get("HardwareIds") or ""
+
+        # Skip if no friendly name
+        if not friendly:
+            continue
+
+        # Convert hardware IDs to string if it's a list
+        if isinstance(hwids, list):
+            hwids = " ".join(hwids)
+        hwids = str(hwids).lower()
+
+        # Filter out printers and scanners by hardware IDs
+        # Printers often have USB\Class_07 (printer class) in their hardware IDs
+        if "class_07" in hwids or "class_09" in hwids:  # USB printer or hub class
+            logger.debug(f"Skipping printer/hub device by HW ID: {friendly}")
+            continue
+
+        # Filter by manufacturer (common printer brands)
+        mfg_lower = manufacturer.lower()
+        printer_mfgs = ["brother", "hp inc", "hewlett-packard", "epson", "canon",
+                       "xerox", "konica", "ricoh", "sharp", "kyocera", "lexmark"]
+        if any(brand in mfg_lower for brand in printer_mfgs):
+            # But only skip if name also suggests printer/scanner
+            name_lower = friendly.lower()
+            if any(term in name_lower for term in ["printer", "scanner", "scan", "mfp", "multifunction"]):
+                logger.info(f"Skipping printer device: {friendly} (Mfg: {manufacturer})")
+                continue
+
+        # Fall back to instance ID for serial if not available
         if not serial and instance:
             serial = instance.split("\\")[-1]
-        if friendly:
-            output.append(
-                {
-                    "friendly_name": friendly,
-                    "instance_id": instance,
-                    "serial": serial or friendly,
-                }
-            )
+
+        # Build device info with all available data
+        device_info = {
+            "friendly_name": friendly,
+            "instance_id": instance,
+            "serial": serial or friendly,
+        }
+
+        # Add manufacturer if available
+        if manufacturer:
+            device_info["manufacturer"] = manufacturer
+
+        # Add description if available and different from friendly name
+        if description and description != friendly:
+            device_info["description"] = description
+
+        output.append(device_info)
+
     return output
 
 
@@ -371,14 +413,34 @@ def _query_pnp_devices(device_class: str) -> list[dict[str, str]]:
     Note:
         - Uses 10 second timeout to prevent hanging on slower systems
         - Returns empty list on timeout or error
+        - Queries multiple device properties for better identification
     """
     command = (
         "Get-PnpDevice -Class "
         + device_class
         + " | ForEach-Object { "
+        # Get serial number
         + "$serial = (Get-PnpDeviceProperty -InstanceId $_.InstanceId "
         + "-KeyName 'DEVPKEY_Device_SerialNumber' -ErrorAction SilentlyContinue).Data; "
-        + "[pscustomobject]@{FriendlyName=$_.FriendlyName;InstanceId=$_.InstanceId;Serial=$serial;Status=$_.Status;Present=$_.Present} "
+        # Get manufacturer
+        + "$mfg = (Get-PnpDeviceProperty -InstanceId $_.InstanceId "
+        + "-KeyName 'DEVPKEY_Device_Manufacturer' -ErrorAction SilentlyContinue).Data; "
+        # Get device description
+        + "$desc = (Get-PnpDeviceProperty -InstanceId $_.InstanceId "
+        + "-KeyName 'DEVPKEY_Device_DeviceDesc' -ErrorAction SilentlyContinue).Data; "
+        # Get hardware IDs to identify device type
+        + "$hwids = (Get-PnpDeviceProperty -InstanceId $_.InstanceId "
+        + "-KeyName 'DEVPKEY_Device_HardwareIds' -ErrorAction SilentlyContinue).Data; "
+        + "[pscustomobject]@{"
+        + "FriendlyName=$_.FriendlyName;"
+        + "InstanceId=$_.InstanceId;"
+        + "Serial=$serial;"
+        + "Manufacturer=$mfg;"
+        + "Description=$desc;"
+        + "HardwareIds=$hwids;"
+        + "Status=$_.Status;"
+        + "Present=$_.Present"
+        + "} "
         + "} | ConvertTo-Json"
     )
 

@@ -44,12 +44,13 @@ def test_uvc_enumeration(attempt: int) -> list[dict]:
         for i, dev in enumerate(devices):
             friendly = dev.get('friendly_name', 'Unknown')
             serial = dev.get('serial', 'N/A')
+            manufacturer = dev.get('manufacturer', 'Unknown')
             is_arducam = is_arducam_device(friendly)
             if is_arducam:
                 arducam_count += 1
-                logger.info(f"[Attempt {attempt}]   ⭐ UVC {i}: {friendly} (SN: {serial}) - ARDUCAM")
+                logger.info(f"[Attempt {attempt}]   ⭐ UVC {i}: {friendly} [Mfg: {manufacturer}] (SN: {serial}) - ARDUCAM")
             else:
-                logger.info(f"[Attempt {attempt}]   UVC {i}: {friendly} (SN: {serial})")
+                logger.info(f"[Attempt {attempt}]   UVC {i}: {friendly} [Mfg: {manufacturer}] (SN: {serial})")
 
         logger.info(f"[Attempt {attempt}] ArduCam devices via UVC: {arducam_count}")
         return devices

@@ -117,14 +117,20 @@ def enumerate_cameras(max_cameras: int) -> dict[int, dict[str, str]]:
 
         # Try to get friendly name from UVC
         if idx in uvc_by_index:
-            friendly_name = uvc_by_index[idx].get('friendly_name', '')
-            serial = uvc_by_index[idx].get('serial', '')
+            uvc_dev = uvc_by_index[idx]
+            friendly_name = uvc_dev.get('friendly_name', '')
+            serial = uvc_dev.get('serial', '')
+            manufacturer = uvc_dev.get('manufacturer', '')
+
             if friendly_name:
                 info['name'] = friendly_name
                 logger.debug(f"  Camera {idx}: {friendly_name}")
             if serial:
                 info['serial'] = serial
                 logger.debug(f"  Serial: {serial}")
+            if manufacturer:
+                info['manufacturer'] = manufacturer
+                logger.debug(f"  Manufacturer: {manufacturer}")
             info['backend'] = 'UVC/DirectShow'
 
         # Try to open with OpenCV and get backend name
@@ -154,29 +160,30 @@ def print_camera_enumeration(camera_info: dict[int, dict[str, str]]):
     Args:
         camera_info: Dict from enumerate_cameras()
     """
-    print("\n" + "=" * 80)
+    print("\n" + "=" * 100)
     print("CAMERA ENUMERATION")
-    print("=" * 80)
-    print(f"{'Index':<8} {'Available':<12} {'Backend':<20} {'Name':<40}")
-    print("-" * 80)
+    print("=" * 100)
+    print(f"{'Index':<8} {'Available':<12} {'Backend':<20} {'Manufacturer':<20} {'Name':<40}")
+    print("-" * 100)
 
     arducam_count = 0
     for idx in sorted(camera_info.keys()):
         info = camera_info[idx]
         available = "✅ Yes" if info['available'] else "❌ No"
         name = info['name']
+        manufacturer = info.get('manufacturer', 'Unknown')[:18]  # Truncate if too long
 
         # Highlight ArduCam devices
         if is_arducam_device(name):
             name = f"⭐ {name}"
             arducam_count += 1
 
-        print(f"{idx:<8} {available:<12} {info['backend']:<20} {name:<40}")
+        print(f"{idx:<8} {available:<12} {info['backend']:<20} {manufacturer:<20} {name:<40}")
 
-    print("-" * 80)
+    print("-" * 100)
     if arducam_count > 0:
         print(f"⭐ Found {arducam_count} ArduCam device(s)")
-    print("=" * 80)
+    print("=" * 100)
     print()
 
 
@@ -471,17 +478,31 @@ def main():
 
     # Add camera enumeration to report
     report_lines.append("\n\nCAMERA ENUMERATION")
-    report_lines.append("=" * 70)
-    report_lines.append(f"{'Index':<8} {'Available':<12} {'Backend':<20} {'Name':<30}")
-    report_lines.append("-" * 70)
+    report_lines.append("=" * 100)
+    report_lines.append(f"{'Index':<8} {'Available':<12} {'Backend':<20} {'Manufacturer':<20} {'Name':<40}")
+    report_lines.append("-" * 100)
+
+    arducam_count = 0
     for idx in sorted(camera_info.keys()):
         info = camera_info[idx]
         available = "Yes" if info['available'] else "No"
         name = info['name']
+        manufacturer = info.get('manufacturer', 'Unknown')
+
+        # Count ArduCam devices
+        if is_arducam_device(name):
+            arducam_count += 1
+
+        # Add serial if available
         if 'serial' in info:
             name += f" (SN: {info['serial']})"
-        report_lines.append(f"{idx:<8} {available:<12} {info['backend']:<20} {name:<30}")
-    report_lines.append("=" * 70)
+
+        report_lines.append(f"{idx:<8} {available:<12} {info['backend']:<20} {manufacturer:<20} {name:<40}")
+
+    report_lines.append("-" * 100)
+    if arducam_count > 0:
+        report_lines.append(f"ArduCam devices found: {arducam_count}")
+    report_lines.append("=" * 100)
 
     # Test both backends
     for backend_name, backend in [("DirectShow", cv2.CAP_DSHOW), ("Media Foundation", cv2.CAP_MSMF)]:
