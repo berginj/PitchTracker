@@ -74,6 +74,12 @@ class DetectionProcessor:
         self._left_buffer: deque[Tuple[Frame, list[Detection]]] = deque(maxlen=6)
         self._right_buffer: deque[Tuple[Frame, list[Detection]]] = deque(maxlen=6)
 
+        # Timestamp synchronization monitoring
+        self._frame_deltas_ns: deque[int] = deque(maxlen=100)  # Track last 100 frame pairs
+        self._total_paired_frames = 0
+        self._dropped_frames_sync = 0
+        self._last_sync_warning_time = 0.0
+
         # State (thread-safe)
         self._detect_lock = threading.Lock()
         self._last_detections: Dict[str, list[Detection]] = {}
@@ -188,10 +194,88 @@ class DetectionProcessor:
         """
         self._config = config
 
+    def _check_sync_quality(self) -> None:
+        """Check timestamp synchronization quality and log warnings if poor.
+
+        Analyzes recent frame deltas and warns if cameras are poorly synchronized.
+        """
+        import time
+        import numpy as np
+
+        if not self._frame_deltas_ns:
+            return
+
+        deltas_ms = np.array(self._frame_deltas_ns) / 1e6
+        mean_delta = np.mean(deltas_ms)
+        max_delta = np.max(deltas_ms)
+        p95_delta = np.percentile(deltas_ms, 95)
+
+        # Thresholds for warnings
+        WARN_MEAN_MS = 10.0  # Mean delta > 10ms is concerning
+        WARN_MAX_MS = 50.0   # Max delta > 50ms is very concerning
+        WARN_P95_MS = 20.0   # 95th percentile > 20ms is concerning
+
+        # Throttle warnings to once per minute
+        current_time = time.monotonic()
+        if current_time - self._last_sync_warning_time < 60.0:
+            return
+
+        # Check for poor synchronization
+        if mean_delta > WARN_MEAN_MS or max_delta > WARN_MAX_MS or p95_delta > WARN_P95_MS:
+            drop_rate = (self._dropped_frames_sync / max(self._total_paired_frames, 1)) * 100
+
+            logger.warning(
+                f"Poor timestamp synchronization detected:\n"
+                f"  Mean delta: {mean_delta:.1f}ms (target: <{WARN_MEAN_MS}ms)\n"
+                f"  P95 delta:  {p95_delta:.1f}ms (target: <{WARN_P95_MS}ms)\n"
+                f"  Max delta:  {max_delta:.1f}ms (target: <{WARN_MAX_MS}ms)\n"
+                f"  Dropped frames: {self._dropped_frames_sync} ({drop_rate:.1f}%)\n"
+                f"Recommendation: Consider hardware trigger or frame-index pairing"
+            )
+            self._last_sync_warning_time = current_time
+
+    def get_sync_stats(self) -> dict:
+        """Get timestamp synchronization statistics.
+
+        Returns:
+            Dictionary with sync quality metrics:
+            - mean_delta_ms: Average timestamp delta
+            - p95_delta_ms: 95th percentile delta
+            - max_delta_ms: Maximum delta
+            - total_paired: Total frames successfully paired
+            - dropped_sync: Frames dropped due to sync issues
+            - drop_rate_pct: Percentage of frames dropped
+        """
+        import numpy as np
+
+        if not self._frame_deltas_ns:
+            return {
+                "mean_delta_ms": 0.0,
+                "p95_delta_ms": 0.0,
+                "max_delta_ms": 0.0,
+                "total_paired": self._total_paired_frames,
+                "dropped_sync": self._dropped_frames_sync,
+                "drop_rate_pct": 0.0,
+            }
+
+        deltas_ms = np.array(self._frame_deltas_ns) / 1e6
+        total = self._total_paired_frames + self._dropped_frames_sync
+        drop_rate = (self._dropped_frames_sync / max(total, 1)) * 100
+
+        return {
+            "mean_delta_ms": float(np.mean(deltas_ms)),
+            "p95_delta_ms": float(np.percentile(deltas_ms, 95)),
+            "max_delta_ms": float(np.max(deltas_ms)),
+            "total_paired": self._total_paired_frames,
+            "dropped_sync": self._dropped_frames_sync,
+            "drop_rate_pct": float(drop_rate),
+        }
+
     def _match_stereo_buffers(self) -> None:
         """Match stereo pairs from buffered frames.
 
         Pairs left/right frames based on temporal proximity and processes them.
+        Also monitors timestamp synchronization quality.
         """
         while self._left_buffer and self._right_buffer:
             left_frame, left_dets = self._left_buffer[0]
@@ -205,13 +289,28 @@ class DetectionProcessor:
 
             if tolerance and delta > tolerance:
                 # Frames too far apart, drop the older one
+                self._dropped_frames_sync += 1
                 if left_frame.t_capture_monotonic_ns < right_frame.t_capture_monotonic_ns:
                     self._left_buffer.popleft()
+                    logger.debug(
+                        f"Dropped left frame (delta={delta/1e6:.1f}ms exceeds tolerance={tolerance/1e6:.1f}ms)"
+                    )
                 else:
                     self._right_buffer.popleft()
+                    logger.debug(
+                        f"Dropped right frame (delta={delta/1e6:.1f}ms exceeds tolerance={tolerance/1e6:.1f}ms)"
+                    )
                 continue
 
-            # Frames are paired, process them
+            # Frames are paired - track sync quality
+            self._frame_deltas_ns.append(delta)
+            self._total_paired_frames += 1
+
+            # Periodic sync quality check
+            if self._total_paired_frames % 100 == 0:
+                self._check_sync_quality()
+
+            # Process the pair
             self._left_buffer.popleft()
             self._right_buffer.popleft()
             self._process_stereo_pair(left_frame, right_frame, left_dets, right_dets)
