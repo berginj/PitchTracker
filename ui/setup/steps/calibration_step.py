@@ -126,6 +126,11 @@ class CalibrationStep(BaseStep):
         self._capture_button.setEnabled(False)
         self._capture_button.clicked.connect(self._capture_image_pair)
 
+        # Release cameras button for when they get stuck
+        self._release_button = QtWidgets.QPushButton("🔓 Force Release Cameras")
+        self._release_button.setStyleSheet("background-color: #ff9800; color: white; font-weight: bold;")
+        self._release_button.clicked.connect(self._force_release_cameras)
+
         self._capture_count_label = QtWidgets.QLabel("Captured: 0")
         self._capture_count_label.setStyleSheet("font-size: 12pt; font-weight: bold;")
 
@@ -138,6 +143,13 @@ class CalibrationStep(BaseStep):
         controls_layout.addWidget(self._capture_count_label, 1)
         controls_layout.addWidget(self._calibrate_button, 2)
         layout.addLayout(controls_layout)
+
+        # Release button in separate row for emergencies
+        release_layout = QtWidgets.QHBoxLayout()
+        release_layout.addStretch()
+        release_layout.addWidget(self._release_button)
+        release_layout.addStretch()
+        layout.addLayout(release_layout)
 
         # Results display
         self._results_text = QtWidgets.QTextEdit()
@@ -253,12 +265,30 @@ class CalibrationStep(BaseStep):
                 self._left_camera = UvcCamera()
                 self._right_camera = UvcCamera()
 
-                # Open cameras with their serials
+                # Open cameras with their serials - retry with delays if needed
                 print(f"DEBUG: Opening left camera with serial: {self._left_serial}")
-                self._left_camera.open(self._left_serial)
+                for attempt in range(3):
+                    try:
+                        self._left_camera.open(self._left_serial)
+                        break
+                    except Exception as e:
+                        if attempt < 2:
+                            print(f"DEBUG: Left camera open attempt {attempt + 1} failed, retrying...")
+                            time.sleep(1.0)
+                        else:
+                            raise
 
                 print(f"DEBUG: Opening right camera with serial: {self._right_serial}")
-                self._right_camera.open(self._right_serial)
+                for attempt in range(3):
+                    try:
+                        self._right_camera.open(self._right_serial)
+                        break
+                    except Exception as e:
+                        if attempt < 2:
+                            print(f"DEBUG: Right camera open attempt {attempt + 1} failed, retrying...")
+                            time.sleep(1.0)
+                        else:
+                            raise
 
                 # Configure cameras with basic settings
                 self._left_camera.set_mode(640, 480, 120, "GRAY8")
@@ -312,6 +342,50 @@ class CalibrationStep(BaseStep):
         # Force garbage collection to release any lingering handles
         import gc
         gc.collect()
+
+    def _force_release_cameras(self) -> None:
+        """Aggressively release camera resources (for when cameras get stuck)."""
+        import gc
+        import cv2
+
+        # Stop preview timer first
+        self._preview_timer.stop()
+
+        # Try normal close
+        self._close_cameras()
+
+        # Try to open and immediately close cameras to force DirectShow to release them
+        serials = []
+        if self._left_serial:
+            serials.append(self._left_serial)
+        if self._right_serial:
+            serials.append(self._right_serial)
+
+        for serial in serials:
+            for attempt in range(3):
+                try:
+                    from capture import UvcCamera
+                    temp_cam = UvcCamera()
+                    temp_cam.open(serial)
+                    temp_cam.close()
+                    del temp_cam
+                except Exception:
+                    pass
+
+                time.sleep(0.2)
+                gc.collect()
+
+        # Final aggressive cleanup
+        time.sleep(1.0)
+        gc.collect()
+
+        QtWidgets.QMessageBox.information(
+            self,
+            "Cameras Released",
+            "Camera resources have been forcibly released.\n\n"
+            "You can now try opening the cameras again by going back to Step 1 "
+            "and then returning to Step 2.",
+        )
 
     def _update_preview(self) -> None:
         """Update camera previews and check for checkerboard."""
