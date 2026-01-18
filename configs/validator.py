@@ -39,7 +39,7 @@ CONFIG_SCHEMA = {
             "properties": {
                 "pairing_tolerance_ms": {"type": "number", "minimum": 0.1, "maximum": 100},
                 "epipolar_epsilon_px": {"type": "number", "minimum": 0.5, "maximum": 50},
-                "baseline_ft": {"type": "number", "minimum": 0.1, "maximum": 10.0},
+                "baseline_ft": {"type": "number", "minimum": 0.1, "maximum": 20.0},
                 "focal_length_px": {"type": "number", "minimum": 100, "maximum": 5000},
                 "cx": {"type": ["number", "null"]},
                 "cy": {"type": ["number", "null"]},

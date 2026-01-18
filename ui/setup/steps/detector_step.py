@@ -54,6 +54,10 @@ class DetectorStep(BaseStep):
         mode_group = self._build_mode_selection()
         layout.addWidget(mode_group)
 
+        # Ball type selection group
+        ball_type_group = self._build_ball_type_selection()
+        layout.addWidget(ball_type_group)
+
         # Status/Tips
         tips_group = QtWidgets.QGroupBox("Tips")
         tips_text = QtWidgets.QLabel(
@@ -141,6 +145,43 @@ class DetectorStep(BaseStep):
         group.setLayout(layout)
         return group
 
+    def _build_ball_type_selection(self) -> QtWidgets.QGroupBox:
+        """Build ball type selection."""
+        group = QtWidgets.QGroupBox("Ball Type (Required)")
+
+        # Ball type selection
+        self._baseball_radio = QtWidgets.QRadioButton("Baseball")
+        self._softball_radio = QtWidgets.QRadioButton("Softball")
+
+        # Set current ball type
+        current_ball_type = self._config.ball.type
+        if current_ball_type == "softball":
+            self._softball_radio.setChecked(True)
+        else:
+            self._baseball_radio.setChecked(True)
+
+        # Info labels
+        baseball_info = QtWidgets.QLabel("  ↳ Standard baseball (2.9\" diameter)")
+        baseball_info.setStyleSheet("color: #666; font-size: 9pt;")
+
+        softball_info = QtWidgets.QLabel("  ↳ Softball (3.5-3.8\" diameter)")
+        softball_info.setStyleSheet("color: #666; font-size: 9pt;")
+
+        # Apply button
+        apply_ball_button = QtWidgets.QPushButton("Apply Ball Type")
+        apply_ball_button.clicked.connect(self._apply_ball_type)
+
+        # Layout
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self._baseball_radio)
+        layout.addWidget(baseball_info)
+        layout.addWidget(self._softball_radio)
+        layout.addWidget(softball_info)
+        layout.addWidget(apply_ball_button)
+
+        group.setLayout(layout)
+        return group
+
     def get_title(self) -> str:
         """Return step title."""
         return "Detector Tuning"
@@ -208,4 +249,40 @@ class DetectorStep(BaseStep):
                 self,
                 "Apply Error",
                 f"Failed to apply detection mode:\n{str(e)}",
+            )
+
+    def _apply_ball_type(self) -> None:
+        """Apply selected ball type."""
+        # Determine selected ball type
+        if self._softball_radio.isChecked():
+            new_ball_type = "softball"
+        else:
+            new_ball_type = "baseball"
+
+        try:
+            # Update config file
+            import yaml
+
+            data = yaml.safe_load(self._config_path.read_text())
+            data.setdefault("ball", {})
+            data["ball"]["type"] = new_ball_type
+
+            self._config_path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+            # Reload config
+            self._config = load_config(self._config_path)
+            self._update_display()
+
+            QtWidgets.QMessageBox.information(
+                self,
+                "Ball Type Applied",
+                f"Ball type set to: {new_ball_type.upper()}\n\n"
+                "The system will use the appropriate ball diameter for tracking.",
+            )
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Apply Error",
+                f"Failed to apply ball type:\n{str(e)}",
             )
