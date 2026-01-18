@@ -65,14 +65,16 @@ class CalibrationStep(BaseStep):
 
         # Instructions
         instructions = QtWidgets.QLabel(
-            "Stereo Calibration:\n\n"
-            "1. Hold the checkerboard pattern in view of both cameras\n"
-            "2. When both indicators turn GREEN, click 'Capture'\n"
-            "3. Capture at least 10 image pairs from different angles\n"
-            "4. Click 'Calibrate' to compute stereo parameters"
+            "Stereo Calibration (Cameras 3ft Apart):\n\n"
+            "1. Position checkerboard in the OVERLAPPING field of view between both cameras\n"
+            "2. Board can be distant/small - it doesn't need to fill the frame\n"
+            "3. When BOTH indicators turn GREEN, click 'Capture'\n"
+            "4. Move board to different positions, angles, and depths (near/far)\n"
+            "5. Capture 10-20 poses covering the tracking volume\n"
+            "6. Click 'Calibrate' when done"
         )
         instructions.setWordWrap(True)
-        instructions.setStyleSheet("font-size: 11pt; padding: 10px; background-color: #e3f2fd; border-radius: 5px;")
+        instructions.setStyleSheet("font-size: 10pt; padding: 10px; background-color: #e8f5e9; border-radius: 5px;")
         layout.addWidget(instructions)
 
         # Settings row
@@ -259,9 +261,9 @@ class CalibrationStep(BaseStep):
     def _update_pattern_info(self) -> None:
         """Update the pattern info label."""
         self._pattern_info.setText(
-            f"<b>Looking for:</b> {self._pattern_cols}x{self._pattern_rows} checkerboard "
-            f"(internal corners, not squares). Use a standard OpenCV checkerboard pattern, "
-            f"not ChArUco. Adjust pattern size in settings above if your pattern differs."
+            f"<b>Looking for:</b> {self._pattern_cols}x{self._pattern_rows} checkerboard (internal corners). "
+            f"<b>Stereo tip:</b> Board doesn't need to fill frame - move it to different positions "
+            f"and angles in the shared view area between cameras. Capture 10+ poses for good calibration."
         )
 
     def _open_cameras(self) -> None:
@@ -488,8 +490,12 @@ class CalibrationStep(BaseStep):
         else:
             gray = image.copy()
 
-        # Find checkerboard corners with adaptive flags for better detection
+        # Find checkerboard corners with multiple strategies
         pattern_size = (self._pattern_cols, self._pattern_rows)
+        found = False
+        corners = None
+
+        # Strategy 1: Fast check with adaptive threshold (fastest, good for clear images)
         flags = (
             cv2.CALIB_CB_ADAPTIVE_THRESH +
             cv2.CALIB_CB_NORMALIZE_IMAGE +
@@ -497,9 +503,18 @@ class CalibrationStep(BaseStep):
         )
         found, corners = cv2.findChessboardCorners(gray, pattern_size, flags)
 
-        # If not found with strict settings, try without fast check
+        # Strategy 2: Without fast check (slower, more thorough)
         if not found:
             flags = cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE
+            found, corners = cv2.findChessboardCorners(gray, pattern_size, flags)
+
+        # Strategy 3: With filtering for distant/small boards
+        if not found:
+            flags = (
+                cv2.CALIB_CB_ADAPTIVE_THRESH +
+                cv2.CALIB_CB_NORMALIZE_IMAGE +
+                cv2.CALIB_CB_FILTER_QUADS
+            )
             found, corners = cv2.findChessboardCorners(gray, pattern_size, flags)
 
         # Prepare annotated image - convert to BGR if grayscale for drawing
@@ -514,6 +529,18 @@ class CalibrationStep(BaseStep):
             criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
             corners_refined = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
             cv2.drawChessboardCorners(annotated, pattern_size, corners_refined, found)
+        else:
+            # Draw hint text when not detected
+            hint_text = f"Move {self._pattern_cols}x{self._pattern_rows} board into shared view"
+            cv2.putText(
+                annotated,
+                hint_text,
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 0, 255),
+                2
+            )
 
         return found, annotated
 
