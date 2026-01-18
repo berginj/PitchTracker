@@ -9,6 +9,7 @@ import time
 from collections import deque
 from typing import Callable, Dict, List, Optional, Tuple
 
+from app.events import ErrorCategory, ErrorSeverity, publish_error
 from contracts import Detection, Frame
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,11 @@ class DetectionThreadPool:
         self._detection_error_lock = threading.Lock()
         self._last_error_log_time: Dict[str, float] = {"left": 0.0, "right": 0.0}
         self._max_consecutive_errors = 10
+
+        # Frame drop tracking
+        self._frames_dropped: Dict[str, int] = {"left": 0, "right": 0, "results": 0}
+        self._last_drop_log_time: Dict[str, float] = {"left": 0.0, "right": 0.0, "results": 0.0}
+        self._drop_warning_threshold = 10  # Warn after this many drops
 
     def set_detect_callback(self, callback: Callable[[str, Frame], list[Detection]]) -> None:
         """Set callback for detection.
@@ -163,7 +169,7 @@ class DetectionThreadPool:
             return
 
         target = self._left_detect_queue if label == "left" else self._right_detect_queue
-        self._queue_put_drop_oldest(target, frame)
+        self._queue_put_drop_oldest(target, frame, queue_name=label)
 
     def set_mode(self, mode: str, worker_count: int) -> None:
         """Update threading mode (requires restart to take effect).
@@ -200,19 +206,54 @@ class DetectionThreadPool:
         self._right_detect_queue = queue.Queue(maxsize=self._queue_size)
         self._detect_result_queue = queue.Queue(maxsize=self._queue_size * 4)
 
-    @staticmethod
-    def _queue_put_drop_oldest(target: queue.Queue, item) -> None:
+    def _queue_put_drop_oldest(self, target: queue.Queue, item, queue_name: str = "unknown") -> None:
         """Put item in queue, dropping oldest if full.
 
         Args:
             target: Queue to put item in
             item: Item to put
+            queue_name: Name of queue for tracking/logging
         """
         try:
             target.put_nowait(item)
             return
         except queue.Full:
-            pass
+            # Track dropped frame
+            with self._detection_error_lock:
+                self._frames_dropped[queue_name] = self._frames_dropped.get(queue_name, 0) + 1
+                drop_count = self._frames_dropped[queue_name]
+
+                # Throttle logging to once per 5 seconds
+                current_time = time.monotonic()
+                time_since_last_log = current_time - self._last_drop_log_time.get(queue_name, 0.0)
+
+                if time_since_last_log > 5.0:
+                    logger.warning(
+                        f"Detection queue '{queue_name}' full, dropped {drop_count} frames total. "
+                        f"Detection may not be keeping up with frame rate."
+                    )
+                    self._last_drop_log_time[queue_name] = current_time
+
+                    # Publish warning event
+                    publish_error(
+                        category=ErrorCategory.DETECTION,
+                        severity=ErrorSeverity.WARNING,
+                        message=f"Detection queue '{queue_name}' full, dropping frames",
+                        source=f"DetectionThreadPool.{queue_name}",
+                        frames_dropped=drop_count,
+                        queue_name=queue_name,
+                    )
+
+                # Publish critical error if too many drops
+                if drop_count >= 100 and drop_count % 100 == 0:
+                    publish_error(
+                        category=ErrorCategory.DETECTION,
+                        severity=ErrorSeverity.CRITICAL,
+                        message=f"Detection queue '{queue_name}' consistently dropping frames ({drop_count} total)",
+                        source=f"DetectionThreadPool.{queue_name}",
+                        frames_dropped=drop_count,
+                        queue_name=queue_name,
+                    )
 
         # Drop oldest item
         try:
@@ -224,6 +265,7 @@ class DetectionThreadPool:
         try:
             target.put_nowait(item)
         except queue.Full:
+            logger.error(f"Failed to put item in queue '{queue_name}' even after dropping oldest")
             pass
 
     def _detect_frame(self, label: str, frame: Frame) -> list[Detection]:
@@ -271,12 +313,35 @@ class DetectionThreadPool:
                     )
                     self._last_error_log_time[label] = current_time
 
+                    # Publish error event to bus
+                    publish_error(
+                        category=ErrorCategory.DETECTION,
+                        severity=ErrorSeverity.ERROR,
+                        message=f"Detection failed for {label} camera",
+                        source=f"DetectionThreadPool.{label}",
+                        exception=e,
+                        error_count=error_count,
+                        camera=label,
+                    )
+
                 # Notify error callback if too many consecutive failures
                 if error_count >= self._max_consecutive_errors:
                     logger.critical(
                         f"Detection failing consistently for {label} camera "
                         f"({error_count} consecutive errors). Detection may be broken."
                     )
+
+                    # Publish critical error event
+                    publish_error(
+                        category=ErrorCategory.DETECTION,
+                        severity=ErrorSeverity.CRITICAL,
+                        message=f"Detection failing consistently for {label} camera ({error_count} consecutive errors)",
+                        source=f"DetectionThreadPool.{label}",
+                        exception=e,
+                        error_count=error_count,
+                        camera=label,
+                    )
+
                     if self._error_callback:
                         try:
                             self._error_callback(f"detection_{label}", e)
@@ -301,7 +366,7 @@ class DetectionThreadPool:
                 continue
 
             detections = self._detect_frame(label, frame)
-            self._queue_put_drop_oldest(self._detect_result_queue, (label, frame, detections))
+            self._queue_put_drop_oldest(self._detect_result_queue, (label, frame, detections), queue_name="results")
 
     def _detection_loop_pool(self) -> None:
         """Detection loop for worker pool mode (shared workers)."""
@@ -327,7 +392,7 @@ class DetectionThreadPool:
 
                 # Process frame
                 detections = self._detect_frame(label, frame)
-                self._queue_put_drop_oldest(self._detect_result_queue, (label, frame, detections))
+                self._queue_put_drop_oldest(self._detect_result_queue, (label, frame, detections), queue_name="results")
 
                 with self._detector_busy_lock:
                     self._detector_busy[label] = False

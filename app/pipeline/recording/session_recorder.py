@@ -14,11 +14,11 @@ from typing import Optional, Tuple
 
 import cv2
 
+from app.events import ErrorCategory, ErrorSeverity, publish_error
+from app.pipeline.recording.manifest import create_session_manifest
 from configs.settings import AppConfig
 from contracts import Frame
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
-
-from app.pipeline.recording.manifest import create_session_manifest
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +126,17 @@ class SessionRecorder:
                         f"CRITICAL DISK SPACE: {free_gb:.1f}GB remaining! "
                         f"Recording must stop immediately to avoid data corruption."
                     )
+
+                    # Publish critical error event
+                    publish_error(
+                        category=ErrorCategory.DISK_SPACE,
+                        severity=ErrorSeverity.CRITICAL,
+                        message=f"Critical disk space: {free_gb:.1f}GB remaining",
+                        source="SessionRecorder.disk_monitor",
+                        free_gb=free_gb,
+                        threshold_gb=self._critical_disk_gb,
+                    )
+
                     if self._disk_error_callback:
                         try:
                             self._disk_error_callback(
@@ -146,6 +157,16 @@ class SessionRecorder:
                             f"Consider ending session soon."
                         )
                         last_warning_time = current_time
+
+                        # Publish warning event
+                        publish_error(
+                            category=ErrorCategory.DISK_SPACE,
+                            severity=ErrorSeverity.WARNING,
+                            message=f"Low disk space: {free_gb:.1f}GB remaining",
+                            source="SessionRecorder.disk_monitor",
+                            free_gb=free_gb,
+                            threshold_gb=self._warning_disk_gb,
+                        )
 
                 # Check every 5 seconds
                 time.sleep(5.0)
@@ -367,11 +388,22 @@ class SessionRecorder:
                 writer.release()
                 logger.debug(f"Codec {codec_name} failed for {path.name}, trying next...")
 
-        # All codecs failed
-        raise RuntimeError(
+        # All codecs failed - publish error event
+        error_msg = (
             f"Failed to open video writer for {path.name}. "
             f"Tried codecs: {codec_list}. Check that ffmpeg or system codecs are installed."
         )
+
+        publish_error(
+            category=ErrorCategory.RECORDING,
+            severity=ErrorSeverity.CRITICAL,
+            message=f"All video codecs failed for {path.name}",
+            source="SessionRecorder._open_video_writer",
+            video_path=str(path),
+            tried_codecs=codec_list,
+        )
+
+        raise RuntimeError(error_msg)
 
     def _open_writers(self) -> None:
         """Open video writers and CSV files."""
