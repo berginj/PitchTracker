@@ -14,9 +14,9 @@ class TestConfigValidator(unittest.TestCase):
         """Set up test fixtures."""
         self.validator = ConfigValidator()
 
-        # Create mock config with valid defaults
-        self.mock_config = Mock()
-        self.mock_config.camera = Mock()
+        # Create mock config with valid defaults (spec to prevent auto-attributes)
+        self.mock_config = Mock(spec=["camera"])
+        self.mock_config.camera = Mock(spec=["width", "height", "fps", "exposure"])
         self.mock_config.camera.width = 1280
         self.mock_config.camera.height = 720
         self.mock_config.camera.fps = 30
@@ -79,7 +79,7 @@ class TestConfigValidator(unittest.TestCase):
 
     def test_invalid_recording_quality(self):
         """Test that invalid recording quality is caught."""
-        self.mock_config.recording = Mock()
+        self.mock_config.recording = Mock(spec=["quality"])
         self.mock_config.recording.quality = 150  # Should be 0-100
 
         is_valid, issues = self.validator.validate(self.mock_config)
@@ -89,7 +89,7 @@ class TestConfigValidator(unittest.TestCase):
 
     def test_large_buffer_size_warns(self):
         """Test that large buffer size generates warning."""
-        self.mock_config.recording = Mock()
+        self.mock_config.recording = Mock(spec=["buffer_size"])
         self.mock_config.recording.buffer_size = 150
 
         is_valid, issues = self.validator.validate(self.mock_config)
@@ -99,7 +99,7 @@ class TestConfigValidator(unittest.TestCase):
 
     def test_invalid_confidence_threshold(self):
         """Test that invalid confidence threshold is caught."""
-        self.mock_config.detection = Mock()
+        self.mock_config.detection = Mock(spec=["confidence_threshold"])
         self.mock_config.detection.confidence_threshold = 1.5  # Should be 0.0-1.0
 
         is_valid, issues = self.validator.validate(self.mock_config)
@@ -109,7 +109,7 @@ class TestConfigValidator(unittest.TestCase):
 
     def test_low_confidence_warns(self):
         """Test that very low confidence threshold warns."""
-        self.mock_config.detection = Mock()
+        self.mock_config.detection = Mock(spec=["confidence_threshold"])
         self.mock_config.detection.confidence_threshold = 0.2
 
         is_valid, issues = self.validator.validate(self.mock_config)
@@ -119,7 +119,7 @@ class TestConfigValidator(unittest.TestCase):
 
     def test_invalid_focal_length(self):
         """Test that invalid focal length is caught."""
-        self.mock_config.calibration = Mock()
+        self.mock_config.calibration = Mock(spec=["focal_length"])
         self.mock_config.calibration.focal_length = -500
 
         is_valid, issues = self.validator.validate(self.mock_config)
@@ -129,7 +129,7 @@ class TestConfigValidator(unittest.TestCase):
 
     def test_low_focal_length_warns(self):
         """Test that very low focal length warns."""
-        self.mock_config.calibration = Mock()
+        self.mock_config.calibration = Mock(spec=["focal_length"])
         self.mock_config.calibration.focal_length = 50
 
         is_valid, issues = self.validator.validate(self.mock_config)
@@ -139,7 +139,7 @@ class TestConfigValidator(unittest.TestCase):
 
     def test_invalid_baseline(self):
         """Test that invalid baseline is caught."""
-        self.mock_config.calibration = Mock()
+        self.mock_config.calibration = Mock(spec=["baseline"])
         self.mock_config.calibration.baseline = 0
 
         is_valid, issues = self.validator.validate(self.mock_config)

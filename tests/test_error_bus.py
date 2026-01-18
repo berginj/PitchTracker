@@ -59,6 +59,11 @@ class TestErrorEventBus(unittest.TestCase):
         """Set up test fixtures."""
         self.bus = ErrorEventBus()
 
+    def tearDown(self):
+        """Clean up after tests."""
+        # Clear bus history and unsubscribe all
+        self.bus.clear_history()
+
     def test_subscribe_to_all_errors(self):
         """Test subscribing to all error events."""
         callback = Mock()

@@ -80,12 +80,14 @@ class ErrorEventBus:
         with self._lock:
             if category is None:
                 self._all_subscribers.append(callback)
-                logger.debug(f"Subscribed to all error events: {callback.__name__}")
+                callback_name = getattr(callback, '__name__', repr(callback))
+                logger.debug(f"Subscribed to all error events: {callback_name}")
             else:
                 if category not in self._subscribers:
                     self._subscribers[category] = []
                 self._subscribers[category].append(callback)
-                logger.debug(f"Subscribed to {category.value} errors: {callback.__name__}")
+                callback_name = getattr(callback, '__name__', repr(callback))
+                logger.debug(f"Subscribed to {category.value} errors: {callback_name}")
 
     def unsubscribe(
         self, callback: Callable[[ErrorEvent], None], category: Optional[ErrorCategory] = None
@@ -100,11 +102,13 @@ class ErrorEventBus:
             if category is None:
                 if callback in self._all_subscribers:
                     self._all_subscribers.remove(callback)
-                    logger.debug(f"Unsubscribed from all errors: {callback.__name__}")
+                    callback_name = getattr(callback, '__name__', repr(callback))
+                    logger.debug(f"Unsubscribed from all errors: {callback_name}")
             else:
                 if category in self._subscribers and callback in self._subscribers[category]:
                     self._subscribers[category].remove(callback)
-                    logger.debug(f"Unsubscribed from {category.value} errors: {callback.__name__}")
+                    callback_name = getattr(callback, '__name__', repr(callback))
+                    logger.debug(f"Unsubscribed from {category.value} errors: {callback_name}")
 
     def publish(self, event: ErrorEvent) -> None:
         """Publish error event to subscribers.
