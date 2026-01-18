@@ -99,6 +99,7 @@ class ConfigService:
                 detector=self._config.detector,
                 strike_zone=updated_zone,
                 ball=self._config.ball,
+                upload=self._config.upload,
             )
 
     def update_strike_zone_ratios(self, top_ratio: float, bottom_ratio: float) -> None:
@@ -135,4 +136,44 @@ class ConfigService:
                 detector=self._config.detector,
                 strike_zone=updated_zone,
                 ball=self._config.ball,
+                upload=self._config.upload,
+            )
+
+    def update_mound_distance(self, distance_ft: float) -> None:
+        """Update plate-to-mound distance (release plane).
+
+        Creates new immutable config with updated metrics.
+
+        Args:
+            distance_ft: Distance from plate to mound in feet
+        """
+        with self._lock:
+            if self._config is None or self._config.metrics is None:
+                return
+
+            # Create new metrics with updated release plane
+            updated_metrics = self._config.metrics.__class__(
+                coordinate_system=self._config.metrics.coordinate_system,
+                plate_plane_z_ft=self._config.metrics.plate_plane_z_ft,
+                release_plane_z_ft=distance_ft,
+                approach_window_ft=self._config.metrics.approach_window_ft,
+                velo_bounds_mph=self._config.metrics.velo_bounds_mph,
+                hb_bounds_in=self._config.metrics.hb_bounds_in,
+                ivb_bounds_in=self._config.metrics.ivb_bounds_in,
+                release_height_bounds_ft=self._config.metrics.release_height_bounds_ft,
+            )
+
+            # Create new config with updated metrics
+            self._config = self._config.__class__(
+                camera=self._config.camera,
+                stereo=self._config.stereo,
+                tracking=self._config.tracking,
+                metrics=updated_metrics,
+                recording=self._config.recording,
+                ui=self._config.ui,
+                telemetry=self._config.telemetry,
+                detector=self._config.detector,
+                strike_zone=self._config.strike_zone,
+                ball=self._config.ball,
+                upload=self._config.upload,
             )

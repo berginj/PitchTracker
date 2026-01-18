@@ -106,11 +106,11 @@ class CoachWindow(QtWidgets.QMainWindow):
         """Build session information bar."""
         # Session name
         self._session_label = QtWidgets.QLabel("Session: <not started>")
-        self._session_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
+        self._session_label.setStyleSheet("font-size: 14pt; font-weight: bold; color: #000000;")
 
         # Pitcher name
         self._pitcher_label = QtWidgets.QLabel("Pitcher: <not selected>")
-        self._pitcher_label.setStyleSheet("font-size: 12pt;")
+        self._pitcher_label.setStyleSheet("font-size: 12pt; color: #000000;")
 
         # Pitch count
         self._pitch_count_label = QtWidgets.QLabel("Pitches: 0")
@@ -121,11 +121,17 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._recording_indicator.setStyleSheet("font-size: 12pt; color: red; font-weight: bold;")
         self._recording_indicator.hide()
 
+        # Separator labels (also need black color)
+        sep1 = QtWidgets.QLabel("|")
+        sep1.setStyleSheet("color: #666666;")
+        sep2 = QtWidgets.QLabel("|")
+        sep2.setStyleSheet("color: #666666;")
+
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(self._session_label)
-        layout.addWidget(QtWidgets.QLabel("|"))
+        layout.addWidget(sep1)
         layout.addWidget(self._pitcher_label)
-        layout.addWidget(QtWidgets.QLabel("|"))
+        layout.addWidget(sep2)
         layout.addWidget(self._pitch_count_label)
         layout.addStretch()
         layout.addWidget(self._recording_indicator)
@@ -497,11 +503,12 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         from ui.coaching.dialogs.settings_dialog import SettingsDialog
 
-        # Get current camera assignments from app state
+        # Get current camera assignments and settings from app state
         from configs.app_state import load_state
         state = load_state()
         current_left = state.get("last_left_camera", "0")
         current_right = state.get("last_right_camera", "1")
+        current_mound_distance = state.get("mound_distance_ft", self._config.metrics.release_plane_z_ft)
 
         dialog = SettingsDialog(
             current_width=self._camera_width,
@@ -509,6 +516,8 @@ class CoachWindow(QtWidgets.QMainWindow):
             current_fps=self._camera_fps,
             current_left_camera=current_left,
             current_right_camera=current_right,
+            current_mound_distance=current_mound_distance,
+            current_ball_type=self._config.ball.type,
             parent=self,
         )
 
@@ -521,6 +530,11 @@ class CoachWindow(QtWidgets.QMainWindow):
             self._camera_width = dialog.width
             self._camera_height = dialog.height
             self._camera_fps = dialog.fps
+
+            # Update mound distance if changed
+            if dialog.mound_distance_ft != current_mound_distance:
+                self._service.update_mound_distance(dialog.mound_distance_ft)
+                logger.info(f"Updated mound distance to {dialog.mound_distance_ft:.1f} ft")
 
             # Restart capture if it's running
             if self._service.is_capturing():

@@ -33,11 +33,13 @@ class SettingsDialog(QtWidgets.QDialog):
         current_fps: int = 30,
         current_left_camera: str = "0",
         current_right_camera: str = "1",
+        current_mound_distance: float = 50.0,
+        current_ball_type: str = "baseball",
         parent: Optional[QtWidgets.QWidget] = None,
     ):
         super().__init__(parent)
         self.setWindowTitle("Coaching App Settings")
-        self.resize(500, 350)
+        self.resize(550, 500)
 
         # Current settings
         self._current_width = current_width
@@ -45,6 +47,8 @@ class SettingsDialog(QtWidgets.QDialog):
         self._current_fps = current_fps
         self._current_left = current_left_camera
         self._current_right = current_right_camera
+        self._current_mound_distance = current_mound_distance
+        self._current_ball_type = current_ball_type
 
         # Result values
         self.width = current_width
@@ -52,6 +56,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.fps = current_fps
         self.left_camera = current_left_camera
         self.right_camera = current_right_camera
+        self.mound_distance_ft = current_mound_distance
         self.settings_changed = False
 
         self._build_ui()
@@ -72,6 +77,10 @@ class SettingsDialog(QtWidgets.QDialog):
         # Camera settings
         camera_group = self._build_camera_group()
         layout.addWidget(camera_group)
+
+        # Mound distance settings
+        distance_group = self._build_distance_group()
+        layout.addWidget(distance_group)
 
         # Warning about restarting
         warning = QtWidgets.QLabel(
@@ -175,6 +184,75 @@ class SettingsDialog(QtWidgets.QDialog):
         group.setLayout(layout)
         return group
 
+    def _build_distance_group(self) -> QtWidgets.QGroupBox:
+        """Build mound distance preset group."""
+        group = QtWidgets.QGroupBox("Plate-to-Mound Distance")
+
+        # Distance presets for softball and baseball
+        softball_label = QtWidgets.QLabel("Softball:")
+        softball_label.setStyleSheet("font-weight: bold;")
+
+        softball_buttons = QtWidgets.QHBoxLayout()
+        softball_35_btn = QtWidgets.QPushButton("35 ft")
+        softball_40_btn = QtWidgets.QPushButton("40 ft")
+        softball_43_btn = QtWidgets.QPushButton("43 ft")
+
+        softball_35_btn.clicked.connect(lambda: self._set_distance(35.0))
+        softball_40_btn.clicked.connect(lambda: self._set_distance(40.0))
+        softball_43_btn.clicked.connect(lambda: self._set_distance(43.0))
+
+        softball_buttons.addWidget(softball_35_btn)
+        softball_buttons.addWidget(softball_40_btn)
+        softball_buttons.addWidget(softball_43_btn)
+
+        baseball_label = QtWidgets.QLabel("Baseball:")
+        baseball_label.setStyleSheet("font-weight: bold;")
+
+        baseball_buttons = QtWidgets.QHBoxLayout()
+        baseball_40_btn = QtWidgets.QPushButton("40 ft (Youth)")
+        baseball_50_btn = QtWidgets.QPushButton("50 ft (HS)")
+        baseball_60_btn = QtWidgets.QPushButton("60.5 ft (MLB)")
+
+        baseball_40_btn.clicked.connect(lambda: self._set_distance(40.0))
+        baseball_50_btn.clicked.connect(lambda: self._set_distance(50.0))
+        baseball_60_btn.clicked.connect(lambda: self._set_distance(60.5))
+
+        baseball_buttons.addWidget(baseball_40_btn)
+        baseball_buttons.addWidget(baseball_50_btn)
+        baseball_buttons.addWidget(baseball_60_btn)
+
+        # Current distance display
+        current_label = QtWidgets.QLabel("Current Distance:")
+        self._distance_display = QtWidgets.QLabel(f"{self._current_mound_distance:.1f} ft")
+        self._distance_display.setStyleSheet("font-weight: bold; font-size: 12pt; color: #2196F3;")
+
+        # Custom distance input
+        custom_label = QtWidgets.QLabel("Custom:")
+        self._custom_distance_spin = QtWidgets.QDoubleSpinBox()
+        self._custom_distance_spin.setRange(20.0, 100.0)
+        self._custom_distance_spin.setValue(self._current_mound_distance)
+        self._custom_distance_spin.setSuffix(' ft')
+        self._custom_distance_spin.setSingleStep(0.5)
+        self._custom_distance_spin.valueChanged.connect(self._set_distance)
+
+        layout = QtWidgets.QGridLayout()
+        layout.addWidget(softball_label, 0, 0)
+        layout.addLayout(softball_buttons, 0, 1, 1, 2)
+        layout.addWidget(baseball_label, 1, 0)
+        layout.addLayout(baseball_buttons, 1, 1, 1, 2)
+        layout.addWidget(current_label, 2, 0)
+        layout.addWidget(self._distance_display, 2, 1)
+        layout.addWidget(custom_label, 3, 0)
+        layout.addWidget(self._custom_distance_spin, 3, 1)
+
+        group.setLayout(layout)
+        return group
+
+    def _set_distance(self, distance: float) -> None:
+        """Update distance display and spinbox."""
+        self._distance_display.setText(f"{distance:.1f} ft")
+        self._custom_distance_spin.setValue(distance)
+
     def _swap_cameras(self) -> None:
         """Swap left and right camera selections."""
         left_index = self._left_camera_combo.currentIndex()
@@ -208,6 +286,9 @@ class SettingsDialog(QtWidgets.QDialog):
             )
             return
 
+        # Get mound distance
+        mound_distance = self._custom_distance_spin.value()
+
         # Check if settings changed
         settings_changed = (
             width != self._current_width
@@ -215,6 +296,7 @@ class SettingsDialog(QtWidgets.QDialog):
             or fps != self._current_fps
             or left_camera != self._current_left
             or right_camera != self._current_right
+            or mound_distance != self._current_mound_distance
         )
 
         # Set result values
@@ -223,6 +305,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.fps = fps
         self.left_camera = left_camera
         self.right_camera = right_camera
+        self.mound_distance_ft = mound_distance
         self.settings_changed = settings_changed
 
         # Save to app state for persistence
@@ -232,6 +315,7 @@ class SettingsDialog(QtWidgets.QDialog):
         state["coaching_fps"] = fps
         state["last_left_camera"] = left_camera
         state["last_right_camera"] = right_camera
+        state["mound_distance_ft"] = mound_distance
         save_state(state)
 
         self.accept()
