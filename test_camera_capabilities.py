@@ -258,6 +258,14 @@ def main():
     print("Camera Capability Testing")
     print("=" * 70)
 
+    # Ask user how many cameras to test
+    print("\nHow many cameras do you want to test? (default: 6 for cameras 0-5)")
+    try:
+        num_cameras = int(input("Enter number: ") or "6")
+    except ValueError:
+        num_cameras = 6
+        print(f"Using default: {num_cameras} cameras")
+
     # Create output directory
     output_dir = Path("camera_tests")
     output_dir.mkdir(exist_ok=True)
@@ -266,6 +274,7 @@ def main():
     report_lines.append("=" * 70)
     report_lines.append("CAMERA CAPABILITY TEST REPORT")
     report_lines.append(f"Date: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    report_lines.append(f"Testing cameras: 0 to {num_cameras - 1}")
     report_lines.append("=" * 70)
 
     # Test both backends
@@ -278,17 +287,27 @@ def main():
         print(f"Testing with {backend_name} backend")
         print(f"{'='*70}")
 
-        # Test camera 0 (left)
-        supported_0 = test_camera_modes(0, backend)
-        report_lines.append(f"\nCamera 0 Supported Modes ({len(supported_0)}):")
-        for mode in supported_0:
-            report_lines.append(f"  - {mode[0]}x{mode[1]}@{mode[2]}fps")
+        # Store results for all cameras
+        all_supported = {}
 
-        # Test camera 1 (right)
-        supported_1 = test_camera_modes(1, backend)
-        report_lines.append(f"\nCamera 1 Supported Modes ({len(supported_1)}):")
-        for mode in supported_1:
-            report_lines.append(f"  - {mode[0]}x{mode[1]}@{mode[2]}fps")
+        # Test each camera
+        for cam_idx in range(num_cameras):
+            supported = test_camera_modes(cam_idx, backend)
+            all_supported[cam_idx] = supported
+            report_lines.append(f"\nCamera {cam_idx} Supported Modes ({len(supported)}):")
+            for mode in supported:
+                report_lines.append(f"  - {mode[0]}x{mode[1]}@{mode[2]}fps")
+
+        # Find modes supported by ALL cameras
+        if all_supported:
+            common_modes = set(all_supported[0])
+            for cam_idx in range(1, num_cameras):
+                if cam_idx in all_supported:
+                    common_modes &= set(all_supported[cam_idx])
+
+            # Keep the existing dual-camera test for cameras 0 and 1
+            supported_0 = all_supported.get(0, [])
+            supported_1 = all_supported.get(1, [])
 
         # If both cameras support a mode, test memory and dual-camera
         common_modes = set(supported_0) & set(supported_1)
