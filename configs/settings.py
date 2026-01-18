@@ -39,6 +39,8 @@ class StereoConfig:
     z_min_ft: float
     z_max_ft: float
     max_jump_in: float
+    use_frame_index_pairing: bool = False  # Use frame indices instead of timestamps for pairing
+    frame_index_tolerance: int = 1  # Allow frame indices to differ by this amount
 
 
 @dataclass(frozen=True)

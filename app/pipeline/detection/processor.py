@@ -274,8 +274,77 @@ class DetectionProcessor:
     def _match_stereo_buffers(self) -> None:
         """Match stereo pairs from buffered frames.
 
-        Pairs left/right frames based on temporal proximity and processes them.
+        Pairs left/right frames based on temporal proximity (or frame indices if enabled).
         Also monitors timestamp synchronization quality.
+        """
+        # Use frame-index pairing if enabled
+        if self._config and self._config.stereo.use_frame_index_pairing:
+            self._match_by_frame_index()
+        else:
+            self._match_by_timestamp()
+
+    def _match_by_frame_index(self) -> None:
+        """Match stereo pairs by frame index instead of timestamp.
+
+        More reliable than timestamp matching if cameras maintain sync.
+        Assumes both cameras capture at same rate.
+        """
+        while self._left_buffer and self._right_buffer:
+            left_frame, left_dets = self._left_buffer[0]
+            right_frame, right_dets = self._right_buffer[0]
+
+            # Get frame indices
+            left_idx = left_frame.frame_index
+            right_idx = right_frame.frame_index
+
+            # Get tolerance from config
+            tolerance = 1
+            if self._config is not None:
+                tolerance = self._config.stereo.frame_index_tolerance
+
+            # Check if indices match within tolerance
+            index_diff = abs(left_idx - right_idx)
+
+            if index_diff > tolerance:
+                # Indices don't match, drop the one that's behind
+                self._dropped_frames_sync += 1
+                if left_idx < right_idx:
+                    self._left_buffer.popleft()
+                    logger.debug(
+                        f"Dropped left frame (index {left_idx} vs {right_idx}, diff={index_diff})"
+                    )
+                else:
+                    self._right_buffer.popleft()
+                    logger.debug(
+                        f"Dropped right frame (index {right_idx} vs {left_idx}, diff={index_diff})"
+                    )
+                continue
+
+            # Frames matched by index - still track timestamp delta for monitoring
+            delta = abs(left_frame.t_capture_monotonic_ns - right_frame.t_capture_monotonic_ns)
+            self._frame_deltas_ns.append(delta)
+            self._total_paired_frames += 1
+
+            # Warn if timestamps are very different (indicates drift)
+            if delta > 50_000_000:  # 50ms
+                logger.warning(
+                    f"Frame index match (left={left_idx}, right={right_idx}) "
+                    f"but large timestamp delta: {delta/1e6:.1f}ms"
+                )
+
+            # Periodic sync quality check
+            if self._total_paired_frames % 100 == 0:
+                self._check_sync_quality()
+
+            # Process the pair
+            self._left_buffer.popleft()
+            self._right_buffer.popleft()
+            self._process_stereo_pair(left_frame, right_frame, left_dets, right_dets)
+
+    def _match_by_timestamp(self) -> None:
+        """Match stereo pairs by timestamp (traditional method).
+
+        Pairs frames based on temporal proximity within tolerance.
         """
         while self._left_buffer and self._right_buffer:
             left_frame, left_dets = self._left_buffer[0]
