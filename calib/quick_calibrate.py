@@ -137,10 +137,20 @@ def _calibrate(
 
 
 def _write_config(config_path: Path, updates: dict) -> None:
+    """Write scalar calibration values to YAML config.
+
+    Only writes baseline_ft, focal_length_px, cx, cy to config.
+    Full matrices are saved separately to npz file.
+    """
     data = yaml.safe_load(config_path.read_text())
     data.setdefault("stereo", {})
-    for key, value in updates.items():
-        data["stereo"][key] = value
+
+    # Only write scalar values to YAML config (not numpy arrays)
+    scalar_keys = ["baseline_ft", "focal_length_px", "cx", "cy"]
+    for key in scalar_keys:
+        if key in updates:
+            data["stereo"][key] = updates[key]
+
     config_path.write_text(yaml.safe_dump(data, sort_keys=False))
 
 
