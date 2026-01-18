@@ -784,6 +784,10 @@ class InProcessPipelineService(PipelineService):
 
         # Initialize session recorder
         self._session_recorder = SessionRecorder(self._config, self._record_dir)
+
+        # Set disk error callback to auto-stop recording when disk critical
+        self._session_recorder.set_disk_error_callback(self._on_disk_critical)
+
         session_dir, warning = self._session_recorder.start_session(
             self._record_session or "session", self._pitch_id
         )
@@ -868,4 +872,23 @@ class InProcessPipelineService(PipelineService):
     def _write_session_summary(self) -> None:
         if self._session_recorder:
             self._session_recorder.write_session_summary(self._last_session_summary)
+
+    def _on_disk_critical(self, free_gb: float, message: str) -> None:
+        """Callback when disk space becomes critical.
+
+        Automatically stops recording to prevent data corruption.
+
+        Args:
+            free_gb: Free disk space in GB
+            message: Warning message
+        """
+        logger.critical(f"Disk critical callback triggered: {message}")
+
+        # Stop recording immediately
+        if self._recording:
+            logger.warning("Auto-stopping recording due to critical disk space")
+            try:
+                self.stop_recording()
+            except Exception as e:
+                logger.error(f"Error stopping recording on disk critical: {e}")
 
