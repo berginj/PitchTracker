@@ -57,6 +57,13 @@ class DetectionThreadPool:
         # Callbacks
         self._detect_callback: Optional[Callable[[str, Frame], list[Detection]]] = None
         self._stereo_callback: Optional[Callable[[str, Frame, list[Detection]], None]] = None
+        self._error_callback: Optional[Callable[[str, Exception], None]] = None
+
+        # Error tracking
+        self._detection_errors: Dict[str, int] = {"left": 0, "right": 0}
+        self._detection_error_lock = threading.Lock()
+        self._last_error_log_time: Dict[str, float] = {"left": 0.0, "right": 0.0}
+        self._max_consecutive_errors = 10
 
     def set_detect_callback(self, callback: Callable[[str, Frame], list[Detection]]) -> None:
         """Set callback for detection.
@@ -74,6 +81,14 @@ class DetectionThreadPool:
         """
         self._stereo_callback = callback
 
+    def set_error_callback(self, callback: Callable[[str, Exception], None]) -> None:
+        """Set callback for error notification.
+
+        Args:
+            callback: Function to handle errors, receives (source, exception)
+        """
+        self._error_callback = callback
+
     def start(self, queue_size: int = 6) -> None:
         """Start detection threads.
 
@@ -89,6 +104,11 @@ class DetectionThreadPool:
         self._detector_busy = {"left": False, "right": False}
         self._detector_threads = []
         self._worker_threads = []
+
+        # Reset error tracking
+        with self._detection_error_lock:
+            self._detection_errors = {"left": 0, "right": 0}
+            self._last_error_log_time = {"left": 0.0, "right": 0.0}
 
         # Start stereo matching thread
         self._stereo_thread = threading.Thread(target=self._stereo_loop, daemon=True)
@@ -165,6 +185,15 @@ class DetectionThreadPool:
         """
         return self._detection_running
 
+    def get_error_stats(self) -> Dict[str, int]:
+        """Get detection error statistics.
+
+        Returns:
+            Dictionary with error counts per camera {"left": count, "right": count}
+        """
+        with self._detection_error_lock:
+            return self._detection_errors.copy()
+
     def _reset_queues(self) -> None:
         """Reset all detection queues."""
         self._left_detect_queue = queue.Queue(maxsize=self._queue_size)
@@ -206,13 +235,56 @@ class DetectionThreadPool:
 
         Returns:
             List of detections
+
+        Note:
+            Tracks detection errors and invokes error callback if too many failures.
+            Throttles error logging to avoid log spam (max once per 5 seconds per camera).
         """
         if self._detect_callback is None:
             return []
 
         try:
-            return self._detect_callback(label, frame)
-        except Exception:
+            detections = self._detect_callback(label, frame)
+
+            # Success - reset error counter for this camera
+            with self._detection_error_lock:
+                if self._detection_errors[label] > 0:
+                    logger.info(f"Detection recovered for {label} camera after {self._detection_errors[label]} errors")
+                    self._detection_errors[label] = 0
+
+            return detections
+
+        except Exception as e:
+            # Track and log error
+            with self._detection_error_lock:
+                self._detection_errors[label] += 1
+                error_count = self._detection_errors[label]
+
+                # Throttle logging to once per 5 seconds
+                current_time = time.monotonic()
+                time_since_last_log = current_time - self._last_error_log_time.get(label, 0.0)
+
+                if time_since_last_log > 5.0:
+                    logger.error(
+                        f"Detection failed for {label} camera (error #{error_count}): {e.__class__.__name__}: {e}",
+                        exc_info=True
+                    )
+                    self._last_error_log_time[label] = current_time
+
+                # Notify error callback if too many consecutive failures
+                if error_count >= self._max_consecutive_errors:
+                    logger.critical(
+                        f"Detection failing consistently for {label} camera "
+                        f"({error_count} consecutive errors). Detection may be broken."
+                    )
+                    if self._error_callback:
+                        try:
+                            self._error_callback(f"detection_{label}", e)
+                        except Exception as callback_error:
+                            logger.error(f"Error callback failed: {callback_error}")
+
+            # Return empty list to allow pipeline to continue
+            # but errors are now visible and tracked
             return []
 
     def _detection_loop_per_camera(self, label: str, source: queue.Queue) -> None:
