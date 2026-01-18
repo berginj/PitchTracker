@@ -720,6 +720,14 @@ class InProcessPipelineService(PipelineService):
             return self._detection_processor.get_strike_result()
         return StrikeResult(is_strike=False, sample_count=0)
 
+    def is_capturing(self) -> bool:
+        """Check if cameras are currently capturing.
+
+        Returns:
+            True if cameras are actively capturing frames
+        """
+        return self._camera_mgr.is_capturing()
+
     def set_ball_type(self, ball_type: str) -> None:
         if self._config_service is not None:
             self._config_service.set_ball_type(ball_type)

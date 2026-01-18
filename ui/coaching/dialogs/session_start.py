@@ -41,6 +41,8 @@ class SessionStartDialog(QtWidgets.QDialog):
         self.session_name = ""
         self.batter_height_in = 0.0
         self.ball_type = ""
+        self.left_serial = ""
+        self.right_serial = ""
 
         self._build_ui()
         self._generate_session_name()
@@ -61,6 +63,10 @@ class SessionStartDialog(QtWidgets.QDialog):
         # Session name
         session_group = self._build_session_group()
         layout.addWidget(session_group)
+
+        # Camera selection
+        camera_group = self._build_camera_group()
+        layout.addWidget(camera_group)
 
         # Quick settings
         settings_group = self._build_settings_group()
@@ -129,6 +135,50 @@ class SessionStartDialog(QtWidgets.QDialog):
         name_layout.addWidget(self._session_name_input, 3)
         name_layout.addWidget(auto_button, 1)
         layout.addLayout(name_layout)
+
+        group.setLayout(layout)
+        return group
+
+    def _build_camera_group(self) -> QtWidgets.QGroupBox:
+        """Build camera selection group."""
+        from ui.device_utils import probe_uvc_devices, probe_opencv_indices
+
+        group = QtWidgets.QGroupBox("Cameras")
+
+        # Left camera
+        left_label = QtWidgets.QLabel("Left Camera:")
+        self._left_camera_combo = QtWidgets.QComboBox()
+
+        # Right camera
+        right_label = QtWidgets.QLabel("Right Camera:")
+        self._right_camera_combo = QtWidgets.QComboBox()
+
+        # Populate cameras (try UVC first, fallback to OpenCV)
+        devices = probe_uvc_devices()
+        if devices:
+            for device in devices:
+                label = f"{device['serial']} - {device['friendly_name']}"
+                self._left_camera_combo.addItem(label, device["serial"])
+                self._right_camera_combo.addItem(label, device["serial"])
+            if len(devices) >= 2:
+                self._left_camera_combo.setCurrentIndex(0)
+                self._right_camera_combo.setCurrentIndex(1)
+        else:
+            # Fallback to OpenCV indices
+            indices = probe_opencv_indices()
+            for index in indices:
+                label = f"Camera {index}"
+                self._left_camera_combo.addItem(label, str(index))
+                self._right_camera_combo.addItem(label, str(index))
+            if len(indices) >= 2:
+                self._left_camera_combo.setCurrentIndex(0)
+                self._right_camera_combo.setCurrentIndex(1)
+
+        layout = QtWidgets.QGridLayout()
+        layout.addWidget(left_label, 0, 0)
+        layout.addWidget(self._left_camera_combo, 0, 1)
+        layout.addWidget(right_label, 1, 0)
+        layout.addWidget(self._right_camera_combo, 1, 1)
 
         group.setLayout(layout)
         return group
@@ -267,10 +317,24 @@ class SessionStartDialog(QtWidgets.QDialog):
             if reply == QtWidgets.QMessageBox.StandardButton.No:
                 return
 
+        # Get camera serials
+        left_serial = self._left_camera_combo.currentData()
+        right_serial = self._right_camera_combo.currentData()
+
+        if not left_serial or not right_serial:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Missing Cameras",
+                "Please select both left and right cameras.",
+            )
+            return
+
         # Set result values
         self.pitcher_name = self._pitcher_name
         self.session_name = self._session_name
         self.batter_height_in = self._batter_height_in
         self.ball_type = self._ball_type
+        self.left_serial = left_serial
+        self.right_serial = right_serial
 
         self.accept()

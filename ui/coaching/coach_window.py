@@ -300,9 +300,9 @@ class CoachWindow(QtWidgets.QMainWindow):
         # Start capture (if not already running)
         try:
             if not self._service.is_capturing():
-                # Get camera serials from config
-                left_serial = self._config.cameras.left.serial_number
-                right_serial = self._config.cameras.right.serial_number
+                # Get camera serials from dialog
+                left_serial = dialog.left_serial
+                right_serial = dialog.right_serial
 
                 self._status_label.setText("Starting cameras...")
                 QtWidgets.QApplication.processEvents()
