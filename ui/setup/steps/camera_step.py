@@ -112,22 +112,47 @@ class CameraStep(BaseStep):
             if self._backend == "opencv":
                 # OpenCV backend - find indices
                 indices = probe_opencv_indices(max_index=5)
-                devices = [f"Camera {i}" for i in indices]
+
+                if not indices:
+                    self._status_label.setText("⚠️ No cameras found. Check connections and try again.")
+                    self._status_label.setStyleSheet("color: red; font-weight: bold;")
+                    return
+
+                # Add placeholder
+                self._left_combo.addItem("(Select Camera)", None)
+                self._right_combo.addItem("(Select Camera)", None)
+
+                # Add camera indices with proper data
+                for i in indices:
+                    label = f"Camera {i}"
+                    self._left_combo.addItem(label, str(i))
+                    self._right_combo.addItem(label, str(i))
+
+                self._status_label.setText(f"✓ Found {len(indices)} camera(s). Select left and right cameras above.")
+                self._status_label.setStyleSheet("color: green;")
             else:
-                # UVC backend - find serial numbers
+                # UVC backend - find devices with serial numbers
                 devices = probe_uvc_devices()
 
-            if not devices:
-                self._status_label.setText("⚠️ No cameras found. Check connections and try again.")
-                self._status_label.setStyleSheet("color: red; font-weight: bold;")
-                return
+                if not devices:
+                    self._status_label.setText("⚠️ No cameras found. Check connections and try again.")
+                    self._status_label.setStyleSheet("color: red; font-weight: bold;")
+                    return
 
-            # Populate combos
-            self._left_combo.addItems(["(Select Camera)"] + devices)
-            self._right_combo.addItems(["(Select Camera)"] + devices)
+                # Add placeholder
+                self._left_combo.addItem("(Select Camera)", None)
+                self._right_combo.addItem("(Select Camera)", None)
 
-            self._status_label.setText(f"✓ Found {len(devices)} camera(s). Select left and right cameras above.")
-            self._status_label.setStyleSheet("color: green;")
+                # Add UVC devices with proper data
+                for device in devices:
+                    serial = device.get("serial", "")
+                    friendly_name = device.get("friendly_name", "")
+                    label = f"{serial} - {friendly_name}" if serial and friendly_name else (friendly_name or serial)
+                    self._left_combo.addItem(label, serial)
+                    self._right_combo.addItem(label, serial)
+
+                self._status_label.setText(f"✓ Found {len(devices)} camera(s). Select left and right cameras above.")
+                self._status_label.setStyleSheet("color: green;")
 
         except Exception as e:
             self._status_label.setText(f"⚠️ Error discovering cameras: {e}")
@@ -136,14 +161,16 @@ class CameraStep(BaseStep):
     def _on_left_changed(self, text: str) -> None:
         """Handle left camera selection change."""
         if text and text != "(Select Camera)":
-            self._left_serial = text
+            # Get the actual serial/identifier from combo data
+            self._left_serial = current_serial(self._left_combo)
             self._left_preview.setText(f"Left Camera:\n{text}\n\n(Preview not yet implemented)")
             self._update_status()
 
     def _on_right_changed(self, text: str) -> None:
         """Handle right camera selection change."""
         if text and text != "(Select Camera)":
-            self._right_serial = text
+            # Get the actual serial/identifier from combo data
+            self._right_serial = current_serial(self._right_combo)
             self._right_preview.setText(f"Right Camera:\n{text}\n\n(Preview not yet implemented)")
             self._update_status()
 
