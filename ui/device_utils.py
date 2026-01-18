@@ -43,7 +43,7 @@ def probe_opencv_indices(max_index: int = 8) -> list[int]:
 
 
 def probe_uvc_devices() -> list[dict[str, str]]:
-    """Probe for available UVC devices that can be opened.
+    """Probe for available UVC devices.
 
     Returns:
         List of device info dictionaries with serial and friendly_name
@@ -56,13 +56,13 @@ def probe_uvc_devices() -> list[dict[str, str]]:
         if not name:
             continue
 
-        # Try to open device to verify it's accessible
-        cap = cv2.VideoCapture(f"video={name}", cv2.CAP_DSHOW)
-        ok = cap.isOpened()
-        cap.release()
+        # Skip virtual/software cameras that likely won't work
+        name_lower = name.lower()
+        if any(skip in name_lower for skip in ["obs", "snap", "virtual", "screen"]):
+            continue
 
-        if ok:
-            usable.append(device)
+        # Return all physical devices - verification happens during actual opening
+        usable.append(device)
 
     return usable
 
