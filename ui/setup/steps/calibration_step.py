@@ -354,25 +354,38 @@ class CalibrationStep(BaseStep):
         # Try normal close
         self._close_cameras()
 
-        # Try to open and immediately close cameras to force DirectShow to release them
-        serials = []
-        if self._left_serial:
-            serials.append(self._left_serial)
-        if self._right_serial:
-            serials.append(self._right_serial)
+        # Get list of camera device names
+        from capture.uvc_backend import list_uvc_devices
+        devices = list_uvc_devices()
 
-        for serial in serials:
+        # Build list of device friendly names to try
+        device_names = []
+        for device in devices:
+            serial = device.get("serial", "")
+            friendly = device.get("friendly_name", "")
+            if serial in [self._left_serial, self._right_serial]:
+                device_names.append(friendly)
+
+        # Try to open and immediately close using cv2 directly to force DirectShow release
+        for device_name in device_names:
             for attempt in range(3):
+                cap = None
                 try:
-                    from capture import UvcCamera
-                    temp_cam = UvcCamera()
-                    temp_cam.open(serial)
-                    temp_cam.close()
-                    del temp_cam
+                    # Try to open with DirectShow
+                    cap = cv2.VideoCapture(f"video={device_name}", cv2.CAP_DSHOW)
+                    if cap.isOpened():
+                        cap.read()  # Try to read one frame
                 except Exception:
                     pass
+                finally:
+                    if cap is not None:
+                        try:
+                            cap.release()
+                        except Exception:
+                            pass
+                    del cap
 
-                time.sleep(0.2)
+                time.sleep(0.3)
                 gc.collect()
 
         # Final aggressive cleanup
