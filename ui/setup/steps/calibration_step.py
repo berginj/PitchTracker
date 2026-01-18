@@ -179,6 +179,28 @@ class CalibrationStep(BaseStep):
         release_layout.addStretch()
         layout.addLayout(release_layout)
 
+        # Progress bar for calibration
+        self._progress_bar = QtWidgets.QProgressBar()
+        self._progress_bar.setMinimum(0)
+        self._progress_bar.setMaximum(0)  # Indeterminate mode
+        self._progress_bar.setTextVisible(True)
+        self._progress_bar.setFormat("Calibrating stereo cameras...")
+        self._progress_bar.setStyleSheet(
+            "QProgressBar {"
+            "    border: 2px solid #2196F3;"
+            "    border-radius: 5px;"
+            "    text-align: center;"
+            "    font-weight: bold;"
+            "    font-size: 11pt;"
+            "}"
+            "QProgressBar::chunk {"
+            "    background-color: #2196F3;"
+            "    width: 20px;"
+            "}"
+        )
+        self._progress_bar.hide()
+        layout.addWidget(self._progress_bar)
+
         # Results display
         self._results_text = QtWidgets.QTextEdit()
         self._results_text.setReadOnly(True)
@@ -668,9 +690,11 @@ class CalibrationStep(BaseStep):
             return
 
         try:
-            # Show progress
-            self._results_text.setText("Calibrating... This may take a moment.")
-            self._results_text.show()
+            # Show progress bar
+            self._progress_bar.show()
+            self._results_text.hide()
+            self._calibrate_button.setEnabled(False)
+            self._capture_button.setEnabled(False)
             QtWidgets.QApplication.processEvents()
 
             # Get image paths
@@ -689,6 +713,9 @@ class CalibrationStep(BaseStep):
 
             self._calibration_result = result
 
+            # Hide progress bar
+            self._progress_bar.hide()
+
             # Show results
             results_text = (
                 "✅ Calibration Complete!\n\n"
@@ -699,6 +726,11 @@ class CalibrationStep(BaseStep):
             )
             self._results_text.setText(results_text)
             self._results_text.setStyleSheet("background-color: #c8e6c9; color: #2e7d32;")
+            self._results_text.show()
+
+            # Re-enable buttons
+            self._capture_button.setEnabled(True)
+            self._calibrate_button.setEnabled(True)
 
             QtWidgets.QMessageBox.information(
                 self,
@@ -708,8 +740,17 @@ class CalibrationStep(BaseStep):
             )
 
         except Exception as e:
+            # Hide progress bar
+            self._progress_bar.hide()
+
+            # Show error
             self._results_text.setText(f"❌ Calibration Failed:\n{str(e)}")
             self._results_text.setStyleSheet("background-color: #ffcdd2; color: #c62828;")
+            self._results_text.show()
+
+            # Re-enable buttons
+            self._capture_button.setEnabled(True)
+            self._calibrate_button.setEnabled(True)
 
             QtWidgets.QMessageBox.critical(
                 self,
