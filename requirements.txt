@@ -11,6 +11,9 @@ loguru==0.7.2
 # Validation
 jsonschema==4.20.0
 
+# System hardening - resource monitoring
+psutil==7.2.1
+
 # Testing (dev dependencies)
 pytest==7.4.3
 pytest-cov==4.1.0

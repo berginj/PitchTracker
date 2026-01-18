@@ -18,6 +18,9 @@ from exceptions import (
     PitchTrackerError,
 )
 
+# System hardening integration
+from app.events import publish_error, ErrorCategory, ErrorSeverity
+
 from .initialization import PipelineInitializer
 
 logger = logging.getLogger(__name__)
@@ -117,6 +120,13 @@ class CameraManager:
                 logger.debug("Camera objects built successfully")
             except Exception as exc:
                 logger.error(f"Failed to build camera objects: {exc}")
+                publish_error(
+                    category=ErrorCategory.CAMERA,
+                    severity=ErrorSeverity.CRITICAL,
+                    message=f"Failed to initialize camera objects: {exc}",
+                    source="CameraManager.start_capture",
+                    exception=exc,
+                )
                 raise CameraConnectionError(
                     f"Failed to initialize camera objects: {exc}"
                 ) from exc
@@ -127,6 +137,15 @@ class CameraManager:
                 self._left.open(left_serial)
             except Exception as exc:
                 logger.error(f"Failed to open left camera {left_serial}: {exc}")
+                publish_error(
+                    category=ErrorCategory.CAMERA,
+                    severity=ErrorSeverity.CRITICAL,
+                    message=f"Failed to open left camera",
+                    source="CameraManager.start_capture",
+                    exception=exc,
+                    camera_id="left",
+                    serial=left_serial,
+                )
                 raise CameraConnectionError(
                     f"Failed to open left camera {left_serial}: {exc}"
                 ) from exc
@@ -137,6 +156,15 @@ class CameraManager:
                 self._right.open(right_serial)
             except Exception as exc:
                 logger.error(f"Failed to open right camera {right_serial}: {exc}")
+                publish_error(
+                    category=ErrorCategory.CAMERA,
+                    severity=ErrorSeverity.CRITICAL,
+                    message=f"Failed to open right camera",
+                    source="CameraManager.start_capture",
+                    exception=exc,
+                    camera_id="right",
+                    serial=right_serial,
+                )
                 # Clean up left camera before raising
                 try:
                     self._left.close()
@@ -154,6 +182,15 @@ class CameraManager:
                 PipelineInitializer.configure_camera(self._right, config)
             except Exception as exc:
                 logger.error(f"Failed to configure cameras: {exc}")
+                publish_error(
+                    category=ErrorCategory.CAMERA,
+                    severity=ErrorSeverity.ERROR,
+                    message=f"Failed to configure cameras",
+                    source="CameraManager.start_capture",
+                    exception=exc,
+                    left_serial=left_serial,
+                    right_serial=right_serial,
+                )
                 self._cleanup_cameras()
                 raise CameraConfigurationError(
                     f"Failed to configure cameras: {exc}"
@@ -165,6 +202,13 @@ class CameraManager:
                 self._start_capture_threads()
             except Exception as exc:
                 logger.error(f"Failed to start capture threads: {exc}")
+                publish_error(
+                    category=ErrorCategory.CAMERA,
+                    severity=ErrorSeverity.CRITICAL,
+                    message=f"Failed to start capture threads",
+                    source="CameraManager.start_capture",
+                    exception=exc,
+                )
                 self._cleanup_cameras()
                 raise CameraConnectionError(
                     f"Failed to start capture threads: {exc}"
