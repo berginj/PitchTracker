@@ -143,8 +143,8 @@ class SettingsDialog(QtWidgets.QDialog):
         group = QtWidgets.QGroupBox("Camera Assignment")
 
         # Get available cameras
-        # Use max_index=8 to check more camera indices (0-7)
-        indices = probe_opencv_indices(max_index=8, use_cache=False)
+        # Use max_index=10 to check more camera indices (0-9)
+        indices = probe_opencv_indices(max_index=10, use_cache=False)
 
         # Left camera
         left_label = QtWidgets.QLabel("Left Camera:")

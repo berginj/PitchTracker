@@ -260,10 +260,16 @@ class CoachWindow(QtWidgets.QMainWindow):
 
     def _build_controls(self) -> QtWidgets.QWidget:
         """Build control buttons."""
-        self._start_button = QtWidgets.QPushButton("Start Session")
-        self._start_button.setMinimumHeight(50)
-        self._start_button.setStyleSheet("font-size: 14pt; background-color: #4CAF50; color: white;")
-        self._start_button.clicked.connect(self._start_session)
+        self._setup_button = QtWidgets.QPushButton("Setup Session")
+        self._setup_button.setMinimumHeight(50)
+        self._setup_button.setStyleSheet("font-size: 14pt; background-color: #2196F3; color: white;")
+        self._setup_button.clicked.connect(self._setup_session)
+
+        self._start_recording_button = QtWidgets.QPushButton("▶ Start Recording")
+        self._start_recording_button.setMinimumHeight(50)
+        self._start_recording_button.setStyleSheet("font-size: 14pt; background-color: #4CAF50; color: white;")
+        self._start_recording_button.setEnabled(False)
+        self._start_recording_button.clicked.connect(self._start_recording)
 
         self._pause_button = QtWidgets.QPushButton("⏸ Pause")
         self._pause_button.setMinimumHeight(50)
@@ -289,7 +295,8 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._help_button.setMinimumHeight(50)
 
         layout = QtWidgets.QHBoxLayout()
-        layout.addWidget(self._start_button, 2)
+        layout.addWidget(self._setup_button, 2)
+        layout.addWidget(self._start_recording_button, 2)
         layout.addWidget(self._pause_button, 1)
         layout.addWidget(self._end_button, 2)
         layout.addStretch()
@@ -301,8 +308,8 @@ class CoachWindow(QtWidgets.QMainWindow):
         widget.setLayout(layout)
         return widget
 
-    def _start_session(self) -> None:
-        """Start new coaching session."""
+    def _setup_session(self) -> None:
+        """Setup coaching session (cameras and configuration only, no recording yet)."""
         # Show session start dialog
         dialog = SessionStartDialog(self._config, parent=self)
         if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
@@ -371,7 +378,53 @@ class CoachWindow(QtWidgets.QMainWindow):
             else:
                 logger.info("Capture already running, skipping camera start")
 
-            # Start recording
+            # Save camera serials to app state for next time
+            state = load_state()
+            state["last_left_camera"] = left_serial
+            state["last_right_camera"] = right_serial
+            save_state(state)
+            logger.info(f"Saved camera selections: left={left_serial}, right={right_serial}")
+
+        except Exception as e:
+            logger.error(f"Failed to setup session: {e}", exc_info=True)
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Session Setup Error",
+                f"Failed to setup session:\n{str(e)}",
+            )
+            return
+
+        # Update UI - session is ready but not recording yet
+        self._session_label.setText(f"Session: {self._session_name}")
+        self._pitcher_label.setText(f"Pitcher: {self._pitcher_name}")
+        self._pitch_count_label.setText("Pitches: 0")
+
+        # Clear visualizations
+        self._heat_map.clear()
+        self._left_overlay.clear_latest_pitch()
+        self._right_overlay.clear_latest_pitch()
+        self._trajectory.clear()
+
+        # Update buttons - enable Start Recording, disable Setup
+        self._setup_button.setEnabled(False)
+        self._start_recording_button.setEnabled(True)
+        self._end_button.setEnabled(True)
+
+        # Update status
+        self._status_label.setText("Session ready. Click 'Start Recording' when ready to pitch.")
+        self._status_label.setStyleSheet("padding: 5px; background-color: #fff9c4; color: #f57f17; font-weight: bold;")
+
+    def _start_recording(self) -> None:
+        """Start recording pitches."""
+        if not self._service.is_capturing():
+            QtWidgets.QMessageBox.warning(
+                self,
+                "No Cameras",
+                "Cameras are not running. Please setup the session first.",
+            )
+            return
+
+        try:
             logger.info(f"Starting recording for session: {self._session_name}")
             self._status_label.setText("Starting recording...")
             QtWidgets.QApplication.processEvents()
@@ -391,38 +444,21 @@ class CoachWindow(QtWidgets.QMainWindow):
                     disk_warning + "\n\nYou can continue, but recording may fail if disk fills up.",
                 )
 
-            # Save camera serials to app state for next time
-            state = load_state()
-            state["last_left_camera"] = left_serial
-            state["last_right_camera"] = right_serial
-            save_state(state)
-            logger.info(f"Saved camera selections: left={left_serial}, right={right_serial}")
-
         except Exception as e:
-            logger.error(f"Failed to start session: {e}", exc_info=True)
+            logger.error(f"Failed to start recording: {e}", exc_info=True)
             QtWidgets.QMessageBox.critical(
                 self,
-                "Session Start Error",
-                f"Failed to start session:\n{str(e)}",
+                "Recording Start Error",
+                f"Failed to start recording:\n{str(e)}",
             )
             return
 
-        # Update UI
-        self._session_label.setText(f"Session: {self._session_name}")
-        self._pitcher_label.setText(f"Pitcher: {self._pitcher_name}")
-        self._pitch_count_label.setText("Pitches: 0")
+        # Update UI - now recording
         self._recording_indicator.show()
 
-        # Clear visualizations
-        self._heat_map.clear()
-        self._left_overlay.clear_latest_pitch()
-        self._right_overlay.clear_latest_pitch()
-        self._trajectory.clear()
-
         # Update buttons
-        self._start_button.setEnabled(False)
+        self._start_recording_button.setEnabled(False)
         self._pause_button.setEnabled(True)
-        self._end_button.setEnabled(True)
 
         # Update status
         self._status_label.setText("● Recording in progress... Ready to track pitches.")
@@ -484,8 +520,9 @@ class CoachWindow(QtWidgets.QMainWindow):
             self._pitch_count_label.setText("Pitches: 0")
             self._recording_indicator.hide()
 
-            # Update buttons
-            self._start_button.setEnabled(True)
+            # Update buttons - reset to initial state
+            self._setup_button.setEnabled(True)
+            self._start_recording_button.setEnabled(False)
             self._pause_button.setEnabled(False)
             self._end_button.setEnabled(False)
 
