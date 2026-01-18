@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 import warnings
 from dataclasses import dataclass
@@ -10,8 +11,12 @@ from typing import Optional
 import cv2
 
 from contracts import Frame
+from exceptions import CameraConnectionError
 
 from .camera_device import CameraDevice, CameraStats
+from .timeout_utils import RetryPolicy, retry_on_failure, run_with_timeout
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -33,33 +38,113 @@ class OpenCVCamera(CameraDevice):
         self._fps = 0
         self._pixfmt = "GRAY8"
 
+    @retry_on_failure(
+        policy=RetryPolicy(
+            max_attempts=3,
+            base_delay=0.5,
+            max_delay=2.0,
+            retry_on=(CameraConnectionError, RuntimeError),
+        )
+    )
     def open(self, serial: str) -> None:
+        """Open camera by index.
+
+        Args:
+            serial: Camera index as string (e.g., "0", "1")
+
+        Raises:
+            ValueError: If serial is not a valid index
+            CameraConnectionError: If camera fails to open within timeout
+            RuntimeError: If camera opens but reports not opened
+
+        Note:
+            - Uses 5 second timeout to prevent hanging
+            - Retries up to 3 times with exponential backoff
+            - Logs all attempts for debugging
+        """
         self._serial = serial
+        logger.info(f"Opening OpenCV camera index {serial}")
+
         if not serial.isdigit():
+            logger.error(f"Invalid camera index: {serial}")
             raise ValueError(
                 "OpenCVCamera only supports index-based devices. "
                 "Use UvcCamera for serial-based selection."
             )
+
         warnings.warn(
             "OpenCVCamera is index-based and not stable for multi-camera rigs. "
             "Use UvcCamera with serials for production.",
             RuntimeWarning,
         )
+
         index = int(serial)
-        self._capture = cv2.VideoCapture(index, cv2.CAP_DSHOW)
-        if not self._capture.isOpened():
-            raise RuntimeError(f"Failed to open camera index {index}.")
+
+        def _open_camera():
+            """Inner function for timeout wrapper."""
+            capture = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+            if not capture.isOpened():
+                capture.release()
+                raise CameraConnectionError(
+                    f"Failed to open camera index {index} - camera may be in use or not found",
+                    camera_id=serial,
+                )
+            return capture
+
+        try:
+            self._capture = run_with_timeout(
+                _open_camera,
+                timeout_seconds=5.0,
+                error_message=f"OpenCV camera {index} open timed out",
+            )
+            logger.info(f"Successfully opened OpenCV camera index {serial}")
+
+        except Exception as e:
+            logger.error(f"Failed to open OpenCV camera index {serial}: {e}")
+            self._capture = None
+            raise
 
     def set_mode(self, width: int, height: int, fps: int, pixfmt: str) -> None:
+        """Configure camera resolution, framerate, and pixel format.
+
+        Args:
+            width: Frame width in pixels
+            height: Frame height in pixels
+            fps: Target frames per second
+            pixfmt: Pixel format ("GRAY8", "RGB24", etc.)
+
+        Raises:
+            RuntimeError: If camera not opened
+        """
         if self._capture is None:
+            logger.error(f"Cannot set_mode on camera {self._serial}: not opened")
             raise RuntimeError("Camera not opened.")
+
+        logger.info(f"Camera {self._serial}: Configuring {width}x{height} @ {fps}fps ({pixfmt})")
+
         self._width = width
         self._height = height
         self._fps = fps
         self._pixfmt = pixfmt
+
         self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self._capture.set(cv2.CAP_PROP_FPS, fps)
+
+        # Verify settings were applied (DirectShow may silently ignore)
+        actual_width = int(self._capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+        actual_height = int(self._capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        actual_fps = int(self._capture.get(cv2.CAP_PROP_FPS))
+
+        if actual_width != width or actual_height != height:
+            logger.warning(
+                f"Camera {self._serial}: Requested {width}x{height} but got {actual_width}x{actual_height}"
+            )
+
+        if actual_fps != fps:
+            logger.warning(
+                f"Camera {self._serial}: Requested {fps}fps but got {actual_fps}fps"
+            )
 
     def set_controls(
         self,
@@ -118,6 +203,39 @@ class OpenCVCamera(CameraDevice):
         )
 
     def close(self) -> None:
-        if self._capture is not None:
-            self._capture.release()
+        """Close camera and release resources.
+
+        Note:
+            - Idempotent - safe to call multiple times
+            - Adds small delay to ensure DirectShow cleanup
+            - Uses timeout to prevent hanging on release
+        """
+        if self._capture is None:
+            logger.debug(f"Camera {self._serial}: Already closed")
+            return
+
+        logger.info(f"Camera {self._serial}: Closing")
+
+        try:
+            def _release():
+                if self._capture is not None:
+                    self._capture.release()
+
+            # Release with timeout to prevent hanging
+            run_with_timeout(
+                _release,
+                timeout_seconds=2.0,
+                error_message=f"Camera {self._serial} release timed out",
+            )
+
+            # Small delay to ensure DirectShow cleanup completes
+            time.sleep(0.1)
+
+            logger.info(f"Camera {self._serial}: Closed successfully")
+
+        except Exception as e:
+            logger.error(f"Camera {self._serial}: Error during close: {e}")
+
+        finally:
+            # Always clear capture reference
             self._capture = None
