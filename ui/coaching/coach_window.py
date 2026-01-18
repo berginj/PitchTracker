@@ -9,7 +9,7 @@ from typing import Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from app.pipeline_service import InProcessPipelineService
+from app.qt_pipeline_service import QtPipelineService
 from configs.app_state import load_state, save_state
 from configs.settings import load_config
 from ui.coaching.dialogs import SessionStartDialog
@@ -45,8 +45,8 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._config_path = config_path
         self._config = load_config(config_path)
 
-        # Initialize pipeline service
-        self._service = InProcessPipelineService(backend=backend)
+        # Initialize Qt-safe pipeline service (handles thread-safe callbacks)
+        self._service = QtPipelineService(backend=backend, parent=self)
 
         # Session state
         self._session_active = False
@@ -76,6 +76,10 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         # Last known pitch count
         self._last_pitch_count = 0
+
+        # Connect pitch detection signals (thread-safe communication from worker threads)
+        self._service.pitch_started.connect(self._on_pitch_started)
+        self._service.pitch_ended.connect(self._on_pitch_ended)
 
         # Proactively warm camera cache in background for faster dialog opening
         self._warm_camera_cache_async()
@@ -829,6 +833,36 @@ class CoachWindow(QtWidgets.QMainWindow):
         except Exception as e:
             logger.warning(f"Failed to convert frame to pixmap: {e}")
             return None
+
+    def _on_pitch_started(self, pitch_index: int, pitch_data) -> None:
+        """Handle pitch started signal (runs on main Qt thread).
+
+        This is called via Qt signal when a pitch is detected in a worker thread.
+        Safe to update UI elements here.
+
+        Args:
+            pitch_index: Pitch index (1-based)
+            pitch_data: PitchData object
+        """
+        logger.info(f"Pitch {pitch_index} started (main thread)")
+        # Update status
+        self._status_label.setText(f"● Pitch {pitch_index} detected!")
+        # The metrics will be updated by the regular polling timer
+
+    def _on_pitch_ended(self, pitch_data) -> None:
+        """Handle pitch ended signal (runs on main Qt thread).
+
+        This is called via Qt signal when a pitch finishes in a worker thread.
+        Safe to update UI elements here.
+
+        Args:
+            pitch_data: PitchData object
+        """
+        logger.info("Pitch ended (main thread)")
+        # Metrics will be updated by the regular polling timer
+        # Just update status
+        if self._session_active:
+            self._status_label.setText("● Recording in progress... Ready to track pitches.")
 
     def _update_metrics(self) -> None:
         """Update pitch metrics display."""
