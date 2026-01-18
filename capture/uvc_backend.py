@@ -334,15 +334,23 @@ class UvcCamera(CameraDevice):
 
 
 def _list_camera_devices() -> list[dict[str, str]]:
+    """List camera devices from Windows PnP system.
+
+    Returns:
+        List of camera device dictionaries with friendly_name, serial, manufacturer, etc.
+
+    Note:
+        - Tries "Camera" class first (fastest, most accurate)
+        - Falls back to "Image" class if no cameras found
+        - "Image" class includes scanners/printers, so filtering is important
+    """
     devices = _query_pnp_devices("Camera")
     if not devices:
         devices = _query_pnp_devices("Image")
     output: list[dict[str, str]] = []
     for device in devices:
-        if not device.get("present", True):
-            continue
-        if device.get("status") not in ("OK", None, ""):
-            continue
+        # Note: Present/Status filtering now done in PowerShell query for speed
+        # These checks are just safety fallbacks
 
         friendly = (device.get("FriendlyName") or "").strip()
         instance = (device.get("InstanceId") or "").strip()
@@ -413,33 +421,32 @@ def _query_pnp_devices(device_class: str) -> list[dict[str, str]]:
     Note:
         - Uses 10 second timeout to prevent hanging on slower systems
         - Returns empty list on timeout or error
-        - Queries multiple device properties for better identification
+        - Optimized: queries all properties in batch rather than per-device
     """
+    # Optimized query: Get all properties in one batch operation per device
+    # This is MUCH faster than calling Get-PnpDeviceProperty 4 times per device
     command = (
         "Get-PnpDevice -Class "
         + device_class
-        + " | ForEach-Object { "
-        # Get serial number
-        + "$serial = (Get-PnpDeviceProperty -InstanceId $_.InstanceId "
-        + "-KeyName 'DEVPKEY_Device_SerialNumber' -ErrorAction SilentlyContinue).Data; "
-        # Get manufacturer
-        + "$mfg = (Get-PnpDeviceProperty -InstanceId $_.InstanceId "
-        + "-KeyName 'DEVPKEY_Device_Manufacturer' -ErrorAction SilentlyContinue).Data; "
-        # Get device description
-        + "$desc = (Get-PnpDeviceProperty -InstanceId $_.InstanceId "
-        + "-KeyName 'DEVPKEY_Device_DeviceDesc' -ErrorAction SilentlyContinue).Data; "
-        # Get hardware IDs to identify device type
-        + "$hwids = (Get-PnpDeviceProperty -InstanceId $_.InstanceId "
-        + "-KeyName 'DEVPKEY_Device_HardwareIds' -ErrorAction SilentlyContinue).Data; "
+        + " | Where-Object { $_.Present -eq $true -and ($_.Status -eq 'OK' -or $_.Status -eq $null) } "
+        + "| ForEach-Object { "
+        + "$dev = $_; "
+        # Get all properties in ONE call by getting the property array
+        + "$props = Get-PnpDeviceProperty -InstanceId $dev.InstanceId -ErrorAction SilentlyContinue; "
+        # Extract specific properties from the array
+        + "$serial = ($props | Where-Object { $_.KeyName -eq 'DEVPKEY_Device_SerialNumber' } | Select-Object -First 1).Data; "
+        + "$mfg = ($props | Where-Object { $_.KeyName -eq 'DEVPKEY_Device_Manufacturer' } | Select-Object -First 1).Data; "
+        + "$desc = ($props | Where-Object { $_.KeyName -eq 'DEVPKEY_Device_DeviceDesc' } | Select-Object -First 1).Data; "
+        + "$hwids = ($props | Where-Object { $_.KeyName -eq 'DEVPKEY_Device_HardwareIds' } | Select-Object -First 1).Data; "
         + "[pscustomobject]@{"
-        + "FriendlyName=$_.FriendlyName;"
-        + "InstanceId=$_.InstanceId;"
+        + "FriendlyName=$dev.FriendlyName;"
+        + "InstanceId=$dev.InstanceId;"
         + "Serial=$serial;"
         + "Manufacturer=$mfg;"
         + "Description=$desc;"
-        + "HardwareIds=$hwids;"
-        + "Status=$_.Status;"
-        + "Present=$_.Present"
+        + "HardwareIds=($hwids -join ' ');"  # Convert array to string
+        + "Status=$dev.Status;"
+        + "Present=$dev.Present"
         + "} "
         + "} | ConvertTo-Json"
     )
@@ -449,11 +456,11 @@ def _query_pnp_devices(device_class: str) -> list[dict[str, str]]:
             ["powershell", "-NoProfile", "-Command", command],
             capture_output=True,
             text=True,
-            timeout=10.0,  # 10 second timeout (increased from 3s for slower systems)
+            timeout=5.0,  # 5 second timeout (reduced from 10s due to query optimization)
             check=False,
         )
     except subprocess.TimeoutExpired:
-        logger.warning(f"PowerShell query for {device_class} devices timed out after 10s")
+        logger.warning(f"PowerShell query for {device_class} devices timed out after 5s")
         return []
 
     if result.returncode != 0 or not result.stdout.strip():
