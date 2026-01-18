@@ -5,7 +5,9 @@ from __future__ import annotations
 import csv
 import json
 import logging
+import shutil
 import threading
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Optional, Tuple
@@ -50,6 +52,39 @@ class SessionRecorder:
         # Thread safety
         self._lock = threading.Lock()
 
+        # Track write failures
+        self._write_failures = 0
+        self._last_write_warning = 0.0
+
+    def _check_disk_space(self, required_gb: float = 50.0) -> None:
+        """Verify sufficient disk space before starting recording.
+
+        Args:
+            required_gb: Minimum required free space in GB
+
+        Raises:
+            RuntimeError: If insufficient disk space available
+        """
+        usage = shutil.disk_usage(self._record_dir)
+        free_gb = usage.free / (1024**3)
+
+        logger.info(f"Disk space check: {free_gb:.1f}GB available on {self._record_dir}")
+
+        if free_gb < required_gb:
+            raise RuntimeError(
+                f"Insufficient disk space for recording!\n"
+                f"Available: {free_gb:.1f}GB\n"
+                f"Required: {required_gb}GB\n"
+                f"Please free up space before starting session."
+            )
+
+        # Warn if less than 2x required (< 100GB for 100 pitches)
+        if free_gb < required_gb * 2:
+            logger.warning(
+                f"Low disk space: {free_gb:.1f}GB available. "
+                f"Recommended: {required_gb * 2:.0f}GB for safety."
+            )
+
     def start_session(self, session_name: str, pitch_id: str) -> Path:
         """Start session recording.
 
@@ -61,7 +96,13 @@ class SessionRecorder:
 
         Returns:
             Path to session directory
+
+        Raises:
+            RuntimeError: If insufficient disk space
         """
+        # CRITICAL: Check disk space before starting
+        self._check_disk_space(required_gb=50.0)
+
         base = session_name or pitch_id
         safe = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in base)
         timestamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
@@ -69,6 +110,7 @@ class SessionRecorder:
         self._session_dir.mkdir(parents=True, exist_ok=True)
 
         self._open_writers()
+        logger.info(f"✓ Session recording started: {self._session_dir}")
         return self._session_dir
 
     def stop_session(
@@ -106,11 +148,13 @@ class SessionRecorder:
         (self._session_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
 
     def write_frame(self, label: str, frame: Frame) -> None:
-        """Write frame to session recording.
+        """Write frame to session recording with error detection.
 
         Args:
             label: Camera label ("left" or "right")
             frame: Frame to write
+
+        Logs errors if video write fails (e.g., disk full).
         """
         if self._left_writer is None or self._right_writer is None:
             return
@@ -121,13 +165,42 @@ class SessionRecorder:
 
         with self._lock:
             if label == "left" and self._left_writer is not None:
-                self._left_writer.write(image)
+                # Write frame and check for failure
+                success = self._left_writer.write(image)
+                if not success:
+                    self._write_failures += 1
+                    # Throttle warnings (don't spam logs)
+                    current_time = time.monotonic()
+                    if current_time - self._last_write_warning > 5.0:
+                        logger.error(
+                            f"⚠️ Video write FAILED: LEFT camera, frame {frame.frame_index}\n"
+                            f"   Possible causes: Disk full, codec error, I/O error\n"
+                            f"   Total failures: {self._write_failures}"
+                        )
+                        self._last_write_warning = current_time
+
+                # Write CSV timestamp regardless
                 if self._left_csv is not None:
                     self._left_csv[1].writerow(
                         [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
                     )
+
             elif label == "right" and self._right_writer is not None:
-                self._right_writer.write(image)
+                # Write frame and check for failure
+                success = self._right_writer.write(image)
+                if not success:
+                    self._write_failures += 1
+                    # Throttle warnings (don't spam logs)
+                    current_time = time.monotonic()
+                    if current_time - self._last_write_warning > 5.0:
+                        logger.error(
+                            f"⚠️ Video write FAILED: RIGHT camera, frame {frame.frame_index}\n"
+                            f"   Possible causes: Disk full, codec error, I/O error\n"
+                            f"   Total failures: {self._write_failures}"
+                        )
+                        self._last_write_warning = current_time
+
+                # Write CSV timestamp regardless
                 if self._right_csv is not None:
                     self._right_csv[1].writerow(
                         [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
