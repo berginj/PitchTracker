@@ -196,13 +196,21 @@ def probe_uvc_devices(use_cache: bool = True) -> list[dict[str, str]]:
         if not name:
             continue
 
-        # Skip virtual/software cameras that likely won't work
+        # Skip virtual/software cameras and non-camera devices
         name_lower = name.lower()
-        if any(skip in name_lower for skip in ["obs", "snap", "virtual", "screen"]):
-            logger.debug(f"Skipping virtual camera: {name}")
+        skip_terms = [
+            # Virtual cameras
+            "obs", "snap", "virtual", "screen", "desktop",
+            # Printers and scanners
+            "printer", "scanner", "scan", "print",
+            # Other non-camera devices
+            "audio", "microphone", "mic"
+        ]
+        if any(skip in name_lower for skip in skip_terms):
+            logger.debug(f"Skipping non-camera device: {name}")
             continue
 
-        # Return all physical devices - verification happens during actual opening
+        # Return all physical camera devices - verification happens during actual opening
         usable.append(device)
 
     logger.info(f"Found {len(usable)} UVC devices")

@@ -369,7 +369,7 @@ def _query_pnp_devices(device_class: str) -> list[dict[str, str]]:
         List of device dictionaries
 
     Note:
-        - Uses 3 second timeout to prevent hanging
+        - Uses 10 second timeout to prevent hanging on slower systems
         - Returns empty list on timeout or error
     """
     command = (
@@ -387,11 +387,11 @@ def _query_pnp_devices(device_class: str) -> list[dict[str, str]]:
             ["powershell", "-NoProfile", "-Command", command],
             capture_output=True,
             text=True,
-            timeout=3.0,  # 3 second timeout
+            timeout=10.0,  # 10 second timeout (increased from 3s for slower systems)
             check=False,
         )
     except subprocess.TimeoutExpired:
-        logger.warning(f"PowerShell query for {device_class} devices timed out after 3s")
+        logger.warning(f"PowerShell query for {device_class} devices timed out after 10s")
         return []
 
     if result.returncode != 0 or not result.stdout.strip():

@@ -141,10 +141,13 @@ class SessionStartDialog(QtWidgets.QDialog):
         return group
 
     def _build_camera_group(self) -> QtWidgets.QGroupBox:
-        """Build camera selection group."""
-        from ui.device_utils import probe_uvc_devices, probe_opencv_indices
+        """Build camera selection group with saved camera defaults."""
+        from ui.device_utils import probe_uvc_devices, probe_opencv_indices, clear_device_cache
 
         group = QtWidgets.QGroupBox("Cameras")
+
+        # Clear cache to get fresh device list
+        clear_device_cache()
 
         # Left camera
         left_label = QtWidgets.QLabel("Left Camera:")
@@ -154,33 +157,43 @@ class SessionStartDialog(QtWidgets.QDialog):
         right_label = QtWidgets.QLabel("Right Camera:")
         self._right_camera_combo = QtWidgets.QComboBox()
 
+        # Load last used cameras from app state first
+        state = load_state()
+        last_left = state.get("last_left_camera")
+        last_right = state.get("last_right_camera")
+
         # Populate cameras (try UVC first, fallback to OpenCV)
-        devices = probe_uvc_devices()
+        devices = probe_uvc_devices(use_cache=False)
         if devices:
             for device in devices:
-                label = f"{device['serial']} - {device['friendly_name']}"
-                self._left_camera_combo.addItem(label, device["serial"])
-                self._right_camera_combo.addItem(label, device["serial"])
+                serial = device["serial"]
+                friendly = device["friendly_name"]
+
+                # Mark last used cameras with (Last Used)
+                suffix_left = " (Last Used)" if serial == last_left else ""
+                suffix_right = " (Last Used)" if serial == last_right else ""
+
+                left_label_text = f"{serial} - {friendly}{suffix_left}"
+                right_label_text = f"{serial} - {friendly}{suffix_right}"
+
+                self._left_camera_combo.addItem(left_label_text, serial)
+                self._right_camera_combo.addItem(right_label_text, serial)
         else:
             # Fallback to OpenCV indices
-            indices = probe_opencv_indices()
+            indices = probe_opencv_indices(use_cache=False)
             for index in indices:
                 label = f"Camera {index}"
                 self._left_camera_combo.addItem(label, str(index))
                 self._right_camera_combo.addItem(label, str(index))
 
-        # Load last used cameras from app state and pre-select them
-        state = load_state()
-        last_left = state.get("last_left_camera")
-        last_right = state.get("last_right_camera")
-
+        # Pre-select last used cameras
         if last_left:
             # Find and select the last left camera by serial
             for i in range(self._left_camera_combo.count()):
                 if self._left_camera_combo.itemData(i) == last_left:
                     self._left_camera_combo.setCurrentIndex(i)
                     break
-        elif len(devices) >= 2 or len(probe_opencv_indices()) >= 2:
+        elif self._left_camera_combo.count() >= 2:
             # Fallback: select first camera if no saved state
             self._left_camera_combo.setCurrentIndex(0)
 
@@ -190,18 +203,36 @@ class SessionStartDialog(QtWidgets.QDialog):
                 if self._right_camera_combo.itemData(i) == last_right:
                     self._right_camera_combo.setCurrentIndex(i)
                     break
-        elif len(devices) >= 2 or len(probe_opencv_indices()) >= 2:
+        elif self._right_camera_combo.count() >= 2:
             # Fallback: select second camera if no saved state
             self._right_camera_combo.setCurrentIndex(1)
+
+        # Add refresh button
+        refresh_button = QtWidgets.QPushButton("🔄 Refresh Cameras")
+        refresh_button.clicked.connect(self._refresh_cameras)
+        refresh_button.setToolTip("Refresh camera list if cameras not showing correctly")
 
         layout = QtWidgets.QGridLayout()
         layout.addWidget(left_label, 0, 0)
         layout.addWidget(self._left_camera_combo, 0, 1)
         layout.addWidget(right_label, 1, 0)
         layout.addWidget(self._right_camera_combo, 1, 1)
+        layout.addWidget(refresh_button, 2, 0, 1, 2)
 
         group.setLayout(layout)
         return group
+
+    def _refresh_cameras(self) -> None:
+        """Refresh camera list."""
+        from ui.device_utils import clear_device_cache
+
+        # Clear cache and rebuild camera group
+        clear_device_cache()
+        QtWidgets.QMessageBox.information(
+            self,
+            "Refresh Cameras",
+            "Camera cache cleared. Close and reopen this dialog to see updated camera list."
+        )
 
     def _build_settings_group(self) -> QtWidgets.QGroupBox:
         """Build quick settings group."""
