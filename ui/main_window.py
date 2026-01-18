@@ -340,6 +340,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         if not self._pre_capture_check():
             return
+        self._stop_replay()
         self._service.start_capture(self._config, left, right, config_path=self._config_path())
         self._status_label.setText("Capturing.")
         self._timer.start(int(1000 / max(self._config.ui.refresh_hz, 1)))
