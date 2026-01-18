@@ -5,6 +5,7 @@ from __future__ import annotations
 import concurrent.futures
 import logging
 import threading
+import time
 from typing import Optional
 
 import cv2
@@ -48,18 +49,19 @@ def current_serial(combo: QtWidgets.QComboBox) -> str:
     return combo.currentText().strip()
 
 
-def _probe_single_index(index: int, timeout_seconds: float = 1.0) -> Optional[int]:
+def _probe_single_index(index: int, timeout_seconds: float = 3.0) -> Optional[int]:
     """Probe a single camera index with timeout protection.
 
     Args:
         index: Camera index to probe
-        timeout_seconds: Timeout for probe operation
+        timeout_seconds: Timeout for probe operation (default 3.0s, increased for ArduCam)
 
     Returns:
         Index if camera available, None otherwise
 
     Note:
         - Uses threading timeout to prevent hanging
+        - 3-second timeout accommodates slower camera initialization (ArduCam, etc.)
         - Fast-fails on timeout or errors
         - Ensures camera is released even on timeout
     """
@@ -131,22 +133,22 @@ def sort_cameras_prefer_arducam(devices: list[dict[str, str]]) -> list[dict[str,
 
 
 def probe_opencv_indices(
-    max_index: int = 4, parallel: bool = True, use_cache: bool = True
+    max_index: int = 4, parallel: bool = False, use_cache: bool = True
 ) -> list[int]:
     """Probe for available OpenCV camera indices.
 
     Args:
         max_index: Maximum index to check (default 4, was 8)
-        parallel: Use parallel probing for speed (default True)
+        parallel: Use parallel probing for speed (default False for reliability)
         use_cache: Use cached results if available (default True)
 
     Returns:
         List of available camera indices
 
     Note:
-        - Uses 1 second timeout per camera to prevent hanging
-        - Parallel mode probes all indices simultaneously (faster)
-        - Sequential mode probes one at a time (more reliable)
+        - Uses 3 second timeout per camera (increased for ArduCam devices)
+        - Sequential mode (default): more reliable, handles USB bandwidth constraints
+        - Parallel mode: faster but can cause USB contention and missed devices
         - Reduced default max_index from 8 to 4 for faster discovery
         - This is a fallback - prefer UVC devices in production
         - Results are cached to avoid repeated slow probes
@@ -186,9 +188,16 @@ def probe_opencv_indices(
         # Sequential probing - more reliable but slower
         indices = []
         for i in range(max_index):
-            result = _probe_single_index(i, 1.0)
+            result = _probe_single_index(i, 3.0)
             if result is not None:
                 indices.append(result)
+                logger.debug(f"Camera {i}: detected")
+            else:
+                logger.debug(f"Camera {i}: not available")
+
+            # Small delay to avoid USB contention between probes
+            if i < max_index - 1:  # Don't delay after last camera
+                time.sleep(0.1)
 
         logger.info(f"Found {len(indices)} OpenCV cameras: {indices}")
 
