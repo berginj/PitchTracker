@@ -233,6 +233,11 @@ def load_config(path: Path) -> AppConfig:
         )
         strike_zone = StrikeZoneConfig(**data["strike_zone"])
         ball = BallConfig(**data["ball"])
+        upload = UploadConfig(**data.get("upload", {
+            "enabled": False,
+            "swa_api_base": "",
+            "api_key": "",
+        }))
 
         config = AppConfig(
             camera=camera,
@@ -245,6 +250,7 @@ def load_config(path: Path) -> AppConfig:
             detector=detector,
             strike_zone=strike_zone,
             ball=ball,
+            upload=upload,
         )
 
         logger.info(f"Configuration loaded successfully: {config.detector.type} detector, {config.camera.width}x{config.camera.height}@{config.camera.fps}fps")
