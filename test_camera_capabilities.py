@@ -8,8 +8,10 @@ Usage:
     python test_camera_capabilities.py
 
 Results are saved to: camera_tests/capability_report.txt
+Logs are saved to: camera_tests/capability_test.log
 """
 
+import logging
 import sys
 import time
 from pathlib import Path
@@ -22,6 +24,51 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from ui.device_utils import probe_uvc_devices, probe_opencv_indices, is_arducam_device
 
+# Configure logging
+logger = logging.getLogger(__name__)
+
+
+def setup_logging(log_dir: Path) -> Path:
+    """Setup logging to both console and file.
+
+    Args:
+        log_dir: Directory to save log file
+
+    Returns:
+        Path to log file
+    """
+    log_dir.mkdir(exist_ok=True)
+    log_file = log_dir / "capability_test.log"
+
+    # Create formatters
+    detailed_formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    simple_formatter = logging.Formatter('%(levelname)s: %(message)s')
+
+    # File handler - detailed logs
+    file_handler = logging.FileHandler(log_file, mode='w', encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(detailed_formatter)
+
+    # Console handler - less verbose
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(simple_formatter)
+
+    # Configure root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+
+    logger.info(f"Logging initialized. Log file: {log_file}")
+    logger.debug(f"Python version: {sys.version}")
+    logger.debug(f"OpenCV version: {cv2.__version__}")
+
+    return log_file
+
 
 def enumerate_cameras(max_cameras: int) -> dict[int, dict[str, str]]:
     """Enumerate all cameras and get their information.
@@ -32,25 +79,35 @@ def enumerate_cameras(max_cameras: int) -> dict[int, dict[str, str]]:
     Returns:
         Dict mapping camera index to info dict with 'name' and 'backend' keys
     """
+    logger.info(f"Enumerating cameras 0-{max_cameras-1}")
     camera_info = {}
 
     # Try to get UVC device names
     try:
+        logger.debug("Probing UVC devices...")
         uvc_devices = probe_uvc_devices(use_cache=False)
         uvc_by_index = {i: dev for i, dev in enumerate(uvc_devices)}
+        logger.info(f"Found {len(uvc_devices)} UVC devices")
+        for i, dev in uvc_by_index.items():
+            logger.debug(f"  UVC {i}: {dev.get('friendly_name', 'Unknown')} (SN: {dev.get('serial', 'N/A')})")
     except Exception as e:
+        logger.warning(f"Could not enumerate UVC devices: {e}")
         print(f"⚠️ Could not enumerate UVC devices: {e}")
         uvc_by_index = {}
 
     # Probe OpenCV indices
     try:
+        logger.debug("Probing OpenCV camera indices...")
         opencv_indices = probe_opencv_indices(max_index=max_cameras, use_cache=False)
+        logger.info(f"Found {len(opencv_indices)} OpenCV camera indices: {opencv_indices}")
     except Exception as e:
+        logger.warning(f"Could not enumerate OpenCV devices: {e}")
         print(f"⚠️ Could not enumerate OpenCV devices: {e}")
         opencv_indices = list(range(max_cameras))
 
     # For each camera index, try to get its name
     for idx in range(max_cameras):
+        logger.debug(f"Inspecting camera index {idx}...")
         info = {
             'index': idx,
             'name': f"Camera {idx}",
@@ -64,8 +121,10 @@ def enumerate_cameras(max_cameras: int) -> dict[int, dict[str, str]]:
             serial = uvc_by_index[idx].get('serial', '')
             if friendly_name:
                 info['name'] = friendly_name
+                logger.debug(f"  Camera {idx}: {friendly_name}")
             if serial:
                 info['serial'] = serial
+                logger.debug(f"  Serial: {serial}")
             info['backend'] = 'UVC/DirectShow'
 
         # Try to open with OpenCV and get backend name
@@ -75,11 +134,16 @@ def enumerate_cameras(max_cameras: int) -> dict[int, dict[str, str]]:
                 if cap.isOpened():
                     backend_name = cap.getBackendName()
                     info['backend'] = backend_name
+                    logger.debug(f"  Backend: {backend_name}")
                     cap.release()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"  Could not open camera {idx}: {e}")
 
         camera_info[idx] = info
+        logger.debug(f"  Available: {info['available']}")
+
+    arducam_count = sum(1 for info in camera_info.values() if is_arducam_device(info['name']))
+    logger.info(f"Camera enumeration complete. {arducam_count} ArduCam devices found.")
 
     return camera_info
 
@@ -131,6 +195,8 @@ def test_camera_modes(camera_index: int, backend=cv2.CAP_DSHOW, camera_name: str
     cam_label = f"Camera {camera_index}"
     if camera_name:
         cam_label = f"{cam_label} ({camera_name})"
+
+    logger.info(f"Testing {cam_label} with {backend_name} backend")
     print(f"\n=== Testing {cam_label} with {backend_name} ===\n")
 
     test_modes = [
@@ -149,14 +215,18 @@ def test_camera_modes(camera_index: int, backend=cv2.CAP_DSHOW, camera_name: str
     supported = []
 
     try:
+        logger.debug(f"Opening camera {camera_index} with backend {backend_name}")
         cap = cv2.VideoCapture(camera_index, backend)
         if not cap.isOpened():
+            logger.error(f"Failed to open camera {camera_index} with {backend_name}")
             print(f"❌ Failed to open camera {camera_index}")
             return []
 
+        logger.info(f"Testing {len(test_modes)} resolution/FPS combinations")
         print(f"Testing {len(test_modes)} modes...\n")
 
         for width, height, fps in test_modes:
+            logger.debug(f"Testing {width}x{height}@{fps}fps...")
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
             cap.set(cv2.CAP_PROP_FPS, fps)
@@ -170,16 +240,19 @@ def test_camera_modes(camera_index: int, backend=cv2.CAP_DSHOW, camera_name: str
             can_read = ret and frame is not None
 
             if actual_w == width and actual_h == height and actual_fps == fps and can_read:
+                logger.info(f"✅ {width}x{height}@{fps}fps - SUPPORTED")
                 print(f"✅ {width}x{height}@{fps}fps - SUPPORTED")
                 supported.append((width, height, fps))
             else:
+                logger.debug(f"❌ {width}x{height}@{fps}fps - NOT SUPPORTED (got {actual_w}x{actual_h}@{actual_fps}fps, read={can_read})")
                 print(f"❌ {width}x{height}@{fps}fps - NOT SUPPORTED (got {actual_w}x{actual_h}@{actual_fps}fps, read={can_read})")
 
         cap.release()
-
+        logger.info(f"Camera {camera_index} supports {len(supported)}/{len(test_modes)} tested modes")
         print(f"\nCamera {camera_index} supports {len(supported)}/{len(test_modes)} tested modes")
 
     except Exception as e:
+        logger.error(f"Error testing camera {camera_index}: {e}", exc_info=True)
         print(f"❌ Error testing camera {camera_index}: {e}")
 
     return supported
@@ -202,6 +275,8 @@ def test_memory_usage(camera_index: int, width: int, height: int, fps: int, dura
     process = psutil.Process()
     baseline_mb = process.memory_info().rss / 1024 / 1024
 
+    logger.info(f"Memory test: {width}x{height}@{fps}fps for {duration_sec}s")
+    logger.debug(f"Baseline memory: {baseline_mb:.1f} MB")
     print(f"\n=== Memory Test: {width}x{height}@{fps}fps for {duration_sec}s ===")
     print(f"Baseline memory: {baseline_mb:.1f} MB")
 
@@ -254,6 +329,7 @@ def test_memory_usage(camera_index: int, width: int, height: int, fps: int, dura
             'success': True
         }
 
+        logger.info(f"Memory test SUCCESS: {frames_captured} frames in {elapsed:.1f}s, {effective_fps:.1f} fps, {delta_mb:.1f} MB used")
         print(f"✅ Captured {frames_captured} frames in {elapsed:.1f}s")
         print(f"   Effective FPS: {effective_fps:.1f}")
         print(f"   Memory used: {delta_mb:.1f} MB (peak: {peak_mb:.1f} MB)")
@@ -262,6 +338,7 @@ def test_memory_usage(camera_index: int, width: int, height: int, fps: int, dura
         return result
 
     except Exception as e:
+        logger.error(f"Memory test FAILED: {e}", exc_info=True)
         print(f"❌ Error: {e}")
         return {
             'resolution': f'{width}x{height}@{fps}fps',
@@ -283,6 +360,7 @@ def test_dual_camera(width: int, height: int, fps: int, duration_sec: int = 10, 
     Returns:
         Dict with dual-camera test results
     """
+    logger.info(f"Dual camera test: {width}x{height}@{fps}fps for {duration_sec}s")
     print(f"\n=== Dual Camera Test: {width}x{height}@{fps}fps for {duration_sec}s ===")
 
     try:
@@ -339,6 +417,7 @@ def test_dual_camera(width: int, height: int, fps: int, duration_sec: int = 10, 
             'success': True
         }
 
+        logger.info(f"Dual camera test SUCCESS: Left={result['effective_fps_left']:.1f}fps, Right={result['effective_fps_right']:.1f}fps, Errors={errors}")
         print(f"✅ Dual camera test complete")
         print(f"   Left: {frames_left} frames ({result['effective_fps_left']:.1f} fps)")
         print(f"   Right: {frames_right} frames ({result['effective_fps_right']:.1f} fps)")
@@ -347,6 +426,7 @@ def test_dual_camera(width: int, height: int, fps: int, duration_sec: int = 10, 
         return result
 
     except Exception as e:
+        logger.error(f"Dual camera test FAILED: {e}", exc_info=True)
         print(f"❌ Error: {e}")
         return {'success': False, 'error': str(e)}
 
@@ -357,6 +437,16 @@ def main():
     print("Camera Capability Testing")
     print("=" * 70)
 
+    # Create output directory first
+    output_dir = Path("camera_tests")
+    output_dir.mkdir(exist_ok=True)
+
+    # Setup logging
+    log_file = setup_logging(output_dir)
+    logger.info("="*70)
+    logger.info("Camera Capability Testing Started")
+    logger.info("="*70)
+
     # Ask user how many cameras to test
     print("\nHow many cameras do you want to test? (default: 6 for cameras 0-5)")
     try:
@@ -365,14 +455,12 @@ def main():
         num_cameras = 6
         print(f"Using default: {num_cameras} cameras")
 
+    logger.info(f"Testing {num_cameras} cameras (indices 0-{num_cameras-1})")
+
     # Enumerate cameras first
     print("\nEnumerating cameras...")
     camera_info = enumerate_cameras(num_cameras)
     print_camera_enumeration(camera_info)
-
-    # Create output directory
-    output_dir = Path("camera_tests")
-    output_dir.mkdir(exist_ok=True)
 
     report_lines = []
     report_lines.append("=" * 70)
@@ -397,6 +485,10 @@ def main():
 
     # Test both backends
     for backend_name, backend in [("DirectShow", cv2.CAP_DSHOW), ("Media Foundation", cv2.CAP_MSMF)]:
+        logger.info(f"\n{'='*70}")
+        logger.info(f"Testing with {backend_name} backend")
+        logger.info(f"{'='*70}")
+
         report_lines.append(f"\n\n{'='*70}")
         report_lines.append(f"Backend: {backend_name}")
         report_lines.append(f"{'='*70}")
@@ -456,8 +548,15 @@ def main():
     report_path = output_dir / "capability_report.txt"
     report_path.write_text("\n".join(report_lines))
 
+    logger.info("="*70)
+    logger.info("Camera Capability Testing Complete")
+    logger.info(f"Report: {report_path}")
+    logger.info(f"Log file: {log_file}")
+    logger.info("="*70)
+
     print(f"\n\n{'='*70}")
     print(f"Report saved to: {report_path}")
+    print(f"Log file saved to: {log_file}")
     print(f"{'='*70}")
 
 
