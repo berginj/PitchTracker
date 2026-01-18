@@ -280,6 +280,11 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._settings_button.setMinimumHeight(50)
         self._settings_button.clicked.connect(self._show_settings)
 
+        self._lane_button = QtWidgets.QPushButton("📐 Adjust Lane")
+        self._lane_button.setMinimumHeight(50)
+        self._lane_button.clicked.connect(self._adjust_lane)
+        self._lane_button.setToolTip("Adjust the lane ROI (region where ball tracking occurs)")
+
         self._help_button = QtWidgets.QPushButton("❓ Help")
         self._help_button.setMinimumHeight(50)
 
@@ -288,6 +293,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         layout.addWidget(self._pause_button, 1)
         layout.addWidget(self._end_button, 2)
         layout.addStretch()
+        layout.addWidget(self._lane_button)
         layout.addWidget(self._settings_button)
         layout.addWidget(self._help_button)
 
@@ -610,6 +616,33 @@ class CoachWindow(QtWidgets.QMainWindow):
                     f"Resolution: {self._camera_width}x{self._camera_height}@{self._camera_fps}fps\n"
                     f"Settings will apply when you start the next session.",
                 )
+
+    def _adjust_lane(self) -> None:
+        """Show lane ROI adjustment dialog."""
+        # Need cameras to be running to show preview
+        if not self._service.is_capturing():
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Cameras Not Running",
+                "Please start a session first to view the camera feed.\n\n"
+                "The lane ROI adjustment requires a live camera preview.",
+            )
+            return
+
+        from ui.coaching.dialogs.lane_adjust_dialog import LaneAdjustDialog
+
+        dialog = LaneAdjustDialog(
+            camera_service=self._service,
+            parent=self,
+        )
+
+        if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Lane ROI Updated",
+                "Lane ROI has been updated.\n\n"
+                "Changes will take effect for new pitches tracked during this session.",
+            )
 
     def closeEvent(self, event) -> None:
         """Handle window close event - stop capture and recording."""
