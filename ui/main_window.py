@@ -1136,29 +1136,54 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_replay()
 
     def _refresh_devices(self) -> None:
+        from ui.device_utils import is_arducam_device
+
         self._left_input.clear()
         self._right_input.clear()
+
         if self._service._backend == "uvc":
-            devices = probe_uvc_devices()
+            devices = probe_uvc_devices()  # Already sorted with ArduCam first
+            arducam_count = sum(1 for d in devices if is_arducam_device(d.get('friendly_name', '')))
+
             for device in devices:
                 label = f"{device['serial']} - {device['friendly_name']}"
                 self._left_input.addItem(label, device["serial"])
                 self._right_input.addItem(label, device["serial"])
             if devices:
-                self._status_label.setText(f"Found {len(devices)} usable device(s).")
+                status = f"Found {len(devices)} usable device(s)"
+                if arducam_count > 0:
+                    status += f" ({arducam_count} ArduCam)"
+                self._status_label.setText(status + ".")
                 if len(devices) >= 2:
                     self._left_input.setCurrentIndex(0)
                     self._right_input.setCurrentIndex(1)
             else:
                 self._status_label.setText("No UVC devices found.")
             return
+
+        # OpenCV backend - get friendly names to identify ArduCam devices
+        uvc_devices = probe_uvc_devices()
+        uvc_by_index = {i: dev for i, dev in enumerate(uvc_devices)}
         indices = probe_opencv_indices()
+        arducam_count = 0
+
         for index in indices:
-            label = f"Index {index}"
+            # Get friendly name if available
+            friendly_name = ""
+            if index in uvc_by_index:
+                friendly_name = uvc_by_index[index].get('friendly_name', '')
+                if is_arducam_device(friendly_name):
+                    arducam_count += 1
+
+            label = f"{friendly_name}" if friendly_name else f"Index {index}"
             self._left_input.addItem(label, str(index))
             self._right_input.addItem(label, str(index))
+
         if indices:
-            self._status_label.setText(f"Found {len(indices)} camera index(es).")
+            status = f"Found {len(indices)} camera index(es)"
+            if arducam_count > 0:
+                status += f" ({arducam_count} ArduCam)"
+            self._status_label.setText(status + ".")
             if len(indices) >= 2:
                 self._left_input.setCurrentIndex(0)
                 self._right_input.setCurrentIndex(1)
