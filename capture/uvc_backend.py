@@ -20,6 +20,7 @@ from exceptions import (
 from log_config.logger import get_logger
 
 from .camera_device import CameraDevice, CameraStats
+from .timeout_utils import RetryPolicy, retry_on_failure, run_with_timeout
 
 logger = get_logger(__name__)
 
@@ -45,6 +46,14 @@ class UvcCamera(CameraDevice):
         self._fps = 0
         self._pixfmt = "GRAY8"
 
+    @retry_on_failure(
+        policy=RetryPolicy(
+            max_attempts=3,
+            base_delay=0.5,
+            max_delay=2.0,
+            retry_on=(CameraConnectionError,),
+        )
+    )
     def open(self, serial: str) -> None:
         """Open camera connection.
 
@@ -54,27 +63,43 @@ class UvcCamera(CameraDevice):
         Raises:
             CameraNotFoundError: If camera is not found
             CameraConnectionError: If connection fails
+
+        Note:
+            - Uses 5 second timeout to prevent hanging
+            - Retries up to 3 times with exponential backoff
+            - Logs all attempts for debugging
         """
         try:
-            logger.info(f"Opening camera with serial: {serial}")
+            logger.info(f"Opening UVC camera with serial: {serial}")
             self._serial = serial
             target = self._resolve_device(serial)
             self._friendly_name = target
 
-            if target.isdigit() and target == serial:
-                self._capture = cv2.VideoCapture(int(serial), cv2.CAP_DSHOW)
-            else:
-                self._capture = cv2.VideoCapture(f"video={target}", cv2.CAP_DSHOW)
+            def _open_camera():
+                """Inner function for timeout wrapper."""
+                if target.isdigit() and target == serial:
+                    capture = cv2.VideoCapture(int(serial), cv2.CAP_DSHOW)
+                else:
+                    capture = cv2.VideoCapture(f"video={target}", cv2.CAP_DSHOW)
 
-            if self._capture is None or not self._capture.isOpened():
-                logger.error(f"Failed to open camera {serial}: capture object invalid")
-                raise CameraConnectionError(
-                    f"Failed to open camera for serial '{serial}'. "
-                    "Check that the camera is connected and not in use by another application.",
-                    camera_id=serial,
-                )
+                if capture is None or not capture.isOpened():
+                    if capture is not None:
+                        capture.release()
+                    raise CameraConnectionError(
+                        f"Failed to open camera for serial '{serial}'. "
+                        "Check that the camera is connected and not in use by another application.",
+                        camera_id=serial,
+                    )
+                return capture
 
-            logger.info(f"Camera {serial} opened successfully: {self._friendly_name}")
+            # Open camera with timeout
+            self._capture = run_with_timeout(
+                _open_camera,
+                timeout_seconds=5.0,
+                error_message=f"UVC camera {serial} open timed out",
+            )
+
+            logger.info(f"UVC camera {serial} opened successfully: {self._friendly_name}")
 
         except CameraNotFoundError:
             raise
@@ -219,15 +244,42 @@ class UvcCamera(CameraDevice):
         )
 
     def close(self) -> None:
-        """Close camera connection and release resources."""
-        if self._capture is not None:
-            try:
-                logger.info(f"Closing camera {self._serial}")
-                self._capture.release()
-                self._capture = None
-                logger.debug(f"Camera {self._serial} closed successfully")
-            except Exception as e:
-                logger.error(f"Error closing camera {self._serial}: {e}")
+        """Close camera connection and release resources.
+
+        Note:
+            - Idempotent - safe to call multiple times
+            - Uses timeout to prevent hanging on release
+            - Adds small delay for DirectShow cleanup
+        """
+        if self._capture is None:
+            logger.debug(f"Camera {self._serial}: Already closed")
+            return
+
+        logger.info(f"Closing UVC camera {self._serial}")
+
+        try:
+            def _release():
+                if self._capture is not None:
+                    self._capture.release()
+
+            # Release with timeout to prevent hanging
+            run_with_timeout(
+                _release,
+                timeout_seconds=2.0,
+                error_message=f"Camera {self._serial} release timed out",
+            )
+
+            # Small delay to ensure DirectShow cleanup completes
+            time.sleep(0.1)
+
+            logger.info(f"Camera {self._serial}: Closed successfully")
+
+        except Exception as e:
+            logger.error(f"Camera {self._serial}: Error during close: {e}")
+
+        finally:
+            # Always clear capture reference
+            self._capture = None
 
     def _resolve_device(self, serial: str) -> str:
         """Resolve camera serial to device name.
@@ -308,6 +360,18 @@ def _list_camera_devices() -> list[dict[str, str]]:
 
 
 def _query_pnp_devices(device_class: str) -> list[dict[str, str]]:
+    """Query PnP devices via PowerShell.
+
+    Args:
+        device_class: Device class to query (Camera, Image, etc.)
+
+    Returns:
+        List of device dictionaries
+
+    Note:
+        - Uses 3 second timeout to prevent hanging
+        - Returns empty list on timeout or error
+    """
     command = (
         "Get-PnpDevice -Class "
         + device_class
@@ -317,15 +381,27 @@ def _query_pnp_devices(device_class: str) -> list[dict[str, str]]:
         + "[pscustomobject]@{FriendlyName=$_.FriendlyName;InstanceId=$_.InstanceId;Serial=$serial;Status=$_.Status;Present=$_.Present} "
         + "} | ConvertTo-Json"
     )
-    result = subprocess.run(
-        ["powershell", "-NoProfile", "-Command", command],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", command],
+            capture_output=True,
+            text=True,
+            timeout=3.0,  # 3 second timeout
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        logger.warning(f"PowerShell query for {device_class} devices timed out after 3s")
+        return []
+
     if result.returncode != 0 or not result.stdout.strip():
         return []
-    data = json.loads(result.stdout)
+
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        logger.warning(f"Failed to parse PowerShell output for {device_class} devices")
+        return []
     if isinstance(data, dict):
         return [data]
     return [item for item in data if isinstance(item, dict)]
