@@ -240,23 +240,39 @@ def probe_uvc_devices(use_cache: bool = True) -> list[dict[str, str]]:
     for device in devices:
         name = device.get("friendly_name", "")
         if not name:
+            logger.debug("Skipping device with no friendly name")
             continue
 
         # Skip virtual/software cameras and non-camera devices
         name_lower = name.lower()
         skip_terms = [
             # Virtual cameras
-            "obs", "snap", "virtual", "screen", "desktop",
-            # Printers and scanners
-            "printer", "scanner", "scan", "print",
+            "obs", "snap", "virtual", "screen", "desktop", "display",
+            # Printers and scanners (common brands and types)
+            "printer", "scanner", "scan", "print", "mfp", "multifunction",
+            "brother", "hp ", "epson", "canon printer", "xerox",
+            "konica", "ricoh", "sharp mfp", "kyocera",
+            # Document cameras (often printers with scanner)
+            "document camera", "doc camera", "document scanner",
             # Other non-camera devices
-            "audio", "microphone", "mic"
+            "audio", "microphone", "mic", "speaker"
         ]
-        if any(skip in name_lower for skip in skip_terms):
-            logger.debug(f"Skipping non-camera device: {name}")
+
+        # Check if device name contains any skip terms
+        should_skip = any(skip in name_lower for skip in skip_terms)
+
+        # Additional check: if name contains "brother" or similar brand but also "cam"
+        # it might be a legitimate camera, so don't skip
+        if should_skip and "cam" in name_lower and "camera" in name_lower:
+            should_skip = False
+            logger.debug(f"Keeping device that looks like camera despite brand match: {name}")
+
+        if should_skip:
+            logger.info(f"Filtering out non-camera device: {name}")
             continue
 
         # Return all physical camera devices - verification happens during actual opening
+        logger.debug(f"Accepting camera device: {name}")
         usable.append(device)
 
     logger.info(f"Found {len(usable)} UVC devices")
