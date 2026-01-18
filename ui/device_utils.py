@@ -93,6 +93,43 @@ def _probe_single_index(index: int, timeout_seconds: float = 1.0) -> Optional[in
     return result[0]
 
 
+def is_arducam_device(name: str) -> bool:
+    """Check if a device name indicates an ArduCam device.
+
+    Args:
+        name: Device friendly name
+
+    Returns:
+        True if device is an ArduCam
+    """
+    if not name:
+        return False
+    name_lower = name.lower()
+    return "arducam" in name_lower or "ardu cam" in name_lower
+
+
+def sort_cameras_prefer_arducam(devices: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Sort camera list to put ArduCam devices first.
+
+    Args:
+        devices: List of device info dicts with 'friendly_name' key
+
+    Returns:
+        Sorted list with ArduCam devices first, then others
+    """
+    arducam_devices = []
+    other_devices = []
+
+    for device in devices:
+        name = device.get('friendly_name', '')
+        if is_arducam_device(name):
+            arducam_devices.append(device)
+        else:
+            other_devices.append(device)
+
+    return arducam_devices + other_devices
+
+
 def probe_opencv_indices(
     max_index: int = 4, parallel: bool = True, use_cache: bool = True
 ) -> list[int]:
@@ -215,6 +252,10 @@ def probe_uvc_devices(use_cache: bool = True) -> list[dict[str, str]]:
 
     logger.info(f"Found {len(usable)} UVC devices")
 
+    # Sort to prefer ArduCam devices
+    usable = sort_cameras_prefer_arducam(usable)
+    logger.debug(f"Sorted devices (ArduCam first): {[d.get('friendly_name', '') for d in usable]}")
+
     # Cache results
     if use_cache:
         with _cache_lock:
@@ -260,4 +301,6 @@ __all__ = [
     "probe_opencv_indices",
     "probe_uvc_devices",
     "probe_all_devices",
+    "is_arducam_device",
+    "sort_cameras_prefer_arducam",
 ]

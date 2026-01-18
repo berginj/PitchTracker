@@ -142,7 +142,12 @@ class SessionStartDialog(QtWidgets.QDialog):
 
     def _build_camera_group(self) -> QtWidgets.QGroupBox:
         """Build camera selection group with saved camera defaults."""
-        from ui.device_utils import probe_uvc_devices, probe_opencv_indices, clear_device_cache
+        from ui.device_utils import (
+            probe_uvc_devices,
+            probe_opencv_indices,
+            clear_device_cache,
+            is_arducam_device,
+        )
 
         group = QtWidgets.QGroupBox("Cameras")
 
@@ -162,18 +167,40 @@ class SessionStartDialog(QtWidgets.QDialog):
         last_left = state.get("last_left_camera")
         last_right = state.get("last_right_camera")
 
+        # Get UVC devices to map indices to friendly names
+        uvc_devices = probe_uvc_devices(use_cache=False)
+        uvc_by_index = {i: dev for i, dev in enumerate(uvc_devices)}
+
         # Always use OpenCV indices for coaching app (UVC serial numbers can fail)
         # This matches calibration workflow behavior
         # Use max_index=10 to check more camera indices (0-9)
         indices = probe_opencv_indices(max_index=10, use_cache=False)
+
+        # Track ArduCam indices for smart defaults
+        arducam_indices = []
+
         if indices:
             for index in indices:
+                # Get friendly name if available from UVC
+                friendly_name = None
+                is_arducam = False
+                if index in uvc_by_index:
+                    friendly_name = uvc_by_index[index].get('friendly_name', '')
+                    is_arducam = is_arducam_device(friendly_name)
+                    if is_arducam:
+                        arducam_indices.append(index)
+
                 # Mark last used cameras with (Last Used)
                 suffix_left = " (Last Used)" if str(index) == last_left else ""
                 suffix_right = " (Last Used)" if str(index) == last_right else ""
 
-                left_label_text = f"Camera {index}{suffix_left}"
-                right_label_text = f"Camera {index}{suffix_right}"
+                # Build display label
+                if friendly_name:
+                    left_label_text = f"{friendly_name}{suffix_left}"
+                    right_label_text = f"{friendly_name}{suffix_right}"
+                else:
+                    left_label_text = f"Camera {index}{suffix_left}"
+                    right_label_text = f"Camera {index}{suffix_right}"
 
                 self._left_camera_combo.addItem(left_label_text, str(index))
                 self._right_camera_combo.addItem(right_label_text, str(index))
@@ -182,25 +209,40 @@ class SessionStartDialog(QtWidgets.QDialog):
             self._left_camera_combo.addItem("No cameras found", "")
             self._right_camera_combo.addItem("No cameras found", "")
 
-        # Pre-select last used cameras
+        # Pre-select cameras with smart defaults
+        # Priority: 1) Last used, 2) First two ArduCam devices, 3) First two cameras
         if last_left:
-            # Find and select the last left camera by serial
+            # Find and select the last left camera
             for i in range(self._left_camera_combo.count()):
                 if self._left_camera_combo.itemData(i) == last_left:
                     self._left_camera_combo.setCurrentIndex(i)
                     break
+        elif arducam_indices:
+            # Prefer first ArduCam device
+            first_arducam = str(arducam_indices[0])
+            for i in range(self._left_camera_combo.count()):
+                if self._left_camera_combo.itemData(i) == first_arducam:
+                    self._left_camera_combo.setCurrentIndex(i)
+                    break
         elif self._left_camera_combo.count() >= 2:
-            # Fallback: select first camera if no saved state
+            # Fallback: select first camera
             self._left_camera_combo.setCurrentIndex(0)
 
         if last_right:
-            # Find and select the last right camera by serial
+            # Find and select the last right camera
             for i in range(self._right_camera_combo.count()):
                 if self._right_camera_combo.itemData(i) == last_right:
                     self._right_camera_combo.setCurrentIndex(i)
                     break
+        elif len(arducam_indices) >= 2:
+            # Prefer second ArduCam device
+            second_arducam = str(arducam_indices[1])
+            for i in range(self._right_camera_combo.count()):
+                if self._right_camera_combo.itemData(i) == second_arducam:
+                    self._right_camera_combo.setCurrentIndex(i)
+                    break
         elif self._right_camera_combo.count() >= 2:
-            # Fallback: select second camera if no saved state
+            # Fallback: select second camera
             self._right_camera_combo.setCurrentIndex(1)
 
         # Add refresh button
