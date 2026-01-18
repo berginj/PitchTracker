@@ -8,6 +8,7 @@ from typing import Optional
 
 from PySide6 import QtCore, QtWidgets
 
+from configs.app_state import load_state
 from configs.settings import AppConfig
 
 
@@ -160,9 +161,6 @@ class SessionStartDialog(QtWidgets.QDialog):
                 label = f"{device['serial']} - {device['friendly_name']}"
                 self._left_camera_combo.addItem(label, device["serial"])
                 self._right_camera_combo.addItem(label, device["serial"])
-            if len(devices) >= 2:
-                self._left_camera_combo.setCurrentIndex(0)
-                self._right_camera_combo.setCurrentIndex(1)
         else:
             # Fallback to OpenCV indices
             indices = probe_opencv_indices()
@@ -170,9 +168,31 @@ class SessionStartDialog(QtWidgets.QDialog):
                 label = f"Camera {index}"
                 self._left_camera_combo.addItem(label, str(index))
                 self._right_camera_combo.addItem(label, str(index))
-            if len(indices) >= 2:
-                self._left_camera_combo.setCurrentIndex(0)
-                self._right_camera_combo.setCurrentIndex(1)
+
+        # Load last used cameras from app state and pre-select them
+        state = load_state()
+        last_left = state.get("last_left_camera")
+        last_right = state.get("last_right_camera")
+
+        if last_left:
+            # Find and select the last left camera by serial
+            for i in range(self._left_camera_combo.count()):
+                if self._left_camera_combo.itemData(i) == last_left:
+                    self._left_camera_combo.setCurrentIndex(i)
+                    break
+        elif len(devices) >= 2 or len(probe_opencv_indices()) >= 2:
+            # Fallback: select first camera if no saved state
+            self._left_camera_combo.setCurrentIndex(0)
+
+        if last_right:
+            # Find and select the last right camera by serial
+            for i in range(self._right_camera_combo.count()):
+                if self._right_camera_combo.itemData(i) == last_right:
+                    self._right_camera_combo.setCurrentIndex(i)
+                    break
+        elif len(devices) >= 2 or len(probe_opencv_indices()) >= 2:
+            # Fallback: select second camera if no saved state
+            self._right_camera_combo.setCurrentIndex(1)
 
         layout = QtWidgets.QGridLayout()
         layout.addWidget(left_label, 0, 0)

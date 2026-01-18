@@ -9,6 +9,7 @@ from typing import Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.pipeline_service import InProcessPipelineService
+from configs.app_state import load_state, save_state
 from configs.settings import load_config
 from ui.coaching.dialogs import SessionStartDialog
 from ui.coaching.widgets import HeatMapWidget, StrikeZoneOverlay, TrajectoryWidget
@@ -300,13 +301,13 @@ class CoachWindow(QtWidgets.QMainWindow):
         if dialog.ball_type != self._config.ball.type:
             self._service.set_ball_type(dialog.ball_type)
 
+        # Get camera serials from dialog
+        left_serial = dialog.left_serial
+        right_serial = dialog.right_serial
+
         # Start capture (if not already running)
         try:
             if not self._service.is_capturing():
-                # Get camera serials from dialog
-                left_serial = dialog.left_serial
-                right_serial = dialog.right_serial
-
                 logger.info(f"Starting capture with left={left_serial}, right={right_serial}")
                 self._status_label.setText("Starting cameras...")
                 QtWidgets.QApplication.processEvents()
@@ -332,6 +333,13 @@ class CoachWindow(QtWidgets.QMainWindow):
                 mode="session",
             )
             logger.info("Recording started successfully")
+
+            # Save camera serials to app state for next time
+            state = load_state()
+            state["last_left_camera"] = left_serial
+            state["last_right_camera"] = right_serial
+            save_state(state)
+            logger.info(f"Saved camera selections: left={left_serial}, right={right_serial}")
 
         except Exception as e:
             logger.error(f"Failed to start session: {e}", exc_info=True)
