@@ -44,6 +44,35 @@ class CameraStep(BaseStep):
         )
         instructions.setWordWrap(True)
 
+        # Backend selection
+        backend_group = QtWidgets.QGroupBox("Camera Backend")
+        backend_layout = QtWidgets.QHBoxLayout()
+
+        self._uvc_radio = QtWidgets.QRadioButton("UVC (USB Video Class)")
+        self._opencv_radio = QtWidgets.QRadioButton("OpenCV (Simple Indices)")
+
+        if self._backend == "uvc":
+            self._uvc_radio.setChecked(True)
+        else:
+            self._opencv_radio.setChecked(True)
+
+        self._uvc_radio.toggled.connect(lambda checked: self._switch_backend("uvc") if checked else None)
+        self._opencv_radio.toggled.connect(lambda checked: self._switch_backend("opencv") if checked else None)
+
+        backend_layout.addWidget(self._uvc_radio)
+        backend_layout.addWidget(self._opencv_radio)
+        backend_layout.addStretch()
+
+        backend_help = QtWidgets.QLabel(
+            "If cameras fail with UVC, try OpenCV backend which uses simple camera indices (0, 1, 2...)"
+        )
+        backend_help.setStyleSheet("color: #666; font-size: 9pt; font-style: italic;")
+
+        backend_vlayout = QtWidgets.QVBoxLayout()
+        backend_vlayout.addLayout(backend_layout)
+        backend_vlayout.addWidget(backend_help)
+        backend_group.setLayout(backend_vlayout)
+
         # Device selection
         device_group = QtWidgets.QGroupBox("Camera Selection")
         device_layout = QtWidgets.QFormLayout()
@@ -93,11 +122,23 @@ class CameraStep(BaseStep):
         # Main layout
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(instructions)
+        layout.addWidget(backend_group)
         layout.addWidget(device_group)
         layout.addWidget(preview_group, 1)  # Preview takes most space
         layout.addWidget(self._status_label)
 
         self.setLayout(layout)
+
+    def _switch_backend(self, backend: str) -> None:
+        """Switch camera backend."""
+        self._backend = backend
+        # Clear current selections
+        self._left_combo.clear()
+        self._right_combo.clear()
+        self._left_serial = None
+        self._right_serial = None
+        self._status_label.setText(f"Backend changed to {backend.upper()}. Click 'Refresh Devices' to discover cameras.")
+        self._status_label.setStyleSheet("color: #666; font-style: italic;")
 
     def _refresh_devices(self) -> None:
         """Discover available cameras."""

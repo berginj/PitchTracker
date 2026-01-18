@@ -198,21 +198,25 @@ class SetupWindow(QtWidgets.QMainWindow):
 
         # Special handling for certain steps
         if index == 1 and isinstance(current_step, CalibrationStep):
-            # Pass camera serials from Step 1 to Step 2
+            # Pass camera serials and backend from Step 1 to Step 2
             camera_step = self._steps[0]
             if isinstance(camera_step, CameraStep):
                 left_serial = camera_step.get_left_serial()
                 right_serial = camera_step.get_right_serial()
+                backend = camera_step.get_backend()
                 if left_serial and right_serial:
                     current_step.set_camera_serials(left_serial, right_serial)
+                    current_step._backend = backend  # Update backend
 
         elif index == 2 and isinstance(current_step, RoiStep):
-            # Pass left camera serial from Step 1 to Step 3
+            # Pass left camera serial and backend from Step 1 to Step 3
             camera_step = self._steps[0]
             if isinstance(camera_step, CameraStep):
                 left_serial = camera_step.get_left_serial()
+                backend = camera_step.get_backend()
                 if left_serial:
                     current_step.set_camera_serial(left_serial)
+                    current_step._backend = backend  # Update backend
 
         current_step.on_enter()
 
