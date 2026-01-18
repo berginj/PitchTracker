@@ -79,6 +79,13 @@ class CalibrationStep(BaseStep):
         settings_group = self._build_settings_group()
         layout.addWidget(settings_group)
 
+        # Pattern info
+        self._pattern_info = QtWidgets.QLabel()
+        self._pattern_info.setWordWrap(True)
+        self._pattern_info.setStyleSheet("color: #1976D2; background-color: #E3F2FD; padding: 8px; border-radius: 4px;")
+        self._update_pattern_info()
+        layout.addWidget(self._pattern_info)
+
         # Camera previews
         preview_layout = QtWidgets.QHBoxLayout()
 
@@ -169,14 +176,14 @@ class CalibrationStep(BaseStep):
         self._pattern_cols_spin = QtWidgets.QSpinBox()
         self._pattern_cols_spin.setRange(3, 20)
         self._pattern_cols_spin.setValue(self._pattern_cols)
-        self._pattern_cols_spin.valueChanged.connect(lambda v: setattr(self, '_pattern_cols', v))
+        self._pattern_cols_spin.valueChanged.connect(self._on_pattern_changed)
 
         cross_label = QtWidgets.QLabel("×")
 
         self._pattern_rows_spin = QtWidgets.QSpinBox()
         self._pattern_rows_spin.setRange(3, 20)
         self._pattern_rows_spin.setValue(self._pattern_rows)
-        self._pattern_rows_spin.valueChanged.connect(lambda v: setattr(self, '_pattern_rows', v))
+        self._pattern_rows_spin.valueChanged.connect(self._on_pattern_changed)
 
         # Square size
         square_label = QtWidgets.QLabel("Square size (mm):")
@@ -242,6 +249,20 @@ class CalibrationStep(BaseStep):
         """Set camera serials from Step 1."""
         self._left_serial = left_serial
         self._right_serial = right_serial
+
+    def _on_pattern_changed(self, value: int) -> None:
+        """Handle pattern size change."""
+        self._pattern_cols = self._pattern_cols_spin.value()
+        self._pattern_rows = self._pattern_rows_spin.value()
+        self._update_pattern_info()
+
+    def _update_pattern_info(self) -> None:
+        """Update the pattern info label."""
+        self._pattern_info.setText(
+            f"<b>Looking for:</b> {self._pattern_cols}x{self._pattern_rows} checkerboard "
+            f"(internal corners, not squares). Use a standard OpenCV checkerboard pattern, "
+            f"not ChArUco. Adjust pattern size in settings above if your pattern differs."
+        )
 
     def _open_cameras(self) -> None:
         """Open camera devices."""
@@ -467,9 +488,19 @@ class CalibrationStep(BaseStep):
         else:
             gray = image.copy()
 
-        # Find checkerboard corners
+        # Find checkerboard corners with adaptive flags for better detection
         pattern_size = (self._pattern_cols, self._pattern_rows)
-        found, corners = cv2.findChessboardCorners(gray, pattern_size)
+        flags = (
+            cv2.CALIB_CB_ADAPTIVE_THRESH +
+            cv2.CALIB_CB_NORMALIZE_IMAGE +
+            cv2.CALIB_CB_FAST_CHECK
+        )
+        found, corners = cv2.findChessboardCorners(gray, pattern_size, flags)
+
+        # If not found with strict settings, try without fast check
+        if not found:
+            flags = cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE
+            found, corners = cv2.findChessboardCorners(gray, pattern_size, flags)
 
         # Prepare annotated image - convert to BGR if grayscale for drawing
         if len(image.shape) == 2:
@@ -478,8 +509,11 @@ class CalibrationStep(BaseStep):
             annotated = image.copy()
 
         # Draw corners if found
-        if found:
-            cv2.drawChessboardCorners(annotated, pattern_size, corners, found)
+        if found and corners is not None:
+            # Refine corner positions for better accuracy
+            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+            corners_refined = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+            cv2.drawChessboardCorners(annotated, pattern_size, corners_refined, found)
 
         return found, annotated
 
