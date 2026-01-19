@@ -21,6 +21,7 @@ from enum import Enum
 from typing import Callable, List, Optional
 
 from contracts import Frame, StereoObservation
+from app.events import publish_error, ErrorCategory, ErrorSeverity
 
 logger = logging.getLogger(__name__)
 
@@ -396,7 +397,18 @@ class PitchStateMachineV2:
                 self._on_pitch_start(self._pitch_index, pitch_data)
             except Exception as e:
                 logger.error(f"Pitch start callback failed: {e}", exc_info=True)
-                # Revert state
+
+                # Publish error to error bus
+                publish_error(
+                    category=ErrorCategory.TRACKING,
+                    severity=ErrorSeverity.ERROR,
+                    message=f"Pitch start callback failed for pitch {self._pitch_index}",
+                    source="PitchStateMachineV2._transition_to_active",
+                    exception=e,
+                    pitch_index=self._pitch_index,
+                )
+
+                # Revert state to recover gracefully
                 self._phase = PitchPhase.RAMP_UP
                 self._pitch_index -= 1
                 self._observations.clear()
@@ -440,9 +452,22 @@ class PitchStateMachineV2:
                 self._on_pitch_end(pitch_data)
             except Exception as e:
                 logger.error(f"Pitch end callback failed: {e}", exc_info=True)
-                # State already finalized, can't revert
 
-        # Reset for next pitch
+                # Publish error to error bus
+                publish_error(
+                    category=ErrorCategory.TRACKING,
+                    severity=ErrorSeverity.ERROR,
+                    message=f"Pitch end callback failed for pitch {self._pitch_index}",
+                    source="PitchStateMachineV2._transition_to_finalized",
+                    exception=e,
+                    pitch_index=self._pitch_index,
+                    observation_count=len(pitch_data.observations),
+                )
+
+                # State already finalized, but we still need to reset for next pitch
+                # This ensures the state machine is ready for the next pitch even if callback failed
+
+        # Reset for next pitch (always runs, even if callback failed)
         self._reset_for_next_pitch()
 
     def _capture_pre_roll(self) -> List[tuple[str, Frame]]:

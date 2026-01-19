@@ -274,6 +274,30 @@ class InProcessPipelineService(PipelineService):
         # Wire camera frame callback
         self._camera_mgr.set_frame_callback(self._on_frame_captured)
 
+        # Enable camera reconnection for physical cameras
+        if backend != "sim":
+            self._camera_mgr.enable_reconnection(enabled=True)
+            self._camera_mgr.set_camera_state_callback(self._on_camera_state_changed)
+            logger.info("Camera reconnection enabled for pipeline service")
+
+    def _on_camera_state_changed(self, camera_id: str, state) -> None:
+        """Callback when camera connection state changes.
+
+        Args:
+            camera_id: Camera identifier ("left" or "right")
+            state: New camera state (CameraState enum)
+        """
+        from app.camera import CameraState
+
+        if state == CameraState.RECONNECTING:
+            logger.info(f"🔄 Camera {camera_id} disconnected, attempting reconnection...")
+        elif state == CameraState.CONNECTED:
+            logger.info(f"✅ Camera {camera_id} reconnected successfully")
+        elif state == CameraState.FAILED:
+            logger.error(f"❌ Camera {camera_id} reconnection failed permanently")
+        elif state == CameraState.DISCONNECTED:
+            logger.warning(f"⚠️ Camera {camera_id} disconnected")
+
     def _on_frame_captured(self, label: str, frame: Frame) -> None:
         """Callback when camera captures a frame.
 
@@ -784,6 +808,10 @@ class InProcessPipelineService(PipelineService):
 
         # Initialize session recorder
         self._session_recorder = SessionRecorder(self._config, self._record_dir)
+
+        # Set disk error callback to auto-stop recording when disk critical
+        self._session_recorder.set_disk_error_callback(self._on_disk_critical)
+
         session_dir, warning = self._session_recorder.start_session(
             self._record_session or "session", self._pitch_id
         )
@@ -868,4 +896,23 @@ class InProcessPipelineService(PipelineService):
     def _write_session_summary(self) -> None:
         if self._session_recorder:
             self._session_recorder.write_session_summary(self._last_session_summary)
+
+    def _on_disk_critical(self, free_gb: float, message: str) -> None:
+        """Callback when disk space becomes critical.
+
+        Automatically stops recording to prevent data corruption.
+
+        Args:
+            free_gb: Free disk space in GB
+            message: Warning message
+        """
+        logger.critical(f"Disk critical callback triggered: {message}")
+
+        # Stop recording immediately
+        if self._recording:
+            logger.warning("Auto-stopping recording due to critical disk space")
+            try:
+                self.stop_recording()
+            except Exception as e:
+                logger.error(f"Error stopping recording on disk critical: {e}")
 

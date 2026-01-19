@@ -9,6 +9,7 @@ import time
 from collections import deque
 from typing import Callable, Dict, List, Optional, Tuple
 
+from app.events import ErrorCategory, ErrorSeverity, publish_error
 from contracts import Detection, Frame
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,19 @@ class DetectionThreadPool:
         self._detection_error_lock = threading.Lock()
         self._last_error_log_time: Dict[str, float] = {"left": 0.0, "right": 0.0}
         self._max_consecutive_errors = 10
+
+        # Frame drop tracking
+        self._frames_dropped: Dict[str, int] = {"left": 0, "right": 0, "results": 0}
+        self._last_drop_log_time: Dict[str, float] = {"left": 0.0, "right": 0.0, "results": 0.0}
+        self._drop_warning_threshold = 10  # Warn after this many drops
+
+        # Adaptive queue sizing
+        self._adaptive_queue_enabled = True
+        self._min_queue_size = 3
+        self._max_queue_size = 12
+        self._last_adaptive_check = 0.0
+        self._adaptive_check_interval = 10.0  # Check every 10 seconds
+        self._frames_dropped_last_check: Dict[str, int] = {"left": 0, "right": 0, "results": 0}
 
     def set_detect_callback(self, callback: Callable[[str, Frame], list[Detection]]) -> None:
         """Set callback for detection.
@@ -163,7 +177,7 @@ class DetectionThreadPool:
             return
 
         target = self._left_detect_queue if label == "left" else self._right_detect_queue
-        self._queue_put_drop_oldest(target, frame)
+        self._queue_put_drop_oldest(target, frame, queue_name=label)
 
     def set_mode(self, mode: str, worker_count: int) -> None:
         """Update threading mode (requires restart to take effect).
@@ -194,25 +208,119 @@ class DetectionThreadPool:
         with self._detection_error_lock:
             return self._detection_errors.copy()
 
+    def _check_adaptive_queue_sizing(self) -> None:
+        """Check and adjust queue sizes based on drop patterns.
+
+        Increases queue size if drops are frequent, decreases if underutilized.
+        Called periodically from detection loops for dynamic optimization.
+        """
+        if not self._adaptive_queue_enabled:
+            return
+
+        current_time = time.monotonic()
+        if current_time - self._last_adaptive_check < self._adaptive_check_interval:
+            return
+
+        with self._detection_error_lock:
+            # Calculate drop rate since last check
+            total_new_drops = 0
+            for queue_name in ("left", "right"):
+                drops_since_last = self._frames_dropped[queue_name] - self._frames_dropped_last_check[queue_name]
+                total_new_drops += drops_since_last
+                self._frames_dropped_last_check[queue_name] = self._frames_dropped[queue_name]
+
+            # Adjust queue size based on drop rate
+            # High drops (>5 per interval): increase queue size
+            # Low drops (<1 per interval): decrease queue size
+            old_size = self._queue_size
+
+            if total_new_drops > 5:
+                # Increase queue size (up to max)
+                self._queue_size = min(self._queue_size + 2, self._max_queue_size)
+            elif total_new_drops < 1 and self._queue_size > self._min_queue_size:
+                # Decrease queue size (down to min)
+                self._queue_size = max(self._queue_size - 1, self._min_queue_size)
+
+            self._last_adaptive_check = current_time
+
+            # Log adjustment
+            if self._queue_size != old_size:
+                logger.info(
+                    f"Adaptive queue sizing: adjusted from {old_size} to {self._queue_size} "
+                    f"(drops in last {self._adaptive_check_interval}s: {total_new_drops})"
+                )
+
+                # Note: Queue size adjustment takes effect on next start()
+                # Existing queues are not resized dynamically to avoid complexity
+
     def _reset_queues(self) -> None:
         """Reset all detection queues."""
         self._left_detect_queue = queue.Queue(maxsize=self._queue_size)
         self._right_detect_queue = queue.Queue(maxsize=self._queue_size)
         self._detect_result_queue = queue.Queue(maxsize=self._queue_size * 4)
 
-    @staticmethod
-    def _queue_put_drop_oldest(target: queue.Queue, item) -> None:
+    def _queue_put_drop_oldest(self, target: queue.Queue, item, queue_name: str = "unknown") -> None:
         """Put item in queue, dropping oldest if full.
+
+        Optimized to minimize lock contention by releasing lock before I/O operations.
 
         Args:
             target: Queue to put item in
             item: Item to put
+            queue_name: Name of queue for tracking/logging
         """
         try:
             target.put_nowait(item)
             return
         except queue.Full:
-            pass
+            # Minimize critical section - only lock during counter update
+            should_log = False
+            should_log_critical = False
+            drop_count = 0
+
+            with self._detection_error_lock:
+                self._frames_dropped[queue_name] = self._frames_dropped.get(queue_name, 0) + 1
+                drop_count = self._frames_dropped[queue_name]
+
+                # Check if we should log (once per 5 seconds)
+                current_time = time.monotonic()
+                time_since_last_log = current_time - self._last_drop_log_time.get(queue_name, 0.0)
+
+                if time_since_last_log > 5.0:
+                    should_log = True
+                    self._last_drop_log_time[queue_name] = current_time
+
+                # Check if we should log critical error
+                if drop_count >= 100 and drop_count % 100 == 0:
+                    should_log_critical = True
+
+            # Release lock before I/O operations (logging, publish_error)
+            if should_log:
+                logger.warning(
+                    f"Detection queue '{queue_name}' full, dropped {drop_count} frames total. "
+                    f"Detection may not be keeping up with frame rate."
+                )
+
+                # Publish warning event (outside lock)
+                publish_error(
+                    category=ErrorCategory.DETECTION,
+                    severity=ErrorSeverity.WARNING,
+                    message=f"Detection queue '{queue_name}' full, dropping frames",
+                    source=f"DetectionThreadPool.{queue_name}",
+                    frames_dropped=drop_count,
+                    queue_name=queue_name,
+                )
+
+            # Publish critical error if too many drops (outside lock)
+            if should_log_critical:
+                publish_error(
+                    category=ErrorCategory.DETECTION,
+                    severity=ErrorSeverity.CRITICAL,
+                    message=f"Detection queue '{queue_name}' consistently dropping frames ({drop_count} total)",
+                    source=f"DetectionThreadPool.{queue_name}",
+                    frames_dropped=drop_count,
+                    queue_name=queue_name,
+                )
 
         # Drop oldest item
         try:
@@ -224,6 +332,7 @@ class DetectionThreadPool:
         try:
             target.put_nowait(item)
         except queue.Full:
+            logger.error(f"Failed to put item in queue '{queue_name}' even after dropping oldest")
             pass
 
     def _detect_frame(self, label: str, frame: Frame) -> list[Detection]:
@@ -255,33 +364,68 @@ class DetectionThreadPool:
             return detections
 
         except Exception as e:
-            # Track and log error
+            # Minimize critical section - only lock during counter update
+            should_log = False
+            should_log_critical = False
+            error_count = 0
+
             with self._detection_error_lock:
                 self._detection_errors[label] += 1
                 error_count = self._detection_errors[label]
 
-                # Throttle logging to once per 5 seconds
+                # Check if we should log (once per 5 seconds)
                 current_time = time.monotonic()
                 time_since_last_log = current_time - self._last_error_log_time.get(label, 0.0)
 
                 if time_since_last_log > 5.0:
-                    logger.error(
-                        f"Detection failed for {label} camera (error #{error_count}): {e.__class__.__name__}: {e}",
-                        exc_info=True
-                    )
+                    should_log = True
                     self._last_error_log_time[label] = current_time
 
-                # Notify error callback if too many consecutive failures
+                # Check if we should log critical error
                 if error_count >= self._max_consecutive_errors:
-                    logger.critical(
-                        f"Detection failing consistently for {label} camera "
-                        f"({error_count} consecutive errors). Detection may be broken."
-                    )
-                    if self._error_callback:
-                        try:
-                            self._error_callback(f"detection_{label}", e)
-                        except Exception as callback_error:
-                            logger.error(f"Error callback failed: {callback_error}")
+                    should_log_critical = True
+
+            # Release lock before I/O operations
+            if should_log:
+                logger.error(
+                    f"Detection failed for {label} camera (error #{error_count}): {e.__class__.__name__}: {e}",
+                    exc_info=True
+                )
+
+                # Publish error event to bus (outside lock)
+                publish_error(
+                    category=ErrorCategory.DETECTION,
+                    severity=ErrorSeverity.ERROR,
+                    message=f"Detection failed for {label} camera",
+                    source=f"DetectionThreadPool.{label}",
+                    exception=e,
+                    error_count=error_count,
+                    camera=label,
+                )
+
+            # Notify error callback if too many consecutive failures (outside lock)
+            if should_log_critical:
+                logger.critical(
+                    f"Detection failing consistently for {label} camera "
+                    f"({error_count} consecutive errors). Detection may be broken."
+                )
+
+                # Publish critical error event
+                publish_error(
+                    category=ErrorCategory.DETECTION,
+                    severity=ErrorSeverity.CRITICAL,
+                    message=f"Detection failing consistently for {label} camera ({error_count} consecutive errors)",
+                    source=f"DetectionThreadPool.{label}",
+                    exception=e,
+                    error_count=error_count,
+                    camera=label,
+                )
+
+                if self._error_callback:
+                    try:
+                        self._error_callback(f"detection_{label}", e)
+                    except Exception as callback_error:
+                        logger.error(f"Error callback failed: {callback_error}")
 
             # Return empty list to allow pipeline to continue
             # but errors are now visible and tracked
@@ -301,7 +445,7 @@ class DetectionThreadPool:
                 continue
 
             detections = self._detect_frame(label, frame)
-            self._queue_put_drop_oldest(self._detect_result_queue, (label, frame, detections))
+            self._queue_put_drop_oldest(self._detect_result_queue, (label, frame, detections), queue_name="results")
 
     def _detection_loop_pool(self) -> None:
         """Detection loop for worker pool mode (shared workers)."""
@@ -327,7 +471,7 @@ class DetectionThreadPool:
 
                 # Process frame
                 detections = self._detect_frame(label, frame)
-                self._queue_put_drop_oldest(self._detect_result_queue, (label, frame, detections))
+                self._queue_put_drop_oldest(self._detect_result_queue, (label, frame, detections), queue_name="results")
 
                 with self._detector_busy_lock:
                     self._detector_busy[label] = False
@@ -349,6 +493,8 @@ class DetectionThreadPool:
             try:
                 label, frame, detections = self._detect_result_queue.get(timeout=0.2)
             except queue.Empty:
+                # Check adaptive queue sizing during idle time
+                self._check_adaptive_queue_sizing()
                 continue
 
             if label == "left":
@@ -359,3 +505,6 @@ class DetectionThreadPool:
             # Notify stereo callback for each result
             if self._stereo_callback:
                 self._stereo_callback(label, frame, detections)
+
+            # Periodically check adaptive queue sizing
+            self._check_adaptive_queue_sizing()
