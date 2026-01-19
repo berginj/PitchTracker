@@ -39,13 +39,23 @@ class VideoDisplayWidget(QtWidgets.QLabel):
         self._current_frame: Optional[np.ndarray] = None
         self._current_pixmap: Optional[QtGui.QPixmap] = None
 
-    def set_frame(self, frame: np.ndarray) -> None:
-        """Set and display a video frame.
+        # Detections to overlay
+        self._detections: list = []
+
+    def set_frame(self, frame: np.ndarray, detections: Optional[list] = None) -> None:
+        """Set and display a video frame with optional detection overlays.
 
         Args:
             frame: Video frame as numpy array (BGR or grayscale)
+            detections: Optional list of Detection objects to overlay
         """
         self._current_frame = frame
+        self._detections = detections or []
+
+        # Draw detections on frame if provided
+        if self._detections:
+            frame = self._draw_detections_on_frame(frame.copy(), self._detections)
+
         self._current_pixmap = self._frame_to_pixmap(frame)
 
         if self._current_pixmap:
@@ -61,7 +71,8 @@ class VideoDisplayWidget(QtWidgets.QLabel):
         """Clear the display."""
         self._current_frame = None
         self._current_pixmap = None
-        self.clear()
+        self._detections = []
+        super().clear()
         self.setText("No Video Loaded")
 
     def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
@@ -80,6 +91,34 @@ class VideoDisplayWidget(QtWidgets.QLabel):
                 QtCore.Qt.TransformationMode.SmoothTransformation,
             )
             self.setPixmap(scaled)
+
+    @staticmethod
+    def _draw_detections_on_frame(frame: np.ndarray, detections: list) -> np.ndarray:
+        """Draw detection circles on frame.
+
+        Args:
+            frame: Video frame
+            detections: List of Detection objects
+
+        Returns:
+            Frame with detection circles drawn
+        """
+        # Ensure frame is color for drawing
+        if len(frame.shape) == 2:
+            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+
+        # Draw circles for each detection
+        for detection in detections:
+            center = (int(detection.u), int(detection.v))
+            radius = max(5, int(detection.radius_px))
+
+            # Draw circle (green for new detections)
+            cv2.circle(frame, center, radius, (0, 255, 0), 2)
+
+            # Draw center point
+            cv2.circle(frame, center, 2, (0, 255, 0), -1)
+
+        return frame
 
     @staticmethod
     def _frame_to_pixmap(frame: np.ndarray) -> Optional[QtGui.QPixmap]:

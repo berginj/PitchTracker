@@ -9,7 +9,7 @@ from typing import Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.review import PitchScore, ReviewService
-from ui.review.widgets import PlaybackControls, TimelineWidget, VideoDisplayWidget
+from ui.review.widgets import ParameterPanel, PlaybackControls, TimelineWidget, VideoDisplayWidget
 
 logger = logging.getLogger(__name__)
 
@@ -142,14 +142,36 @@ class ReviewWindow(QtWidgets.QMainWindow):
         Returns:
             Widget containing the main UI layout
         """
-        # Top section: Dual video displays
+        # Left section: Videos + timeline + controls
+        left_section = self._build_video_and_controls_section()
+
+        # Right section: Parameter tuning panel
+        self._parameter_panel = ParameterPanel()
+        self._parameter_panel.parameter_changed.connect(self._on_parameters_changed)
+
+        # Main horizontal layout
+        main_layout = QtWidgets.QHBoxLayout()
+        main_layout.addWidget(left_section, 1)  # Video section takes most space
+        main_layout.addWidget(self._parameter_panel)  # Parameter panel on right
+
+        container = QtWidgets.QWidget()
+        container.setLayout(main_layout)
+        return container
+
+    def _build_video_and_controls_section(self) -> QtWidgets.QWidget:
+        """Build video displays, timeline, and playback controls.
+
+        Returns:
+            Widget with video section layout
+        """
+        # Top: Dual video displays
         video_section = self._build_video_section()
 
-        # Middle section: Timeline
+        # Middle: Timeline
         self._timeline = TimelineWidget()
         self._timeline.seek_requested.connect(self._on_timeline_seek)
 
-        # Bottom section: Playback controls
+        # Bottom: Playback controls
         self._controls = PlaybackControls()
         self._controls.play_pause_clicked.connect(self._toggle_playback)
         self._controls.step_forward_clicked.connect(self._step_forward)
@@ -158,7 +180,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._controls.seek_end_clicked.connect(self._seek_to_end)
         self._controls.speed_changed.connect(self._on_speed_changed)
 
-        # Main layout
+        # Layout
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(video_section, 1)  # Takes most space
         layout.addWidget(self._timeline)
@@ -242,6 +264,19 @@ class ReviewWindow(QtWidgets.QMainWindow):
             # Update timeline
             self._timeline.set_total_frames(self._service.total_frames)
             self._timeline.set_fps(self._service.video_reader.fps)
+
+            # Load detector config into parameter panel
+            if self._service.detector_config:
+                cfg = self._service.detector_config
+                from detect.config import Mode
+                self._parameter_panel.load_parameters(
+                    mode=Mode(cfg.mode),
+                    frame_diff_threshold=cfg.frame_diff_threshold,
+                    bg_diff_threshold=cfg.bg_diff_threshold,
+                    min_area=cfg.filters.min_area,
+                    max_area=cfg.filters.max_area or 500,
+                    min_circularity=cfg.filters.min_circularity,
+                )
 
             # Load and display first frame
             self._update_video_displays()
@@ -396,14 +431,51 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         self._status_bar.showMessage(f"Playback speed: {speed:.1f}x")
 
+    def _on_parameters_changed(self) -> None:
+        """Handle parameter changes - update detector config and re-run detection."""
+        if not self._service.session:
+            return
+
+        # Update detector config in service
+        self._service.update_detector_config(
+            frame_diff_threshold=self._parameter_panel.frame_diff_threshold,
+            bg_diff_threshold=self._parameter_panel.bg_diff_threshold,
+            min_area=self._parameter_panel.min_area,
+            max_area=self._parameter_panel.max_area,
+            min_circularity=self._parameter_panel.min_circularity,
+            mode=self._parameter_panel.mode,
+        )
+
+        # Update displays with new detections
+        self._update_video_displays()
+
+        self._status_bar.showMessage("Detection parameters updated")
+
     def _update_video_displays(self) -> None:
-        """Update video displays with current frames."""
+        """Update video displays with current frames and detections."""
         left_frame, right_frame = self._service.get_current_frames()
 
-        if left_frame is not None:
-            self._left_display.set_frame(left_frame)
+        if left_frame is None or right_frame is None:
+            return
 
-        if right_frame is not None:
+        # Run detection on current frame
+        try:
+            left_detections, right_detections = self._service.run_detection_on_current_frame()
+
+            # Update displays with frames and detections
+            self._left_display.set_frame(left_frame, left_detections)
+            self._right_display.set_frame(right_frame, right_detections)
+
+            # Update status with detection count
+            self._status_bar.showMessage(
+                f"Frame {self._service.current_frame_index + 1}/{self._service.total_frames} "
+                f"| Detections: L={len(left_detections)}, R={len(right_detections)}"
+            )
+
+        except Exception as e:
+            logger.exception(f"Detection failed: {e}")
+            # Still show frames even if detection fails
+            self._left_display.set_frame(left_frame)
             self._right_display.set_frame(right_frame)
 
     def _export_config(self) -> None:

@@ -12,6 +12,8 @@ import numpy as np
 
 from app.review.session_loader import LoadedPitch, LoadedSession, SessionLoader
 from app.review.video_reader import PlaybackState, VideoReader
+from contracts import Frame
+from detect.classical_detector import ClassicalDetector
 from detect.config import DetectorConfig, FilterConfig, Mode
 from log_config.logger import get_logger
 
@@ -71,6 +73,10 @@ class ReviewService:
         # Detection configuration (starts with default)
         self._detector_config: Optional[DetectorConfig] = None
         self._detector_mode = Mode.MODE_A
+
+        # Detectors for left and right cameras
+        self._detector_left: Optional[ClassicalDetector] = None
+        self._detector_right: Optional[ClassicalDetector] = None
 
         # Annotations and pitch scores
         self._annotations: dict[int, list[Annotation]] = {}  # frame_index -> list of annotations
@@ -290,7 +296,97 @@ class ReviewService:
         if mode is not None:
             self._detector_mode = mode
 
+        # Rebuild detectors with new config
+        self._rebuild_detectors()
+
         logger.debug(f"Updated detector config: {self._detector_config}")
+
+    def _rebuild_detectors(self) -> None:
+        """Rebuild detectors with current configuration."""
+        if not self._detector_config:
+            return
+
+        # Create detectors for both cameras
+        self._detector_left = ClassicalDetector(
+            config=self._detector_config,
+            mode=self._detector_mode,
+            roi_by_camera={},  # No ROI filtering in review mode
+        )
+
+        self._detector_right = ClassicalDetector(
+            config=self._detector_config,
+            mode=self._detector_mode,
+            roi_by_camera={},
+        )
+
+        logger.debug("Rebuilt detectors with updated config")
+
+    def run_detection_on_current_frame(self) -> tuple[list, list]:
+        """Run detection on current frame for both cameras.
+
+        Returns:
+            Tuple of (left_detections, right_detections)
+            Each is a list of Detection objects
+        """
+        if not self._detector_left or not self._detector_right:
+            self._rebuild_detectors()
+
+        left_frame, right_frame = self.get_current_frames()
+
+        left_detections = []
+        right_detections = []
+
+        # Run detection on left frame
+        if left_frame is not None and self._detector_left:
+            try:
+                # Convert to grayscale if needed
+                import cv2
+                if len(left_frame.shape) == 3:
+                    gray_left = cv2.cvtColor(left_frame, cv2.COLOR_BGR2GRAY)
+                else:
+                    gray_left = left_frame
+
+                # Create Frame contract
+                frame_obj = Frame(
+                    camera_id="left",
+                    frame_index=self._video_reader.current_frame_index,
+                    t_capture_monotonic_ns=0,
+                    image=gray_left,
+                    width=gray_left.shape[1],
+                    height=gray_left.shape[0],
+                    pixfmt="GRAY8",
+                )
+
+                left_detections = self._detector_left.detect(frame_obj)
+            except Exception as e:
+                logger.warning(f"Left detection failed: {e}")
+
+        # Run detection on right frame
+        if right_frame is not None and self._detector_right:
+            try:
+                # Convert to grayscale if needed
+                import cv2
+                if len(right_frame.shape) == 3:
+                    gray_right = cv2.cvtColor(right_frame, cv2.COLOR_BGR2GRAY)
+                else:
+                    gray_right = right_frame
+
+                # Create Frame contract
+                frame_obj = Frame(
+                    camera_id="right",
+                    frame_index=self._video_reader.current_frame_index,
+                    t_capture_monotonic_ns=0,
+                    image=gray_right,
+                    width=gray_right.shape[1],
+                    height=gray_right.shape[0],
+                    pixfmt="GRAY8",
+                )
+
+                right_detections = self._detector_right.detect(frame_obj)
+            except Exception as e:
+                logger.warning(f"Right detection failed: {e}")
+
+        return left_detections, right_detections
 
     def add_annotation(self, frame_index: int, camera: str, x: float, y: float, note: str = "") -> None:
         """Add manual annotation at frame.
