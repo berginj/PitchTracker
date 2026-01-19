@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING, List, Optional
 
 from PySide6 import QtWidgets
+from PySide6.QtCore import QObject
 
 if TYPE_CHECKING:
     from contracts import Frame
     from app.pipeline_service import PitchSummary
 
 
-class BaseModeWidget(QtWidgets.QWidget, ABC):
+# Combined metaclass for Qt + ABC
+class QABCMeta(type(QObject), ABCMeta):
+    """Metaclass that combines Qt's metaclass with ABCMeta."""
+    pass
+
+
+class BaseModeWidget(QtWidgets.QWidget, metaclass=QABCMeta):
     """Abstract base class for visualization mode widgets.
 
     All coaching visualization modes must inherit from this class and

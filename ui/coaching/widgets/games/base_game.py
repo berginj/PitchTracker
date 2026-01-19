@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING, Optional
 
 from PySide6 import QtWidgets
+from PySide6.QtCore import QObject
 
 if TYPE_CHECKING:
     from app.pipeline_service import PitchSummary
     from ui.coaching.game_state_manager import GameStateManager
 
 
-class BaseGame(QtWidgets.QWidget, ABC):
+# Combined metaclass for Qt + ABC
+class QABCMeta(type(QObject), ABCMeta):
+    """Metaclass that combines Qt's metaclass with ABCMeta."""
+    pass
+
+
+class BaseGame(QtWidgets.QWidget, metaclass=QABCMeta):
     """Abstract base class for all coaching games.
 
     All games must inherit from this class and implement the required methods.
