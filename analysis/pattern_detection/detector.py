@@ -290,5 +290,214 @@ class PatternDetector:
         print(f"  Total pitches: {len(all_pitches)}")
         print(f"  Profile saved to: {self.profile_manager._get_profile_path(pitcher_id)}")
 
+    def analyze_sessions(
+        self,
+        session_dirs: List[Path],
+        output_dir: Optional[Path] = None
+    ) -> dict:
+        """Analyze trends across multiple sessions.
+
+        Args:
+            session_dirs: List of session directories to analyze
+            output_dir: Optional output directory for reports (default: recordings/)
+
+        Returns:
+            Dictionary with cross-session analysis results
+        """
+        from datetime import datetime
+
+        if output_dir is None:
+            output_dir = Path("recordings")
+
+        print(f"Analyzing {len(session_dirs)} sessions for trends...")
+
+        # Load all sessions
+        session_data = []
+        for session_dir in session_dirs:
+            try:
+                pitches = self._load_session_pitches(session_dir)
+                if len(pitches) >= 5:  # Only include sessions with sufficient data
+                    session_data.append({
+                        'session_dir': session_dir,
+                        'session_id': session_dir.name,
+                        'pitches': pitches
+                    })
+            except Exception as e:
+                print(f"Warning: Could not load session {session_dir}: {e}")
+                continue
+
+        if len(session_data) < 2:
+            raise ValueError(f"Need at least 2 sessions with sufficient data (found {len(session_data)})")
+
+        # Analyze velocity trends
+        velocity_trends = self._analyze_velocity_trends(session_data)
+
+        # Analyze strike consistency
+        strike_consistency = self._analyze_strike_consistency(session_data)
+
+        # Analyze pitch mix evolution
+        pitch_mix = self._analyze_pitch_mix(session_data)
+
+        # Build report
+        report = {
+            'analysis_type': 'cross_session',
+            'created_utc': datetime.utcnow().isoformat(),
+            'sessions_analyzed': len(session_data),
+            'total_pitches': sum(len(s['pitches']) for s in session_data),
+            'velocity_trends': velocity_trends,
+            'strike_consistency': strike_consistency,
+            'pitch_mix_evolution': pitch_mix
+        }
+
+        # Save JSON report
+        timestamp = datetime.utcnow().strftime('%Y-%m-%d')
+        json_path = output_dir / f"cross_session_analysis_{timestamp}.json"
+        with open(json_path, 'w') as f:
+            json.dump(report, f, indent=2)
+
+        print(f"\n✓ Cross-session analysis complete!")
+        print(f"  Sessions analyzed: {len(session_data)}")
+        print(f"  Total pitches: {report['total_pitches']}")
+        print(f"  JSON report: {json_path}")
+
+        return report
+
+    def _analyze_velocity_trends(self, session_data: List[dict]) -> dict:
+        """Analyze velocity trends across sessions.
+
+        Args:
+            session_data: List of session dictionaries
+
+        Returns:
+            Dictionary with velocity trend analysis
+        """
+        from analysis.pattern_detection.utils import linear_regression
+
+        session_stats = []
+
+        for i, session in enumerate(session_data):
+            pitches = session['pitches']
+            velocities = [p.speed_mph for p in pitches if p.speed_mph is not None]
+
+            if velocities:
+                import numpy as np
+                session_stats.append({
+                    'session_id': session['session_id'],
+                    'session_index': i,
+                    'avg_speed': float(np.mean(velocities)),
+                    'std_speed': float(np.std(velocities, ddof=1)) if len(velocities) > 1 else 0.0,
+                    'pitch_count': len(pitches)
+                })
+
+        # Compute trend
+        if len(session_stats) >= 2:
+            indices = [s['session_index'] for s in session_stats]
+            speeds = [s['avg_speed'] for s in session_stats]
+
+            slope, intercept = linear_regression(indices, speeds)
+
+            # Determine trend direction
+            if slope > 0.1:
+                trend_direction = 'increasing'
+            elif slope < -0.1:
+                trend_direction = 'decreasing'
+            else:
+                trend_direction = 'stable'
+
+            return {
+                'sessions': session_stats,
+                'trend_slope_mph_per_session': float(slope),
+                'trend_direction': trend_direction,
+                'trend_intercept': float(intercept)
+            }
+
+        return {'sessions': session_stats}
+
+    def _analyze_strike_consistency(self, session_data: List[dict]) -> dict:
+        """Analyze strike consistency across sessions.
+
+        Args:
+            session_data: List of session dictionaries
+
+        Returns:
+            Dictionary with strike consistency analysis
+        """
+        session_stats = []
+
+        for session in session_data:
+            pitches = session['pitches']
+            strikes = sum(1 for p in pitches if p.is_strike)
+            strike_pct = strikes / len(pitches) if pitches else 0.0
+
+            # Create heatmap (3x3 grid)
+            heatmap = [[0]*3 for _ in range(3)]
+            for p in pitches:
+                if p.zone_row is not None and p.zone_col is not None:
+                    if 0 <= p.zone_row < 3 and 0 <= p.zone_col < 3:
+                        heatmap[p.zone_row][p.zone_col] += 1
+
+            session_stats.append({
+                'session_id': session['session_id'],
+                'strike_percentage': strike_pct,
+                'zone_distribution': heatmap,
+                'pitch_count': len(pitches)
+            })
+
+        # Compute average strike percentage
+        if session_stats:
+            avg_strike_pct = sum(s['strike_percentage'] for s in session_stats) / len(session_stats)
+        else:
+            avg_strike_pct = 0.0
+
+        return {
+            'sessions': session_stats,
+            'average_strike_percentage': avg_strike_pct
+        }
+
+    def _analyze_pitch_mix(self, session_data: List[dict]) -> dict:
+        """Analyze pitch mix evolution across sessions.
+
+        Args:
+            session_data: List of session dictionaries
+
+        Returns:
+            Dictionary with pitch mix analysis
+        """
+        from collections import defaultdict
+        from analysis.pattern_detection.pitch_classifier import classify_pitches_hybrid
+
+        session_stats = []
+
+        for session in session_data:
+            pitches = session['pitches']
+
+            # Classify pitches
+            classifications = classify_pitches_hybrid(pitches, n_clusters=3)
+
+            # Count by type
+            pitch_counts = defaultdict(int)
+            for classification in classifications:
+                pitch_counts[classification.heuristic_type] += 1
+
+            # Convert to percentages
+            pitch_mix = {
+                pitch_type: count / len(pitches) if pitches else 0.0
+                for pitch_type, count in pitch_counts.items()
+            }
+
+            # Find primary pitch
+            primary_pitch = max(pitch_counts, key=pitch_counts.get) if pitch_counts else "Unknown"
+
+            session_stats.append({
+                'session_id': session['session_id'],
+                'pitch_mix': pitch_mix,
+                'primary_pitch': primary_pitch,
+                'pitch_count': len(pitches)
+            })
+
+        return {
+            'sessions': session_stats
+        }
+
 
 __all__ = ["PatternDetector"]

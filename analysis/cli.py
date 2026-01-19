@@ -126,6 +126,55 @@ def list_profiles_command(args):
     return 0
 
 
+def analyze_sessions_command(args):
+    """Handle analyze-sessions command.
+
+    Args:
+        args: Parsed command-line arguments
+    """
+    print(f"Analyzing cross-session trends...")
+
+    # Parse session paths (can be glob patterns)
+    session_dirs = []
+
+    for pattern in args.sessions:
+        # Handle glob patterns
+        if '*' in pattern or '?' in pattern:
+            matched = list(Path('.').glob(pattern))
+            session_dirs.extend([p for p in matched if p.is_dir()])
+        else:
+            path = Path(pattern)
+            if path.exists() and path.is_dir():
+                session_dirs.append(path)
+
+    if not session_dirs:
+        print(f"Error: No session directories found matching: {args.sessions}", file=sys.stderr)
+        return 1
+
+    if len(session_dirs) < 2:
+        print(f"Error: Need at least 2 sessions for cross-session analysis (found {len(session_dirs)})", file=sys.stderr)
+        return 1
+
+    print(f"Found {len(session_dirs)} sessions to analyze")
+
+    # Determine output directory
+    output_dir = Path(args.output) if args.output else Path("recordings")
+
+    detector = PatternDetector()
+
+    try:
+        report = detector.analyze_sessions(session_dirs, output_dir=output_dir)
+        return 0
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"Error during cross-session analysis: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -141,6 +190,9 @@ Examples:
 
   # Create pitcher profile from multiple sessions
   python -m analysis.cli create-profile --pitcher john_doe --sessions "recordings/session-2026-01-*"
+
+  # Analyze trends across multiple sessions
+  python -m analysis.cli analyze-sessions --sessions "recordings/session-2026-01-*"
 
   # List all profiles
   python -m analysis.cli list-profiles
@@ -197,6 +249,22 @@ Examples:
         help='List all pitcher profiles'
     )
 
+    # analyze-sessions command
+    sessions_parser = subparsers.add_parser(
+        'analyze-sessions',
+        help='Analyze trends across multiple sessions'
+    )
+    sessions_parser.add_argument(
+        '--sessions',
+        nargs='+',
+        required=True,
+        help='Session directories or glob patterns'
+    )
+    sessions_parser.add_argument(
+        '--output',
+        help='Output directory for reports (default: recordings/)'
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -210,6 +278,8 @@ Examples:
         return create_profile_command(args)
     elif args.command == 'list-profiles':
         return list_profiles_command(args)
+    elif args.command == 'analyze-sessions':
+        return analyze_sessions_command(args)
 
     return 0
 
