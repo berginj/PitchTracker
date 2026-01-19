@@ -12,6 +12,17 @@ If you received the installer, see [README_INSTALL.md](README_INSTALL.md) for in
 
 The application includes automatic updates - you'll be notified when new versions are available.
 
+### 📚 User Documentation
+
+**New to PitchTracker? Start here:**
+- **[Quick Start Guide](docs/QUICK_START.md)** - Get up and running in 30 minutes
+- **[FAQ](docs/FAQ.md)** - Frequently asked questions and answers
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+
+**For advanced usage:**
+- [Review Mode Guide](docs/REVIEW_TRAINING_MODE_DESIGN.md) - Analyze and tune past sessions
+- [Feature Status](docs/FEATURE_STATUS.md) - Complete feature list and status
+
 ---
 
 ## For Developers
