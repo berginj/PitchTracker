@@ -56,6 +56,13 @@ class SessionRecorder:
         self._write_failures = 0
         self._last_write_warning = 0.0
 
+        # Disk space monitoring
+        self._disk_monitor_thread: Optional[threading.Thread] = None
+        self._monitoring_disk = False
+        self._disk_error_callback: Optional[callable] = None
+        self._critical_disk_gb = 5.0  # Stop recording if below this
+        self._warning_disk_gb = 20.0  # Warn user if below this
+
     def _check_disk_space(self, required_gb: float = 50.0) -> tuple[bool, str]:
         """Check disk space and return warning message if low.
 
@@ -91,6 +98,64 @@ class SessionRecorder:
 
         return True, ""
 
+    def set_disk_error_callback(self, callback: callable) -> None:
+        """Set callback for disk space emergencies.
+
+        Args:
+            callback: Function to call when disk space critical, receives (free_gb, message)
+        """
+        self._disk_error_callback = callback
+
+    def _monitor_disk_space(self) -> None:
+        """Background thread to monitor disk space during recording.
+
+        Checks disk space every 5 seconds. Triggers emergency stop if critical.
+        """
+        last_warning_time = 0.0
+
+        while self._monitoring_disk:
+            try:
+                usage = shutil.disk_usage(self._record_dir)
+                free_gb = usage.free / (1024**3)
+
+                current_time = time.time()
+
+                # Critical level - trigger emergency callback
+                if free_gb < self._critical_disk_gb:
+                    logger.critical(
+                        f"CRITICAL DISK SPACE: {free_gb:.1f}GB remaining! "
+                        f"Recording must stop immediately to avoid data corruption."
+                    )
+                    if self._disk_error_callback:
+                        try:
+                            self._disk_error_callback(
+                                free_gb,
+                                f"Critical: Only {free_gb:.1f}GB disk space remaining!"
+                            )
+                        except Exception as e:
+                            logger.error(f"Disk error callback failed: {e}")
+                    # Stop monitoring - callback should stop recording
+                    break
+
+                # Warning level - log periodically
+                elif free_gb < self._warning_disk_gb:
+                    # Throttle warnings to once per minute
+                    if current_time - last_warning_time > 60.0:
+                        logger.warning(
+                            f"Low disk space: {free_gb:.1f}GB remaining. "
+                            f"Consider ending session soon."
+                        )
+                        last_warning_time = current_time
+
+                # Check every 5 seconds
+                time.sleep(5.0)
+
+            except Exception as e:
+                logger.error(f"Error monitoring disk space: {e}")
+                time.sleep(5.0)  # Continue monitoring despite error
+
+        logger.info("Disk space monitoring stopped")
+
     def start_session(self, session_name: str, pitch_id: str) -> tuple[Path, str]:
         """Start session recording.
 
@@ -115,6 +180,17 @@ class SessionRecorder:
         self._session_dir.mkdir(parents=True, exist_ok=True)
 
         self._open_writers()
+
+        # Start background disk space monitoring
+        self._monitoring_disk = True
+        self._disk_monitor_thread = threading.Thread(
+            target=self._monitor_disk_space,
+            name="DiskSpaceMonitor",
+            daemon=False  # Non-daemon so we can join cleanly
+        )
+        self._disk_monitor_thread.start()
+        logger.info("Started disk space monitoring thread")
+
         logger.info(f"✓ Session recording started: {self._session_dir}")
         return self._session_dir, warning
 
@@ -137,6 +213,15 @@ class SessionRecorder:
             mode: Recording mode
             measured_speed_mph: Manual speed measurement
         """
+        # Stop disk space monitoring thread
+        self._monitoring_disk = False
+        if self._disk_monitor_thread is not None and self._disk_monitor_thread.is_alive():
+            logger.info("Stopping disk space monitoring...")
+            self._disk_monitor_thread.join(timeout=2.0)
+            if self._disk_monitor_thread.is_alive():
+                logger.warning("Disk monitor thread did not stop cleanly")
+            self._disk_monitor_thread = None
+
         self._close_writers()
 
         if self._session_dir is None:
@@ -246,6 +331,48 @@ class SessionRecorder:
         """
         return self._left_writer is not None and self._right_writer is not None
 
+    def _open_video_writer(self, path: Path, width: int, height: int, fps: int) -> cv2.VideoWriter:
+        """Open video writer with codec fallback.
+
+        Args:
+            path: Output video file path
+            width: Frame width
+            height: Frame height
+            fps: Frames per second
+
+        Returns:
+            Opened VideoWriter
+
+        Raises:
+            RuntimeError: If no codec works
+        """
+        # Try codecs in order of preference
+        codec_list = ["MJPG", "XVID", "H264", "MP4V"]
+
+        for codec_name in codec_list:
+            fourcc = cv2.VideoWriter_fourcc(*codec_name)
+            writer = cv2.VideoWriter(
+                str(path),
+                fourcc,
+                float(fps),
+                (width, height),
+                True
+            )
+
+            if writer.isOpened():
+                logger.info(f"Video writer opened successfully: {path.name} with {codec_name} codec")
+                return writer
+            else:
+                # Clean up failed attempt
+                writer.release()
+                logger.debug(f"Codec {codec_name} failed for {path.name}, trying next...")
+
+        # All codecs failed
+        raise RuntimeError(
+            f"Failed to open video writer for {path.name}. "
+            f"Tried codecs: {codec_list}. Check that ffmpeg or system codecs are installed."
+        )
+
     def _open_writers(self) -> None:
         """Open video writers and CSV files."""
         if self._session_dir is None:
@@ -254,51 +381,28 @@ class SessionRecorder:
         left_path = self._session_dir / "session_left.avi"
         right_path = self._session_dir / "session_right.avi"
 
-        # Try MJPG first, fallback to XVID if not available
-        fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+        width = self._config.camera.width
+        height = self._config.camera.height
+        fps = self._config.camera.fps
 
-        self._left_writer = cv2.VideoWriter(
-            str(left_path),
-            fourcc,
-            float(self._config.camera.fps),
-            (self._config.camera.width, self._config.camera.height),
-            True,
-        )
+        # Open video writers with codec fallback
+        try:
+            self._left_writer = self._open_video_writer(left_path, width, height, fps)
+        except RuntimeError as e:
+            logger.error(f"Failed to open left video writer: {e}")
+            raise
 
-        # Check if writer opened successfully, try fallback codec
-        if not self._left_writer.isOpened():
-            logger.warning("MJPG codec failed for left camera, trying XVID")
-            fourcc = cv2.VideoWriter_fourcc(*"XVID")
-            self._left_writer = cv2.VideoWriter(
-                str(left_path),
-                fourcc,
-                float(self._config.camera.fps),
-                (self._config.camera.width, self._config.camera.height),
-                True,
-            )
+        try:
+            self._right_writer = self._open_video_writer(right_path, width, height, fps)
+        except RuntimeError as e:
+            logger.error(f"Failed to open right video writer: {e}")
+            # Clean up left writer if right fails
+            if self._left_writer:
+                self._left_writer.release()
+                self._left_writer = None
+            raise
 
-        self._right_writer = cv2.VideoWriter(
-            str(right_path),
-            fourcc,
-            float(self._config.camera.fps),
-            (self._config.camera.width, self._config.camera.height),
-            True,
-        )
-
-        # Check if writer opened successfully
-        if not self._right_writer.isOpened():
-            logger.warning("Video codec failed for right camera, trying XVID")
-            fourcc_fallback = cv2.VideoWriter_fourcc(*"XVID")
-            self._right_writer = cv2.VideoWriter(
-                str(right_path),
-                fourcc_fallback,
-                float(self._config.camera.fps),
-                (self._config.camera.width, self._config.camera.height),
-                True,
-            )
-
-        # Log final codec used
-        logger.info(f"Session recording initialized: {self._config.camera.width}x{self._config.camera.height}@{self._config.camera.fps}fps")
+        logger.info(f"Session recording initialized: {width}x{height}@{fps}fps")
 
         # Open CSV files
         left_csv = (self._session_dir / "session_left_timestamps.csv").open("w", newline="")

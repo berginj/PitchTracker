@@ -144,7 +144,8 @@ class SettingsDialog(QtWidgets.QDialog):
 
         # Get available cameras
         # Use max_index=10 to check more camera indices (0-9)
-        indices = probe_opencv_indices(max_index=10, use_cache=False)
+        # USE CACHE for faster settings dialog opening
+        indices = probe_opencv_indices(max_index=10, use_cache=True)
 
         # Left camera
         left_label = QtWidgets.QLabel("Left Camera:")

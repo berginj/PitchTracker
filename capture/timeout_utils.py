@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import functools
 import logging
-import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Any, Callable, Optional, TypeVar
 
 from exceptions import CameraConnectionError
@@ -24,6 +24,9 @@ def run_with_timeout(
 ) -> T:
     """Run function with timeout, raise CameraConnectionError if exceeded.
 
+    Uses ThreadPoolExecutor to ensure proper thread cleanup on timeout.
+    Previous implementation used daemon threads which leaked resources.
+
     Args:
         func: Function to run
         timeout_seconds: Timeout in seconds
@@ -37,31 +40,33 @@ def run_with_timeout(
     Raises:
         CameraConnectionError: If operation times out
         Exception: Any exception raised by func
+
+    Note:
+        Thread is properly cleaned up whether operation succeeds, fails, or times out.
     """
-    result: list[Optional[T]] = [None]
-    exception: list[Optional[Exception]] = [None]
+    # Use ThreadPoolExecutor for proper thread management
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        # Submit function to executor
+        future = executor.submit(func, *args, **kwargs)
 
-    def wrapper() -> None:
         try:
-            result[0] = func(*args, **kwargs)
+            # Wait for result with timeout
+            result = future.result(timeout=timeout_seconds)
+            return result
+
+        except FutureTimeoutError:
+            # Timeout occurred - log and raise
+            logger.error(f"{error_message} after {timeout_seconds}s")
+            raise CameraConnectionError(
+                f"{error_message} after {timeout_seconds}s",
+                camera_id="unknown",
+            )
+
         except Exception as e:
-            exception[0] = e
+            # Function raised exception - re-raise it
+            raise
 
-    thread = threading.Thread(target=wrapper, daemon=True)
-    thread.start()
-    thread.join(timeout_seconds)
-
-    if thread.is_alive():
-        logger.error(f"{error_message} after {timeout_seconds}s")
-        raise CameraConnectionError(
-            f"{error_message} after {timeout_seconds}s",
-            camera_id="unknown",
-        )
-
-    if exception[0]:
-        raise exception[0]
-
-    return result[0]  # type: ignore
+    # ThreadPoolExecutor automatically cleans up thread on context exit
 
 
 def exponential_backoff(attempt: int, base_delay: float = 0.5, max_delay: float = 5.0) -> float:

@@ -145,14 +145,10 @@ class SessionStartDialog(QtWidgets.QDialog):
         from ui.device_utils import (
             probe_uvc_devices,
             probe_opencv_indices,
-            clear_device_cache,
             is_arducam_device,
         )
 
         group = QtWidgets.QGroupBox("Cameras")
-
-        # Clear cache to get fresh device list
-        clear_device_cache()
 
         # Left camera
         left_label = QtWidgets.QLabel("Left Camera:")
@@ -168,13 +164,16 @@ class SessionStartDialog(QtWidgets.QDialog):
         last_right = state.get("last_right_camera")
 
         # Get UVC devices to map indices to friendly names
-        uvc_devices = probe_uvc_devices(use_cache=False)
+        # USE CACHE for faster dialog opening (2-4s cached vs 8-12s uncached)
+        # Refresh button will clear cache if user needs fresh list
+        uvc_devices = probe_uvc_devices(use_cache=True)
         uvc_by_index = {i: dev for i, dev in enumerate(uvc_devices)}
 
         # Always use OpenCV indices for coaching app (UVC serial numbers can fail)
         # This matches calibration workflow behavior
         # Use max_index=10 to check more camera indices (0-9)
-        indices = probe_opencv_indices(max_index=10, use_cache=False)
+        # USE CACHE for faster dialog opening
+        indices = probe_opencv_indices(max_index=10, use_cache=True)
 
         # Track ArduCam indices for smart defaults
         arducam_indices = []
