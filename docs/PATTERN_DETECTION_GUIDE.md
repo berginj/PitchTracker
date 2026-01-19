@@ -30,7 +30,30 @@ The Pattern Detection System analyzes recorded pitch videos to automatically det
 
 ## Quick Start
 
-### Analyze a Session
+### UI Workflow (Recommended)
+
+**NEW (2026-01-19):** Pattern detection is now integrated into the UI! No command-line knowledge required.
+
+1. **Record a pitching session** (existing workflow)
+2. **Click "Analyze Patterns"** in the Session Summary dialog
+3. **Click "Run Analysis"** in the Pattern Analysis dialog
+4. **View results** across 4 tabs:
+   - **Summary**: Pitch counts, velocity, strikes, consistency, repertoire
+   - **Anomalies**: Unusual pitches with recommendations
+   - **Pitch Types**: Classification results with confidence scores
+   - **Baseline**: Comparison to pitcher's historical performance (if profile exists)
+5. **Optional actions**:
+   - Click "Open HTML Report" to view charts in browser
+   - Click "Export JSON" to save analysis data
+   - Click "Create Pitcher Profile" to track this pitcher over time
+
+**Time:** ~30 seconds from session end to viewing results ⚡
+
+---
+
+### CLI Workflow (Advanced)
+
+For automated workflows, scripting, or batch processing:
 
 ```bash
 # Basic analysis
@@ -46,6 +69,13 @@ python -m analysis.cli analyze-session --session recordings/session-2026-01-19_0
 
 ### Create Pitcher Profile
 
+**UI Method** (easiest):
+1. Click "Analyze Patterns" on any session
+2. Click "Create Pitcher Profile" button
+3. Enter pitcher name
+4. Profile created and baseline comparison appears on next analysis
+
+**CLI Method** (for batch creation from multiple sessions):
 ```bash
 # Create profile from multiple sessions
 python -m analysis.cli create-profile --pitcher john_doe --sessions "recordings/session-2026-01-*"
@@ -55,9 +85,30 @@ python -m analysis.cli create-profile --pitcher john_doe --sessions "recordings/
 
 ### List Profiles
 
+**UI Method**: Saved profiles appear in coaching session start dialog
+
+**CLI Method**:
 ```bash
 python -m analysis.cli list-profiles
 ```
+
+## When to Use UI vs CLI
+
+### Use UI When:
+- ✅ You're a coach analyzing sessions after practice
+- ✅ You want instant visual feedback with charts
+- ✅ You're not familiar with command-line tools
+- ✅ You want one-click analysis workflow
+- ✅ You prefer interactive exploration of results
+
+### Use CLI When:
+- ✅ You're analyzing many sessions at once (batch processing)
+- ✅ You're automating analysis in scripts
+- ✅ You want to integrate analysis into other workflows
+- ✅ You're analyzing sessions from another computer
+- ✅ You need programmatic access to analysis results
+
+**Recommendation:** Start with the UI. Use CLI only if you need automation or batch processing.
 
 ## Report Contents
 
