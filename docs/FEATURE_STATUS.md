@@ -55,34 +55,34 @@ strike_zone:
 ## Pending Features 🚧
 
 ### 4. Wire Color Mode Through Coach Window
-**Status:** 🚧 In Progress
+**Status:** ✅ Complete
 
-**Remaining Work:**
-1. Add `_camera_color_mode` member variable to `CoachWindow.__init__()`
-2. Load color mode from app_state: `state.get("coaching_color_mode", False)`
-3. Pass `current_color_mode` parameter to `SettingsDialog`
-4. Apply `dialog.color_mode` when settings change
-5. Update coaching_config to use color_mode setting
+**Completed Work:**
+1. ✅ Added `_camera_color_mode` member variable to `CoachWindow.__init__()`
+2. ✅ Load color mode from app_state: `state.get("coaching_color_mode", False)`
+3. ✅ Pass `current_color_mode` parameter to `SettingsDialog`
+4. ✅ Apply `dialog.color_mode` when settings change
+5. ✅ Update coaching_config to use color_mode setting
 
-**Files to Modify:**
-- `ui/coaching/coach_window.py` (lines 60-62, 592-611)
+**Files Modified:**
+- `ui/coaching/coach_window.py` (lines 63, 600, 613, 391, 646)
 
 **Implementation:**
 ```python
-# In __init__:
+# In __init__ (line 63):
 self._camera_color_mode = state.get("coaching_color_mode", False)
 
-# In SettingsDialog call:
+# In SettingsDialog call (line 600):
 dialog = SettingsDialog(
     ...
     current_color_mode=self._camera_color_mode,
     ...
 )
 
-# When applying settings:
+# When applying settings (line 613):
 self._camera_color_mode = dialog.color_mode
 
-# In coaching_config:
+# In coaching_config (lines 391, 646):
 coaching_camera_config = CameraConfig(
     ...
     color_mode=self._camera_color_mode,
@@ -90,22 +90,24 @@ coaching_camera_config = CameraConfig(
 ```
 
 ### 5. Ensure OpenCV Video in All Preview Windows
-**Status:** ❌ Not Started
+**Status:** ✅ Complete
 
-**Requirements:**
-- Verify preview windows display color video when color_mode is enabled
-- Check frame rendering in preview widgets
-- Ensure grayscale→RGB conversion for display compatibility
+**Verification Results:**
+✅ All preview windows properly handle both grayscale and color video
+✅ Color pipeline verified: YUYV (camera) → BGR (OpenCV) → RGB (Qt display)
+✅ No code changes needed - existing code already compatible
 
-**Files to Check:**
-- Preview window rendering code
-- Frame display widgets
-- Video format conversion utilities
+**Files Verified:**
+- `ui/coaching/coach_window.py` - BGR→RGB conversion (lines 806-829)
+- `ui/drawing.py` - Shared frame_to_pixmap utility (lines 58)
+- `ui/coaching/dialogs/lane_adjust_dialog.py` - BGR→RGB conversion (lines 194)
+- `ui/setup/steps/calibration_step.py` - BGR→RGB conversion (lines 655)
+- `ui/setup/steps/roi_step.py` - BGR→RGB conversion (lines 252)
 
-**Investigation Needed:**
-1. Find all preview/display widgets
-2. Check current video format handling
-3. Add color space conversion if needed (YUYV→RGB for Qt display)
+**Technical Details:**
+- Camera backends automatically convert YUYV→BGR via OpenCV
+- Preview windows use `cv2.cvtColor(image, cv2.COLOR_BGR2RGB)` for Qt display
+- Both grayscale and color formats fully supported in all preview contexts
 
 ### 6. Review/Training Mode for Prior Sessions
 **Status:** ❌ Not Started
@@ -152,25 +154,21 @@ coaching_camera_config = CameraConfig(
 
 ## Summary
 
-**Completed (3/6 features):**
+**Completed (5/6 features):**
 - ✅ Color video capture option
-- ✅ Resolution settings in UI (partial)
+- ✅ Resolution settings in UI
 - ✅ Default batter height to 5'6"
+- ✅ Wire color mode through coach window
+- ✅ OpenCV video in preview windows
 
-**In Progress (1/6):**
-- 🚧 Wire color mode through coach window
-
-**Not Started (2/6):**
-- ❌ OpenCV video in preview windows
+**Not Started (1/6):**
 - ❌ Review/training mode
 
 **Next Steps:**
-1. Complete color mode integration in coach_window.py
-2. Verify preview windows support color video
-3. Design and implement review/training mode
+1. Design and implement review/training mode (see docs/REVIEW_TRAINING_MODE_DESIGN.md)
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2026-01-18
-**Status:** 50% Complete
+**Document Version:** 1.1
+**Last Updated:** 2026-01-19
+**Status:** 83% Complete (5/6 features)

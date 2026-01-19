@@ -60,6 +60,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._camera_width = state.get("coaching_width", 640)
         self._camera_height = state.get("coaching_height", 480)
         self._camera_fps = state.get("coaching_fps", 30)
+        self._camera_color_mode = state.get("coaching_color_mode", False)
 
         # Build UI
         self._build_ui()
@@ -388,6 +389,7 @@ class CoachWindow(QtWidgets.QMainWindow):
                     wb_mode=self._config.camera.wb_mode,
                     wb=self._config.camera.wb,
                     queue_depth=self._config.camera.queue_depth,
+                    color_mode=self._camera_color_mode,
                 )
 
                 coaching_config = self._config.__class__(
@@ -597,6 +599,7 @@ class CoachWindow(QtWidgets.QMainWindow):
             current_right_camera=current_right,
             current_mound_distance=current_mound_distance,
             current_ball_type=self._config.ball.type,
+            current_color_mode=self._camera_color_mode,
             parent=self,
         )
 
@@ -609,6 +612,7 @@ class CoachWindow(QtWidgets.QMainWindow):
             self._camera_width = dialog.width
             self._camera_height = dialog.height
             self._camera_fps = dialog.fps
+            self._camera_color_mode = dialog.color_mode
 
             # Update mound distance if changed
             if dialog.mound_distance_ft != current_mound_distance:
@@ -643,6 +647,7 @@ class CoachWindow(QtWidgets.QMainWindow):
                         wb_mode=self._config.camera.wb_mode,
                         wb=self._config.camera.wb,
                         queue_depth=self._config.camera.queue_depth,
+                        color_mode=self._camera_color_mode,
                     )
 
                     coaching_config = self._config.__class__(
