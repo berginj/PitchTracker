@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from pathlib import Path
+from typing import Callable, Optional
 
 from PySide6 import QtCore, QtWidgets
 
@@ -16,6 +17,7 @@ class SessionSummaryDialog(QtWidgets.QDialog):
         summary,
         on_upload: Callable,
         on_save: Callable,
+        session_dir: Optional[Path] = None,
     ) -> None:
         """Initialize session summary dialog.
 
@@ -24,12 +26,19 @@ class SessionSummaryDialog(QtWidgets.QDialog):
             summary: SessionSummary object with pitch statistics
             on_upload: Callback for upload button (receives summary)
             on_save: Callback for save button (receives export format string)
+            session_dir: Optional session directory path (derived from session_id if not provided)
         """
         super().__init__(parent)
         self.setWindowTitle("Session Summary")
         self.resize(680, 520)
         self._on_upload = on_upload
         self._on_save = on_save
+        self._summary = summary
+
+        # Derive session directory if not provided
+        if session_dir is None:
+            session_dir = Path("recordings") / summary.session_id
+        self._session_dir = session_dir
 
         # Header with session stats
         header = QtWidgets.QLabel(
@@ -97,6 +106,9 @@ class SessionSummaryDialog(QtWidgets.QDialog):
         upload_button = QtWidgets.QPushButton("Upload Session")
         upload_button.clicked.connect(lambda: self._on_upload(summary))
 
+        analyze_button = QtWidgets.QPushButton("Analyze Patterns")
+        analyze_button.clicked.connect(self._on_analyze_patterns)
+
         # Layout
         layout = QtWidgets.QVBoxLayout()
 
@@ -116,12 +128,20 @@ class SessionSummaryDialog(QtWidgets.QDialog):
         layout.addWidget(table)
 
         button_row = QtWidgets.QHBoxLayout()
+        button_row.addWidget(analyze_button)
         button_row.addWidget(upload_button)
         button_row.addStretch(1)
         button_row.addWidget(close_button)
         layout.addLayout(button_row)
 
         self.setLayout(layout)
+
+    def _on_analyze_patterns(self) -> None:
+        """Open pattern analysis dialog."""
+        from ui.dialogs.pattern_analysis_dialog import PatternAnalysisDialog
+
+        dialog = PatternAnalysisDialog(self, self._session_dir)
+        dialog.exec()
 
 
 __all__ = ["SessionSummaryDialog"]

@@ -517,6 +517,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._pitcher_name or "Unknown",
                 self._location_profile or "Unknown",
             ),
+            session_dir=session_dir,
         )
         dialog.exec()
 
