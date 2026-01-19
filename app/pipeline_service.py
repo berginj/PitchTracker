@@ -338,7 +338,21 @@ class InProcessPipelineService(PipelineService):
             return []
         try:
             return detector.detect(frame)
-        except Exception:
+        except Exception as e:
+            logger.error(
+                f"Detection failed for {label} camera: {e.__class__.__name__}: {e}",
+                exc_info=True
+            )
+            # Publish error to error bus for UI notification
+            from app.events import ErrorCategory, ErrorSeverity, publish_error
+            publish_error(
+                category=ErrorCategory.DETECTION,
+                severity=ErrorSeverity.ERROR,
+                message=f"Detection failed for {label} camera",
+                source=f"PipelineService.{label}",
+                exception=e,
+                camera=label,
+            )
             return []
 
     def _on_detection_result(self, label: str, frame: Frame, detections: list[Detection]) -> None:
