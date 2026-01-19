@@ -209,6 +209,8 @@ class DetectionThreadPool:
     def _queue_put_drop_oldest(self, target: queue.Queue, item, queue_name: str = "unknown") -> None:
         """Put item in queue, dropping oldest if full.
 
+        Optimized to minimize lock contention by releasing lock before I/O operations.
+
         Args:
             target: Queue to put item in
             item: Item to put
@@ -218,42 +220,54 @@ class DetectionThreadPool:
             target.put_nowait(item)
             return
         except queue.Full:
-            # Track dropped frame
+            # Minimize critical section - only lock during counter update
+            should_log = False
+            should_log_critical = False
+            drop_count = 0
+
             with self._detection_error_lock:
                 self._frames_dropped[queue_name] = self._frames_dropped.get(queue_name, 0) + 1
                 drop_count = self._frames_dropped[queue_name]
 
-                # Throttle logging to once per 5 seconds
+                # Check if we should log (once per 5 seconds)
                 current_time = time.monotonic()
                 time_since_last_log = current_time - self._last_drop_log_time.get(queue_name, 0.0)
 
                 if time_since_last_log > 5.0:
-                    logger.warning(
-                        f"Detection queue '{queue_name}' full, dropped {drop_count} frames total. "
-                        f"Detection may not be keeping up with frame rate."
-                    )
+                    should_log = True
                     self._last_drop_log_time[queue_name] = current_time
 
-                    # Publish warning event
-                    publish_error(
-                        category=ErrorCategory.DETECTION,
-                        severity=ErrorSeverity.WARNING,
-                        message=f"Detection queue '{queue_name}' full, dropping frames",
-                        source=f"DetectionThreadPool.{queue_name}",
-                        frames_dropped=drop_count,
-                        queue_name=queue_name,
-                    )
-
-                # Publish critical error if too many drops
+                # Check if we should log critical error
                 if drop_count >= 100 and drop_count % 100 == 0:
-                    publish_error(
-                        category=ErrorCategory.DETECTION,
-                        severity=ErrorSeverity.CRITICAL,
-                        message=f"Detection queue '{queue_name}' consistently dropping frames ({drop_count} total)",
-                        source=f"DetectionThreadPool.{queue_name}",
-                        frames_dropped=drop_count,
-                        queue_name=queue_name,
-                    )
+                    should_log_critical = True
+
+            # Release lock before I/O operations (logging, publish_error)
+            if should_log:
+                logger.warning(
+                    f"Detection queue '{queue_name}' full, dropped {drop_count} frames total. "
+                    f"Detection may not be keeping up with frame rate."
+                )
+
+                # Publish warning event (outside lock)
+                publish_error(
+                    category=ErrorCategory.DETECTION,
+                    severity=ErrorSeverity.WARNING,
+                    message=f"Detection queue '{queue_name}' full, dropping frames",
+                    source=f"DetectionThreadPool.{queue_name}",
+                    frames_dropped=drop_count,
+                    queue_name=queue_name,
+                )
+
+            # Publish critical error if too many drops (outside lock)
+            if should_log_critical:
+                publish_error(
+                    category=ErrorCategory.DETECTION,
+                    severity=ErrorSeverity.CRITICAL,
+                    message=f"Detection queue '{queue_name}' consistently dropping frames ({drop_count} total)",
+                    source=f"DetectionThreadPool.{queue_name}",
+                    frames_dropped=drop_count,
+                    queue_name=queue_name,
+                )
 
         # Drop oldest item
         try:
@@ -297,56 +311,68 @@ class DetectionThreadPool:
             return detections
 
         except Exception as e:
-            # Track and log error
+            # Minimize critical section - only lock during counter update
+            should_log = False
+            should_log_critical = False
+            error_count = 0
+
             with self._detection_error_lock:
                 self._detection_errors[label] += 1
                 error_count = self._detection_errors[label]
 
-                # Throttle logging to once per 5 seconds
+                # Check if we should log (once per 5 seconds)
                 current_time = time.monotonic()
                 time_since_last_log = current_time - self._last_error_log_time.get(label, 0.0)
 
                 if time_since_last_log > 5.0:
-                    logger.error(
-                        f"Detection failed for {label} camera (error #{error_count}): {e.__class__.__name__}: {e}",
-                        exc_info=True
-                    )
+                    should_log = True
                     self._last_error_log_time[label] = current_time
 
-                    # Publish error event to bus
-                    publish_error(
-                        category=ErrorCategory.DETECTION,
-                        severity=ErrorSeverity.ERROR,
-                        message=f"Detection failed for {label} camera",
-                        source=f"DetectionThreadPool.{label}",
-                        exception=e,
-                        error_count=error_count,
-                        camera=label,
-                    )
-
-                # Notify error callback if too many consecutive failures
+                # Check if we should log critical error
                 if error_count >= self._max_consecutive_errors:
-                    logger.critical(
-                        f"Detection failing consistently for {label} camera "
-                        f"({error_count} consecutive errors). Detection may be broken."
-                    )
+                    should_log_critical = True
 
-                    # Publish critical error event
-                    publish_error(
-                        category=ErrorCategory.DETECTION,
-                        severity=ErrorSeverity.CRITICAL,
-                        message=f"Detection failing consistently for {label} camera ({error_count} consecutive errors)",
-                        source=f"DetectionThreadPool.{label}",
-                        exception=e,
-                        error_count=error_count,
-                        camera=label,
-                    )
+            # Release lock before I/O operations
+            if should_log:
+                logger.error(
+                    f"Detection failed for {label} camera (error #{error_count}): {e.__class__.__name__}: {e}",
+                    exc_info=True
+                )
 
-                    if self._error_callback:
-                        try:
-                            self._error_callback(f"detection_{label}", e)
-                        except Exception as callback_error:
-                            logger.error(f"Error callback failed: {callback_error}")
+                # Publish error event to bus (outside lock)
+                publish_error(
+                    category=ErrorCategory.DETECTION,
+                    severity=ErrorSeverity.ERROR,
+                    message=f"Detection failed for {label} camera",
+                    source=f"DetectionThreadPool.{label}",
+                    exception=e,
+                    error_count=error_count,
+                    camera=label,
+                )
+
+            # Notify error callback if too many consecutive failures (outside lock)
+            if should_log_critical:
+                logger.critical(
+                    f"Detection failing consistently for {label} camera "
+                    f"({error_count} consecutive errors). Detection may be broken."
+                )
+
+                # Publish critical error event
+                publish_error(
+                    category=ErrorCategory.DETECTION,
+                    severity=ErrorSeverity.CRITICAL,
+                    message=f"Detection failing consistently for {label} camera ({error_count} consecutive errors)",
+                    source=f"DetectionThreadPool.{label}",
+                    exception=e,
+                    error_count=error_count,
+                    camera=label,
+                )
+
+                if self._error_callback:
+                    try:
+                        self._error_callback(f"detection_{label}", e)
+                    except Exception as callback_error:
+                        logger.error(f"Error callback failed: {callback_error}")
 
             # Return empty list to allow pipeline to continue
             # but errors are now visible and tracked
