@@ -47,6 +47,10 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._playback_timer.timeout.connect(self._on_playback_tick)
         self._is_playing = False
 
+        # Session navigation
+        self._session_list: list[Path] = []
+        self._current_session_index = -1
+
         # Build UI
         self._build_ui()
         self._update_ui_state()
@@ -80,6 +84,33 @@ class ReviewWindow(QtWidgets.QMainWindow):
         open_action.setShortcut("Ctrl+O")
         open_action.triggered.connect(self._open_session)
         file_menu.addAction(open_action)
+
+        review_all_action = QtGui.QAction("Review &All Sessions", self)
+        review_all_action.setShortcut("Ctrl+Shift+O")
+        review_all_action.triggered.connect(self._review_all_sessions)
+        file_menu.addAction(review_all_action)
+
+        file_menu.addSeparator()
+
+        prev_session_action = QtGui.QAction("&Previous Session", self)
+        prev_session_action.setShortcut("Ctrl+PgUp")
+        prev_session_action.triggered.connect(self._previous_session)
+        file_menu.addAction(prev_session_action)
+        self._prev_session_action = prev_session_action
+
+        next_session_action = QtGui.QAction("&Next Session", self)
+        next_session_action.setShortcut("Ctrl+PgDown")
+        next_session_action.triggered.connect(self._next_session)
+        file_menu.addAction(next_session_action)
+        self._next_session_action = next_session_action
+
+        file_menu.addSeparator()
+
+        delete_session_action = QtGui.QAction("&Delete Current Session...", self)
+        delete_session_action.setShortcut("Ctrl+D")
+        delete_session_action.triggered.connect(self._delete_current_session)
+        file_menu.addAction(delete_session_action)
+        self._delete_session_action = delete_session_action
 
         file_menu.addSeparator()
 
@@ -361,6 +392,168 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         logger.info("Session closed")
 
+    def _review_all_sessions(self) -> None:
+        """Load all sessions in recordings directory for sequential review."""
+        recordings_dir = Path("recordings")
+        if not recordings_dir.exists():
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Recordings Not Found",
+                f"Recordings directory not found: {recordings_dir}\n\n"
+                "Please record at least one session before using Review Mode.",
+            )
+            return
+
+        # Get all session directories (sorted by name)
+        from app.review import SessionLoader
+        self._session_list = SessionLoader.get_available_sessions()
+
+        if not self._session_list:
+            QtWidgets.QMessageBox.information(
+                self,
+                "No Sessions Found",
+                "No recorded sessions found in the recordings directory.",
+            )
+            return
+
+        # Load first session
+        self._current_session_index = 0
+        self._load_session(self._session_list[0])
+        self._update_session_navigation_ui()
+
+        logger.info(f"Loaded {len(self._session_list)} sessions for review")
+
+    def _next_session(self) -> None:
+        """Load next session in the list."""
+        if not self._session_list or self._current_session_index < 0:
+            QtWidgets.QMessageBox.information(
+                self, "No Sessions", "Use 'Review All Sessions' first."
+            )
+            return
+
+        if self._current_session_index >= len(self._session_list) - 1:
+            QtWidgets.QMessageBox.information(
+                self, "Last Session", "This is the last session in the list."
+            )
+            return
+
+        self._current_session_index += 1
+        self._load_session(self._session_list[self._current_session_index])
+        self._update_session_navigation_ui()
+
+    def _previous_session(self) -> None:
+        """Load previous session in the list."""
+        if not self._session_list or self._current_session_index < 0:
+            QtWidgets.QMessageBox.information(
+                self, "No Sessions", "Use 'Review All Sessions' first."
+            )
+            return
+
+        if self._current_session_index <= 0:
+            QtWidgets.QMessageBox.information(
+                self, "First Session", "This is the first session in the list."
+            )
+            return
+
+        self._current_session_index -= 1
+        self._load_session(self._session_list[self._current_session_index])
+        self._update_session_navigation_ui()
+
+    def _delete_current_session(self) -> None:
+        """Delete the currently loaded session from disk."""
+        if not self._service.session:
+            QtWidgets.QMessageBox.warning(
+                self, "No Session", "No session is currently loaded."
+            )
+            return
+
+        session = self._service.session
+        session_dir = session.session_dir
+
+        # Confirm deletion
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            "Delete Session",
+            f"Are you sure you want to delete this session?\n\n"
+            f"Session: {session.session_id}\n"
+            f"Path: {session_dir}\n\n"
+            f"This will permanently delete all files in this session directory.\n"
+            f"This action cannot be undone!",
+            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+            QtWidgets.QMessageBox.StandardButton.No,
+        )
+
+        if reply != QtWidgets.QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            # Close the session first
+            self._close_session()
+
+            # Delete the directory
+            import shutil
+            shutil.rmtree(session_dir)
+
+            logger.info(f"Deleted session: {session_dir}")
+            QtWidgets.QMessageBox.information(
+                self,
+                "Session Deleted",
+                f"Session {session.session_id} has been deleted.",
+            )
+
+            # If we're in "review all" mode, update the list and load next session
+            if self._session_list:
+                # Remove deleted session from list
+                if self._current_session_index < len(self._session_list):
+                    self._session_list.pop(self._current_session_index)
+
+                # Load next session if available
+                if self._session_list:
+                    # Adjust index if we were at the end
+                    if self._current_session_index >= len(self._session_list):
+                        self._current_session_index = len(self._session_list) - 1
+
+                    self._load_session(self._session_list[self._current_session_index])
+                    self._update_session_navigation_ui()
+                else:
+                    # No more sessions
+                    self._current_session_index = -1
+                    self._status_bar.showMessage("No more sessions to review")
+
+        except Exception as e:
+            logger.exception(f"Failed to delete session: {e}")
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Delete Error",
+                f"Failed to delete session:\n{str(e)}",
+            )
+
+    def _update_session_navigation_ui(self) -> None:
+        """Update UI elements related to session navigation."""
+        if self._session_list and self._current_session_index >= 0:
+            total = len(self._session_list)
+            current = self._current_session_index + 1
+            session_info = f"Session {current}/{total}"
+
+            # Update status bar with session counter
+            current_message = self._status_bar.currentMessage()
+            if " | " in current_message:
+                # Preserve existing status, add session info
+                base_message = current_message.split(" | ")[0]
+                self._status_bar.showMessage(f"{base_message} | {session_info}")
+            else:
+                self._status_bar.showMessage(f"Ready | {session_info}")
+
+            # Enable/disable navigation actions
+            self._prev_session_action.setEnabled(self._current_session_index > 0)
+            self._next_session_action.setEnabled(self._current_session_index < total - 1)
+            self._delete_session_action.setEnabled(True)
+        else:
+            # Disable navigation if not in "review all" mode
+            self._prev_session_action.setEnabled(False)
+            self._next_session_action.setEnabled(False)
+            self._delete_session_action.setEnabled(self._service.session is not None)
+
     def _toggle_playback(self) -> None:
         """Toggle between play and pause."""
         if not self._service.session:
@@ -638,7 +831,20 @@ class ReviewWindow(QtWidgets.QMainWindow):
     def _update_ui_state(self) -> None:
         """Update UI element enabled/disabled state based on session loaded."""
         has_session = self._service.session is not None
-        # Can add more UI state updates here as needed
+
+        # Update session navigation states
+        if self._session_list and self._current_session_index >= 0:
+            # In "review all" mode
+            total = len(self._session_list)
+            self._prev_session_action.setEnabled(self._current_session_index > 0)
+            self._next_session_action.setEnabled(self._current_session_index < total - 1)
+        else:
+            # Not in "review all" mode
+            self._prev_session_action.setEnabled(False)
+            self._next_session_action.setEnabled(False)
+
+        # Delete is enabled if any session is loaded
+        self._delete_session_action.setEnabled(has_session)
 
     def _toggle_annotation_mode(self, checked: bool) -> None:
         """Toggle annotation mode on/off.
