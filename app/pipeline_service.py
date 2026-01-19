@@ -274,6 +274,30 @@ class InProcessPipelineService(PipelineService):
         # Wire camera frame callback
         self._camera_mgr.set_frame_callback(self._on_frame_captured)
 
+        # Enable camera reconnection for physical cameras
+        if backend != "sim":
+            self._camera_mgr.enable_reconnection(enabled=True)
+            self._camera_mgr.set_camera_state_callback(self._on_camera_state_changed)
+            logger.info("Camera reconnection enabled for pipeline service")
+
+    def _on_camera_state_changed(self, camera_id: str, state) -> None:
+        """Callback when camera connection state changes.
+
+        Args:
+            camera_id: Camera identifier ("left" or "right")
+            state: New camera state (CameraState enum)
+        """
+        from app.camera import CameraState
+
+        if state == CameraState.RECONNECTING:
+            logger.info(f"🔄 Camera {camera_id} disconnected, attempting reconnection...")
+        elif state == CameraState.CONNECTED:
+            logger.info(f"✅ Camera {camera_id} reconnected successfully")
+        elif state == CameraState.FAILED:
+            logger.error(f"❌ Camera {camera_id} reconnection failed permanently")
+        elif state == CameraState.DISCONNECTED:
+            logger.warning(f"⚠️ Camera {camera_id} disconnected")
+
     def _on_frame_captured(self, label: str, frame: Frame) -> None:
         """Callback when camera captures a frame.
 

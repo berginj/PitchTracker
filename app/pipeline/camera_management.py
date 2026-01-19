@@ -21,6 +21,9 @@ from exceptions import (
 # System hardening integration
 from app.events import publish_error, ErrorCategory, ErrorSeverity
 
+# Camera reconnection support
+from app.camera import CameraReconnectionManager, CameraState
+
 from .initialization import PipelineInitializer
 
 logger = logging.getLogger(__name__)
@@ -72,6 +75,13 @@ class CameraManager:
         # Callback for camera errors
         self._on_camera_error: Optional[Callable[[str, str], None]] = None
 
+        # Camera reconnection manager
+        self._reconnection_mgr: Optional[CameraReconnectionManager] = None
+        self._enable_reconnection = backend != "sim"  # Don't reconnect simulated cameras
+
+        # Stored config for reconnection
+        self._config: Optional[AppConfig] = None
+
     def set_frame_callback(self, callback: Callable[[str, Frame], None]) -> None:
         """Set callback for frame captured events.
 
@@ -87,6 +97,24 @@ class CameraManager:
             callback: Function to call on camera error, receives (label, error_message)
         """
         self._on_camera_error = callback
+
+    def set_camera_state_callback(self, callback: Callable[[str, CameraState], None]) -> None:
+        """Set callback for camera state changes (for UI updates).
+
+        Args:
+            callback: Function to call on camera state change, receives (camera_id, state)
+        """
+        if self._reconnection_mgr:
+            self._reconnection_mgr.set_state_change_callback(callback)
+
+    def enable_reconnection(self, enabled: bool = True) -> None:
+        """Enable or disable automatic camera reconnection.
+
+        Args:
+            enabled: Whether to enable reconnection (default: True)
+        """
+        self._enable_reconnection = enabled and self._backend != "sim"
+        logger.info(f"Camera reconnection {'enabled' if self._enable_reconnection else 'disabled'}")
 
     def start_capture(
         self,
@@ -214,6 +242,20 @@ class CameraManager:
                     f"Failed to start capture threads: {exc}"
                 ) from exc
 
+            # Initialize reconnection manager (if enabled)
+            if self._enable_reconnection:
+                logger.debug("Initializing camera reconnection manager")
+                self._config = config  # Store config for reconnection attempts
+                self._reconnection_mgr = CameraReconnectionManager(
+                    max_reconnect_attempts=5,
+                    base_delay=1.0,
+                    max_delay=30.0
+                )
+                self._reconnection_mgr.set_reconnect_callback(self._try_reconnect_camera)
+                self._reconnection_mgr.register_camera("left")
+                self._reconnection_mgr.register_camera("right")
+                logger.info("Camera reconnection enabled")
+
             logger.info("Capture started successfully")
 
         except (CameraConnectionError, CameraConfigurationError):
@@ -237,6 +279,16 @@ class CameraManager:
 
         try:
             self._capture_running = False
+
+            # Unregister from reconnection manager
+            if self._reconnection_mgr:
+                try:
+                    if self._left_id:
+                        self._reconnection_mgr.unregister_camera("left")
+                    if self._right_id:
+                        self._reconnection_mgr.unregister_camera("right")
+                except Exception as exc:
+                    logger.warning(f"Error unregistering cameras from reconnection manager: {exc}")
 
             # Stop capture threads
             if self._left_thread is not None:
@@ -345,6 +397,89 @@ class CameraManager:
             Tuple of (left_id, right_id)
         """
         return self._left_id, self._right_id
+
+    def _try_reconnect_camera(self, camera_id: str) -> bool:
+        """Attempt to reconnect a disconnected camera.
+
+        Args:
+            camera_id: Camera identifier ("left" or "right")
+
+        Returns:
+            True if reconnection succeeded, False otherwise
+        """
+        logger.info(f"Attempting to reconnect {camera_id} camera")
+
+        try:
+            # Determine which camera to reconnect
+            if camera_id == "left":
+                camera_ref = self._left
+                serial = self._left_id
+                thread_ref = self._left_thread
+            elif camera_id == "right":
+                camera_ref = self._right
+                serial = self._right_id
+                thread_ref = self._right_thread
+            else:
+                logger.error(f"Unknown camera_id: {camera_id}")
+                return False
+
+            if not serial or not self._config:
+                logger.error(f"Missing serial or config for {camera_id} camera")
+                return False
+
+            # Close existing camera if still open
+            if camera_ref is not None:
+                try:
+                    camera_ref.close()
+                    logger.debug(f"{camera_id} camera closed for reconnection")
+                except Exception as exc:
+                    logger.warning(f"Error closing {camera_id} camera: {exc}")
+
+            # Wait for thread to finish if still running
+            if thread_ref is not None and thread_ref.is_alive():
+                try:
+                    thread_ref.join(timeout=2.0)
+                except Exception as exc:
+                    logger.warning(f"Error joining {camera_id} thread: {exc}")
+
+            # Create new camera instance
+            new_camera = self._build_camera()
+
+            # Open camera
+            logger.debug(f"Opening {camera_id} camera with serial: {serial}")
+            new_camera.open(serial)
+
+            # Configure camera
+            self._configure_camera(new_camera, self._config)
+
+            # Update camera reference
+            if camera_id == "left":
+                self._left = new_camera
+            else:
+                self._right = new_camera
+
+            # Restart capture thread
+            logger.debug(f"Starting capture thread for {camera_id} camera")
+            new_thread = threading.Thread(
+                target=self._capture_loop,
+                args=(camera_id, new_camera),
+                name=f"Capture-{camera_id}",
+                daemon=False
+            )
+
+            if camera_id == "left":
+                self._left_thread = new_thread
+            else:
+                self._right_thread = new_thread
+
+            new_thread.start()
+
+            logger.info(f"Successfully reconnected {camera_id} camera")
+            return True
+
+        except Exception as exc:
+            logger.error(f"Failed to reconnect {camera_id} camera: {exc}", exc_info=True)
+            return False
 
     def _build_camera(self) -> CameraDevice:
         """Build camera instance based on backend.
@@ -456,6 +591,10 @@ class CameraManager:
                     if self._on_camera_error:
                         self._on_camera_error(label, error_msg)
 
+                    # Report disconnection to reconnection manager
+                    if self._reconnection_mgr:
+                        self._reconnection_mgr.report_disconnection(label)
+
                     break
 
             # Health check: detect stalled camera
@@ -468,6 +607,10 @@ class CameraManager:
 
                 if self._on_camera_error:
                     self._on_camera_error(label, error_msg)
+
+                # Report disconnection to reconnection manager
+                if self._reconnection_mgr:
+                    self._reconnection_mgr.report_disconnection(label)
 
                 break
 
