@@ -81,7 +81,8 @@ class BaselineComparison:
     profile_exists: bool
     velocity_vs_baseline: Optional[Dict[str, any]] = None  # {current, baseline, delta, status}
     strike_percentage_vs_baseline: Optional[Dict[str, any]] = None
-    movement_vs_baseline: Optional[Dict[str, any]] = None
+    horizontal_movement_vs_baseline: Optional[Dict[str, any]] = None
+    vertical_movement_vs_baseline: Optional[Dict[str, any]] = None
 
 
 @dataclass

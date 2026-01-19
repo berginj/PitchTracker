@@ -216,7 +216,7 @@ class ReportGenerator:
         fig, ax = plt.subplots(figsize=(8, 6))
 
         labels = list(repertoire.keys())
-        sizes = [r['count'] for r in repertoire.values()]
+        sizes = [r.count for r in repertoire.values()]
         colors = plt.cm.Set3(np.linspace(0, 1, len(labels)))
 
         wedges, texts, autotexts = ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%',

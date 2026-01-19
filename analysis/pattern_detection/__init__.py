@@ -5,7 +5,7 @@ from analysis.pattern_detection.schemas import (
     AnalysisReport,
     Anomaly,
     PitchClassification,
-    PitchRepertoire,
+    PitchRepertoireEntry,
 )
 
 __all__ = [
@@ -13,5 +13,5 @@ __all__ = [
     "AnalysisReport",
     "Anomaly",
     "PitchClassification",
-    "PitchRepertoire",
+    "PitchRepertoireEntry",
 ]

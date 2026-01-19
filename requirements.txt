@@ -5,6 +5,10 @@ scipy==1.17.0
 PyYAML==6.0.1
 PySide6==6.10.1
 
+# Pattern detection
+scikit-learn==1.8.0
+matplotlib==3.10.1
+
 # Logging
 loguru==0.7.2
 
