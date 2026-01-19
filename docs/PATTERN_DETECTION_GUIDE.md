@@ -249,10 +249,26 @@ detector = PatternDetector(
 )
 ```
 
+### Cross-Session Analysis
+
+```bash
+python -m analysis.cli analyze-sessions --sessions "recordings\session-2026-01-*"
+
+# With custom output directory
+python -m analysis.cli analyze-sessions --sessions "recordings\session-*" --output analysis_results
+```
+
+**Output:**
+- `recordings\cross_session_analysis_2026-01-19.json`
+
+**Analyses:**
+- **Velocity Trends**: Linear regression on average velocity across sessions with trend direction
+- **Strike Consistency**: Strike percentage and zone distribution tracking
+- **Pitch Mix Evolution**: Pitch type distribution changes over time
+
 ## Future Enhancements
 
 **Planned (not yet implemented):**
-- Cross-session trend analysis
 - Real-time pattern detection during live capture
 - Advanced ML models for pitch classification
 - Video replay integration
@@ -260,7 +276,7 @@ detector = PatternDetector(
 - PDF export
 - Cloud sync
 
-**Current Status**: Phases 1-4 complete (Core algorithms, Profile management, Report generation, CLI integration)
+**Current Status**: Phases 1-5 complete (Core algorithms, Profile management, Report generation, CLI integration, Cross-session analysis)
 
 ## Support
 
