@@ -7,7 +7,6 @@ import pytest
 from metrics.strike_zone import (
     build_strike_zone,
     is_strike,
-    get_zone_cell,
     StrikeZone,
     StrikeResult,
 )
@@ -22,11 +21,12 @@ def test_build_strike_zone():
     plate_width_in = 17.0
 
     zone = build_strike_zone(
+        plate_z_ft=0.0,
+        plate_width_in=plate_width_in,
+        plate_length_in=8.5,  # Standard home plate depth
         batter_height_in=batter_height_in,
         top_ratio=top_ratio,
         bottom_ratio=bottom_ratio,
-        plate_width_in=plate_width_in,
-        plate_z_ft=0.0,
     )
 
     # Verify dimensions
