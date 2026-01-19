@@ -111,45 +111,79 @@ coaching_camera_config = CameraConfig(
 - Both grayscale and color formats fully supported in all preview contexts
 
 ### 6. Review/Training Mode for Prior Sessions
-**Status:** ❌ Not Started
+**Status:** 🚧 In Progress (50% Complete - 2/4 phases)
 
-**Requirements:**
-- New workflow mode: "Review & Train"
-- Load recorded sessions as input
-- Re-run detection/tracking with different parameters
-- Compare results to improve identification
-- Ability to score/annotate pitches
+**Completed:**
+✅ **Phase 1 - Core Infrastructure (Week 1)**
+- SessionLoader: Parse and validate recorded sessions
+- VideoReader: Frame-by-frame playback with seek controls
+- ReviewService: Orchestrate session loading and playback
+- Load session manifests, pitch data, and videos
+- Export config and annotations to JSON
 
-**Design Approach:**
-1. Add third option to main window or coach window:
-   ```
-   [ Live Capture ]  [ Review Session ]  [ Playback ]
-   ```
+✅ **Phase 2 - UI Foundation (Week 2)**
+- ReviewWindow: Main Qt window with menus
+- VideoDisplayWidget: Dual camera video displays
+- PlaybackControls: Play/pause, step, speed controls
+- TimelineWidget: Interactive timeline scrubber
+- Keyboard shortcuts (Space, Arrow keys, Home/End)
+- Integrated "Review Session" button in Coach Window
 
-2. Review mode features:
-   - Load session directory
-   - Play back video files (session_left.avi, session_right.avi)
-   - Run detection with adjustable parameters
-   - Display side-by-side: original detections vs new detections
-   - Score/annotate individual pitches
-   - Export improved annotations
+**In Progress:**
+🚧 **Phase 3 - Detection Integration (Week 3)**
+- Integrate classical detector with review mode
+- Parameter tuning panel with sliders
+- Run detection on frames
+- Compare original vs new detections
+- Visual overlay for detection circles
 
-**Files to Create:**
-- `ui/review_window.py` - Review mode UI
-- `app/review_service.py` - Service for loading and re-processing sessions
-- `app/pipeline/session_loader.py` - Load recorded sessions
+**Not Started:**
+❌ **Phase 4 - Annotation & Export (Week 4)**
+- Pitch scoring UI (Good/Missed/Partial)
+- Manual annotation (click to mark ball)
+- Pitch list sidebar
+- Statistics summary
+- Comprehensive export functionality
 
-**Files to Modify:**
-- Main window to add "Review" option
-- Coach window to add "Review Session" button
+**Files Created:**
+- `app/review/session_loader.py` - Load sessions from disk
+- `app/review/video_reader.py` - Video playback control
+- `app/review/review_service.py` - High-level review API
+- `ui/review/review_window.py` - Main UI window
+- `ui/review/widgets/video_display_widget.py` - Video display
+- `ui/review/widgets/playback_controls.py` - Control buttons
+- `ui/review/widgets/timeline_widget.py` - Timeline scrubber
+- `test_review_mode.py` - Test script
 
-**Implementation Steps:**
-1. Create session loader (reads videos + manifests)
-2. Create review service (playback with detection)
-3. Create review UI (video player + detection controls)
-4. Add parameter tuning panel
-5. Add annotation/scoring interface
-6. Add export functionality
+**Files Modified:**
+- `ui/coaching/coach_window.py` - Added "Review Session" button
+
+**Current Capabilities:**
+- Load any recorded session from recordings/
+- View dual camera videos (left/right)
+- Navigate frame-by-frame or play continuously
+- Seek to any point via timeline scrubber
+- Adjust playback speed (0.1x to 2.0x)
+- Export detector configuration
+- Export annotations
+
+**Design Document:**
+See `docs/REVIEW_TRAINING_MODE_DESIGN.md` for complete architecture
+
+**Usage:**
+```python
+# Launch review mode from Coach Window
+Click "Review Session" button → Opens ReviewWindow
+File → Open Session → Select from recordings/
+Use playback controls to navigate video
+```
+
+**Next Steps (Phase 3):**
+1. Add parameter tuning panel to UI
+2. Integrate ClassicalDetector with ReviewService
+3. Run detection on current frame
+4. Overlay detection circles on video display
+5. Color-code original (red) vs new (green) detections
 
 ---
 
@@ -162,14 +196,23 @@ coaching_camera_config = CameraConfig(
 - ✅ Wire color mode through coach window
 - ✅ OpenCV video in preview windows
 
-**Not Started (1/6):**
-- ❌ Review/training mode
+**In Progress (1/6):**
+- 🚧 Review/training mode (50% - Phase 1 & 2 complete)
+
+**Review Mode Progress:**
+- ✅ Phase 1: Core Infrastructure (SessionLoader, VideoReader, ReviewService)
+- ✅ Phase 2: UI Foundation (ReviewWindow, playback controls, timeline)
+- 🚧 Phase 3: Detection Integration (parameter tuning, comparison)
+- ❌ Phase 4: Annotation & Export (scoring, manual annotation)
 
 **Next Steps:**
-1. Design and implement review/training mode (see docs/REVIEW_TRAINING_MODE_DESIGN.md)
+1. Complete Phase 3: Detection integration and parameter tuning
+2. Complete Phase 4: Annotation UI and comprehensive export
+3. User testing and refinement
 
 ---
 
-**Document Version:** 1.1
+**Document Version:** 1.2
 **Last Updated:** 2026-01-19
-**Status:** 83% Complete (5/6 features)
+**Status:** 92% Complete (5.5/6 features)
+**Review Mode:** 50% Complete (2/4 phases)
