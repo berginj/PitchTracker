@@ -282,11 +282,18 @@ class PatternDetector:
         if not all_pitches:
             raise ValueError(f"No pitches found in {len(session_dirs)} sessions")
 
+        # Count successfully loaded sessions
+        num_sessions = len([d for d in session_dirs if d.exists()])
+
         # Create/update profile
-        profile = self.profile_manager.create_or_update_profile(pitcher_id, all_pitches)
+        profile = self.profile_manager.create_or_update_profile(
+            pitcher_id,
+            all_pitches,
+            num_sessions=num_sessions
+        )
 
         print(f"Profile created/updated for {pitcher_id}")
-        print(f"  Sessions analyzed: {len(session_dirs)}")
+        print(f"  Sessions analyzed: {profile.sessions_analyzed}")
         print(f"  Total pitches: {len(all_pitches)}")
         print(f"  Profile saved to: {self.profile_manager._get_profile_path(pitcher_id)}")
 

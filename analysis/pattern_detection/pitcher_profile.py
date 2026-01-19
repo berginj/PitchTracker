@@ -122,13 +122,15 @@ class PitcherProfileManager:
     def create_or_update_profile(
         self,
         pitcher_id: str,
-        pitches: List["PitchSummary"]
+        pitches: List["PitchSummary"],
+        num_sessions: int = 1
     ) -> PitcherProfile:
         """Create new profile or update existing with new pitches.
 
         Args:
             pitcher_id: Pitcher identifier
             pitches: List of pitch summaries to include
+            num_sessions: Number of sessions contributing to this update (default: 1)
 
         Returns:
             Updated PitcherProfile
@@ -136,18 +138,25 @@ class PitcherProfileManager:
         # Load existing or create new
         profile = self.load_profile(pitcher_id)
 
+        is_new = profile is None
         if profile is None:
             profile = PitcherProfile(pitcher_id=pitcher_id)
 
         # Update last modified time
         profile.last_updated_utc = datetime.utcnow().isoformat()
 
+        # Increment session count
+        profile.sessions_analyzed += num_sessions
+
         # Compute baseline metrics
         profile.baseline_metrics = self._compute_baseline_metrics(pitches)
 
         # Compute pitch repertoire (would need classifications)
-        # For now, just count total pitches
-        profile.total_pitches = len(pitches)
+        # Update total pitches (accumulate if updating, set if new)
+        if is_new:
+            profile.total_pitches = len(pitches)
+        else:
+            profile.total_pitches += len(pitches)
 
         # Save and return
         self.save_profile(profile)

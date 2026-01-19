@@ -63,10 +63,10 @@ class TestPitcherProfile(unittest.TestCase):
         self.assertIsNotNone(profile.baseline_metrics)
         self.assertIsInstance(profile.baseline_metrics, ProfileMetrics)
 
-        # Check velocity metrics
-        self.assertAlmostEqual(profile.baseline_metrics.velocity.mean, 85.24, places=1)
-        self.assertGreater(profile.baseline_metrics.velocity.p50, 84.0)
-        self.assertLess(profile.baseline_metrics.velocity.p50, 86.0)
+        # Check velocity metrics (stored as dict)
+        self.assertAlmostEqual(profile.baseline_metrics.velocity['mean'], 85.24, places=1)
+        self.assertGreater(profile.baseline_metrics.velocity['p50'], 84.0)
+        self.assertLess(profile.baseline_metrics.velocity['p50'], 86.0)
 
     def test_save_and_load_profile(self):
         """Test saving and loading a pitcher profile."""
