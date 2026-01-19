@@ -369,14 +369,32 @@ class SessionStartDialog(QtWidgets.QDialog):
         return widget
 
     def _load_saved_pitchers(self) -> list[str]:
-        """Load saved pitchers from data directory."""
-        # TODO: Load from actual pitcher database/file
-        # For now, return sample list
-        return [
-            "John Doe",
-            "Jane Smith",
-            "Mike Johnson",
-        ]
+        """Load saved pitchers from pitcher profiles directory."""
+        try:
+            from analysis.pattern_detection.pitcher_profile import PitcherProfileManager
+
+            # Load pitcher profiles
+            profile_manager = PitcherProfileManager()
+            saved_pitchers = profile_manager.list_profiles()
+
+            # If no profiles exist, return sample list
+            if not saved_pitchers:
+                return [
+                    "John Doe",
+                    "Jane Smith",
+                    "Mike Johnson",
+                ]
+
+            # Sort alphabetically for better UX
+            return sorted(saved_pitchers)
+
+        except Exception:
+            # Fallback to sample list if profile loading fails
+            return [
+                "John Doe",
+                "Jane Smith",
+                "Mike Johnson",
+            ]
 
     def _generate_session_name(self) -> None:
         """Auto-generate session name with timestamp."""
