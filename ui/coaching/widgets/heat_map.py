@@ -310,9 +310,13 @@ class TrajectoryWidget(QtWidgets.QWidget):
         z_min, z_max = 0, 10  # feet
 
         def to_screen_x(y_ft: float) -> int:
-            """Convert Y coordinate (feet) to screen X."""
+            """Convert Y coordinate (feet) to screen X.
+
+            TV broadcast view: Plate (0 ft) on RIGHT, Mound (60 ft) on LEFT.
+            """
             norm = (y_ft - y_min) / (y_max - y_min)
-            return int(margin + norm * plot_width)
+            # Inverted: plate (0) → right, mound (60) → left
+            return int(width - margin - norm * plot_width)
 
         def to_screen_y(z_ft: float) -> int:
             """Convert Z coordinate (feet) to screen Y (inverted)."""
