@@ -163,6 +163,9 @@ coaching_camera_config = CameraConfig(
 
 **Current Capabilities:**
 - Load any recorded session from recordings/
+- **Review all sessions sequentially (Ctrl+Shift+O)**
+- **Navigate between sessions (Ctrl+PgUp/PgDown)**
+- **Delete bad/empty sessions (Ctrl+D)**
 - View dual camera videos (left/right)
 - Navigate frame-by-frame or play continuously
 - Seek to any point via timeline scrubber
@@ -202,6 +205,18 @@ Phase 4 is now complete with:
 5. ✅ Enhanced export with pitch scores and annotations
 
 **Usage Instructions:**
+
+*Batch Review Workflow:*
+- File → Review All Sessions (Ctrl+Shift+O) to load all sessions
+- Review current session, score pitches, add annotations
+- Ctrl+PgDown to move to next session
+- Ctrl+PgUp to go back to previous session
+- Ctrl+D to delete bad/empty sessions
+- Session counter shows "Session X/Y" in status bar
+
+*Single Session Review:*
+- File → Open Session to load one session
+- Use playback controls and timeline to navigate
 - Press "A" to toggle annotation mode on/off
 - Click on video frame to add manual annotation (orange X)
 - Tools → Clear Annotations to remove all annotations
