@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional
 
@@ -30,8 +30,8 @@ class PitcherProfile:
     """Pitcher baseline profile for comparison."""
 
     pitcher_id: str
-    created_utc: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    last_updated_utc: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_utc: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    last_updated_utc: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     sessions_analyzed: int = 0
     total_pitches: int = 0
 
@@ -143,7 +143,7 @@ class PitcherProfileManager:
             profile = PitcherProfile(pitcher_id=pitcher_id)
 
         # Update last modified time
-        profile.last_updated_utc = datetime.utcnow().isoformat()
+        profile.last_updated_utc = datetime.now(UTC).isoformat()
 
         # Increment session count
         profile.sessions_analyzed += num_sessions

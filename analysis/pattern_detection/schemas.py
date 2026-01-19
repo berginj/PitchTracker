@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Dict, List, Optional
 
 
@@ -101,7 +101,7 @@ class AnalysisReport:
     """Complete pattern detection analysis report."""
 
     schema_version: str = "1.0.0"
-    created_utc: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_utc: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     session_id: str = ""
     pitcher_id: Optional[str] = None
 

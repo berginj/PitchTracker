@@ -311,7 +311,7 @@ class PatternDetector:
         Returns:
             Dictionary with cross-session analysis results
         """
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         if output_dir is None:
             output_dir = Path("recordings")
@@ -348,7 +348,7 @@ class PatternDetector:
         # Build report
         report = {
             'analysis_type': 'cross_session',
-            'created_utc': datetime.utcnow().isoformat(),
+            'created_utc': datetime.now(UTC).isoformat(),
             'sessions_analyzed': len(session_data),
             'total_pitches': sum(len(s['pitches']) for s in session_data),
             'velocity_trends': velocity_trends,
@@ -357,7 +357,7 @@ class PatternDetector:
         }
 
         # Save JSON report
-        timestamp = datetime.utcnow().strftime('%Y-%m-%d')
+        timestamp = datetime.now(UTC).strftime('%Y-%m-%d')
         json_path = output_dir / f"cross_session_analysis_{timestamp}.json"
         with open(json_path, 'w') as f:
             json.dump(report, f, indent=2)
