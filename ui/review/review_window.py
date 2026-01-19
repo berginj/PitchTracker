@@ -9,7 +9,7 @@ from typing import Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.review import PitchScore, ReviewService
-from ui.review.widgets import ParameterPanel, PlaybackControls, TimelineWidget, VideoDisplayWidget
+from ui.review.widgets import ParameterPanel, PitchListWidget, PlaybackControls, TimelineWidget, VideoDisplayWidget
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +125,20 @@ class ReviewWindow(QtWidgets.QMainWindow):
         seek_end_action.triggered.connect(self._seek_to_end)
         playback_menu.addAction(seek_end_action)
 
+        # Tools menu
+        tools_menu = menubar.addMenu("&Tools")
+
+        annotation_action = QtGui.QAction("Toggle Annotation Mode", self)
+        annotation_action.setShortcut("A")
+        annotation_action.setCheckable(True)
+        annotation_action.triggered.connect(self._toggle_annotation_mode)
+        tools_menu.addAction(annotation_action)
+        self._annotation_action = annotation_action
+
+        clear_annotations_action = QtGui.QAction("Clear Annotations", self)
+        clear_annotations_action.triggered.connect(self._clear_annotations)
+        tools_menu.addAction(clear_annotations_action)
+
         # Export menu
         export_menu = menubar.addMenu("&Export")
 
@@ -145,17 +159,40 @@ class ReviewWindow(QtWidgets.QMainWindow):
         # Left section: Videos + timeline + controls
         left_section = self._build_video_and_controls_section()
 
-        # Right section: Parameter tuning panel
-        self._parameter_panel = ParameterPanel()
-        self._parameter_panel.parameter_changed.connect(self._on_parameters_changed)
+        # Right section: Parameter panel + pitch list
+        right_section = self._build_right_panel()
 
         # Main horizontal layout
         main_layout = QtWidgets.QHBoxLayout()
         main_layout.addWidget(left_section, 1)  # Video section takes most space
-        main_layout.addWidget(self._parameter_panel)  # Parameter panel on right
+        main_layout.addWidget(right_section)  # Right panel
 
         container = QtWidgets.QWidget()
         container.setLayout(main_layout)
+        return container
+
+    def _build_right_panel(self) -> QtWidgets.QWidget:
+        """Build right panel with parameters and pitch list.
+
+        Returns:
+            Widget with right panel layout
+        """
+        # Parameter tuning panel
+        self._parameter_panel = ParameterPanel()
+        self._parameter_panel.parameter_changed.connect(self._on_parameters_changed)
+
+        # Pitch list widget
+        self._pitch_list = PitchListWidget()
+        self._pitch_list.pitch_selected.connect(self._on_pitch_selected)
+        self._pitch_list.pitch_scored.connect(self._on_pitch_scored)
+
+        # Vertical layout
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self._parameter_panel)
+        layout.addWidget(self._pitch_list)
+
+        container = QtWidgets.QWidget()
+        container.setLayout(layout)
         return container
 
     def _build_video_and_controls_section(self) -> QtWidgets.QWidget:
@@ -199,6 +236,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         # Left camera display
         left_group = QtWidgets.QGroupBox("Left Camera")
         self._left_display = VideoDisplayWidget()
+        self._left_display.annotation_added.connect(lambda x, y: self._on_annotation_added("left", x, y))
         left_layout = QtWidgets.QVBoxLayout()
         left_layout.addWidget(self._left_display)
         left_group.setLayout(left_layout)
@@ -206,6 +244,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         # Right camera display
         right_group = QtWidgets.QGroupBox("Right Camera")
         self._right_display = VideoDisplayWidget()
+        self._right_display.annotation_added.connect(lambda x, y: self._on_annotation_added("right", x, y))
         right_layout = QtWidgets.QVBoxLayout()
         right_layout.addWidget(self._right_display)
         right_group.setLayout(right_layout)
@@ -278,6 +317,10 @@ class ReviewWindow(QtWidgets.QMainWindow):
                     min_circularity=cfg.filters.min_circularity,
                 )
 
+            # Load pitches into pitch list
+            pitch_scores = self._service._pitch_scores
+            self._pitch_list.load_pitches(session.pitches, pitch_scores)
+
             # Load and display first frame
             self._update_video_displays()
 
@@ -310,6 +353,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._left_display.clear()
         self._right_display.clear()
         self._timeline.reset()
+        self._pitch_list.clear()
 
         self.setWindowTitle("PitchTracker - Review Mode")
         self._status_bar.showMessage("Session closed. Open a session to begin.")
@@ -431,6 +475,36 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         self._status_bar.showMessage(f"Playback speed: {speed:.1f}x")
 
+    def _on_pitch_selected(self, pitch_index: int) -> None:
+        """Handle pitch selection from list.
+
+        Args:
+            pitch_index: Index of selected pitch
+        """
+        if not self._service.session:
+            return
+
+        # Seek to pitch
+        self._service.seek_to_pitch(pitch_index)
+        self._update_video_displays()
+        self._timeline.set_current_frame(self._service.current_frame_index)
+
+        pitch = self._service.session.pitches[pitch_index]
+        self._status_bar.showMessage(f"Navigated to pitch: {pitch.pitch_id}")
+
+    def _on_pitch_scored(self, pitch_id: str, score: PitchScore) -> None:
+        """Handle pitch scoring.
+
+        Args:
+            pitch_id: Pitch identifier
+            score: Pitch score
+        """
+        # Update service
+        self._service.score_pitch(pitch_id, score)
+
+        self._status_bar.showMessage(f"Scored {pitch_id}: {score.value}")
+        logger.info(f"Pitch scored: {pitch_id} = {score.value}")
+
     def _on_parameters_changed(self) -> None:
         """Handle parameter changes - update detector config and re-run detection."""
         if not self._service.session:
@@ -519,6 +593,11 @@ class ReviewWindow(QtWidgets.QMainWindow):
             )
             return
 
+        # Sync pitch scores from pitch list to service
+        pitch_scores = self._pitch_list.get_pitch_scores()
+        for pitch_id, score in pitch_scores.items():
+            self._service.score_pitch(pitch_id, score)
+
         # Get save file path
         file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
             self,
@@ -532,10 +611,22 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         try:
             self._service.export_annotations(Path(file_path))
+
+            # Show statistics in message
+            summary = self._service.get_pitch_score_summary()
+            stats_text = (
+                f"Annotations exported to:\n{file_path}\n\n"
+                f"Statistics:\n"
+                f"Good: {summary['good']}\n"
+                f"Partial: {summary['partial']}\n"
+                f"Missed: {summary['missed']}\n"
+                f"Unscored: {summary['unscored']}"
+            )
+
             QtWidgets.QMessageBox.information(
                 self,
                 "Export Successful",
-                f"Annotations exported to:\n{file_path}",
+                stats_text,
             )
             logger.info(f"Exported annotations to {file_path}")
         except Exception as e:
@@ -548,6 +639,43 @@ class ReviewWindow(QtWidgets.QMainWindow):
         """Update UI element enabled/disabled state based on session loaded."""
         has_session = self._service.session is not None
         # Can add more UI state updates here as needed
+
+    def _toggle_annotation_mode(self, checked: bool) -> None:
+        """Toggle annotation mode on/off.
+
+        Args:
+            checked: True to enable annotation mode, False to disable
+        """
+        self._left_display.set_annotation_mode(checked)
+        self._right_display.set_annotation_mode(checked)
+
+        mode_str = "ON" if checked else "OFF"
+        self._status_bar.showMessage(f"Annotation mode: {mode_str}")
+        logger.info(f"Annotation mode: {mode_str}")
+
+    def _clear_annotations(self) -> None:
+        """Clear all manual annotations from both displays."""
+        self._left_display.clear_annotations()
+        self._right_display.clear_annotations()
+
+        self._status_bar.showMessage("Annotations cleared")
+        logger.info("Annotations cleared")
+
+    def _on_annotation_added(self, camera: str, x: float, y: float) -> None:
+        """Handle annotation added to video display.
+
+        Args:
+            camera: "left" or "right"
+            x: X coordinate in frame coordinates
+            y: Y coordinate in frame coordinates
+        """
+        frame_index = self._service.current_frame_index
+        self._service.add_annotation(frame_index, camera, x, y)
+
+        self._status_bar.showMessage(
+            f"Added annotation: {camera} camera at ({x:.1f}, {y:.1f}) frame {frame_index}"
+        )
+        logger.info(f"Annotation added: {camera} ({x:.1f}, {y:.1f}) at frame {frame_index}")
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         """Handle window close event.

@@ -111,7 +111,7 @@ coaching_camera_config = CameraConfig(
 - Both grayscale and color formats fully supported in all preview contexts
 
 ### 6. Review/Training Mode for Prior Sessions
-**Status:** 🚧 In Progress (75% Complete - 3/4 phases)
+**Status:** ✅ Complete (100% - All 4 phases)
 
 **Completed:**
 ✅ **Phase 1 - Core Infrastructure (Week 1)**
@@ -139,8 +139,7 @@ coaching_camera_config = CameraConfig(
 - Adjustable thresholds and filters
 - Detection count display
 
-**Optional (Not Critical):**
-❌ **Phase 4 - Annotation & Export (Week 4)**
+✅ **Phase 4 - Annotation & Export (Week 4)**
 - Pitch scoring UI (Good/Missed/Partial)
 - Manual annotation (click to mark ball)
 - Pitch list sidebar
@@ -155,6 +154,8 @@ coaching_camera_config = CameraConfig(
 - `ui/review/widgets/video_display_widget.py` - Video display
 - `ui/review/widgets/playback_controls.py` - Control buttons
 - `ui/review/widgets/timeline_widget.py` - Timeline scrubber
+- `ui/review/widgets/parameter_panel.py` - Parameter tuning
+- `ui/review/widgets/pitch_list_widget.py` - Pitch list with scoring
 - `test_review_mode.py` - Test script
 
 **Files Modified:**
@@ -173,6 +174,12 @@ coaching_camera_config = CameraConfig(
 - Adjust filters (Area, Circularity)
 - Export tuned detector configuration
 - Export annotations
+- **Score pitches (Good/Partial/Missed/Unscored)**
+- **Navigate to specific pitches**
+- **View pitch statistics summary**
+- **Manual annotation mode (click to mark ball - orange X)**
+- **Clear annotations**
+- **Export pitch scores with annotations**
 
 **Design Document:**
 See `docs/REVIEW_TRAINING_MODE_DESIGN.md` for complete architecture
@@ -185,43 +192,47 @@ File → Open Session → Select from recordings/
 Use playback controls to navigate video
 ```
 
-**Next Steps (Optional - Phase 4):**
-1. Add pitch list sidebar
-2. Implement pitch scoring (Good/Missed/Partial)
-3. Add manual annotation (click to mark ball)
-4. Show statistics summary
-5. Enhanced export with annotations
+**All Features Complete!** ✅
 
-**Note:** Phase 4 is optional. Core functionality (parameter tuning and detection visualization) is complete in Phase 3.
+Phase 4 is now complete with:
+1. ✅ Pitch list sidebar with navigation
+2. ✅ Pitch scoring (Good/Partial/Missed/Unscored)
+3. ✅ Manual annotation with click-to-mark (orange X markers)
+4. ✅ Real-time statistics summary
+5. ✅ Enhanced export with pitch scores and annotations
+
+**Usage Instructions:**
+- Press "A" to toggle annotation mode on/off
+- Click on video frame to add manual annotation (orange X)
+- Tools → Clear Annotations to remove all annotations
+- Select pitch from list and click score buttons
+- Navigate to specific pitches with "Go to Selected Pitch"
+- Export → Export Annotations to save scores and annotations
 
 ---
 
 ## Summary
 
-**Completed (5/6 features):**
+**Completed (6/6 features):** ✅
 - ✅ Color video capture option
 - ✅ Resolution settings in UI
 - ✅ Default batter height to 5'6"
 - ✅ Wire color mode through coach window
 - ✅ OpenCV video in preview windows
-
-**In Progress (1/6):**
-- 🚧 Review/training mode (75% - Phase 1-3 complete, Phase 4 optional)
+- ✅ Review/training mode (100% - All 4 phases complete)
 
 **Review Mode Progress:**
 - ✅ Phase 1: Core Infrastructure (SessionLoader, VideoReader, ReviewService)
 - ✅ Phase 2: UI Foundation (ReviewWindow, playback controls, timeline)
 - ✅ Phase 3: Detection Integration (parameter tuning, visual overlay)
-- ❌ Phase 4: Annotation & Export (optional - scoring, manual annotation)
+- ✅ Phase 4: Annotation & Export (scoring, manual annotation, statistics)
 
-**Next Steps:**
-1. ~~Complete Phase 3: Detection integration and parameter tuning~~ ✅ DONE
-2. (Optional) Phase 4: Annotation UI and comprehensive export
-3. User testing and refinement
+**Implementation Complete!** 🎉
+All planned features have been successfully implemented and tested.
 
 ---
 
-**Document Version:** 1.3
+**Document Version:** 2.0
 **Last Updated:** 2026-01-19
-**Status:** 95% Complete (5.75/6 features)
-**Review Mode:** 75% Complete (3/4 phases - core functionality complete)
+**Status:** 100% Complete (6/6 features) ✅
+**Review Mode:** 100% Complete (4/4 phases - fully implemented)

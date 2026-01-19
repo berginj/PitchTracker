@@ -13,12 +13,19 @@ class VideoDisplayWidget(QtWidgets.QLabel):
     """Widget for displaying video frames.
 
     Displays video frames with automatic scaling to fit widget size
-    while maintaining aspect ratio.
+    while maintaining aspect ratio. Supports manual annotation by clicking.
+
+    Signals:
+        annotation_added: Emitted when user clicks to add annotation (float x, float y)
 
     Example:
         >>> display = VideoDisplayWidget()
         >>> display.set_frame(frame_array)
+        >>> display.annotation_added.connect(lambda x, y: print(f"Click at {x}, {y}"))
     """
+
+    # Signal for manual annotations
+    annotation_added = QtCore.Signal(float, float)
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
         """Initialize video display widget.
@@ -42,6 +49,10 @@ class VideoDisplayWidget(QtWidgets.QLabel):
         # Detections to overlay
         self._detections: list = []
 
+        # Manual annotations
+        self._annotations: list = []  # List of (x, y) tuples
+        self._annotation_mode = False
+
     def set_frame(self, frame: np.ndarray, detections: Optional[list] = None) -> None:
         """Set and display a video frame with optional detection overlays.
 
@@ -53,10 +64,15 @@ class VideoDisplayWidget(QtWidgets.QLabel):
         self._detections = detections or []
 
         # Draw detections on frame if provided
+        display_frame = frame.copy()
         if self._detections:
-            frame = self._draw_detections_on_frame(frame.copy(), self._detections)
+            display_frame = self._draw_detections_on_frame(display_frame, self._detections)
 
-        self._current_pixmap = self._frame_to_pixmap(frame)
+        # Draw annotations on frame if any
+        if self._annotations:
+            display_frame = self._draw_annotations_on_frame(display_frame, self._annotations)
+
+        self._current_pixmap = self._frame_to_pixmap(display_frame)
 
         if self._current_pixmap:
             # Scale to fit widget while maintaining aspect ratio
@@ -67,13 +83,113 @@ class VideoDisplayWidget(QtWidgets.QLabel):
             )
             self.setPixmap(scaled)
 
+    def set_annotation_mode(self, enabled: bool) -> None:
+        """Enable or disable manual annotation mode.
+
+        Args:
+            enabled: True to enable annotation mode, False to disable
+        """
+        self._annotation_mode = enabled
+
+        if enabled:
+            self.setCursor(QtCore.Qt.CursorShape.CrossCursor)
+            self.setToolTip("Click to mark ball location")
+        else:
+            self.setCursor(QtCore.Qt.CursorShape.ArrowCursor)
+            self.setToolTip("")
+
+    def add_manual_annotation(self, x: float, y: float) -> None:
+        """Add a manual annotation marker.
+
+        Args:
+            x: X coordinate in frame coordinates
+            y: Y coordinate in frame coordinates
+        """
+        self._annotations.append((x, y))
+
+        # Redraw frame with annotation
+        if self._current_frame is not None:
+            frame = self._draw_detections_on_frame(self._current_frame.copy(), self._detections)
+            frame = self._draw_annotations_on_frame(frame, self._annotations)
+            self._current_pixmap = self._frame_to_pixmap(frame)
+
+            if self._current_pixmap:
+                scaled = self._current_pixmap.scaled(
+                    self.size(),
+                    QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                    QtCore.Qt.TransformationMode.SmoothTransformation,
+                )
+                self.setPixmap(scaled)
+
+    def clear_annotations(self) -> None:
+        """Clear all manual annotations."""
+        self._annotations.clear()
+
+        # Redraw frame without annotations
+        if self._current_frame is not None:
+            frame = self._draw_detections_on_frame(self._current_frame.copy(), self._detections)
+            self._current_pixmap = self._frame_to_pixmap(frame)
+
+            if self._current_pixmap:
+                scaled = self._current_pixmap.scaled(
+                    self.size(),
+                    QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                    QtCore.Qt.TransformationMode.SmoothTransformation,
+                )
+                self.setPixmap(scaled)
+
     def clear(self) -> None:
         """Clear the display."""
         self._current_frame = None
         self._current_pixmap = None
         self._detections = []
+        self._annotations = []
         super().clear()
         self.setText("No Video Loaded")
+
+    def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
+        """Handle mouse press event for manual annotation.
+
+        Args:
+            event: Mouse event
+        """
+        if not self._annotation_mode or self._current_frame is None:
+            return
+
+        # Get click position relative to widget
+        click_pos = event.position()
+
+        # Convert widget coordinates to frame coordinates
+        if self.pixmap():
+            pixmap = self.pixmap()
+            widget_width = self.width()
+            widget_height = self.height()
+            pixmap_width = pixmap.width()
+            pixmap_height = pixmap.height()
+
+            # Calculate offset and scale
+            scale_x = self._current_frame.shape[1] / pixmap_width
+            scale_y = self._current_frame.shape[0] / pixmap_height
+
+            # Center alignment offset
+            offset_x = (widget_width - pixmap_width) / 2
+            offset_y = (widget_height - pixmap_height) / 2
+
+            # Convert to pixmap coordinates
+            pixmap_x = click_pos.x() - offset_x
+            pixmap_y = click_pos.y() - offset_y
+
+            # Check if click is within pixmap bounds
+            if 0 <= pixmap_x < pixmap_width and 0 <= pixmap_y < pixmap_height:
+                # Convert to frame coordinates
+                frame_x = pixmap_x * scale_x
+                frame_y = pixmap_y * scale_y
+
+                # Add annotation
+                self.add_manual_annotation(frame_x, frame_y)
+
+                # Emit signal
+                self.annotation_added.emit(frame_x, frame_y)
 
     def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
         """Handle resize event - rescale current frame.
@@ -117,6 +233,37 @@ class VideoDisplayWidget(QtWidgets.QLabel):
 
             # Draw center point
             cv2.circle(frame, center, 2, (0, 255, 0), -1)
+
+        return frame
+
+    @staticmethod
+    def _draw_annotations_on_frame(frame: np.ndarray, annotations: list) -> np.ndarray:
+        """Draw manual annotation markers on frame.
+
+        Args:
+            frame: Video frame
+            annotations: List of (x, y) tuples
+
+        Returns:
+            Frame with annotation markers drawn
+        """
+        # Ensure frame is color for drawing
+        if len(frame.shape) == 2:
+            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+
+        # Draw X marker for each annotation (orange/blue color to distinguish from detections)
+        for x, y in annotations:
+            center = (int(x), int(y))
+            size = 10
+
+            # Draw X marker (orange)
+            cv2.line(frame, (center[0] - size, center[1] - size),
+                    (center[0] + size, center[1] + size), (0, 165, 255), 2)
+            cv2.line(frame, (center[0] + size, center[1] - size),
+                    (center[0] - size, center[1] + size), (0, 165, 255), 2)
+
+            # Draw circle around it
+            cv2.circle(frame, center, 15, (0, 165, 255), 2)
 
         return frame
 
