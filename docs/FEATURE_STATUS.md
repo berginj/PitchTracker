@@ -10,17 +10,18 @@
 ### 1. Color Video Capture Option
 **Status:** ✅ Complete
 
-- Added `color_mode` boolean field to `CameraConfig` (defaults to `false`)
+- Added `color_mode` boolean field to `CameraConfig` (defaults to `true`)
 - When enabled, camera uses YUYV format for color video
 - When disabled, uses GRAY8 format for grayscale
 - Implemented in `app/pipeline/initialization.py:configure_camera()`
 - Settings persist in app_state
+- **Default changed to color video for better user experience**
 
 **Usage:**
 ```yaml
 # configs/default.yaml
 camera:
-  color_mode: true  # Enable color video
+  color_mode: true  # Enable color video (default)
 ```
 
 ### 2. Resolution Settings in UI

@@ -36,7 +36,7 @@ class SettingsDialog(QtWidgets.QDialog):
         current_right_camera: str = "1",
         current_mound_distance: float = 50.0,
         current_ball_type: str = "baseball",
-        current_color_mode: bool = False,
+        current_color_mode: bool = True,
         parent: Optional[QtWidgets.QWidget] = None,
     ):
         super().__init__(parent)

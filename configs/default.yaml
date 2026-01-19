@@ -3,7 +3,7 @@ camera:
   height: 720
   fps: 60
   pixfmt: GRAY8  # Options: GRAY8 (grayscale), YUYV (color), MJPG (compressed color)
-  color_mode: false  # Set to true to capture color video (overrides pixfmt to YUYV)
+  color_mode: true  # Set to true to capture color video (overrides pixfmt to YUYV)
   exposure_us: 2000
   gain: 0.0
   wb_mode: null

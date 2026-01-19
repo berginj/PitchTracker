@@ -60,7 +60,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._camera_width = state.get("coaching_width", 640)
         self._camera_height = state.get("coaching_height", 480)
         self._camera_fps = state.get("coaching_fps", 30)
-        self._camera_color_mode = state.get("coaching_color_mode", False)
+        self._camera_color_mode = state.get("coaching_color_mode", True)
 
         # Build UI
         self._build_ui()
