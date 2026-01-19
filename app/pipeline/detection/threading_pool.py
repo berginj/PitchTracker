@@ -71,6 +71,14 @@ class DetectionThreadPool:
         self._last_drop_log_time: Dict[str, float] = {"left": 0.0, "right": 0.0, "results": 0.0}
         self._drop_warning_threshold = 10  # Warn after this many drops
 
+        # Adaptive queue sizing
+        self._adaptive_queue_enabled = True
+        self._min_queue_size = 3
+        self._max_queue_size = 12
+        self._last_adaptive_check = 0.0
+        self._adaptive_check_interval = 10.0  # Check every 10 seconds
+        self._frames_dropped_last_check: Dict[str, int] = {"left": 0, "right": 0, "results": 0}
+
     def set_detect_callback(self, callback: Callable[[str, Frame], list[Detection]]) -> None:
         """Set callback for detection.
 
@@ -199,6 +207,51 @@ class DetectionThreadPool:
         """
         with self._detection_error_lock:
             return self._detection_errors.copy()
+
+    def _check_adaptive_queue_sizing(self) -> None:
+        """Check and adjust queue sizes based on drop patterns.
+
+        Increases queue size if drops are frequent, decreases if underutilized.
+        Called periodically from detection loops for dynamic optimization.
+        """
+        if not self._adaptive_queue_enabled:
+            return
+
+        current_time = time.monotonic()
+        if current_time - self._last_adaptive_check < self._adaptive_check_interval:
+            return
+
+        with self._detection_error_lock:
+            # Calculate drop rate since last check
+            total_new_drops = 0
+            for queue_name in ("left", "right"):
+                drops_since_last = self._frames_dropped[queue_name] - self._frames_dropped_last_check[queue_name]
+                total_new_drops += drops_since_last
+                self._frames_dropped_last_check[queue_name] = self._frames_dropped[queue_name]
+
+            # Adjust queue size based on drop rate
+            # High drops (>5 per interval): increase queue size
+            # Low drops (<1 per interval): decrease queue size
+            old_size = self._queue_size
+
+            if total_new_drops > 5:
+                # Increase queue size (up to max)
+                self._queue_size = min(self._queue_size + 2, self._max_queue_size)
+            elif total_new_drops < 1 and self._queue_size > self._min_queue_size:
+                # Decrease queue size (down to min)
+                self._queue_size = max(self._queue_size - 1, self._min_queue_size)
+
+            self._last_adaptive_check = current_time
+
+            # Log adjustment
+            if self._queue_size != old_size:
+                logger.info(
+                    f"Adaptive queue sizing: adjusted from {old_size} to {self._queue_size} "
+                    f"(drops in last {self._adaptive_check_interval}s: {total_new_drops})"
+                )
+
+                # Note: Queue size adjustment takes effect on next start()
+                # Existing queues are not resized dynamically to avoid complexity
 
     def _reset_queues(self) -> None:
         """Reset all detection queues."""
@@ -440,6 +493,8 @@ class DetectionThreadPool:
             try:
                 label, frame, detections = self._detect_result_queue.get(timeout=0.2)
             except queue.Empty:
+                # Check adaptive queue sizing during idle time
+                self._check_adaptive_queue_sizing()
                 continue
 
             if label == "left":
@@ -450,3 +505,6 @@ class DetectionThreadPool:
             # Notify stereo callback for each result
             if self._stereo_callback:
                 self._stereo_callback(label, frame, detections)
+
+            # Periodically check adaptive queue sizing
+            self._check_adaptive_queue_sizing()
