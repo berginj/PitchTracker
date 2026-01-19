@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-SCHEMA_VERSION = "1.1.0"
-APP_VERSION = "0.1.0"
+SCHEMA_VERSION = "1.2.0"
+APP_VERSION = "1.3.0"
 
 
 def make_envelope(payload: Dict[str, Any]) -> Dict[str, Any]:
