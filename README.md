@@ -16,12 +16,14 @@ The application includes automatic updates - you'll be notified when new version
 
 **New to PitchTracker? Start here:**
 - **[Quick Start Guide](docs/QUICK_START.md)** - Get up and running in 30 minutes
-- **[FAQ](docs/FAQ.md)** - Frequently asked questions and answers
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[FAQ](docs/user/FAQ.md)** - Frequently asked questions and answers
+- **[Troubleshooting](docs/user/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Calibration Tips](docs/user/CALIBRATION_TIPS.md)** - Camera setup and calibration
 
 **For advanced usage:**
+- **[Pattern Detection Guide](docs/PATTERN_DETECTION_GUIDE.md)** - **NEW** - Analyze pitch types and detect anomalies
 - [Review Mode Guide](docs/REVIEW_TRAINING_MODE_DESIGN.md) - Analyze and tune past sessions
-- [Feature Status](docs/FEATURE_STATUS.md) - Complete feature list and status
+- [Current Status](docs/CURRENT_STATUS.md) - Project status and roadmap
 
 ---
 
