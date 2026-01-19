@@ -48,6 +48,7 @@ from metrics.simple_metrics import (
     compute_plate_from_observations,
     compute_plate_stub,
 )
+from app.events import ErrorCategory, ErrorSeverity, publish_error
 from metrics.strike_zone import StrikeResult, build_strike_zone, is_strike
 from record.recorder import RecordingBundle
 from stereo import StereoLaneGate
@@ -344,7 +345,6 @@ class InProcessPipelineService(PipelineService):
                 exc_info=True
             )
             # Publish error to error bus for UI notification
-            from app.events import ErrorCategory, ErrorSeverity, publish_error
             publish_error(
                 category=ErrorCategory.DETECTION,
                 severity=ErrorSeverity.ERROR,
