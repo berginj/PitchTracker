@@ -1,8 +1,9 @@
 camera:
-  width: 1920
-  height: 1080
+  width: 1280
+  height: 720
   fps: 60
-  pixfmt: GRAY8
+  pixfmt: GRAY8  # Options: GRAY8 (grayscale), YUYV (color), MJPG (compressed color)
+  color_mode: false  # Set to true to capture color video (overrides pixfmt to YUYV)
   exposure_us: 2000
   gain: 0.0
   wb_mode: null
@@ -69,7 +70,7 @@ detector:
     min_velocity: 0.0
     max_velocity: null
 strike_zone:
-  batter_height_in: 72.0
+  batter_height_in: 66.0  # 5'6" default (was 72.0 = 6'0")
   top_ratio: 0.5
   bottom_ratio: 0.27
   plate_width_in: 17.0

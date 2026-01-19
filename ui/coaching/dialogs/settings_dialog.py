@@ -22,8 +22,9 @@ class SettingsDialog(QtWidgets.QDialog):
     RESOLUTIONS = [
         ("640x480 @ 30fps (Low)", 640, 480, 30),
         ("1280x720 @ 30fps (Medium)", 1280, 720, 30),
-        ("1920x1080 @ 30fps (High)", 1920, 1080, 30),
-        ("1920x1080 @ 60fps (Very High)", 1920, 1080, 60),
+        ("1280x720 @ 60fps (High)", 1280, 720, 60),
+        ("1920x1080 @ 30fps (Very High)", 1920, 1080, 30),
+        ("1920x1080 @ 60fps (Ultra)", 1920, 1080, 60),
     ]
 
     def __init__(
@@ -35,6 +36,7 @@ class SettingsDialog(QtWidgets.QDialog):
         current_right_camera: str = "1",
         current_mound_distance: float = 50.0,
         current_ball_type: str = "baseball",
+        current_color_mode: bool = False,
         parent: Optional[QtWidgets.QWidget] = None,
     ):
         super().__init__(parent)
@@ -49,6 +51,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self._current_right = current_right_camera
         self._current_mound_distance = current_mound_distance
         self._current_ball_type = current_ball_type
+        self._current_color_mode = current_color_mode
 
         # Result values
         self.width = current_width
@@ -57,6 +60,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.left_camera = current_left_camera
         self.right_camera = current_right_camera
         self.mound_distance_ft = current_mound_distance
+        self.color_mode = current_color_mode
         self.settings_changed = False
 
         self._build_ui()
@@ -120,10 +124,19 @@ class SettingsDialog(QtWidgets.QDialog):
                 self._resolution_combo.setCurrentIndex(i)
                 break
 
+        # Color mode checkbox
+        self._color_mode_checkbox = QtWidgets.QCheckBox("Capture Color Video")
+        self._color_mode_checkbox.setChecked(self._current_color_mode)
+        self._color_mode_checkbox.setToolTip(
+            "Enable to capture color video (YUYV format)\n"
+            "Disable for grayscale (GRAY8 format)\n"
+            "Note: Color video requires ~3x more disk space"
+        )
+
         # Resolution info
         info = QtWidgets.QLabel(
             "Higher resolutions provide better quality but require more disk space and CPU.\n"
-            "Recommended: 640x480 for most coaching sessions."
+            "Recommended: 1280x720 @ 60fps for most coaching sessions."
         )
         info.setStyleSheet("color: #666; font-size: 9pt; font-style: italic;")
         info.setWordWrap(True)
@@ -131,6 +144,7 @@ class SettingsDialog(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(QtWidgets.QLabel("Select Resolution:"))
         layout.addWidget(self._resolution_combo)
+        layout.addWidget(self._color_mode_checkbox)
         layout.addWidget(info)
 
         group.setLayout(layout)
@@ -290,6 +304,9 @@ class SettingsDialog(QtWidgets.QDialog):
         # Get mound distance
         mound_distance = self._custom_distance_spin.value()
 
+        # Get color mode
+        color_mode = self._color_mode_checkbox.isChecked()
+
         # Check if settings changed
         settings_changed = (
             width != self._current_width
@@ -298,6 +315,7 @@ class SettingsDialog(QtWidgets.QDialog):
             or left_camera != self._current_left
             or right_camera != self._current_right
             or mound_distance != self._current_mound_distance
+            or color_mode != self._current_color_mode
         )
 
         # Set result values
@@ -307,6 +325,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.left_camera = left_camera
         self.right_camera = right_camera
         self.mound_distance_ft = mound_distance
+        self.color_mode = color_mode
         self.settings_changed = settings_changed
 
         # Save to app state for persistence
@@ -317,6 +336,7 @@ class SettingsDialog(QtWidgets.QDialog):
         state["last_left_camera"] = left_camera
         state["last_right_camera"] = right_camera
         state["mound_distance_ft"] = mound_distance
+        state["coaching_color_mode"] = color_mode
         save_state(state)
 
         self.accept()

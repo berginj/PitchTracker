@@ -26,6 +26,7 @@ class CameraConfig:
     wb_mode: Optional[str]
     wb: Optional[int]
     queue_depth: int
+    color_mode: bool = False  # Enable color video capture
 
 
 @dataclass(frozen=True)

@@ -47,11 +47,17 @@ class PipelineInitializer:
             camera: Camera device to configure
             config: Application configuration with camera settings
         """
+        # Determine pixel format based on color_mode setting
+        pixfmt = config.camera.pixfmt
+        if config.camera.color_mode:
+            # Override to color format when color_mode is enabled
+            pixfmt = "YUYV" if pixfmt == "GRAY8" else pixfmt
+
         camera.set_mode(
             config.camera.width,
             config.camera.height,
             config.camera.fps,
-            config.camera.pixfmt,
+            pixfmt,
         )
         camera.set_controls(
             config.camera.exposure_us,
