@@ -13,7 +13,14 @@ from app.qt_pipeline_service import QtPipelineService
 from configs.app_state import load_state, save_state
 from configs.settings import load_config
 from ui.coaching.dialogs import SessionStartDialog
+from ui.coaching.game_state_manager import GameStateManager
+from ui.coaching.session_history_tracker import SessionHistoryTracker
 from ui.coaching.widgets import HeatMapWidget, StrikeZoneOverlay, TrajectoryWidget
+from ui.coaching.widgets.mode_widgets import (
+    BroadcastViewWidget,
+    GameModeWidget,
+    SessionProgressionWidget,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -151,94 +158,88 @@ class CoachWindow(QtWidgets.QMainWindow):
         return widget
 
     def _build_main_content(self) -> QtWidgets.QWidget:
-        """Build main content area with cameras and metrics."""
-        # Left camera view with strike zone overlay
-        left_group = QtWidgets.QGroupBox("Left Camera")
-        self._left_view = QtWidgets.QLabel("Camera Preview")
-        self._left_view.setMinimumSize(500, 375)
-        self._left_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
-        self._left_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._left_view.setStyleSheet("background-color: #f5f5f5;")
+        """Build main content area with mode switching."""
+        # Mode selector toolbar
+        mode_toolbar = QtWidgets.QWidget()
+        mode_toolbar_layout = QtWidgets.QHBoxLayout()
 
-        # Create overlay for strike zone
-        self._left_overlay = StrikeZoneOverlay(self._left_view)
-        self._left_overlay.setGeometry(self._left_view.geometry())
+        mode_label = QtWidgets.QLabel("View Mode:")
+        font = mode_label.font()
+        font.setPointSize(12)
+        font.setBold(True)
+        mode_label.setFont(font)
+        mode_toolbar_layout.addWidget(mode_label)
 
-        left_layout = QtWidgets.QVBoxLayout()
-        left_layout.addWidget(self._left_view)
-        left_group.setLayout(left_layout)
+        self._mode_selector = QtWidgets.QComboBox()
+        self._mode_selector.addItems([
+            "Broadcast View",
+            "Session Progression",
+            "Game Mode"
+        ])
+        self._mode_selector.currentIndexChanged.connect(self._on_mode_changed)
+        mode_toolbar_layout.addWidget(self._mode_selector)
 
-        # Trajectory visualization
-        trajectory_group = QtWidgets.QGroupBox("Pitch Trajectory (Side View)")
-        self._trajectory = TrajectoryWidget()
-        trajectory_layout = QtWidgets.QVBoxLayout()
-        trajectory_layout.addWidget(self._trajectory)
-        trajectory_group.setLayout(trajectory_layout)
+        mode_toolbar_layout.addStretch()
+        mode_toolbar.setLayout(mode_toolbar_layout)
 
-        # Latest pitch metrics
-        metrics_group = QtWidgets.QGroupBox("Latest Pitch")
-        self._metrics_display = self._build_metrics_display()
-        metrics_layout = QtWidgets.QVBoxLayout()
-        metrics_layout.addWidget(self._metrics_display)
-        metrics_group.setLayout(metrics_layout)
+        # Initialize session history tracker
+        self._session_tracker = SessionHistoryTracker()
 
-        # Right camera view with strike zone overlay
-        right_group = QtWidgets.QGroupBox("Right Camera")
-        self._right_view = QtWidgets.QLabel("Camera Preview")
-        self._right_view.setMinimumSize(500, 375)  # Match left camera size for consistency
-        self._right_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
-        self._right_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._right_view.setStyleSheet("background-color: #f5f5f5;")
+        # Initialize game state manager
+        self._game_state_mgr = GameStateManager()
 
-        # Create overlay for strike zone
-        self._right_overlay = StrikeZoneOverlay(self._right_view)
-        self._right_overlay.setGeometry(self._right_view.geometry())
+        # Create mode stack
+        self._mode_stack = QtWidgets.QStackedWidget()
 
-        right_layout = QtWidgets.QVBoxLayout()
-        right_layout.addWidget(self._right_view)
-        right_group.setLayout(right_layout)
+        # Create all 3 modes
+        self._broadcast_mode = BroadcastViewWidget()
+        self._progression_mode = SessionProgressionWidget(self._session_tracker)
+        self._game_mode = GameModeWidget(self._game_state_mgr)
 
-        # Heat map
-        heat_map_group = QtWidgets.QGroupBox("Location Heat Map")
-        self._heat_map = self._build_heat_map_widget()
-        heat_map_layout = QtWidgets.QVBoxLayout()
-        heat_map_layout.addWidget(self._heat_map)
-        heat_map_group.setLayout(heat_map_layout)
+        self._mode_stack.addWidget(self._broadcast_mode)
+        self._mode_stack.addWidget(self._progression_mode)
+        self._mode_stack.addWidget(self._game_mode)
 
-        # Recent pitches
-        recent_group = QtWidgets.QGroupBox("Recent Pitches")
-        self._recent_list = QtWidgets.QListWidget()
-        self._recent_list.setMaximumHeight(200)
-        recent_layout = QtWidgets.QVBoxLayout()
-        recent_layout.addWidget(self._recent_list)
-        recent_group.setLayout(recent_layout)
+        # Load last mode from settings
+        state = load_state()
+        last_mode = state.get("last_coaching_mode", 0)
+        self._mode_selector.setCurrentIndex(int(last_mode))
 
-        # Layout: 2 rows
-        # Top row: [Left Camera] [Trajectory + Metrics] [Right Camera]
-        # Bottom row: [Heat Map] [Recent Pitches]
-        top_row = QtWidgets.QHBoxLayout()
-        top_row.addWidget(left_group, 3)
-
-        middle_column = QtWidgets.QVBoxLayout()
-        middle_column.addWidget(trajectory_group)
-        middle_column.addWidget(metrics_group)
-        middle_widget = QtWidgets.QWidget()
-        middle_widget.setLayout(middle_column)
-        top_row.addWidget(middle_widget, 2)
-
-        top_row.addWidget(right_group, 2)
-
-        bottom_row = QtWidgets.QHBoxLayout()
-        bottom_row.addWidget(heat_map_group, 1)
-        bottom_row.addWidget(recent_group, 1)
-
+        # Main layout
         layout = QtWidgets.QVBoxLayout()
-        layout.addLayout(top_row, 3)
-        layout.addLayout(bottom_row, 1)
+        layout.addWidget(mode_toolbar)
+        layout.addWidget(self._mode_stack, 1)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
 
         widget = QtWidgets.QWidget()
         widget.setLayout(layout)
         return widget
+
+    def _on_mode_changed(self, index: int) -> None:
+        """Handle mode selection change.
+
+        Args:
+            index: Selected mode index (0=Broadcast, 1=Progression, 2=Game)
+        """
+        # Preserve camera selection across modes
+        current_mode = self._mode_stack.currentWidget()
+        camera = current_mode.get_current_camera_selection()
+
+        # Switch mode
+        self._mode_stack.setCurrentIndex(index)
+
+        # Restore camera selection in new mode
+        new_mode = self._mode_stack.currentWidget()
+        new_mode.set_camera_selection(camera)
+
+        # Save preference to settings
+        state = load_state()
+        state["last_coaching_mode"] = index
+        save_state(state)
+
+        mode_names = ["Broadcast View", "Session Progression", "Game Mode"]
+        logger.debug(f"Switched to {mode_names[index]}")
 
     def _build_metrics_display(self) -> QtWidgets.QWidget:
         """Build latest pitch metrics display."""
@@ -443,11 +444,12 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._pitcher_label.setText(f"Pitcher: {self._pitcher_name}")
         self._pitch_count_label.setText("Pitches: 0")
 
-        # Clear visualizations
-        self._heat_map.clear()
-        self._left_overlay.clear_latest_pitch()
-        self._right_overlay.clear_latest_pitch()
-        self._trajectory.clear()
+        # Clear visualizations in current mode
+        current_mode = self._mode_stack.currentWidget()
+        current_mode.clear()
+
+        # Clear session tracker
+        self._session_tracker.clear()
 
         # Update buttons - enable Start Recording, disable Setup
         self._setup_button.setEnabled(False)
@@ -634,11 +636,9 @@ class CoachWindow(QtWidgets.QMainWindow):
                     # Stop current capture
                     self._service.stop_capture()
 
-                    # Clear camera displays
-                    self._left_camera_label.clear()
-                    self._right_camera_label.clear()
-                    self._left_camera_label.setText("Left Camera\n(Starting...)")
-                    self._right_camera_label.setText("Right Camera\n(Starting...)")
+                    # Clear current mode
+                    current_mode = self._mode_stack.currentWidget()
+                    current_mode.clear()
                     QtWidgets.QApplication.processEvents()
 
                     # Create new camera config with updated settings
@@ -782,76 +782,13 @@ class CoachWindow(QtWidgets.QMainWindow):
             # Get preview frames
             left_frame, right_frame = self._service.get_preview_frames()
 
-            # Update left view
-            if left_frame is not None:
-                pixmap = self._frame_to_pixmap(left_frame.image)
-                if pixmap:
-                    scaled = pixmap.scaled(
-                        self._left_view.size(),
-                        QtCore.Qt.AspectRatioMode.KeepAspectRatio,
-                        QtCore.Qt.TransformationMode.SmoothTransformation,
-                    )
-                    self._left_view.setPixmap(scaled)
-
-            # Update right view
-            if right_frame is not None:
-                pixmap = self._frame_to_pixmap(right_frame.image)
-                if pixmap:
-                    scaled = pixmap.scaled(
-                        self._right_view.size(),
-                        QtCore.Qt.AspectRatioMode.KeepAspectRatio,
-                        QtCore.Qt.TransformationMode.SmoothTransformation,
-                    )
-                    self._right_view.setPixmap(scaled)
-
-            # Update overlay sizes to match camera views
-            self._left_overlay.setGeometry(self._left_view.geometry())
-            self._right_overlay.setGeometry(self._right_view.geometry())
+            # Forward to current mode
+            current_mode = self._mode_stack.currentWidget()
+            current_mode.update_camera_frames(left_frame, right_frame)
 
         except Exception as e:
             # Log preview errors for debugging
             logger.error(f"Preview update failed: {e}", exc_info=True)
-
-    def _frame_to_pixmap(self, image) -> Optional[QtGui.QPixmap]:
-        """Convert numpy image to QPixmap."""
-        try:
-            import numpy as np
-
-            # Ensure image is uint8
-            if image.dtype != np.uint8:
-                image = image.astype(np.uint8)
-
-            # Convert BGR to RGB if needed
-            if len(image.shape) == 3 and image.shape[2] == 3:
-                import cv2
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-            # Create QImage
-            height, width = image.shape[:2]
-            if len(image.shape) == 3:
-                bytes_per_line = 3 * width
-                q_image = QtGui.QImage(
-                    image.data,
-                    width,
-                    height,
-                    bytes_per_line,
-                    QtGui.QImage.Format.Format_RGB888,
-                )
-            else:
-                bytes_per_line = width
-                q_image = QtGui.QImage(
-                    image.data,
-                    width,
-                    height,
-                    bytes_per_line,
-                    QtGui.QImage.Format.Format_Grayscale8,
-                )
-
-            return QtGui.QPixmap.fromImage(q_image)
-
-        except Exception as e:
-            logger.warning(f"Failed to convert frame to pixmap: {e}")
-            return None
 
     def _on_pitch_started(self, pitch_index: int, pitch_data) -> None:
         """Handle pitch started signal (runs on main Qt thread).
@@ -899,146 +836,15 @@ class CoachWindow(QtWidgets.QMainWindow):
                 self._pitch_count_label.setText(f"Pitches: {self._pitch_count}")
                 self._last_pitch_count = self._pitch_count
 
-                # Get latest pitch
-                if recent_pitches:
-                    latest = recent_pitches[-1]
+                # Add new pitches to session tracker
+                for pitch in recent_pitches[self._last_pitch_count - 1:]:
+                    self._session_tracker.add_pitch(pitch)
 
-                    # Update metrics display
-                    speed_mph = latest.measured_speed_mph or 0.0
-                    self._speed_label.setText(f"Speed: {speed_mph:.1f} mph")
+            # Forward all recent pitches to current mode
+            if recent_pitches:
+                current_mode = self._mode_stack.currentWidget()
+                current_mode.update_pitch_data(recent_pitches)
 
-                    # Update break and track location
-                    if latest.plate_x_in is not None and latest.plate_z_in is not None:
-                        self._hbreak_label.setText(f"H-Break: {latest.plate_x_in:+.1f} in")
-                        self._vbreak_label.setText(f"V-Break: {latest.plate_z_in:+.1f} in")
-
-                        # Calculate strike zone and update visualizations
-                        self._update_pitch_location(latest.plate_x_in, latest.plate_z_in)
-
-                        # Update trajectory visualization
-                        self._update_trajectory(latest)
-
-                    # Update result
-                    result = "STRIKE" if latest.is_strike else "BALL"
-                    result_color = "#4CAF50" if latest.is_strike else "#FF5722"
-                    self._result_label.setText(f"Result: {result}")
-                    self._result_label.setStyleSheet(f"font-size: 14pt; font-weight: bold; color: {result_color};")
-
-                    # Update recent pitches list
-                    self._update_recent_pitches_list(recent_pitches)
-
-        except Exception:
-            # Silently ignore metrics errors
-            pass
-
-    def _update_trajectory(self, pitch_summary) -> None:
-        """Update trajectory visualization with pitch path.
-
-        Args:
-            pitch_summary: PitchSummary with trajectory data
-        """
-        # Get plate crossing point (convert inches to feet)
-        plate_y = 0.0  # Plate position
-        plate_z = pitch_summary.plate_z_in / 12.0 if pitch_summary.plate_z_in is not None else 2.5
-
-        # Estimate release point (typical values)
-        # Pitchers release around 54-56 feet from plate, 5-7 feet high
-        release_y = 55.0  # feet from plate
-        release_z = 6.0  # feet above ground
-
-        # Create simple parabolic trajectory
-        # Use 20 points from release to plate
-        num_points = 20
-        y_positions = []
-        z_positions = []
-
-        for i in range(num_points):
-            t = i / (num_points - 1)  # 0.0 to 1.0
-
-            # Linear interpolation for Y (distance)
-            y = release_y * (1 - t) + plate_y * t
-
-            # Parabolic arc for Z (height) - simple quadratic
-            # z = at^2 + bt + c
-            # At t=0: z = release_z
-            # At t=1: z = plate_z
-            # Peak somewhere in middle (use simple parabola)
-            a = release_z - 2 * release_z + plate_z  # Coefficient for parabola
-            b = 2 * (release_z - plate_z) - a
-            c = release_z
-
-            z = a * t * t + b * t + c
-
-            y_positions.append(y)
-            z_positions.append(z)
-
-        # Add trajectory to widget
-        self._trajectory.add_trajectory(y_positions, z_positions)
-
-    def _update_pitch_location(self, plate_x_in: float, plate_z_in: float) -> None:
-        """Update heat map and strike zone overlays with pitch location.
-
-        Args:
-            plate_x_in: Horizontal position in inches from plate center (- is left, + is right)
-            plate_z_in: Vertical position in inches from ground
-        """
-        # Get strike zone dimensions from config
-        sz_config = self._config.strike_zone
-
-        # Strike zone boundaries (in inches)
-        zone_width = 17.0  # Home plate width
-        zone_height = sz_config.height_in
-        zone_left = -zone_width / 2
-        zone_right = zone_width / 2
-        zone_bottom = sz_config.bottom_in
-        zone_top = zone_bottom + zone_height
-
-        # Calculate normalized position (0.0 = left/bottom, 1.0 = right/top)
-        # Add some margin around strike zone for visualization
-        margin_x = zone_width * 0.5  # 50% margin on each side
-        margin_z = zone_height * 0.3  # 30% margin top/bottom
-
-        viz_left = zone_left - margin_x
-        viz_right = zone_right + margin_x
-        viz_bottom = zone_bottom - margin_z
-        viz_top = zone_top + margin_z
-
-        # Normalize to 0.0-1.0
-        norm_x = (plate_x_in - viz_left) / (viz_right - viz_left)
-        norm_z = 1.0 - ((plate_z_in - viz_bottom) / (viz_top - viz_bottom))  # Invert Y (screen coords)
-
-        # Clamp to visible range
-        norm_x = max(0.0, min(1.0, norm_x))
-        norm_z = max(0.0, min(1.0, norm_z))
-
-        # Update strike zone overlays
-        self._left_overlay.set_latest_pitch(norm_x, norm_z)
-        self._right_overlay.set_latest_pitch(norm_x, norm_z)
-
-        # Calculate which zone (0-2, 0-2) the pitch landed in for heat map
-        # Only count if inside actual strike zone
-        if zone_left <= plate_x_in <= zone_right and zone_bottom <= plate_z_in <= zone_top:
-            zone_x = int((plate_x_in - zone_left) / zone_width * 3)
-            zone_z = int((plate_z_in - zone_bottom) / zone_height * 3)
-
-            # Clamp to 0-2 range
-            zone_x = max(0, min(2, zone_x))
-            zone_z = max(0, min(2, zone_z))
-
-            # Add to heat map (note: zone_z is already in correct coordinates for grid)
-            self._heat_map.add_pitch(zone_x, zone_z)
-
-    def _update_recent_pitches_list(self, pitches) -> None:
-        """Update recent pitches list widget."""
-        self._recent_list.clear()
-
-        # Show last 10 pitches (most recent first)
-        for i, pitch in enumerate(reversed(pitches[-10:])):
-            speed_mph = pitch.measured_speed_mph or 0.0
-            result = "STRIKE" if pitch.is_strike else "BALL"
-            color = "#4CAF50" if pitch.is_strike else "#FF5722"
-
-            item_text = f"{len(pitches) - i}. {speed_mph:.1f} mph - {result}"
-            item = QtWidgets.QListWidgetItem(item_text)
-            item.setForeground(QtGui.QColor(color))
-            self._recent_list.addItem(item)
+        except Exception as e:
+            # Log metrics errors for debugging
+            logger.error(f"Metrics update failed: {e}", exc_info=True)
