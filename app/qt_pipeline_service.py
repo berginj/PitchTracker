@@ -84,9 +84,9 @@ class QtPipelineService(QtCore.QObject):
             logger.error(f"Error emitting pitch_ended signal: {e}", exc_info=True)
 
     # Delegate all other methods to the underlying service
-    def start_capture(self, config, left_serial: str, right_serial: str):
+    def start_capture(self, config, left_serial: str, right_serial: str, config_path=None):
         """Start camera capture (delegates to underlying service)."""
-        return self._service.start_capture(config, left_serial, right_serial)
+        return self._service.start_capture(config, left_serial, right_serial, config_path)
 
     def stop_capture(self):
         """Stop camera capture (delegates to underlying service)."""
