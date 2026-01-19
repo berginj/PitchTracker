@@ -300,6 +300,11 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._lane_button.clicked.connect(self._adjust_lane)
         self._lane_button.setToolTip("Adjust the lane ROI (region where ball tracking occurs)")
 
+        self._review_button = QtWidgets.QPushButton("🎬 Review Session")
+        self._review_button.setMinimumHeight(50)
+        self._review_button.clicked.connect(self._open_review_mode)
+        self._review_button.setToolTip("Review and analyze previous sessions")
+
         self._help_button = QtWidgets.QPushButton("❓ Help")
         self._help_button.setMinimumHeight(50)
 
@@ -309,6 +314,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         layout.addWidget(self._pause_button, 1)
         layout.addWidget(self._end_button, 2)
         layout.addStretch()
+        layout.addWidget(self._review_button)
         layout.addWidget(self._lane_button)
         layout.addWidget(self._settings_button)
         layout.addWidget(self._help_button)
@@ -721,6 +727,14 @@ class CoachWindow(QtWidgets.QMainWindow):
                 "Lane ROI has been updated.\n\n"
                 "Changes will take effect for new pitches tracked during this session.",
             )
+
+    def _open_review_mode(self) -> None:
+        """Open review mode window for analyzing previous sessions."""
+        from ui.review import ReviewWindow
+
+        review_window = ReviewWindow(parent=self)
+        review_window.show()
+        logger.info("Opened review mode window")
 
     def closeEvent(self, event) -> None:
         """Handle window close event - stop capture and recording."""
