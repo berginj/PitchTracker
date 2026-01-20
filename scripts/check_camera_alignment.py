@@ -28,16 +28,19 @@ def load_frame(path: Path) -> np.ndarray:
     return img
 
 
-def capture_frame_pair(backend: str = "opencv") -> Tuple[np.ndarray, np.ndarray]:
+def capture_frame_pair(backend: str = "opencv", left_camera: str = "0", right_camera: str = "1") -> Tuple[np.ndarray, np.ndarray]:
     """Capture a single frame pair from cameras.
 
     Args:
         backend: Camera backend ("opencv" or "uvc")
+        left_camera: Left camera identifier (index for opencv, serial for uvc)
+        right_camera: Right camera identifier (index for opencv, serial for uvc)
 
     Returns:
         Tuple of (left_frame, right_frame) as BGR images
     """
     print("\n=== CAPTURING FRAMES ===")
+    print(f"Using cameras: Left={left_camera}, Right={right_camera}")
     print("Point cameras at a textured scene (not blank wall)")
     print("Press ENTER when ready...")
     input()
@@ -50,9 +53,13 @@ def capture_frame_pair(backend: str = "opencv") -> Tuple[np.ndarray, np.ndarray]
         right_cam = OpenCVCamera()
 
         try:
-            left_cam.open("0")
-            right_cam.open("1")
+            print(f"Opening left camera: {left_camera}")
+            left_cam.open(left_camera)
 
+            print(f"Opening right camera: {right_camera}")
+            right_cam.open(right_camera)
+
+            print("Configuring camera modes...")
             left_cam.set_mode(1280, 720, 30, "YUYV")
             right_cam.set_mode(1280, 720, 30, "YUYV")
 
@@ -412,59 +419,99 @@ def print_alignment_report(vertical: dict, horizontal: dict, rotation: dict, num
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Check stereo camera alignment")
+    parser = argparse.ArgumentParser(
+        description="Check stereo camera alignment",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Capture from cameras 0 and 1 (default)
+  python scripts/check_camera_alignment.py --capture
+
+  # Capture from specific cameras
+  python scripts/check_camera_alignment.py --capture --left-camera 0 --right-camera 1
+
+  # Capture and save frames
+  python scripts/check_camera_alignment.py --capture --save
+
+  # Check existing images
+  python scripts/check_camera_alignment.py --left left.png --right right.png
+        """
+    )
     parser.add_argument("--left", type=Path, help="Path to left camera image")
     parser.add_argument("--right", type=Path, help="Path to right camera image")
     parser.add_argument("--capture", action="store_true", help="Capture frames from cameras directly")
     parser.add_argument("--backend", default="opencv", choices=["opencv", "uvc"], help="Camera backend for capture")
+    parser.add_argument("--left-camera", default="0", help="Left camera identifier (default: 0)")
+    parser.add_argument("--right-camera", default="1", help="Right camera identifier (default: 1)")
     parser.add_argument("--save", action="store_true", help="Save captured frames to alignment_check_left.png and alignment_check_right.png")
 
     args = parser.parse_args()
 
-    # Get frames
-    if args.capture:
-        print("Capturing frames from cameras...")
-        left_img, right_img = capture_frame_pair(args.backend)
-
-        if args.save:
-            cv2.imwrite("alignment_check_left.png", left_img)
-            cv2.imwrite("alignment_check_right.png", right_img)
-            print("Saved frames to alignment_check_left.png and alignment_check_right.png")
-    elif args.left and args.right:
-        print(f"Loading frames from {args.left} and {args.right}...")
-        left_img = load_frame(args.left)
-        right_img = load_frame(args.right)
-    else:
-        print("Error: Must provide either --capture or both --left and --right")
-        print("\nExamples:")
-        print("  python scripts/check_camera_alignment.py --capture")
-        print("  python scripts/check_camera_alignment.py --left left.png --right right.png")
-        sys.exit(1)
-
-    # Find feature matches
-    print("Finding feature matches...")
     try:
+        # Get frames
+        if args.capture:
+            print("Capturing frames from cameras...")
+            left_img, right_img = capture_frame_pair(args.backend, args.left_camera, args.right_camera)
+
+            if args.save:
+                cv2.imwrite("alignment_check_left.png", left_img)
+                cv2.imwrite("alignment_check_right.png", right_img)
+                print("Saved frames to alignment_check_left.png and alignment_check_right.png")
+        elif args.left and args.right:
+            print(f"Loading frames from {args.left} and {args.right}...")
+            left_img = load_frame(args.left)
+            right_img = load_frame(args.right)
+        else:
+            print("Error: Must provide either --capture or both --left and --right")
+            print("\nExamples:")
+            print("  python scripts/check_camera_alignment.py --capture")
+            print("  python scripts/check_camera_alignment.py --capture --left-camera 0 --right-camera 1")
+            print("  python scripts/check_camera_alignment.py --left left.png --right right.png")
+            input("\nPress ENTER to exit...")
+            sys.exit(1)
+
+        # Find feature matches
+        print("Finding feature matches...")
         pts1, pts2 = find_feature_matches(left_img, right_img, max_features=1000)
         print(f"Found {len(pts1)} matched features")
+
+        # Analyze alignment
+        print("Analyzing alignment...")
+        vertical = analyze_vertical_alignment(pts1, pts2)
+        horizontal = analyze_horizontal_alignment(pts1, pts2)
+        rotation = analyze_rotation(pts1, pts2)
+
+        # Print report
+        overall_pass = print_alignment_report(vertical, horizontal, rotation, len(pts1))
+
+        # Pause before exit on Windows so user can read results
+        print("\n" + "="*70)
+        input("Press ENTER to exit...")
+
+        # Exit code for scripting
+        sys.exit(0 if overall_pass else 1)
+
     except ValueError as e:
-        print(f"Error: {e}")
+        print(f"\n{'='*70}")
+        print(f"ERROR: {e}")
+        print("="*70)
         print("\nTips:")
         print("  - Point cameras at textured scene (posters, furniture, etc.)")
         print("  - Avoid blank walls or low-contrast surfaces")
         print("  - Ensure good lighting")
+        print("  - Make sure camera indices are correct (--left-camera 0 --right-camera 1)")
+        print("\n" + "="*70)
+        input("Press ENTER to exit...")
         sys.exit(1)
-
-    # Analyze alignment
-    print("Analyzing alignment...")
-    vertical = analyze_vertical_alignment(pts1, pts2)
-    horizontal = analyze_horizontal_alignment(pts1, pts2)
-    rotation = analyze_rotation(pts1, pts2)
-
-    # Print report
-    overall_pass = print_alignment_report(vertical, horizontal, rotation, len(pts1))
-
-    # Exit code for scripting
-    sys.exit(0 if overall_pass else 1)
+    except Exception as e:
+        print(f"\n{'='*70}")
+        print(f"UNEXPECTED ERROR: {e}")
+        print("="*70)
+        import traceback
+        traceback.print_exc()
+        print("="*70)
+        input("\nPress ENTER to exit...")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
