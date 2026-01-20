@@ -80,7 +80,21 @@ def capture_frame_pair(backend: str = "opencv", left_camera: str = "0", right_ca
     print(f"Using cameras: Left={left_camera}, Right={right_camera}")
     print("Point cameras at a textured scene (not blank wall)")
     print("Press ENTER when ready...")
-    input()
+    sys.stdout.flush()
+
+    # Temporarily restore console for user input
+    sys.stdout = _original_stdout
+    sys.stderr = _original_stderr
+    print("\n" + "="*70)
+    print("Point cameras at a textured scene (posters, books, NOT blank wall)")
+    print("Make sure both cameras can see the same objects")
+    print("="*70)
+    input("Press ENTER to capture frames...")
+
+    # Restore log file output
+    sys.stdout = log_file
+    sys.stderr = log_file
+    print("User pressed ENTER, continuing...")
 
     if backend == "opencv":
         from capture.opencv_backend import OpenCVCamera
