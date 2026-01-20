@@ -13,12 +13,12 @@ echo.
 
 REM Check if we have camera arguments
 if "%1"=="" (
-    echo Using default cameras: Left=0, Right=1
+    echo Using default cameras: Left=1, Right=2
     echo.
     echo To use different cameras, edit this batch file or run:
     echo   python scripts\check_camera_alignment.py --capture --left-camera X --right-camera Y
     echo.
-    python scripts\check_camera_alignment.py --capture --left-camera 0 --right-camera 1
+    python scripts\check_camera_alignment.py --capture --left-camera 1 --right-camera 2
 ) else (
     python scripts\check_camera_alignment.py %*
 )
