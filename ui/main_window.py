@@ -1622,17 +1622,17 @@ class MainWindow(QtWidgets.QMainWindow):
         step_action.triggered.connect(self._step_replay)
 
         view_menu = menu_bar.addMenu("View")
-        self._health_toggle_action = QtWidgets.QAction("Show Health Panel", self)
+        self._health_toggle_action = QtGui.QAction("Show Health Panel", self)
         self._health_toggle_action.setCheckable(True)
         self._health_toggle_action.setChecked(True)
         self._health_toggle_action.toggled.connect(self._health_panel.setVisible)
         view_menu.addAction(self._health_toggle_action)
-        self._right_camera_action = QtWidgets.QAction("Show Right Camera", self)
+        self._right_camera_action = QtGui.QAction("Show Right Camera", self)
         self._right_camera_action.setCheckable(True)
         self._right_camera_action.setChecked(False)
         self._right_camera_action.toggled.connect(self._right_view.setVisible)
         view_menu.addAction(self._right_camera_action)
-        self._production_action = QtWidgets.QAction("Production Mode", self)
+        self._production_action = QtGui.QAction("Production Mode", self)
         self._production_action.setCheckable(True)
         self._production_action.setChecked(False)
         self._production_action.toggled.connect(self._set_production_mode)
@@ -1979,7 +1979,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # Disk space (GB)
             critical_disk_gb=10.0,
-            warning_disk_gb=50.0,
+            warning_disk_gb=30.0,
+            recommended_disk_gb=100.0,
 
             # Queue sizes
             detection_queue_size=10,
