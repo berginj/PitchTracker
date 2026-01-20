@@ -2,7 +2,7 @@
 ; Requires Inno Setup 6.0 or later (https://jrsoftware.org/isinfo.php)
 
 #define AppName "PitchTracker"
-#define AppVersion "1.3.0"
+#define AppVersion "1.5.0"
 #define AppPublisher "PitchTracker Development Team"
 #define AppURL "https://github.com/berginj/PitchTracker"
 #define AppExeName "PitchTracker.exe"
