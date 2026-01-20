@@ -16,6 +16,10 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
+# Add project root to Python path so we can import capture module
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 # Save original stdout/stderr for console messages
 _original_stdout = sys.stdout
 _original_stderr = sys.stderr
