@@ -436,10 +436,32 @@ class CalibrationStep(BaseStep):
 
         self._config_path.write_text(yaml.safe_dump(data, sort_keys=False))
 
+        # Show feedback message
+        orientation = "flipped 180°" if checked else "normal"
+        print(f"INFO: {camera.capitalize()} camera {orientation} - restarting cameras...")
+
         # Restart cameras if open to apply flip
         if self._left_camera is not None or self._right_camera is not None:
+            # Stop preview
+            self._preview_timer.stop()
+
+            # Close cameras
             self._close_cameras()
-            QtCore.QTimer.singleShot(200, self._open_cameras)
+
+            # Reopen with new flip setting after short delay
+            QtCore.QTimer.singleShot(300, self._restart_cameras_after_flip)
+
+    def _restart_cameras_after_flip(self) -> None:
+        """Reopen cameras and restart preview after flip setting change."""
+        try:
+            self._open_cameras()
+
+            # Restart preview if cameras opened successfully
+            if self._left_camera and self._right_camera:
+                self._preview_timer.start(33)  # ~30 FPS
+                print("INFO: Cameras restarted with new flip setting")
+        except Exception as e:
+            print(f"ERROR: Failed to restart cameras: {e}")
 
     def _update_baseline(self, value_ft: float) -> None:
         """Update baseline distance in config.
@@ -481,6 +503,12 @@ class CalibrationStep(BaseStep):
             if not self._left_serial or not self._right_serial:
                 raise ValueError("Camera serials not set. Please select cameras in Step 1.")
 
+            # Read flip settings from config
+            import yaml
+            config_data = yaml.safe_load(self._config_path.read_text())
+            flip_left = config_data.get("camera", {}).get("flip_left", False)
+            flip_right = config_data.get("camera", {}).get("flip_right", False)
+
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
 
@@ -498,15 +526,15 @@ class CalibrationStep(BaseStep):
                 self._left_camera = OpenCVCamera()
                 self._right_camera = OpenCVCamera()
 
-                print(f"DEBUG: Opening left camera with index: {left_index}")
+                print(f"DEBUG: Opening left camera with index: {left_index} (flip={flip_left})")
                 self._left_camera.open(left_index)
 
-                print(f"DEBUG: Opening right camera with index: {right_index}")
+                print(f"DEBUG: Opening right camera with index: {right_index} (flip={flip_right})")
                 self._right_camera.open(right_index)
 
-                # Configure cameras with basic settings
-                self._left_camera.set_mode(640, 480, 30, "GRAY8")
-                self._right_camera.set_mode(640, 480, 30, "GRAY8")
+                # Configure cameras with basic settings including flip
+                self._left_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_left)
+                self._right_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_right)
 
             else:  # uvc
                 from capture import UvcCamera
@@ -515,7 +543,7 @@ class CalibrationStep(BaseStep):
                 self._right_camera = UvcCamera()
 
                 # Open cameras with their serials - retry with delays if needed
-                print(f"DEBUG: Opening left camera with serial: {self._left_serial}")
+                print(f"DEBUG: Opening left camera with serial: {self._left_serial} (flip={flip_left})")
                 for attempt in range(3):
                     try:
                         self._left_camera.open(self._left_serial)
@@ -527,7 +555,7 @@ class CalibrationStep(BaseStep):
                         else:
                             raise
 
-                print(f"DEBUG: Opening right camera with serial: {self._right_serial}")
+                print(f"DEBUG: Opening right camera with serial: {self._right_serial} (flip={flip_right})")
                 for attempt in range(3):
                     try:
                         self._right_camera.open(self._right_serial)
@@ -539,9 +567,9 @@ class CalibrationStep(BaseStep):
                         else:
                             raise
 
-                # Configure cameras with basic settings
-                self._left_camera.set_mode(640, 480, 30, "GRAY8")
-                self._right_camera.set_mode(640, 480, 30, "GRAY8")
+                # Configure cameras with basic settings including flip
+                self._left_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_left)
+                self._right_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_right)
 
         except Exception as e:
             # Clean up any partially opened cameras
