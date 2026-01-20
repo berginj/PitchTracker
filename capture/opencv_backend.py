@@ -131,6 +131,21 @@ class OpenCVCamera(CameraDevice):
         self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self._capture.set(cv2.CAP_PROP_FPS, fps)
 
+        # Force color mode if not GRAY8 (some cameras default to grayscale)
+        if pixfmt != "GRAY8":
+            # Set FOURCC to MJPG for color, or try to disable monochrome mode
+            # Different cameras respond to different settings
+            try:
+                self._capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+            except Exception:
+                pass  # Ignore if camera doesn't support this
+
+            # Try to explicitly enable color (DirectShow specific)
+            try:
+                self._capture.set(cv2.CAP_PROP_MONOCHROME, 0)
+            except Exception:
+                pass  # Ignore if not supported
+
         # Verify settings were applied (DirectShow may silently ignore)
         actual_width = int(self._capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         actual_height = int(self._capture.get(cv2.CAP_PROP_FRAME_HEIGHT))

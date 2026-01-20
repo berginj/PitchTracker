@@ -28,7 +28,7 @@ def parse_args() -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser(description="Pitch Tracker Qt UI.")
     parser.add_argument("--config", type=Path, default=None)
-    parser.add_argument("--backend", default="uvc", choices=("uvc", "opencv", "sim"))
+    parser.add_argument("--backend", default="opencv", choices=("uvc", "opencv", "sim"))
     return parser.parse_args()
 
 
