@@ -6,10 +6,11 @@ camera alignment issues (vertical offset, toe-in, rotation).
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 import cv2
 import numpy as np
@@ -54,6 +55,62 @@ class AlignmentResults:
     def should_warn_user(self) -> bool:
         """Check if user should be warned about alignment quality."""
         return self.quality in ["POOR", "CRITICAL"]
+
+    def get_directional_guidance(self) -> List[str]:
+        """Get specific adjustment instructions based on alignment issues.
+
+        Returns list of actionable instructions for user.
+        """
+        guidance = []
+
+        # Focal length guidance
+        if self.scale_difference_percent > 5.0:
+            if hasattr(self, '_scale_ratio'):
+                if self._scale_ratio > 1.05:  # Left camera more zoomed
+                    guidance.append(
+                        f"🔧 LEFT Focus Ring: Turn COUNTER-CLOCKWISE ~1/8 turn "
+                        f"(currently {self.scale_difference_percent:.1f}% more zoomed than right)"
+                    )
+                elif self._scale_ratio < 0.95:  # Right camera more zoomed
+                    guidance.append(
+                        f"🔧 RIGHT Focus Ring: Turn COUNTER-CLOCKWISE ~1/8 turn "
+                        f"(currently {self.scale_difference_percent:.1f}% more zoomed than left)"
+                    )
+
+        # Toe-in guidance
+        if self.convergence_std_px > 10.0:
+            if self.correlation > 0.3:  # Toed in
+                guidance.append(
+                    f"🔧 Camera Angles: Rotate BOTH cameras OUTWARD (away from each other) "
+                    f"by ~2-3 degrees to fix toe-in"
+                )
+            elif self.correlation < -0.3:  # Toed out
+                guidance.append(
+                    f"🔧 Camera Angles: Rotate BOTH cameras INWARD (toward each other) "
+                    f"by ~2-3 degrees to fix toe-out"
+                )
+
+        # Vertical guidance
+        if abs(self.vertical_mean_px) > 10.0:
+            direction = "LOWER" if self.vertical_mean_px > 0 else "RAISE"
+            amount_inches = abs(self.vertical_mean_px) * 0.02  # Rough px to inches
+            guidance.append(
+                f"🔧 Camera Height: {direction} right camera by ~{amount_inches:.1f} inches "
+                f"(currently {abs(self.vertical_mean_px):.0f}px offset)"
+            )
+
+        # Rotation guidance (if not auto-corrected)
+        if abs(self.rotation_deg) > 2.0 and not self.rotation_correction_needed:
+            direction = "CLOCKWISE" if self.rotation_deg > 0 else "COUNTER-CLOCKWISE"
+            guidance.append(
+                f"🔧 Camera Rotation: Rotate right camera {direction} by ~{abs(self.rotation_deg):.1f}° "
+                f"to level with left camera"
+            )
+
+        if not guidance:
+            guidance.append("✓ Alignment is good - no adjustments needed!")
+
+        return guidance
 
 
 def analyze_alignment(left_img: np.ndarray, right_img: np.ndarray,
@@ -188,6 +245,282 @@ def apply_corrections(config_path: Path, results: AlignmentResults) -> None:
 
     except Exception as e:
         raise RuntimeError(f"Failed to apply alignment corrections: {e}")
+
+
+def analyze_alignment_averaged(left_camera, right_camera, num_frames: int = 10,
+                               interval_ms: int = 100) -> AlignmentResults:
+    """Analyze alignment averaged over multiple frames for stability.
+
+    This provides more robust measurements by averaging over multiple frames,
+    reducing noise from single bad frames.
+
+    Args:
+        left_camera: Left camera device
+        right_camera: Right camera device
+        num_frames: Number of frames to average (default: 10)
+        interval_ms: Milliseconds between frames (default: 100)
+
+    Returns:
+        AlignmentResults with averaged measurements
+    """
+    results_list = []
+    successful_frames = 0
+
+    for i in range(num_frames):
+        try:
+            # Capture frames
+            left_frame = left_camera.read_frame(timeout_ms=1000)
+            right_frame = right_camera.read_frame(timeout_ms=1000)
+
+            # Analyze alignment
+            result = analyze_alignment(left_frame.image, right_frame.image)
+
+            # Only include if successful (found enough features)
+            if result.num_matches >= 50:
+                results_list.append(result)
+                successful_frames += 1
+
+            # Wait between frames
+            if i < num_frames - 1:
+                time.sleep(interval_ms / 1000.0)
+
+        except Exception:
+            continue  # Skip failed frames
+
+    # Need at least 5 successful frames
+    if successful_frames < 5:
+        # Return single-frame result if averaging failed
+        try:
+            left_frame = left_camera.read_frame(timeout_ms=1000)
+            right_frame = right_camera.read_frame(timeout_ms=1000)
+            return analyze_alignment(left_frame.image, right_frame.image)
+        except:
+            raise ValueError("Could not capture frames for alignment analysis")
+
+    # Average the metrics
+    avg_vertical_mean = np.mean([r.vertical_mean_px for r in results_list])
+    avg_vertical_max = np.mean([r.vertical_max_px for r in results_list])
+    avg_convergence_std = np.mean([r.convergence_std_px for r in results_list])
+    avg_correlation = np.mean([r.correlation for r in results_list])
+    avg_rotation = np.mean([r.rotation_deg for r in results_list])
+    avg_scale_diff = np.mean([r.scale_difference_percent for r in results_list])
+    total_matches = sum(r.num_matches for r in results_list) // len(results_list)
+
+    # Re-assess quality with averaged metrics
+    quality = _assess_quality(avg_vertical_mean, avg_convergence_std, avg_rotation,
+                             avg_correlation, avg_scale_diff)
+
+    # Use first result's status assessments (will be similar)
+    first = results_list[0]
+
+    # Determine corrections based on averaged metrics
+    rotation_correction_needed = abs(avg_rotation) > 1.0
+    rotation_left = 0.0
+    rotation_right = avg_rotation if rotation_correction_needed else 0.0
+    vertical_offset_px = int(round(avg_vertical_mean))
+
+    # Build messages with averaged data
+    vertical_dict = {"status": first.vertical_status, "severity": "ok" if avg_vertical_mean < 10 else "warning", "message": f"Vertical offset {avg_vertical_mean:.1f}px"}
+    horizontal_dict = {"status": first.horizontal_status, "severity": "ok" if avg_convergence_std < 10 else "warning", "message": f"Convergence {avg_convergence_std:.1f}px"}
+    rotation_dict = {"status": first.rotation_status, "severity": "ok" if abs(avg_rotation) < 2 else "warning", "message": f"Rotation {avg_rotation:.1f}°"}
+    scale_dict = {"status": first.scale_status, "severity": "ok" if avg_scale_diff < 5 else "warning", "message": f"Scale {avg_scale_diff:.1f}%"}
+
+    status_message, warnings, corrections_applied = _build_messages(
+        quality, vertical_dict, horizontal_dict, rotation_dict, scale_dict,
+        rotation_correction_needed, avg_rotation, vertical_offset_px
+    )
+
+    # Create result with averaged metrics
+    return AlignmentResults(
+        vertical_mean_px=avg_vertical_mean,
+        vertical_max_px=avg_vertical_max,
+        convergence_std_px=avg_convergence_std,
+        correlation=avg_correlation,
+        rotation_deg=avg_rotation,
+        num_matches=total_matches,
+        scale_difference_percent=avg_scale_diff,
+        quality=quality,
+        vertical_status=first.vertical_status,
+        horizontal_status=first.horizontal_status,
+        rotation_status=first.rotation_status,
+        scale_status=first.scale_status,
+        rotation_correction_needed=rotation_correction_needed,
+        rotation_left=rotation_left,
+        rotation_right=rotation_right,
+        vertical_offset_px=vertical_offset_px,
+        status_message=f"{status_message} (averaged over {successful_frames} frames)",
+        warnings=warnings,
+        corrections_applied=corrections_applied
+    )
+
+
+def visualize_features(left_img: np.ndarray, right_img: np.ndarray,
+                      pts1: np.ndarray, pts2: np.ndarray,
+                      save_path: Optional[Path] = None) -> np.ndarray:
+    """Create visualization of matched features between cameras.
+
+    Args:
+        left_img: Left camera image
+        right_img: Right camera image
+        pts1: Feature points in left image (Nx2)
+        pts2: Corresponding points in right image (Nx2)
+        save_path: Optional path to save visualization
+
+    Returns:
+        Combined visualization image with feature overlays
+    """
+    # Convert to BGR if grayscale
+    if left_img.ndim == 2:
+        left_vis = cv2.cvtColor(left_img, cv2.COLOR_GRAY2BGR)
+    else:
+        left_vis = left_img.copy()
+
+    if right_img.ndim == 2:
+        right_vis = cv2.cvtColor(right_img, cv2.COLOR_GRAY2BGR)
+    else:
+        right_vis = right_img.copy()
+
+    # Draw circles on feature points
+    for pt in pts1:
+        cv2.circle(left_vis, (int(pt[0]), int(pt[1])), 3, (0, 255, 0), -1)  # Green
+
+    for pt in pts2:
+        cv2.circle(right_vis, (int(pt[0]), int(pt[1])), 3, (0, 255, 0), -1)  # Green
+
+    # Create side-by-side visualization
+    h1, w1 = left_vis.shape[:2]
+    h2, w2 = right_vis.shape[:2]
+    h_max = max(h1, h2)
+
+    # Resize if heights don't match
+    if h1 != h_max:
+        left_vis = cv2.resize(left_vis, (int(w1 * h_max / h1), h_max))
+    if h2 != h_max:
+        right_vis = cv2.resize(right_vis, (int(w2 * h_max / h2), h_max))
+
+    # Combine side by side
+    combined = np.hstack([left_vis, right_vis])
+
+    # Add text overlay
+    text = f"{len(pts1)} features matched"
+    cv2.putText(combined, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                1.0, (0, 255, 0), 2, cv2.LINE_AA)
+
+    # Save if requested
+    if save_path:
+        cv2.imwrite(str(save_path), combined)
+
+    return combined
+
+
+def save_alignment_frames(left_img: np.ndarray, right_img: np.ndarray,
+                         results: AlignmentResults,
+                         output_dir: Path = Path("alignment_checks")) -> None:
+    """Save alignment check frames and visualization for debugging.
+
+    Args:
+        left_img: Left camera image
+        right_img: Right camera image
+        results: Alignment results
+        output_dir: Directory to save frames (default: alignment_checks/)
+    """
+    try:
+        # Create output directory
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate timestamp for filenames
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Save raw frames
+        left_path = output_dir / f"left_{timestamp}.png"
+        right_path = output_dir / f"right_{timestamp}.png"
+        cv2.imwrite(str(left_path), left_img)
+        cv2.imwrite(str(right_path), right_img)
+
+        # Save visualization with features
+        try:
+            pts1, pts2 = _find_feature_matches(left_img, right_img, max_features=1000)
+            vis_path = output_dir / f"features_{timestamp}.png"
+            visualize_features(left_img, right_img, pts1, pts2, vis_path)
+        except:
+            pass  # Skip visualization if feature matching fails
+
+        # Save JSON report
+        import json
+        report = {
+            "timestamp": timestamp,
+            "quality": results.quality,
+            "vertical_mean_px": results.vertical_mean_px,
+            "vertical_max_px": results.vertical_max_px,
+            "convergence_std_px": results.convergence_std_px,
+            "correlation": results.correlation,
+            "rotation_deg": results.rotation_deg,
+            "scale_difference_percent": results.scale_difference_percent,
+            "num_matches": results.num_matches,
+            "warnings": results.warnings,
+            "corrections_applied": results.corrections_applied,
+        }
+        report_path = output_dir / f"report_{timestamp}.json"
+        report_path.write_text(json.dumps(report, indent=2))
+
+    except Exception as e:
+        # Don't fail alignment check if saving fails
+        print(f"Warning: Could not save alignment frames: {e}")
+
+
+def predict_calibration_quality(results: AlignmentResults) -> dict:
+    """Predict expected calibration quality based on alignment.
+
+    Args:
+        results: Alignment analysis results
+
+    Returns:
+        Dict with predicted RMS error range, quality rating, and confidence message
+    """
+    # Estimate RMS error based on alignment metrics
+    # These are empirical estimates based on typical calibration outcomes
+
+    base_error = 0.3  # Baseline error even with perfect alignment
+
+    # Vertical contributes to RMS
+    vertical_contribution = abs(results.vertical_mean_px) * 0.05
+
+    # Toe-in is the biggest contributor
+    toin_contribution = results.convergence_std_px * 0.08
+
+    # Rotation (if not corrected)
+    rotation_contribution = 0 if results.rotation_correction_needed else abs(results.rotation_deg) * 0.1
+
+    # Scale mismatch
+    scale_contribution = results.scale_difference_percent * 0.15
+
+    # Estimate RMS error
+    estimated_rms_min = base_error + vertical_contribution + (toin_contribution * 0.5) + rotation_contribution + scale_contribution
+    estimated_rms_max = base_error + (vertical_contribution * 1.5) + (toin_contribution * 1.5) + (rotation_contribution * 1.5) + (scale_contribution * 1.5)
+
+    # Determine predicted quality
+    if estimated_rms_max < 0.5:
+        predicted_quality = "EXCELLENT"
+        confidence_msg = "You should get excellent calibration results with this alignment!"
+    elif estimated_rms_max < 1.0:
+        predicted_quality = "GOOD"
+        confidence_msg = "Expected to achieve good calibration quality."
+    elif estimated_rms_max < 2.0:
+        predicted_quality = "ACCEPTABLE"
+        confidence_msg = "Calibration will work, but consider improving alignment for better accuracy."
+    elif estimated_rms_max < 5.0:
+        predicted_quality = "POOR"
+        confidence_msg = "Calibration quality will be poor. Strongly recommend fixing alignment issues."
+    else:
+        predicted_quality = "CRITICAL"
+        confidence_msg = "Calibration will likely fail or produce unusable results. Fix alignment first."
+
+    return {
+        "estimated_rms_min": round(estimated_rms_min, 2),
+        "estimated_rms_max": round(estimated_rms_max, 2),
+        "predicted_quality": predicted_quality,
+        "confidence_message": confidence_msg,
+    }
 
 
 # ============================================================================

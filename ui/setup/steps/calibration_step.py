@@ -89,6 +89,10 @@ class CalibrationStep(BaseStep):
         # Calibration results
         self._calibration_result: Optional[dict] = None
 
+        # Alignment history tracking
+        self._alignment_history: list = []  # Track alignment iterations
+        self._alignment_results: Optional = None  # Current alignment results
+
         self._build_ui()
 
         # Preview timer
@@ -408,11 +412,51 @@ class CalibrationStep(BaseStep):
         self._alignment_details.hide()
         layout.addWidget(self._alignment_details)
 
+        # NEW: Directional Guidance (hidden by default)
+        self._guidance_label = QtWidgets.QLabel()
+        self._guidance_label.setWordWrap(True)
+        self._guidance_label.setStyleSheet(
+            "font-size: 9pt; padding: 8px; "
+            "background-color: #FFF9C4; "
+            "border: 1px solid #FBC02D; "
+            "border-radius: 4px;"
+        )
+        self._guidance_label.hide()
+        layout.addWidget(self._guidance_label)
+
+        # NEW: Predicted Calibration Quality (hidden by default)
+        self._prediction_label = QtWidgets.QLabel()
+        self._prediction_label.setWordWrap(True)
+        self._prediction_label.setStyleSheet(
+            "font-size: 9pt; padding: 8px; "
+            "background-color: #E8F5E9; "
+            "border: 1px solid #4CAF50; "
+            "border-radius: 4px;"
+        )
+        self._prediction_label.hide()
+        layout.addWidget(self._prediction_label)
+
+        # NEW: Alignment History (collapsible, hidden by default)
+        self._history_group = QtWidgets.QGroupBox("Alignment History")
+        self._history_group.setCheckable(True)
+        self._history_group.setChecked(False)  # Collapsed by default
+        history_layout = QtWidgets.QVBoxLayout()
+
+        self._history_list = QtWidgets.QTextEdit()
+        self._history_list.setReadOnly(True)
+        self._history_list.setMaximumHeight(150)
+        self._history_list.setStyleSheet("font-family: monospace; font-size: 9pt;")
+        history_layout.addWidget(self._history_list)
+
+        self._history_group.setLayout(history_layout)
+        self._history_group.hide()
+        layout.addWidget(self._history_group)
+
         # Buttons row (hidden by default)
         buttons_layout = QtWidgets.QHBoxLayout()
 
         self._recheck_alignment_btn = QtWidgets.QPushButton("🔄 Recheck")
-        self._recheck_alignment_btn.setToolTip("Run alignment check again")
+        self._recheck_alignment_btn.setToolTip("Run alignment check again (averaged over 10 frames)")
         self._recheck_alignment_btn.clicked.connect(self._run_automatic_alignment_check)
         self._recheck_alignment_btn.hide()
 
@@ -421,8 +465,14 @@ class CalibrationStep(BaseStep):
         self._alignment_details_btn.clicked.connect(self._show_alignment_details)
         self._alignment_details_btn.hide()
 
+        self._show_features_btn = QtWidgets.QPushButton("👁 Show Features")
+        self._show_features_btn.setToolTip("Visualize matched features on camera previews")
+        self._show_features_btn.clicked.connect(self._show_feature_overlay)
+        self._show_features_btn.hide()
+
         buttons_layout.addWidget(self._recheck_alignment_btn)
         buttons_layout.addWidget(self._alignment_details_btn)
+        buttons_layout.addWidget(self._show_features_btn)
         buttons_layout.addStretch()
         layout.addLayout(buttons_layout)
 
@@ -1191,6 +1241,7 @@ class CalibrationStep(BaseStep):
         """Automatically run camera alignment check in background.
 
         This runs 3 seconds after cameras open to check alignment quality.
+        Uses multi-frame averaging for robust measurements.
         Results are displayed in the alignment status widget.
         Software corrections are applied automatically if needed.
         """
@@ -1199,7 +1250,7 @@ class CalibrationStep(BaseStep):
 
         try:
             # Update UI to show checking
-            self._alignment_status_label.setText("⏳ Checking camera alignment...")
+            self._alignment_status_label.setText("⏳ Analyzing alignment (averaging 10 frames)...")
             self._alignment_status_label.setStyleSheet(
                 "font-size: 10pt; padding: 8px; "
                 "background-color: #E3F2FD; "
@@ -1207,17 +1258,30 @@ class CalibrationStep(BaseStep):
                 "border-radius: 4px;"
             )
 
-            # Capture test frames
-            left_frame = self._left_camera.read_frame(timeout_ms=1000)
-            right_frame = self._right_camera.read_frame(timeout_ms=1000)
+            # Run alignment analysis with multi-frame averaging
+            from analysis.camera_alignment import (
+                analyze_alignment_averaged,
+                apply_corrections,
+                save_alignment_frames
+            )
 
-            # Run alignment analysis
-            from analysis.camera_alignment import analyze_alignment, apply_corrections
-
-            results = analyze_alignment(left_frame.image, right_frame.image)
+            results = analyze_alignment_averaged(
+                self._left_camera,
+                self._right_camera,
+                num_frames=10,
+                interval_ms=100
+            )
 
             # Store results for detail view
             self._alignment_results = results
+
+            # Save frames for debugging
+            try:
+                left_frame = self._left_camera.read_frame(timeout_ms=1000)
+                right_frame = self._right_camera.read_frame(timeout_ms=1000)
+                save_alignment_frames(left_frame.image, right_frame.image, results)
+            except Exception:
+                pass  # Don't fail if saving frames fails
 
             # Update UI based on results
             self._display_alignment_results(results)
@@ -1320,6 +1384,139 @@ class CalibrationStep(BaseStep):
         )
         self._alignment_details.setText(details_text)
         self._alignment_details.show()
+
+        # NEW: Show directional guidance if alignment needs adjustment
+        guidance = results.get_directional_guidance()
+        if guidance and results.quality in ["POOR", "ACCEPTABLE"]:
+            guidance_html = "<b>📋 Adjustment Instructions:</b><br>"
+            for instruction in guidance:
+                guidance_html += f"{instruction}<br>"
+            self._guidance_label.setText(guidance_html)
+            self._guidance_label.show()
+        else:
+            self._guidance_label.hide()
+
+        # NEW: Show calibration quality prediction
+        from analysis.camera_alignment import predict_calibration_quality
+        prediction = predict_calibration_quality(results)
+        prediction_html = (
+            f"<b>🎯 Predicted Calibration Quality:</b><br>"
+            f"Estimated RMS Error: {prediction['estimated_rms_min']:.2f} - "
+            f"{prediction['estimated_rms_max']:.2f} px<br>"
+            f"Expected Rating: {prediction['predicted_quality']}<br>"
+            f"<i>{prediction['confidence_message']}</i>"
+        )
+        self._prediction_label.setText(prediction_html)
+        self._prediction_label.show()
+
+        # NEW: Show features button
+        self._show_features_btn.show()
+
+        # NEW: Update alignment history
+        self._update_alignment_history(results)
+
+    def _update_alignment_history(self, results) -> None:
+        """Add current results to history and update display.
+
+        Args:
+            results: AlignmentResults object to add to history
+        """
+        from datetime import datetime
+
+        # Add to history list
+        self._alignment_history.append({
+            'timestamp': datetime.now(),
+            'quality': results.quality,
+            'focal': results.scale_difference_percent,
+            'toin': results.convergence_std_px,
+            'vertical': results.vertical_mean_px,
+            'rotation': results.rotation_deg
+        })
+
+        # Update history display
+        history_text = ""
+        for i, entry in enumerate(self._alignment_history, 1):
+            history_text += f"Iteration {i} ({entry['timestamp'].strftime('%H:%M:%S')}):\n"
+            history_text += f"  Focal: {entry['focal']:5.1f}% | "
+            history_text += f"Toe-in: {entry['toin']:5.1f}px | "
+            history_text += f"Vertical: {entry['vertical']:5.1f}px | "
+            history_text += f"Quality: {entry['quality']}\n\n"
+
+        self._history_list.setText(history_text)
+        self._history_group.show()
+
+    def _show_feature_overlay(self) -> None:
+        """Show visual overlay of matched features on camera previews."""
+        if not self._left_camera or not self._right_camera:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Cameras Not Ready",
+                "Cameras must be active to visualize features."
+            )
+            return
+
+        try:
+            # Capture current frames
+            left_frame = self._left_camera.read_frame(timeout_ms=1000)
+            right_frame = self._right_camera.read_frame(timeout_ms=1000)
+
+            # Create visualization
+            from analysis.camera_alignment import visualize_features, _find_feature_matches
+            pts1, pts2 = _find_feature_matches(left_frame.image, right_frame.image, max_features=1000)
+            vis_img = visualize_features(left_frame.image, right_frame.image, pts1, pts2)
+
+            # Convert to QPixmap for display
+            height, width, channels = vis_img.shape
+            bytes_per_line = channels * width
+            q_image = QtGui.QImage(
+                vis_img.data,
+                width,
+                height,
+                bytes_per_line,
+                QtGui.QImage.Format.Format_RGB888,
+            )
+            pixmap = QtGui.QPixmap.fromImage(q_image)
+
+            # Create dialog to display
+            dialog = QtWidgets.QDialog(self)
+            dialog.setWindowTitle("Feature Matches Visualization")
+            dialog.resize(1200, 500)
+
+            layout = QtWidgets.QVBoxLayout()
+
+            # Info label
+            info_label = QtWidgets.QLabel(
+                f"<b>{len(pts1)} matched features</b><br>"
+                f"Green circles show corresponding points between cameras.<br>"
+                f"Good feature distribution indicates proper alignment."
+            )
+            info_label.setWordWrap(True)
+            layout.addWidget(info_label)
+
+            # Image display
+            image_label = QtWidgets.QLabel()
+            scaled_pixmap = pixmap.scaled(
+                1180, 440,
+                QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                QtCore.Qt.TransformationMode.SmoothTransformation
+            )
+            image_label.setPixmap(scaled_pixmap)
+            layout.addWidget(image_label)
+
+            # Close button
+            close_btn = QtWidgets.QPushButton("Close")
+            close_btn.clicked.connect(dialog.accept)
+            layout.addWidget(close_btn)
+
+            dialog.setLayout(layout)
+            dialog.exec()
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Feature Visualization Error",
+                f"Failed to visualize features:\n{str(e)}"
+            )
 
     def _show_alignment_details(self) -> None:
         """Show detailed alignment report dialog."""
