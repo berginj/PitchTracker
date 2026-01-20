@@ -49,7 +49,22 @@ class SimulatedCamera(CameraDevice):
                 time.sleep(target_delay - elapsed)
         self._last_frame_time = time.monotonic()
         self._frame_index += 1
-        image = np.zeros((self._height, self._width), dtype=np.uint8)
+
+        # Generate image based on pixel format
+        if self._pixfmt == "GRAY8":
+            # Grayscale: 2D array (height, width)
+            image = np.zeros((self._height, self._width), dtype=np.uint8)
+        elif self._pixfmt in ("YUYV", "MJPG"):
+            # Color formats: 3D array (height, width, 3) in BGR format
+            # Generate a simple color pattern for testing (dark blue-gray)
+            image = np.zeros((self._height, self._width, 3), dtype=np.uint8)
+            image[:, :, 0] = 40  # Blue channel
+            image[:, :, 1] = 30  # Green channel
+            image[:, :, 2] = 20  # Red channel
+        else:
+            # Unknown format, default to grayscale
+            image = np.zeros((self._height, self._width), dtype=np.uint8)
+
         return Frame(
             camera_id=self._serial or "sim",
             frame_index=self._frame_index,
