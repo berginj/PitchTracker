@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6 import QtCore, QtWidgets
+import cv2
+import numpy as np
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from ui.device_utils import current_serial, probe_opencv_indices, probe_uvc_devices
 from ui.setup.steps.base_step import BaseStep
@@ -25,8 +27,12 @@ class CameraStep(BaseStep):
         self._backend = backend
         self._left_serial: Optional[str] = None
         self._right_serial: Optional[str] = None
+        self._left_camera: Optional[object] = None
+        self._right_camera: Optional[object] = None
+        self._preview_timer: Optional[QtCore.QTimer] = None
 
         self._build_ui()
+        self._setup_preview_timer()
 
     def get_title(self) -> str:
         return "Camera Setup"
@@ -94,21 +100,23 @@ class CameraStep(BaseStep):
 
         device_group.setLayout(device_layout)
 
-        # Preview section (placeholder for now)
-        preview_group = QtWidgets.QGroupBox("Camera Preview")
+        # Preview section with live camera feeds
+        preview_group = QtWidgets.QGroupBox("Camera Preview (with Focus Quality)")
         preview_layout = QtWidgets.QHBoxLayout()
 
-        self._left_preview = QtWidgets.QLabel("Left Camera Preview")
+        self._left_preview = QtWidgets.QLabel("Left Camera Preview\n\nSelect a camera to see live preview")
         self._left_preview.setMinimumSize(400, 300)
         self._left_preview.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._left_preview.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._left_preview.setStyleSheet("background-color: #f0f0f0;")
+        self._left_preview.setStyleSheet("background-color: #2c3e50; color: white; font-size: 10pt;")
+        self._left_preview.setScaledContents(False)
 
-        self._right_preview = QtWidgets.QLabel("Right Camera Preview")
+        self._right_preview = QtWidgets.QLabel("Right Camera Preview\n\nSelect a camera to see live preview")
         self._right_preview.setMinimumSize(400, 300)
         self._right_preview.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._right_preview.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._right_preview.setStyleSheet("background-color: #f0f0f0;")
+        self._right_preview.setStyleSheet("background-color: #2c3e50; color: white; font-size: 10pt;")
+        self._right_preview.setScaledContents(False)
 
         preview_layout.addWidget(self._left_preview)
         preview_layout.addWidget(self._right_preview)
@@ -204,16 +212,22 @@ class CameraStep(BaseStep):
         if text and text != "(Select Camera)":
             # Get the actual serial/identifier from combo data
             self._left_serial = current_serial(self._left_combo)
-            self._left_preview.setText(f"Left Camera:\n{text}\n\n(Preview not yet implemented)")
+            self._open_left_camera()
             self._update_status()
+        else:
+            self._close_left_camera()
+            self._left_serial = None
 
     def _on_right_changed(self, text: str) -> None:
         """Handle right camera selection change."""
         if text and text != "(Select Camera)":
             # Get the actual serial/identifier from combo data
             self._right_serial = current_serial(self._right_combo)
-            self._right_preview.setText(f"Right Camera:\n{text}\n\n(Preview not yet implemented)")
+            self._open_right_camera()
             self._update_status()
+        else:
+            self._close_right_camera()
+            self._right_serial = None
 
     def _update_status(self) -> None:
         """Update status based on selections."""
@@ -258,8 +272,9 @@ class CameraStep(BaseStep):
 
     def on_exit(self) -> None:
         """Called when leaving step."""
-        # Stop any camera previews (when implemented)
-        pass
+        # Stop camera previews and close cameras
+        self._close_left_camera()
+        self._close_right_camera()
 
     def get_left_camera(self) -> Optional[str]:
         """Get selected left camera identifier."""
@@ -268,3 +283,165 @@ class CameraStep(BaseStep):
     def get_right_camera(self) -> Optional[str]:
         """Get selected right camera identifier."""
         return self._right_serial
+
+    def _setup_preview_timer(self) -> None:
+        """Setup timer for camera preview updates."""
+        self._preview_timer = QtCore.QTimer()
+        self._preview_timer.timeout.connect(self._update_preview)
+        self._preview_timer.start(33)  # ~30 fps
+
+    def _open_left_camera(self) -> None:
+        """Open and start previewing left camera."""
+        self._close_left_camera()  # Close existing if any
+
+        if not self._left_serial:
+            return
+
+        try:
+            if self._backend == "opencv":
+                from capture.opencv_backend import OpenCVCamera
+                camera = OpenCVCamera()
+                camera.open(self._left_serial)
+                camera.set_mode(640, 480, 30, "YUYV")
+            else:
+                from capture.uvc_backend import UvcCamera
+                camera = UvcCamera()
+                camera.open(self._left_serial)
+                camera.set_mode(640, 480, 30, "YUYV")
+
+            self._left_camera = camera
+            self._left_preview.setText("Opening camera...")
+        except Exception as e:
+            self._left_preview.setText(f"Error opening camera:\n{str(e)}")
+            self._left_camera = None
+
+    def _open_right_camera(self) -> None:
+        """Open and start previewing right camera."""
+        self._close_right_camera()  # Close existing if any
+
+        if not self._right_serial:
+            return
+
+        try:
+            if self._backend == "opencv":
+                from capture.opencv_backend import OpenCVCamera
+                camera = OpenCVCamera()
+                camera.open(self._right_serial)
+                camera.set_mode(640, 480, 30, "YUYV")
+            else:
+                from capture.uvc_backend import UvcCamera
+                camera = UvcCamera()
+                camera.open(self._right_serial)
+                camera.set_mode(640, 480, 30, "YUYV")
+
+            self._right_camera = camera
+            self._right_preview.setText("Opening camera...")
+        except Exception as e:
+            self._right_preview.setText(f"Error opening camera:\n{str(e)}")
+            self._right_camera = None
+
+    def _close_left_camera(self) -> None:
+        """Close left camera."""
+        if self._left_camera is not None:
+            try:
+                self._left_camera.close()
+            except Exception:
+                pass
+            self._left_camera = None
+            self._left_preview.setText("Left Camera Preview")
+
+    def _close_right_camera(self) -> None:
+        """Close right camera."""
+        if self._right_camera is not None:
+            try:
+                self._right_camera.close()
+            except Exception:
+                pass
+            self._right_camera = None
+            self._right_preview.setText("Right Camera Preview")
+
+    def _update_preview(self) -> None:
+        """Update camera preview displays."""
+        # Update left camera preview
+        if self._left_camera is not None:
+            try:
+                frame = self._left_camera.read_frame(timeout_ms=100)
+                pixmap = self._frame_to_pixmap(frame.image)
+                self._left_preview.setPixmap(pixmap)
+            except Exception as e:
+                # Don't show errors on every frame - just skip
+                pass
+
+        # Update right camera preview
+        if self._right_camera is not None:
+            try:
+                frame = self._right_camera.read_frame(timeout_ms=100)
+                pixmap = self._frame_to_pixmap(frame.image)
+                self._right_preview.setPixmap(pixmap)
+            except Exception as e:
+                # Don't show errors on every frame - just skip
+                pass
+
+    def _frame_to_pixmap(self, image: np.ndarray) -> QtGui.QPixmap:
+        """Convert frame to QPixmap with focus quality overlay.
+
+        Args:
+            image: Camera frame (grayscale or BGR color)
+
+        Returns:
+            QPixmap ready for display with focus score overlay
+        """
+        from detect.utils import compute_focus_score
+
+        # Compute focus score
+        focus_score = compute_focus_score(image)
+
+        # Determine color based on focus quality
+        if focus_score >= 200:
+            color = (46, 204, 113)  # Green
+            status = "GOOD"
+        elif focus_score >= 100:
+            color = (243, 156, 18)  # Orange
+            status = "FAIR"
+        else:
+            color = (231, 76, 60)  # Red
+            status = "POOR"
+
+        # Convert to BGR if grayscale
+        if image.ndim == 2:
+            display_img = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        else:
+            display_img = image.copy()
+
+        # Add focus score overlay
+        text = f"Focus: {focus_score:.0f} ({status})"
+        cv2.putText(
+            display_img,
+            text,
+            (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            color,
+            2,
+            cv2.LINE_AA,
+        )
+
+        # Convert to QPixmap
+        height, width, channels = display_img.shape
+        bytes_per_line = channels * width
+        rgb_image = cv2.cvtColor(display_img, cv2.COLOR_BGR2RGB)
+        qimage = QtGui.QImage(
+            rgb_image.data,
+            width,
+            height,
+            bytes_per_line,
+            QtGui.QImage.Format_RGB888,
+        )
+
+        # Scale to fit preview label
+        pixmap = QtGui.QPixmap.fromImage(qimage)
+        return pixmap.scaled(
+            self._left_preview.size(),
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+            QtCore.Qt.TransformationMode.SmoothTransformation,
+        )
