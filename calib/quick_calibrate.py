@@ -30,17 +30,26 @@ def _parse_pattern(pattern: str) -> Tuple[int, int]:
 def _collect_corners(
     paths: List[Path],
     pattern_size: Tuple[int, int],
-) -> Tuple[List[np.ndarray], List[np.ndarray], Tuple[int, int]]:
+) -> Tuple[List[np.ndarray], List[np.ndarray], Tuple[int, int], List[int]]:
+    """Detect checkerboard corners in images.
+
+    Returns:
+        objpoints: Object points for successful detections
+        imgpoints: Image points for successful detections
+        img_size: Image dimensions (width, height)
+        success_indices: List of indices where corner detection succeeded
+    """
     objpoints: List[np.ndarray] = []
     imgpoints: List[np.ndarray] = []
+    success_indices: List[int] = []
     img_size: Tuple[int, int] | None = None
 
     objp = np.zeros((pattern_size[0] * pattern_size[1], 3), np.float32)
     objp[:, :2] = np.mgrid[0 : pattern_size[0], 0 : pattern_size[1]].T.reshape(-1, 2)
 
     print(f"Processing {len(paths)} images for corner detection...")
-    for i, path in enumerate(paths, 1):
-        print(f"  [{i}/{len(paths)}] {path.name}...", end=" ", flush=True)
+    for i, path in enumerate(paths):
+        print(f"  [{i+1}/{len(paths)}] {path.name}...", end=" ", flush=True)
         image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
         if image is None:
             print("❌ Failed to load")
@@ -59,12 +68,70 @@ def _collect_corners(
         )
         objpoints.append(objp.copy())
         imgpoints.append(corners)
+        success_indices.append(i)
         print("✓")
 
     print(f"Found corners in {len(objpoints)} images")
     if img_size is None:
         raise RuntimeError("No valid images found for calibration.")
-    return objpoints, imgpoints, img_size
+    return objpoints, imgpoints, img_size, success_indices
+
+
+def _match_stereo_pairs(
+    left_obj: List[np.ndarray],
+    left_img: List[np.ndarray],
+    left_indices: List[int],
+    left_paths: List[Path],
+    right_obj: List[np.ndarray],
+    right_img: List[np.ndarray],
+    right_indices: List[int],
+    right_paths: List[Path],
+) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[str]]:
+    """Match left and right corner detections, keeping only pairs where both succeeded.
+
+    Returns:
+        objpoints: Matched object points
+        left_imgpoints: Matched left image points
+        right_imgpoints: Matched right image points
+        rejection_report: List of rejection messages for user feedback
+    """
+    # Find common indices (images where both cameras detected corners)
+    left_set = set(left_indices)
+    right_set = set(right_indices)
+    common_indices = sorted(left_set & right_set)
+
+    # Track rejections for reporting
+    left_only = left_set - right_set
+    right_only = right_set - left_set
+    rejection_report = []
+
+    if left_only:
+        rejected_names = [left_paths[i].name for i in sorted(left_only)]
+        rejection_report.append(
+            f"Rejected {len(left_only)} images (left detected, right failed): {', '.join(rejected_names[:5])}"
+            + ("..." if len(rejected_names) > 5 else "")
+        )
+
+    if right_only:
+        rejected_names = [right_paths[i].name for i in sorted(right_only)]
+        rejection_report.append(
+            f"Rejected {len(right_only)} images (right detected, left failed): {', '.join(rejected_names[:5])}"
+            + ("..." if len(rejected_names) > 5 else "")
+        )
+
+    # Build matched lists
+    matched_obj = []
+    matched_left = []
+    matched_right = []
+
+    for idx in common_indices:
+        left_pos = left_indices.index(idx)
+        right_pos = right_indices.index(idx)
+        matched_obj.append(left_obj[left_pos])
+        matched_left.append(left_img[left_pos])
+        matched_right.append(right_img[right_pos])
+
+    return matched_obj, matched_left, matched_right, rejection_report
 
 
 def _compute_per_image_errors(
@@ -131,7 +198,7 @@ def _rate_calibration_quality(rms_error: float, num_images: int) -> dict:
 
     recommendations = []
 
-    # Determine rating
+    # Determine rating based on both RMS error and number of images
     if rms_error < EXCELLENT_RMS and num_images >= MIN_IMAGES_GOOD:
         rating = "EXCELLENT"
         emoji = "🟢"
@@ -144,7 +211,8 @@ def _rate_calibration_quality(rms_error: float, num_images: int) -> dict:
         rating = "ACCEPTABLE"
         emoji = "🟡"
         description = "Acceptable calibration. Consider recalibrating for better accuracy."
-        recommendations.append("• Capture more images (aim for 15-20)")
+        if num_images < MIN_IMAGES_GOOD:
+            recommendations.append(f"• Capture {MIN_IMAGES_GOOD - num_images} more images for better quality")
         recommendations.append("• Cover full tracking volume with varied poses")
     else:
         rating = "POOR"
@@ -155,22 +223,28 @@ def _rate_calibration_quality(rms_error: float, num_images: int) -> dict:
     if rms_error > 1.0:
         recommendations.extend([
             "• Hold checkerboard steadier during capture",
-            "• Ensure checkerboard is perfectly flat",
+            "• Ensure checkerboard is perfectly flat (no warping)",
             "• Check camera focus is sharp",
-            "• Improve lighting (even, no shadows)",
+            "• Improve lighting (even, no shadows or glare)",
         ])
 
     if num_images < MIN_IMAGES_ACCEPTABLE:
-        recommendations.append(f"• Need at least {MIN_IMAGES_ACCEPTABLE} images (have {num_images})")
+        recommendations.append(f"⚠️  Critical: Need at least {MIN_IMAGES_ACCEPTABLE} images (have {num_images})")
+        recommendations.append("• Recapture with checkerboard visible in BOTH cameras")
     elif num_images < MIN_IMAGES_GOOD:
         recommendations.append(f"• Capture {MIN_IMAGES_GOOD - num_images} more images for better quality")
 
     if rms_error > 2.0:
         recommendations.extend([
             "• Try recalibrating from scratch",
-            "• Verify checkerboard dimensions are correct",
+            "• Verify checkerboard dimensions are correct (measure square size)",
             "• Check for lens distortion or damage",
+            "• Ensure checkerboard pattern size matches actual board (count inner corners)",
         ])
+
+    # Add positional coverage recommendations if borderline
+    if MIN_IMAGES_ACCEPTABLE <= num_images < MIN_IMAGES_GOOD or rms_error > GOOD_RMS:
+        recommendations.append("• Vary checkerboard positions: center, corners, near, far, tilted")
 
     return {
         "rating": rating,
@@ -188,38 +262,71 @@ def _calibrate(
     pattern_size: Tuple[int, int],
     square_mm: float,
 ) -> dict:
+    # Minimum pairs required for reliable calibration
+    MIN_PAIRS = 10
+    RECOMMENDED_PAIRS = 15
+
     print("\n=== LEFT CAMERA ===")
-    left_obj, left_img, img_size = _collect_corners(left_paths, pattern_size)
+    left_obj, left_img, img_size, left_indices = _collect_corners(left_paths, pattern_size)
     print("\n=== RIGHT CAMERA ===")
-    right_obj, right_img, _ = _collect_corners(right_paths, pattern_size)
+    right_obj, right_img, _, right_indices = _collect_corners(right_paths, pattern_size)
 
-    if len(left_obj) != len(right_obj):
-        raise RuntimeError("Left/right image counts do not match after corner detection.")
-    if not left_obj:
-        raise RuntimeError("No chessboard corners detected.")
+    # Match pairs where both cameras detected corners
+    print("\n=== MATCHING STEREO PAIRS ===")
+    objpoints, left_imgpoints, right_imgpoints, rejection_report = _match_stereo_pairs(
+        left_obj, left_img, left_indices, left_paths,
+        right_obj, right_img, right_indices, right_paths,
+    )
 
-    print(f"\nCalibrating with {len(left_obj)} image pairs...")
-    objp = left_obj[0].copy()
-    objp[:, :2] *= float(square_mm)
-    objpoints = [objp for _ in left_obj]
+    # Report rejections
+    if rejection_report:
+        print("\nRejected images (corner detection failed in one or both cameras):")
+        for msg in rejection_report:
+            print(f"  • {msg}")
+
+    # Validate we have enough pairs
+    num_pairs = len(objpoints)
+    print(f"\nMatched pairs: {num_pairs}/{len(left_paths)}")
+
+    if num_pairs == 0:
+        raise RuntimeError(
+            "No matching image pairs found. Ensure checkerboard is visible in BOTH cameras for all images."
+        )
+
+    if num_pairs < MIN_PAIRS:
+        raise RuntimeError(
+            f"Insufficient matching pairs ({num_pairs} found, need at least {MIN_PAIRS}). "
+            f"Recapture more images with checkerboard visible in BOTH cameras."
+        )
+
+    if num_pairs < RECOMMENDED_PAIRS:
+        print(f"⚠️  Warning: Only {num_pairs} pairs (recommended: {RECOMMENDED_PAIRS}+)")
+        print(f"   Calibration may be less accurate. Consider capturing {RECOMMENDED_PAIRS - num_pairs} more images.")
+
+    print(f"\nCalibrating with {num_pairs} matched image pairs...")
+
+    # Scale object points by square size
+    objp_scaled = objpoints[0].copy()
+    objp_scaled[:, :2] *= float(square_mm)
+    objpoints_scaled = [objp_scaled for _ in objpoints]
 
     print("Calibrating left camera intrinsics...", flush=True)
     _, mtx_left, dist_left, _, _ = cv2.calibrateCamera(
-        objpoints, left_img, img_size, None, None
+        objpoints_scaled, left_imgpoints, img_size, None, None
     )
     print("✓ Left camera calibrated")
 
     print("Calibrating right camera intrinsics...", flush=True)
     _, mtx_right, dist_right, _, _ = cv2.calibrateCamera(
-        objpoints, right_img, img_size, None, None
+        objpoints_scaled, right_imgpoints, img_size, None, None
     )
     print("✓ Right camera calibrated")
 
     print("Computing stereo calibration...", flush=True)
     rms_error, _, _, _, _, R, T, E, F = cv2.stereoCalibrate(
-        objpoints,
-        left_img,
-        right_img,
+        objpoints_scaled,
+        left_imgpoints,
+        right_imgpoints,
         mtx_left,
         dist_left,
         mtx_right,
@@ -238,13 +345,13 @@ def _calibrate(
     # Compute per-image reprojection errors
     print("Computing per-image reprojection errors...", flush=True)
     per_image_errors = _compute_per_image_errors(
-        objpoints, left_img, right_img,
+        objpoints_scaled, left_imgpoints, right_imgpoints,
         mtx_left, dist_left, mtx_right, dist_right,
         R, T
     )
 
     # Calculate quality rating
-    num_images = len(objpoints)
+    num_images = len(objpoints_scaled)
     quality = _rate_calibration_quality(rms_error, num_images)
 
     # Print quality assessment
@@ -254,6 +361,15 @@ def _calibrate(
         print("\nRecommendations:")
         for rec in quality['recommendations']:
             print(f"   {rec}")
+
+    # Print summary
+    total_input = len(left_paths)
+    rejected = total_input - num_images
+    if rejected > 0:
+        print(f"\n📊 Summary:")
+        print(f"   Input images: {total_input} pairs")
+        print(f"   Rejected: {rejected} pairs (corner detection failed)")
+        print(f"   Used for calibration: {num_images} pairs ✓")
 
     return {
         "baseline_ft": baseline_ft,
