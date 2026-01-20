@@ -20,6 +20,43 @@ def to_grayscale(frame: np.ndarray) -> np.ndarray:
     return frame.astype(np.float32, copy=False)
 
 
+def compute_focus_score(image: np.ndarray) -> float:
+    """Compute focus quality score using variance of Laplacian method.
+
+    This is the industry-standard autofocus metric. Higher values indicate
+    better focus (more edge detail/sharpness).
+
+    Args:
+        image: Grayscale or color image (converted to grayscale if color)
+
+    Returns:
+        Focus quality score (typically 0-1000+ for in-focus images,
+        <100 for severely out-of-focus images)
+
+    Note:
+        - Uses OpenCV Laplacian (second derivative) to detect edges
+        - Variance of Laplacian correlates with sharpness
+        - Fast enough for real-time feedback (~1ms per frame)
+    """
+    import cv2
+
+    # Convert to grayscale if needed
+    if image.ndim == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image
+
+    # Compute Laplacian (second derivative - measures edge strength)
+    # ksize=3 is standard for focus measurement
+    laplacian = cv2.Laplacian(gray, cv2.CV_64F, ksize=3)
+
+    # Compute variance of Laplacian
+    # Higher variance = more edges/detail = better focus
+    focus_measure = laplacian.var()
+
+    return float(focus_measure)
+
+
 def connected_components(mask: np.ndarray) -> list[Component]:
     """Find connected components using OpenCV (optimized C++ implementation).
 

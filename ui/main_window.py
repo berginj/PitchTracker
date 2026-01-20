@@ -211,6 +211,18 @@ class MainWindow(QtWidgets.QMainWindow):
             "QLabel { background-color: white; color: black; padding: 4px; "
             "border: 1px solid #ccc; font-weight: bold; }"
         )
+        self._focus_left = QtWidgets.QLabel("L Focus: --- (peak: ---)")
+        self._focus_left.setStyleSheet(
+            "QLabel { background-color: white; color: black; padding: 4px; "
+            "border: 1px solid #ccc; font-weight: bold; }"
+        )
+        self._focus_right = QtWidgets.QLabel("R Focus: --- (peak: ---)")
+        self._focus_right.setStyleSheet(
+            "QLabel { background-color: white; color: black; padding: 4px; "
+            "border: 1px solid #ccc; font-weight: bold; }"
+        )
+        self._focus_peak_left = 0.0
+        self._focus_peak_right = 0.0
 
         self._left_view = RoiLabel(self._on_rect_update)
         self._right_view = RoiLabel(self._on_right_rect_update)
@@ -1035,6 +1047,41 @@ class MainWindow(QtWidgets.QMainWindow):
                     int(right_stats.get("dropped_frames", 0)),
                 )
             )
+
+            # Compute and display focus quality scores
+            from detect.utils import compute_focus_score
+
+            focus_left = compute_focus_score(left_frame.image)
+            focus_right = compute_focus_score(right_frame.image)
+
+            # Track peak values
+            if focus_left > self._focus_peak_left:
+                self._focus_peak_left = focus_left
+            if focus_right > self._focus_peak_right:
+                self._focus_peak_right = focus_right
+
+            # Color code based on focus quality (empirical thresholds)
+            # Good: >200 (green), Fair: 100-200 (yellow), Poor: <100 (red)
+            def focus_color(score: float) -> str:
+                if score >= 200:
+                    return "#2ecc71"  # Green
+                elif score >= 100:
+                    return "#f39c12"  # Yellow/Orange
+                else:
+                    return "#e74c3c"  # Red
+
+            self._focus_left.setText(f"L Focus: {focus_left:.0f} (peak: {self._focus_peak_left:.0f})")
+            self._focus_left.setStyleSheet(
+                f"QLabel {{ background-color: {focus_color(focus_left)}; color: white; "
+                f"padding: 4px; border: 1px solid #ccc; font-weight: bold; }}"
+            )
+
+            self._focus_right.setText(f"R Focus: {focus_right:.0f} (peak: {self._focus_peak_right:.0f})")
+            self._focus_right.setStyleSheet(
+                f"QLabel {{ background-color: {focus_color(focus_right)}; color: white; "
+                f"padding: 4px; border: 1px solid #ccc; font-weight: bold; }}"
+            )
+
             zone_label = "-"
             if strike.zone_row is not None and strike.zone_col is not None:
                 zone_label = f"{strike.zone_row},{strike.zone_col}"
@@ -1265,6 +1312,15 @@ class MainWindow(QtWidgets.QMainWindow):
     def _clear_plate(self) -> None:
         self._plate_rect = None
         self._status_label.setText("Plate ROI cleared.")
+
+    def _reset_focus_peaks(self) -> None:
+        """Reset focus quality peak tracking.
+
+        Useful when adjusting lens focus - reset to start tracking from scratch.
+        """
+        self._focus_peak_left = 0.0
+        self._focus_peak_right = 0.0
+        self._status_label.setText("Focus peak values reset. Adjust lenses and watch for green.")
 
     def _save_rois(self) -> None:
         lane_poly = rect_to_polygon(self._lane_rect)
@@ -1643,6 +1699,15 @@ class MainWindow(QtWidgets.QMainWindow):
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self._health_left)
         layout.addWidget(self._health_right)
+        layout.addWidget(self._focus_left)
+        layout.addWidget(self._focus_right)
+
+        # Add button to reset focus peak tracking
+        reset_focus_btn = QtWidgets.QPushButton("Reset Focus Peaks")
+        reset_focus_btn.clicked.connect(self._reset_focus_peaks)
+        reset_focus_btn.setStyleSheet("QPushButton { font-size: 9pt; padding: 2px; }")
+        layout.addWidget(reset_focus_btn)
+
         layout.addWidget(self._calib_summary)
         panel.setLayout(layout)
         return panel
