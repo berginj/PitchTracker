@@ -298,16 +298,24 @@ class CameraStep(BaseStep):
             return
 
         try:
+            # Load config to get camera resolution
+            from configs.settings import load_config
+            from pathlib import Path
+            config = load_config(Path("configs/default.yaml"))
+            width = config.camera.width
+            height = config.camera.height
+            fps = 30  # Use lower fps for preview to reduce load
+
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
                 camera = OpenCVCamera()
                 camera.open(self._left_serial)
-                camera.set_mode(640, 480, 30, "YUYV")
+                camera.set_mode(width, height, fps, "YUYV")
             else:
                 from capture.uvc_backend import UvcCamera
                 camera = UvcCamera()
                 camera.open(self._left_serial)
-                camera.set_mode(640, 480, 30, "YUYV")
+                camera.set_mode(width, height, fps, "YUYV")
 
             self._left_camera = camera
             self._left_preview.setText("Opening camera...")
@@ -323,16 +331,24 @@ class CameraStep(BaseStep):
             return
 
         try:
+            # Load config to get camera resolution
+            from configs.settings import load_config
+            from pathlib import Path
+            config = load_config(Path("configs/default.yaml"))
+            width = config.camera.width
+            height = config.camera.height
+            fps = 30  # Use lower fps for preview to reduce load
+
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
                 camera = OpenCVCamera()
                 camera.open(self._right_serial)
-                camera.set_mode(640, 480, 30, "YUYV")
+                camera.set_mode(width, height, fps, "YUYV")
             else:
                 from capture.uvc_backend import UvcCamera
                 camera = UvcCamera()
                 camera.open(self._right_serial)
-                camera.set_mode(640, 480, 30, "YUYV")
+                camera.set_mode(width, height, fps, "YUYV")
 
             self._right_camera = camera
             self._right_preview.setText("Opening camera...")
