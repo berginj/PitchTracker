@@ -124,6 +124,10 @@ class CalibrationStep(BaseStep):
         settings_group = self._build_settings_group()
         layout.addWidget(settings_group)
 
+        # NEW: Alignment status widget (automatically populated after cameras open)
+        self._alignment_widget = self._build_alignment_widget()
+        layout.addWidget(self._alignment_widget)
+
         # Pattern info
         self._pattern_info = QtWidgets.QLabel()
         self._pattern_info.setWordWrap(True)
@@ -375,6 +379,56 @@ class CalibrationStep(BaseStep):
         container.setLayout(main_layout)
         return container
 
+    def _build_alignment_widget(self) -> QtWidgets.QGroupBox:
+        """Build automatic camera alignment status widget.
+
+        This widget is automatically populated after cameras open.
+        Shows alignment quality and any corrections applied.
+        """
+        group = QtWidgets.QGroupBox("Camera Alignment Status")
+        layout = QtWidgets.QVBoxLayout()
+
+        # Status label (updated automatically)
+        self._alignment_status_label = QtWidgets.QLabel("⏳ Checking alignment...")
+        self._alignment_status_label.setWordWrap(True)
+        self._alignment_status_label.setStyleSheet(
+            "font-size: 10pt; padding: 8px; "
+            "background-color: #E3F2FD; "
+            "border: 1px solid #2196F3; "
+            "border-radius: 4px;"
+        )
+        layout.addWidget(self._alignment_status_label)
+
+        # Details (hidden by default, shown after check)
+        self._alignment_details = QtWidgets.QLabel()
+        self._alignment_details.setWordWrap(True)
+        self._alignment_details.setStyleSheet(
+            "font-size: 9pt; padding: 6px; color: #555;"
+        )
+        self._alignment_details.hide()
+        layout.addWidget(self._alignment_details)
+
+        # Buttons row (hidden by default)
+        buttons_layout = QtWidgets.QHBoxLayout()
+
+        self._recheck_alignment_btn = QtWidgets.QPushButton("🔄 Recheck")
+        self._recheck_alignment_btn.setToolTip("Run alignment check again")
+        self._recheck_alignment_btn.clicked.connect(self._run_automatic_alignment_check)
+        self._recheck_alignment_btn.hide()
+
+        self._alignment_details_btn = QtWidgets.QPushButton("📊 Details")
+        self._alignment_details_btn.setToolTip("Show detailed alignment report")
+        self._alignment_details_btn.clicked.connect(self._show_alignment_details)
+        self._alignment_details_btn.hide()
+
+        buttons_layout.addWidget(self._recheck_alignment_btn)
+        buttons_layout.addWidget(self._alignment_details_btn)
+        buttons_layout.addStretch()
+        layout.addLayout(buttons_layout)
+
+        group.setLayout(layout)
+        return group
+
     def get_title(self) -> str:
         """Return step title."""
         return "Stereo Calibration"
@@ -584,11 +638,13 @@ class CalibrationStep(BaseStep):
             if not self._left_serial or not self._right_serial:
                 raise ValueError("Camera serials not set. Please select cameras in Step 1.")
 
-            # Read flip settings from config
+            # Read flip and rotation settings from config
             import yaml
             config_data = yaml.safe_load(self._config_path.read_text())
             flip_left = config_data.get("camera", {}).get("flip_left", False)
             flip_right = config_data.get("camera", {}).get("flip_right", False)
+            rotation_left = config_data.get("camera", {}).get("rotation_left", 0.0)
+            rotation_right = config_data.get("camera", {}).get("rotation_right", 0.0)
 
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
@@ -613,9 +669,9 @@ class CalibrationStep(BaseStep):
                 print(f"DEBUG: Opening right camera with index: {right_index} (flip={flip_right})")
                 self._right_camera.open(right_index)
 
-                # Configure cameras with basic settings including flip
-                self._left_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_left)
-                self._right_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_right)
+                # Configure cameras with basic settings including flip and rotation correction
+                self._left_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_left, rotation_correction=rotation_left)
+                self._right_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_right, rotation_correction=rotation_right)
 
             else:  # uvc
                 from capture import UvcCamera
@@ -648,15 +704,18 @@ class CalibrationStep(BaseStep):
                         else:
                             raise
 
-                # Configure cameras with basic settings including flip
-                self._left_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_left)
-                self._right_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_right)
+                # Configure cameras with basic settings including flip and rotation correction
+                self._left_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_left, rotation_correction=rotation_left)
+                self._right_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_right, rotation_correction=rotation_right)
 
             # Update status labels to show which camera is assigned to which position
             self._left_status.setText(f"● {self._left_serial}")
             self._left_status.setStyleSheet("color: green; font-weight: bold;")
             self._right_status.setText(f"● {self._right_serial}")
             self._right_status.setStyleSheet("color: green; font-weight: bold;")
+
+            # NEW: Schedule automatic alignment check after cameras warm up (3 seconds)
+            QtCore.QTimer.singleShot(3000, self._run_automatic_alignment_check)
 
         except Exception as e:
             # Clean up any partially opened cameras
@@ -1123,3 +1182,247 @@ class CalibrationStep(BaseStep):
             "Calibration Error",
             f"Calibration failed:\n{error_msg}",
         )
+
+    # ========================================================================
+    # Automatic Alignment Check
+    # ========================================================================
+
+    def _run_automatic_alignment_check(self) -> None:
+        """Automatically run camera alignment check in background.
+
+        This runs 3 seconds after cameras open to check alignment quality.
+        Results are displayed in the alignment status widget.
+        Software corrections are applied automatically if needed.
+        """
+        if not self._left_camera or not self._right_camera:
+            return
+
+        try:
+            # Update UI to show checking
+            self._alignment_status_label.setText("⏳ Checking camera alignment...")
+            self._alignment_status_label.setStyleSheet(
+                "font-size: 10pt; padding: 8px; "
+                "background-color: #E3F2FD; "
+                "border: 1px solid #2196F3; "
+                "border-radius: 4px;"
+            )
+
+            # Capture test frames
+            left_frame = self._left_camera.read_frame(timeout_ms=1000)
+            right_frame = self._right_camera.read_frame(timeout_ms=1000)
+
+            # Run alignment analysis
+            from analysis.camera_alignment import analyze_alignment, apply_corrections
+
+            results = analyze_alignment(left_frame.image, right_frame.image)
+
+            # Store results for detail view
+            self._alignment_results = results
+
+            # Update UI based on results
+            self._display_alignment_results(results)
+
+            # Automatically apply software corrections if needed
+            if results.rotation_correction_needed or abs(results.vertical_offset_px) > 5:
+                apply_corrections(self._config_path, results)
+
+                # Restart cameras to apply rotation correction
+                if results.rotation_correction_needed:
+                    self._restart_cameras_after_correction()
+
+            # Enable buttons
+            self._recheck_alignment_btn.show()
+            self._alignment_details_btn.show()
+
+            # Quality gate: Disable calibrate button if alignment is critical
+            if not results.can_calibrate():
+                self._calibrate_button.setEnabled(False)
+                self._calibrate_button.setToolTip(
+                    "Calibration blocked - camera alignment is too poor.\n"
+                    "Please adjust cameras to be parallel (fix toe-in)."
+                )
+
+        except Exception as e:
+            # Show error in alignment widget
+            self._alignment_status_label.setText(f"❌ Alignment check failed: {str(e)}")
+            self._alignment_status_label.setStyleSheet(
+                "font-size: 10pt; padding: 8px; "
+                "background-color: #FFEBEE; "
+                "border: 1px solid #F44336; "
+                "border-radius: 4px; color: #C62828;"
+            )
+            self._alignment_results = None
+
+    def _display_alignment_results(self, results) -> None:
+        """Display alignment results in the status widget.
+
+        Args:
+            results: AlignmentResults object from analysis
+        """
+        # Choose color and icon based on quality
+        if results.quality == "CRITICAL":
+            bg_color = "#FFEBEE"
+            border_color = "#F44336"
+            text_color = "#C62828"
+            icon = "❌"
+        elif results.quality == "POOR":
+            bg_color = "#FFF3E0"
+            border_color = "#FF9800"
+            text_color = "#E65100"
+            icon = "⚠️"
+        elif results.quality == "ACCEPTABLE":
+            bg_color = "#FFF9C4"
+            border_color = "#FBC02D"
+            text_color = "#F57F17"
+            icon = "🟡"
+        elif results.quality == "GOOD":
+            bg_color = "#E8F5E9"
+            border_color = "#4CAF50"
+            text_color = "#2E7D32"
+            icon = "✓"
+        else:  # EXCELLENT
+            bg_color = "#E8F5E9"
+            border_color = "#4CAF50"
+            text_color = "#1B5E20"
+            icon = "✅"
+
+        # Build status message
+        status_html = f"<b>{icon} {results.status_message}</b>"
+
+        # Add corrections applied
+        if results.corrections_applied:
+            status_html += "<br><br><b>Corrections Applied:</b><br>"
+            for correction in results.corrections_applied:
+                status_html += f"  • {correction}<br>"
+
+        # Add warnings
+        if results.warnings:
+            status_html += "<br><b>Recommendations:</b><br>"
+            for warning in results.warnings:
+                status_html += f"  • {warning}<br>"
+
+        # Update widget
+        self._alignment_status_label.setText(status_html)
+        self._alignment_status_label.setStyleSheet(
+            f"font-size: 10pt; padding: 8px; "
+            f"background-color: {bg_color}; "
+            f"border: 2px solid {border_color}; "
+            f"border-radius: 4px; "
+            f"color: {text_color};"
+        )
+
+        # Show quick metrics in details label
+        details_text = (
+            f"Vertical: {results.vertical_mean_px:.1f} px ({results.vertical_status}) | "
+            f"Toe-in: {results.convergence_std_px:.1f} px ({results.horizontal_status}) | "
+            f"Rotation: {results.rotation_deg:.1f}° ({results.rotation_status}) | "
+            f"Focal Length: {results.scale_difference_percent:.1f}% diff ({results.scale_status})"
+        )
+        self._alignment_details.setText(details_text)
+        self._alignment_details.show()
+
+    def _show_alignment_details(self) -> None:
+        """Show detailed alignment report dialog."""
+        if not hasattr(self, '_alignment_results') or self._alignment_results is None:
+            return
+
+        results = self._alignment_results
+
+        # Build detailed report
+        report = (
+            f"<h3>Camera Alignment Detailed Report</h3>"
+            f"<p><b>Overall Quality:</b> {results.quality}</p>"
+            f"<hr>"
+            f"<h4>Vertical Alignment (Height)</h4>"
+            f"<p><b>Status:</b> {results.vertical_status}<br>"
+            f"<b>Mean offset:</b> {results.vertical_mean_px:.2f} px<br>"
+            f"<b>Max offset:</b> {results.vertical_max_px:.2f} px</p>"
+            f"<hr>"
+            f"<h4>Horizontal Alignment (Toe-in/Convergence)</h4>"
+            f"<p><b>Status:</b> {results.horizontal_status}<br>"
+            f"<b>Disparity std dev:</b> {results.convergence_std_px:.2f} px<br>"
+            f"<b>Position correlation:</b> {results.correlation:.3f}<br>"
+            f"<i>(Should be >0.9 for parallel cameras)</i></p>"
+            f"<hr>"
+            f"<h4>Rotation Alignment (Roll)</h4>"
+            f"<p><b>Status:</b> {results.rotation_status}<br>"
+            f"<b>Rotation difference:</b> {results.rotation_deg:.2f}°</p>"
+            f"<hr>"
+            f"<h4>Focal Length / Scale</h4>"
+            f"<p><b>Status:</b> {results.scale_status}<br>"
+            f"<b>Scale difference:</b> {results.scale_difference_percent:.2f}%<br>"
+            f"<i>(Indicates if one camera is more zoomed in than the other)</i></p>"
+            f"<hr>"
+            f"<h4>Feature Matches</h4>"
+            f"<p><b>Matches found:</b> {results.num_matches}</p>"
+        )
+
+        if results.corrections_applied:
+            report += "<hr><h4>Software Corrections Applied</h4><ul>"
+            for correction in results.corrections_applied:
+                report += f"<li>{correction}</li>"
+            report += "</ul>"
+
+        if results.warnings:
+            report += "<hr><h4>Recommendations</h4><ul>"
+            for warning in results.warnings:
+                report += f"<li>{warning}</li>"
+            report += "</ul>"
+
+        # Show in dialog
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Camera Alignment Details")
+        dialog.resize(600, 500)
+
+        layout = QtWidgets.QVBoxLayout()
+
+        text = QtWidgets.QTextEdit()
+        text.setReadOnly(True)
+        text.setHtml(report)
+        layout.addWidget(text)
+
+        close_btn = QtWidgets.QPushButton("Close")
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+
+        dialog.setLayout(layout)
+        dialog.exec()
+
+    def _restart_cameras_after_correction(self) -> None:
+        """Restart cameras after applying alignment corrections."""
+        try:
+            # Stop preview
+            self._preview_timer.stop()
+
+            # Close cameras
+            self._close_cameras()
+
+            # Wait briefly
+            QtCore.QTimer.singleShot(500, self._reopen_cameras_after_correction)
+
+        except Exception as e:
+            print(f"Error restarting cameras: {e}")
+
+    def _reopen_cameras_after_correction(self) -> None:
+        """Reopen cameras after applying corrections."""
+        try:
+            # Reopen with corrections applied
+            self._open_cameras()
+
+            # Restart preview
+            self._preview_timer.start(33)  # 30 FPS
+
+            # Update UI
+            self._alignment_status_label.setText(
+                self._alignment_status_label.text().replace(
+                    "Rotation correction applied",
+                    "Rotation correction applied ✓ (cameras restarted)"
+                )
+            )
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Camera Error",
+                f"Failed to restart cameras after applying corrections:\n{str(e)}"
+            )

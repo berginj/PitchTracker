@@ -46,6 +46,7 @@ class UvcCamera(CameraDevice):
         self._fps = 0
         self._pixfmt = "GRAY8"
         self._flip_180 = False
+        self._rotation_correction = 0.0  # Degrees to rotate for alignment correction
 
     @retry_on_failure(
         policy=RetryPolicy(
@@ -113,7 +114,7 @@ class UvcCamera(CameraDevice):
                 camera_id=serial,
             )
 
-    def set_mode(self, width: int, height: int, fps: int, pixfmt: str, flip_180: bool = False) -> None:
+    def set_mode(self, width: int, height: int, fps: int, pixfmt: str, flip_180: bool = False, rotation_correction: float = 0.0) -> None:
         """Set camera capture mode.
 
         Args:
@@ -121,6 +122,8 @@ class UvcCamera(CameraDevice):
             height: Frame height in pixels
             fps: Target frames per second
             pixfmt: Pixel format (GRAY8, RGB24, etc.)
+            flip_180: Rotate frame 180° (for upside-down camera mount)
+            rotation_correction: Degrees to rotate for alignment correction (e.g., -3.7)
 
         Raises:
             CameraConfigurationError: If mode setting fails
@@ -138,6 +141,7 @@ class UvcCamera(CameraDevice):
             self._fps = fps
             self._pixfmt = pixfmt
             self._flip_180 = flip_180
+            self._rotation_correction = rotation_correction
 
             self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -212,6 +216,13 @@ class UvcCamera(CameraDevice):
         # Apply 180° rotation if camera mounted upside down
         if self._flip_180:
             frame = cv2.rotate(frame, cv2.ROTATE_180)
+
+        # Apply rotation correction for alignment (if configured)
+        if abs(self._rotation_correction) > 0.1:  # Only rotate if >0.1 degrees
+            h, w = frame.shape[:2]
+            center = (w // 2, h // 2)
+            M = cv2.getRotationMatrix2D(center, self._rotation_correction, 1.0)
+            frame = cv2.warpAffine(frame, M, (w, h))
 
         now_ns = time.monotonic_ns()
         if self._stats.last_frame_ns:
