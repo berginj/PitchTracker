@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6 import QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from calib.quick_calibrate import calibrate_and_write
 
@@ -90,6 +90,14 @@ class QuickCalibrateDialog(QtWidgets.QDialog):
         if not left_paths or not right_paths:
             QtWidgets.QMessageBox.warning(self, "Quick Calibrate", "No images found.")
             return
+
+        # Show progress dialog
+        progress = QtWidgets.QProgressDialog("Running calibration...", "Cancel", 0, 0, self)
+        progress.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+        QtWidgets.QApplication.processEvents()
+
         try:
             updates = calibrate_and_write(
                 left_paths=left_paths,
@@ -99,13 +107,47 @@ class QuickCalibrateDialog(QtWidgets.QDialog):
                 config_path=self._config_path,
             )
         except Exception as exc:  # noqa: BLE001 - show calibration errors
+            progress.close()
             QtWidgets.QMessageBox.critical(self, "Quick Calibrate", str(exc))
             return
-        QtWidgets.QMessageBox.information(
-            self,
-            "Quick Calibrate",
-            f"Updated stereo config: {updates}",
-        )
+        finally:
+            progress.close()
+
+        # Build detailed results message
+        quality_rating = updates.get("quality_rating", "Unknown")
+        quality_desc = updates.get("quality_description", "")
+        rms_error = updates.get("rms_error_px", 0.0)
+        num_images = updates.get("num_images_used", 0)
+        total_input = updates.get("total_input_images", 0)
+        rejected = total_input - num_images if total_input > num_images else 0
+        recommendations = updates.get("recommendations", [])
+
+        # Format message with quality emoji
+        quality_emoji = updates.get("quality_emoji", "✓")
+        message = f"{quality_emoji} Calibration Quality: {quality_rating}\n"
+        message += f"{quality_desc}\n\n"
+        message += f"RMS Reprojection Error: {rms_error:.3f} px\n"
+        message += f"Images Used: {num_images}/{total_input}"
+
+        if rejected > 0:
+            message += f"\nRejected: {rejected} pairs (corner detection failed)"
+
+        if recommendations:
+            message += "\n\nRecommendations:\n"
+            for rec in recommendations:
+                message += f"• {rec}\n"
+
+        message += f"\n\nUpdated Configuration:\n"
+        message += f"Baseline: {updates.get('baseline_ft', 0):.3f} ft\n"
+        message += f"Focal Length: {updates.get('focal_length_px', 0):.1f} px"
+
+        # Show detailed results
+        result_box = QtWidgets.QMessageBox(self)
+        result_box.setWindowTitle("Calibration Complete")
+        result_box.setText(message)
+        result_box.setIcon(QtWidgets.QMessageBox.Icon.Information)
+        result_box.exec()
+
         self.updated = True
         self.updates = updates
 

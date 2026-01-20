@@ -379,8 +379,15 @@ def _calibrate(
         # Quality metrics
         "rms_error_px": float(rms_error),
         "num_images": num_images,
+        "num_images_used": num_images,  # Alias for clarity
+        "total_input_images": total_input,
         "per_image_errors": per_image_errors,
         "quality": quality,
+        # Extract quality fields to top level for easier UI access
+        "quality_rating": quality["rating"],
+        "quality_description": quality["description"],
+        "quality_emoji": quality["emoji"],
+        "recommendations": quality["recommendations"],
         # Include full calibration matrices for saving
         "mtx_left": mtx_left,
         "mtx_right": mtx_right,
