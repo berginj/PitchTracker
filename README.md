@@ -35,7 +35,29 @@ The application includes automatic updates - you'll be notified when new version
 
 ## For Developers
 
-### Setup
+### First-Time Setup
+
+**Detailed installation instructions:** [docs/INSTALLATION.md](docs/INSTALLATION.md)
+
+**Quick setup:**
+```bash
+# 1. Install Python 3.10+ (https://www.python.org/downloads/)
+
+# 2. Clone repository
+git clone https://github.com/berginj/PitchTracker.git
+cd PitchTracker
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Verify installation
+python setup_validator.py
+
+# 5. Run Setup Wizard
+python launcher.py
+```
+
+**Alternative (PowerShell):**
 ```powershell
 cd C:\Users\bergi\App\PitchTracker
 .\setup.ps1

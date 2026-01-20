@@ -42,33 +42,66 @@ def validate_dependencies() -> tuple[bool, Optional[str]]:
     Returns:
         Tuple of (is_valid, error_message)
     """
-    missing_packages = []
+    try:
+        # Use the comprehensive dependency checker
+        from scripts.check_dependencies import check_dependencies
 
-    # Core dependencies
-    required_packages = {
-        'cv2': 'opencv-python',
-        'numpy': 'numpy',
-        'PySide6': 'PySide6',
-        'yaml': 'PyYAML',
-        'loguru': 'loguru',
-        'jsonschema': 'jsonschema',
-    }
+        all_installed, missing, installed = check_dependencies(verbose=False)
 
-    for module_name, package_name in required_packages.items():
-        try:
-            __import__(module_name)
-        except ImportError:
-            missing_packages.append(package_name)
+        if all_installed:
+            return True, None
 
-    if missing_packages:
-        packages_str = ', '.join(missing_packages)
-        return False, (
+        # Build helpful error message
+        missing_names = [pkg for pkg, _ in missing]
+        packages_str = ', '.join(missing_names[:5])
+        if len(missing_names) > 5:
+            packages_str += f" (and {len(missing_names) - 5} more)"
+
+        error_msg = (
             f"Missing required packages: {packages_str}\n\n"
-            "This usually indicates a corrupted installation.\n"
-            "Please reinstall PitchTracker."
+            "Please install dependencies:\n"
+            "  pip install -r requirements.txt\n\n"
+            "Or install individually:\n"
         )
+        for pkg, _ in missing[:3]:
+            error_msg += f"  pip install {pkg}\n"
 
-    return True, None
+        error_msg += "\nFor detailed setup instructions, see: docs/INSTALLATION.md"
+
+        return False, error_msg
+
+    except Exception as e:
+        # Fallback to basic check if comprehensive checker fails
+        logger.warning(f"Could not use comprehensive dependency checker: {e}")
+
+        missing_packages = []
+
+        # Core dependencies
+        required_packages = {
+            'cv2': 'opencv-contrib-python',
+            'numpy': 'numpy',
+            'PySide6': 'PySide6',
+            'yaml': 'PyYAML',
+            'loguru': 'loguru',
+            'jsonschema': 'jsonschema',
+        }
+
+        for module_name, package_name in required_packages.items():
+            try:
+                __import__(module_name)
+            except ImportError:
+                missing_packages.append(package_name)
+
+        if missing_packages:
+            packages_str = ', '.join(missing_packages)
+            return False, (
+                f"Missing required packages: {packages_str}\n\n"
+                "Please install dependencies:\n"
+                "  pip install -r requirements.txt\n\n"
+                "For detailed setup instructions, see: docs/INSTALLATION.md"
+            )
+
+        return True, None
 
 
 def check_cameras() -> tuple[list[str], list[str]]:
