@@ -310,6 +310,15 @@ class CalibrationStep(BaseStep):
         self._flip_left_btn.clicked.connect(lambda checked: self._toggle_flip("left", checked))
         self._flip_right_btn.clicked.connect(lambda checked: self._toggle_flip("right", checked))
 
+        # Swap L/R button
+        self._swap_lr_btn = QtWidgets.QPushButton("🔄 Swap L/R")
+        self._swap_lr_btn.setToolTip("Swap left and right camera assignments")
+        self._swap_lr_btn.clicked.connect(self._swap_left_right)
+        self._swap_lr_btn.setStyleSheet(
+            "QPushButton { background-color: #FF9800; color: white; font-weight: bold; padding: 5px 10px; }"
+            "QPushButton:hover { background-color: #F57C00; }"
+        )
+
         # Baseline setting
         baseline_label = QtWidgets.QLabel("Baseline:")
         self._baseline_spin = QtWidgets.QDoubleSpinBox()
@@ -335,6 +344,7 @@ class CalibrationStep(BaseStep):
         camera_layout.addWidget(flip_label)
         camera_layout.addWidget(self._flip_left_btn)
         camera_layout.addWidget(self._flip_right_btn)
+        camera_layout.addWidget(self._swap_lr_btn)
         camera_layout.addWidget(QtWidgets.QLabel("  |  "))
         camera_layout.addWidget(baseline_label)
         camera_layout.addWidget(self._baseline_spin)
@@ -463,6 +473,54 @@ class CalibrationStep(BaseStep):
         except Exception as e:
             print(f"ERROR: Failed to restart cameras: {e}")
 
+    def _swap_left_right(self) -> None:
+        """Swap left and right camera assignments."""
+        import yaml
+
+        # Swap the serial numbers
+        self._left_serial, self._right_serial = self._right_serial, self._left_serial
+
+        print(f"INFO: Swapped cameras - Left: {self._left_serial}, Right: {self._right_serial}")
+
+        # Swap flip button states (flip settings follow the camera, not the position)
+        config_data = yaml.safe_load(self._config_path.read_text())
+        flip_left = config_data.get("camera", {}).get("flip_left", False)
+        flip_right = config_data.get("camera", {}).get("flip_right", False)
+
+        # Update config with swapped flip states
+        data = yaml.safe_load(self._config_path.read_text())
+        data.setdefault("camera", {})
+        data["camera"]["flip_left"] = flip_right
+        data["camera"]["flip_right"] = flip_left
+        self._config_path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+        # Update button states to reflect swapped config
+        self._flip_left_btn.setChecked(flip_right)
+        self._flip_right_btn.setChecked(flip_left)
+
+        # Restart cameras if open to apply swap
+        if self._left_camera is not None or self._right_camera is not None:
+            # Stop preview
+            self._preview_timer.stop()
+
+            # Close cameras
+            self._close_cameras()
+
+            # Reopen with swapped assignments after short delay
+            QtCore.QTimer.singleShot(300, self._restart_cameras_after_swap)
+
+    def _restart_cameras_after_swap(self) -> None:
+        """Reopen cameras and restart preview after L/R swap."""
+        try:
+            self._open_cameras()
+
+            # Restart preview if cameras opened successfully
+            if self._left_camera and self._right_camera:
+                self._preview_timer.start(33)  # ~30 FPS
+                print("INFO: Cameras restarted with swapped L/R assignment")
+        except Exception as e:
+            print(f"ERROR: Failed to restart cameras after swap: {e}")
+
     def _update_baseline(self, value_ft: float) -> None:
         """Update baseline distance in config.
 
@@ -571,6 +629,12 @@ class CalibrationStep(BaseStep):
                 self._left_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_left)
                 self._right_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_right)
 
+            # Update status labels to show which camera is assigned to which position
+            self._left_status.setText(f"● {self._left_serial}")
+            self._left_status.setStyleSheet("color: green; font-weight: bold;")
+            self._right_status.setText(f"● {self._right_serial}")
+            self._right_status.setStyleSheet("color: green; font-weight: bold;")
+
         except Exception as e:
             # Clean up any partially opened cameras
             self._close_cameras()
@@ -611,6 +675,12 @@ class CalibrationStep(BaseStep):
                 pass
             finally:
                 self._right_camera = None
+
+        # Reset status labels
+        self._left_status.setText("● Waiting...")
+        self._left_status.setStyleSheet("color: gray; font-weight: bold;")
+        self._right_status.setText("● Waiting...")
+        self._right_status.setStyleSheet("color: gray; font-weight: bold;")
 
         # Force garbage collection to release any lingering handles
         import gc
