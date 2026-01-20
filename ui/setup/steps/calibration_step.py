@@ -246,9 +246,14 @@ class CalibrationStep(BaseStep):
 
         self.setLayout(layout)
 
-    def _build_settings_group(self) -> QtWidgets.QGroupBox:
-        """Build calibration settings group."""
-        group = QtWidgets.QGroupBox("Checkerboard Settings")
+    def _build_settings_group(self) -> QtWidgets.QWidget:
+        """Build calibration settings groups."""
+        container = QtWidgets.QWidget()
+        main_layout = QtWidgets.QVBoxLayout()
+
+        # Checkerboard settings
+        board_group = QtWidgets.QGroupBox("Checkerboard Settings")
+        board_layout = QtWidgets.QHBoxLayout()
 
         # Pattern size
         pattern_label = QtWidgets.QLabel("Pattern (cols x rows):")
@@ -272,18 +277,75 @@ class CalibrationStep(BaseStep):
         self._square_spin.setSuffix(" mm")
         self._square_spin.valueChanged.connect(lambda v: setattr(self, '_square_mm', v))
 
-        layout = QtWidgets.QHBoxLayout()
-        layout.addWidget(pattern_label)
-        layout.addWidget(self._pattern_cols_spin)
-        layout.addWidget(cross_label)
-        layout.addWidget(self._pattern_rows_spin)
-        layout.addWidget(QtWidgets.QLabel("  |  "))
-        layout.addWidget(square_label)
-        layout.addWidget(self._square_spin)
-        layout.addStretch()
+        board_layout.addWidget(pattern_label)
+        board_layout.addWidget(self._pattern_cols_spin)
+        board_layout.addWidget(cross_label)
+        board_layout.addWidget(self._pattern_rows_spin)
+        board_layout.addWidget(QtWidgets.QLabel("  |  "))
+        board_layout.addWidget(square_label)
+        board_layout.addWidget(self._square_spin)
+        board_layout.addStretch()
+        board_group.setLayout(board_layout)
 
-        group.setLayout(layout)
-        return group
+        # Camera & Stereo settings
+        camera_group = QtWidgets.QGroupBox("Camera & Stereo Configuration")
+        camera_layout = QtWidgets.QHBoxLayout()
+
+        # Camera flip buttons
+        flip_label = QtWidgets.QLabel("Flip Cameras:")
+        self._flip_left_btn = QtWidgets.QPushButton("⟲ Flip Left 180°")
+        self._flip_right_btn = QtWidgets.QPushButton("⟲ Flip Right 180°")
+        self._flip_left_btn.setCheckable(True)
+        self._flip_right_btn.setCheckable(True)
+
+        # Load current flip state from config
+        import yaml
+        try:
+            config_data = yaml.safe_load(self._config_path.read_text())
+            self._flip_left_btn.setChecked(config_data.get("camera", {}).get("flip_left", False))
+            self._flip_right_btn.setChecked(config_data.get("camera", {}).get("flip_right", False))
+        except Exception:
+            pass
+
+        self._flip_left_btn.clicked.connect(lambda checked: self._toggle_flip("left", checked))
+        self._flip_right_btn.clicked.connect(lambda checked: self._toggle_flip("right", checked))
+
+        # Baseline setting
+        baseline_label = QtWidgets.QLabel("Baseline:")
+        self._baseline_spin = QtWidgets.QDoubleSpinBox()
+        self._baseline_spin.setRange(0.5, 10.0)
+        self._baseline_spin.setSingleStep(0.125)  # 1.5 inch increments
+        self._baseline_spin.setDecimals(3)
+        self._baseline_spin.setSuffix(" ft")
+
+        # Load current baseline from config
+        try:
+            baseline_ft = config_data.get("stereo", {}).get("baseline_ft", 1.625)
+            self._baseline_spin.setValue(baseline_ft)
+        except Exception:
+            self._baseline_spin.setValue(1.625)
+
+        self._baseline_spin.valueChanged.connect(self._update_baseline)
+
+        # Baseline inches label
+        baseline_inches = self._baseline_spin.value() * 12
+        self._baseline_inches_label = QtWidgets.QLabel(f"({baseline_inches:.1f} in)")
+        self._baseline_inches_label.setStyleSheet("color: #666; font-style: italic;")
+
+        camera_layout.addWidget(flip_label)
+        camera_layout.addWidget(self._flip_left_btn)
+        camera_layout.addWidget(self._flip_right_btn)
+        camera_layout.addWidget(QtWidgets.QLabel("  |  "))
+        camera_layout.addWidget(baseline_label)
+        camera_layout.addWidget(self._baseline_spin)
+        camera_layout.addWidget(self._baseline_inches_label)
+        camera_layout.addStretch()
+        camera_group.setLayout(camera_layout)
+
+        main_layout.addWidget(board_group)
+        main_layout.addWidget(camera_group)
+        container.setLayout(main_layout)
+        return container
 
     def get_title(self) -> str:
         """Return step title."""
@@ -353,6 +415,50 @@ class CalibrationStep(BaseStep):
             f"<b>Stereo tip:</b> Board doesn't need to fill frame - move it to different positions "
             f"and angles in the shared view area between cameras. Capture 10+ poses for good calibration."
         )
+
+    def _toggle_flip(self, camera: str, checked: bool) -> None:
+        """Toggle camera flip and restart cameras.
+
+        Args:
+            camera: "left" or "right"
+            checked: True to flip 180°, False for normal orientation
+        """
+        import yaml
+
+        # Update config file
+        data = yaml.safe_load(self._config_path.read_text())
+        data.setdefault("camera", {})
+
+        if camera == "left":
+            data["camera"]["flip_left"] = checked
+        else:
+            data["camera"]["flip_right"] = checked
+
+        self._config_path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+        # Restart cameras if open to apply flip
+        if self._left_camera is not None or self._right_camera is not None:
+            self._close_cameras()
+            QtCore.QTimer.singleShot(200, self._open_cameras)
+
+    def _update_baseline(self, value_ft: float) -> None:
+        """Update baseline distance in config.
+
+        Args:
+            value_ft: Baseline distance in feet
+        """
+        import yaml
+
+        # Update config file
+        data = yaml.safe_load(self._config_path.read_text())
+        data.setdefault("stereo", {})
+        data["stereo"]["baseline_ft"] = float(value_ft)
+        self._config_path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+        # Update inches label
+        baseline_inches = value_ft * 12
+        if hasattr(self, "_baseline_inches_label"):
+            self._baseline_inches_label.setText(f"({baseline_inches:.1f} in)")
 
     def _clear_temp_images(self) -> None:
         """Clear old calibration images from temp directory."""
@@ -781,14 +887,15 @@ class CalibrationStep(BaseStep):
         # Hide progress bar
         self._progress_bar.hide()
 
-        # Extract quality metrics
-        quality = result.get('quality', {})
-        rating = quality.get('rating', 'UNKNOWN')
-        emoji = quality.get('emoji', '✅')
-        description = quality.get('description', 'Calibration complete')
+        # Extract quality metrics (with new field names from improved calibrate_and_write)
+        rating = result.get('quality_rating', 'UNKNOWN')
+        emoji = result.get('quality_emoji', '✅')
+        description = result.get('quality_description', 'Calibration complete')
         rms_error = result.get('rms_error_px', 0.0)
-        num_images = result.get('num_images', 0)
-        recommendations = quality.get('recommendations', [])
+        num_images = result.get('num_images_used', result.get('num_images', 0))
+        total_input = result.get('total_input_images', num_images)
+        rejected = total_input - num_images
+        recommendations = result.get('recommendations', [])
 
         # Build results text with quality metrics
         results_text = (
@@ -798,15 +905,20 @@ class CalibrationStep(BaseStep):
             f"Principal Point: ({result['cx']:.1f}, {result['cy']:.1f})\n\n"
             f"Quality Metrics:\n"
             f"  Reprojection Error: {rms_error:.3f} px\n"
-            f"  Images Used: {num_images}\n\n"
-            f"{description}\n"
+            f"  Images Used: {num_images}/{total_input}"
         )
+
+        if rejected > 0:
+            results_text += f"\n  Rejected: {rejected} pairs (corner detection failed)"
+
+        results_text += f"\n\n{description}\n"
 
         if recommendations:
             results_text += "\nRecommendations:\n"
-            results_text += "\n".join(recommendations)
+            for rec in recommendations:
+                results_text += f"  • {rec}\n"
 
-        results_text += f"\n\nCalibration saved to {self._config_path}"
+        results_text += f"\nCalibration saved to {self._config_path}"
 
         # Color code based on quality
         if rating in ['EXCELLENT', 'GOOD']:
