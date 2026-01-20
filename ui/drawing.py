@@ -23,6 +23,7 @@ def frame_to_pixmap(
     trail: list[tuple[int, int]] | None = None,
     checkerboard: list[tuple[float, float]] | None = None,
     fiducials: list[FiducialDetection] | None = None,
+    focus_score: Optional[float] = None,
 ) -> QtGui.QPixmap:
     """Convert numpy array frame to QPixmap with overlays.
 
@@ -37,6 +38,7 @@ def frame_to_pixmap(
         trail: Trajectory trail points
         checkerboard: Checkerboard corner points
         fiducials: AprilTag fiducial detections
+        focus_score: Optional focus quality score to display
 
     Returns:
         QPixmap ready for display
@@ -67,7 +69,7 @@ def frame_to_pixmap(
     pixmap = QtGui.QPixmap.fromImage(qimage)
 
     # Draw overlays if any
-    needs_painting = overlays or detections or lane_detections or plate_detections or plate_rect or zone or trail
+    needs_painting = overlays or detections or lane_detections or plate_detections or plate_rect or zone or trail or focus_score is not None
     if needs_painting:
         painter = QtGui.QPainter(pixmap)
 
@@ -92,6 +94,10 @@ def frame_to_pixmap(
         # Draw strike zone grid
         if plate_rect:
             draw_plate_grid(painter, plate_rect, QtGui.QColor(255, 180, 0), zone)
+
+        # Draw focus quality overlay
+        if focus_score is not None:
+            draw_focus_overlay(painter, focus_score, width, height)
 
         painter.end()
 
@@ -247,6 +253,55 @@ def draw_trail(
         painter.drawLine(x1, y1, x2, y2)
 
 
+def draw_focus_overlay(
+    painter: QtGui.QPainter,
+    focus_score: float,
+    width: int,
+    height: int,
+) -> None:
+    """Draw focus quality score overlay on frame.
+
+    Args:
+        painter: QPainter instance
+        focus_score: Focus quality score (variance of Laplacian)
+        width: Frame width
+        height: Frame height
+    """
+    # Determine color and status based on focus quality
+    if focus_score >= 200:
+        color = QtGui.QColor(46, 204, 113)  # Green
+        status = "GOOD"
+    elif focus_score >= 100:
+        color = QtGui.QColor(243, 156, 18)  # Orange
+        status = "FAIR"
+    else:
+        color = QtGui.QColor(231, 76, 60)  # Red
+        status = "POOR"
+
+    # Draw text with background for readability
+    text = f"Focus: {focus_score:.0f} ({status})"
+    font = QtGui.QFont("Arial", 12, QtGui.QFont.Bold)
+    painter.setFont(font)
+
+    # Measure text size
+    metrics = QtGui.QFontMetrics(font)
+    text_width = metrics.horizontalAdvance(text)
+    text_height = metrics.height()
+
+    # Position in top-right corner
+    padding = 10
+    x = width - text_width - padding - 10
+    y = padding + text_height
+
+    # Draw semi-transparent background
+    bg_rect = QtCore.QRect(x - 5, y - text_height, text_width + 10, text_height + 5)
+    painter.fillRect(bg_rect, QtGui.QColor(0, 0, 0, 180))
+
+    # Draw text
+    painter.setPen(QtGui.QPen(color, 2))
+    painter.drawText(x, y, text)
+
+
 __all__ = [
     "frame_to_pixmap",
     "draw_detections",
@@ -254,4 +309,5 @@ __all__ = [
     "draw_fiducials",
     "draw_plate_grid",
     "draw_trail",
+    "draw_focus_overlay",
 ]

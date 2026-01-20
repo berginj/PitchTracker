@@ -1002,6 +1002,16 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._fiducial_detections = detections
                 self._fiducial_error = error
             fiducials = self._fiducial_detections
+
+        # Compute focus scores for both cameras (will be used in health panel and overlay)
+        from detect.utils import compute_focus_score
+        focus_left = compute_focus_score(left_frame.image)
+        focus_right = compute_focus_score(right_frame.image)
+
+        # Show focus overlay when target overlay is active (during calibration)
+        focus_overlay_left = focus_left if self._show_target_overlay else None
+        focus_overlay_right = focus_right if self._show_target_overlay else None
+
         self._left_view.setPixmap(
             frame_to_pixmap(
                 left_frame.image,
@@ -1013,6 +1023,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 zone=zone,
                 checkerboard=checkerboard,
                 fiducials=fiducials,
+                focus_score=focus_overlay_left,
             )
         )
         if self._right_view.isVisible():
@@ -1025,6 +1036,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     right_gated.get("plate", []),
                     plate_rect=self._plate_rect,
                     zone=zone,
+                    focus_score=focus_overlay_right,
                 )
             )
         self._update_plate_map()
@@ -1048,12 +1060,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
             )
 
-            # Compute and display focus quality scores
-            from detect.utils import compute_focus_score
-
-            focus_left = compute_focus_score(left_frame.image)
-            focus_right = compute_focus_score(right_frame.image)
-
+            # Update focus quality tracking (scores already computed above)
             # Track peak values
             if focus_left > self._focus_peak_left:
                 self._focus_peak_left = focus_left
