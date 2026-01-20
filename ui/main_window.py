@@ -74,7 +74,14 @@ logger = get_logger(__name__)
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, backend: str, config_path: Path) -> None:
         super().__init__()
-        self.setWindowTitle("Pitch Tracker")
+
+        # Get git commit hash for version display
+        git_commit = self._get_git_commit()
+        version_str = f"v{APP_VERSION}"
+        if git_commit:
+            version_str += f" ({git_commit})"
+
+        self.setWindowTitle(f"Pitch Tracker {version_str}")
         self._config_path_value = Path(config_path)
 
         # Validate configuration before loading (Phase 4)
@@ -1960,6 +1967,27 @@ class MainWindow(QtWidgets.QMainWindow):
             marker.write_text("ok")
         except OSError:
             pass
+
+    def _get_git_commit(self) -> Optional[str]:
+        """Get current git commit hash (short form).
+
+        Returns:
+            Short commit hash (7 chars) or None if not in git repo
+        """
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=1.0,
+                check=False,
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except Exception:
+            pass
+        return None
 
     def _config_path(self) -> Path:
         return self._config_path_value
