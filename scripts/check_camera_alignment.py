@@ -24,9 +24,9 @@ sys.path.insert(0, str(project_root))
 _original_stdout = sys.stdout
 _original_stderr = sys.stderr
 
-# Create log file immediately
+# Create log file immediately with UTF-8 encoding (Windows compatible)
 log_file_path = Path("alignment_check_log.txt")
-log_file = open(log_file_path, "w", buffering=1)  # Line buffered
+log_file = open(log_file_path, "w", encoding="utf-8", buffering=1)  # Line buffered, UTF-8
 
 # Print to console first
 _original_stdout.write(f"\n{'='*70}\n")
