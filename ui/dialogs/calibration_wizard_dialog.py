@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
+import yaml
 from PySide6 import QtCore, QtWidgets
 
 from configs.settings import load_config
@@ -36,6 +37,8 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._target_label: Optional[QtWidgets.QLabel] = None
         self._fiducial_label: Optional[QtWidgets.QLabel] = None
         self._fiducial_error_label: Optional[QtWidgets.QLabel] = None
+        self._baseline_spin: Optional[QtWidgets.QDoubleSpinBox] = None
+        self._baseline_inches_label: Optional[QtWidgets.QLabel] = None
         self._steps = [
             {
                 "title": "Start Capture + Health Check",
@@ -335,11 +338,64 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         Returns:
             Target indicator widget
         """
-        widget = QtWidgets.QGroupBox("Target Detection")
+        widget = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout()
+
+        # Target detection status
+        detection_group = QtWidgets.QGroupBox("Target Detection")
         self._target_label = QtWidgets.QLabel("Target detected: no")
-        form = QtWidgets.QFormLayout()
-        form.addRow(self._target_label)
-        widget.setLayout(form)
+        detection_layout = QtWidgets.QFormLayout()
+        detection_layout.addRow(self._target_label)
+        detection_group.setLayout(detection_layout)
+
+        # Camera flip controls
+        flip_group = QtWidgets.QGroupBox("Camera Orientation")
+        flip_layout = QtWidgets.QHBoxLayout()
+
+        flip_left_btn = QtWidgets.QPushButton("Flip Left 180°")
+        flip_right_btn = QtWidgets.QPushButton("Flip Right 180°")
+
+        flip_left_btn.setCheckable(True)
+        flip_right_btn.setCheckable(True)
+
+        # Set initial state from config
+        flip_left_btn.setChecked(self._parent._config.camera.flip_left)
+        flip_right_btn.setChecked(self._parent._config.camera.flip_right)
+
+        flip_left_btn.clicked.connect(lambda checked: self._toggle_flip("left", checked))
+        flip_right_btn.clicked.connect(lambda checked: self._toggle_flip("right", checked))
+
+        flip_layout.addWidget(flip_left_btn)
+        flip_layout.addWidget(flip_right_btn)
+        flip_group.setLayout(flip_layout)
+
+        # Baseline distance setting
+        baseline_group = QtWidgets.QGroupBox("Stereo Configuration")
+        baseline_layout = QtWidgets.QFormLayout()
+
+        self._baseline_spin = QtWidgets.QDoubleSpinBox()
+        self._baseline_spin.setRange(0.5, 10.0)
+        self._baseline_spin.setSingleStep(0.125)  # 1.5 inch increments
+        self._baseline_spin.setDecimals(3)
+        self._baseline_spin.setValue(self._parent._config.stereo.baseline_ft)
+        self._baseline_spin.setSuffix(" ft")
+        self._baseline_spin.valueChanged.connect(self._update_baseline)
+
+        # Helper label showing inches
+        baseline_inches = self._parent._config.stereo.baseline_ft * 12
+        self._baseline_inches_label = QtWidgets.QLabel(f"({baseline_inches:.1f} inches)")
+        self._baseline_inches_label.setStyleSheet("color: #666; font-size: 9pt; font-style: italic;")
+
+        baseline_layout.addRow("Camera Baseline:", self._baseline_spin)
+        baseline_layout.addRow("", self._baseline_inches_label)
+        baseline_group.setLayout(baseline_layout)
+
+        layout.addWidget(detection_group)
+        layout.addWidget(flip_group)
+        layout.addWidget(baseline_group)
+        layout.addStretch()
+
+        widget.setLayout(layout)
         return widget
 
     def _build_fiducial_indicator(self) -> Optional[QtWidgets.QWidget]:
@@ -382,6 +438,61 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         form.addRow("", propose_button)
         widget.setLayout(form)
         return widget
+
+    def _toggle_flip(self, camera: str, checked: bool) -> None:
+        """Toggle camera flip and restart capture.
+
+        Args:
+            camera: "left" or "right"
+            checked: True to flip 180°, False for normal orientation
+        """
+        # Update config file
+        config_path = self._parent._config_path()
+        data = yaml.safe_load(config_path.read_text())
+        data.setdefault("camera", {})
+
+        if camera == "left":
+            data["camera"]["flip_left"] = checked
+        else:
+            data["camera"]["flip_right"] = checked
+
+        config_path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+        # Reload config
+        self._parent._config = load_config(config_path)
+
+        # Restart capture to apply
+        if self._parent._capture_running:
+            self._parent._stop_capture()
+            QtCore.QTimer.singleShot(200, self._parent._start_capture)
+
+        # Show feedback
+        orientation = "flipped 180°" if checked else "normal"
+        self._parent._status_label.setText(f"{camera.capitalize()} camera {orientation}. Capture restarted.")
+
+    def _update_baseline(self, value_ft: float) -> None:
+        """Update baseline distance in config.
+
+        Args:
+            value_ft: Baseline distance in feet
+        """
+        # Update config file
+        config_path = self._parent._config_path()
+        data = yaml.safe_load(config_path.read_text())
+        data.setdefault("stereo", {})
+        data["stereo"]["baseline_ft"] = float(value_ft)
+        config_path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+        # Reload config
+        self._parent._config = load_config(config_path)
+
+        # Update inches label
+        baseline_inches = value_ft * 12
+        if hasattr(self, "_baseline_inches_label"):
+            self._baseline_inches_label.setText(f"({baseline_inches:.1f} inches)")
+
+        # Show feedback
+        self._parent._status_label.setText(f"Baseline updated to {value_ft:.3f} ft ({baseline_inches:.1f} inches). Run calibration to refine.")
 
     def _update_live_status(self) -> None:
         """Update live status indicators (called by timer)."""

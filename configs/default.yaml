@@ -14,7 +14,7 @@ camera:
 stereo:
   pairing_tolerance_ms: 8
   epipolar_epsilon_px: 3
-  baseline_ft: 1.0
+  baseline_ft: 1.625  # 19.5 inches measured center-to-center
   focal_length_px: 1200.0
   cx: null
   cy: null
