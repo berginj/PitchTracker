@@ -326,6 +326,11 @@ class CalibrationStep(BaseStep):
         self._baseline_spin.setSingleStep(0.125)  # 1.5 inch increments
         self._baseline_spin.setDecimals(3)
         self._baseline_spin.setSuffix(" ft")
+        self._baseline_spin.setToolTip(
+            "Camera spacing (lens center to lens center).\n"
+            "Enter your measured value here.\n"
+            "Calibration will refine this to a precise value."
+        )
 
         # Load current baseline from config
         try:
@@ -336,10 +341,23 @@ class CalibrationStep(BaseStep):
 
         self._baseline_spin.valueChanged.connect(self._update_baseline)
 
-        # Baseline inches label
+        # Baseline status label (shows if manual or calibrated)
+        # Check if this looks like a calibrated value (has many decimal places) or manual (round)
+        is_calibrated = abs(baseline_ft - round(baseline_ft * 8) / 8) > 0.01  # Not a 1/8 ft increment
         baseline_inches = self._baseline_spin.value() * 12
-        self._baseline_inches_label = QtWidgets.QLabel(f"({baseline_inches:.1f} in)")
-        self._baseline_inches_label.setStyleSheet("color: #666; font-style: italic;")
+
+        if is_calibrated:
+            status_text = f"({baseline_inches:.1f} in) 📐 Calibrated"
+            status_color = "#2196F3"  # Blue
+            status_tip = "This value was calculated by stereo calibration (more accurate than manual measurement)"
+        else:
+            status_text = f"({baseline_inches:.1f} in) ✏️ Manual"
+            status_color = "#FF9800"  # Orange
+            status_tip = "This is a manually entered value. Run calibration to get a precise measurement."
+
+        self._baseline_inches_label = QtWidgets.QLabel(status_text)
+        self._baseline_inches_label.setStyleSheet(f"color: {status_color}; font-style: italic; font-weight: bold;")
+        self._baseline_inches_label.setToolTip(status_tip)
 
         camera_layout.addWidget(flip_label)
         camera_layout.addWidget(self._flip_left_btn)
@@ -535,10 +553,15 @@ class CalibrationStep(BaseStep):
         data["stereo"]["baseline_ft"] = float(value_ft)
         self._config_path.write_text(yaml.safe_dump(data, sort_keys=False))
 
-        # Update inches label
+        # Update inches label and status
         baseline_inches = value_ft * 12
         if hasattr(self, "_baseline_inches_label"):
-            self._baseline_inches_label.setText(f"({baseline_inches:.1f} in)")
+            # User is manually entering, so mark as manual (orange)
+            self._baseline_inches_label.setText(f"({baseline_inches:.1f} in) ✏️ Manual")
+            self._baseline_inches_label.setStyleSheet("color: #FF9800; font-style: italic; font-weight: bold;")
+            self._baseline_inches_label.setToolTip(
+                "This is a manually entered value. Run calibration to get a precise measurement."
+            )
 
     def _clear_temp_images(self) -> None:
         """Clear old calibration images from temp directory."""
@@ -1035,6 +1058,20 @@ class CalibrationStep(BaseStep):
             f"padding: 12px; border-radius: 4px; font-family: monospace;"
         )
         self._results_text.show()
+
+        # Update baseline spinner with calibrated value
+        calibrated_baseline = result['baseline_ft']
+        self._baseline_spin.blockSignals(True)  # Don't trigger valueChanged
+        self._baseline_spin.setValue(calibrated_baseline)
+        self._baseline_spin.blockSignals(False)
+
+        # Update baseline status to show it's now calibrated (blue)
+        baseline_inches = calibrated_baseline * 12
+        self._baseline_inches_label.setText(f"({baseline_inches:.1f} in) 📐 Calibrated")
+        self._baseline_inches_label.setStyleSheet("color: #2196F3; font-style: italic; font-weight: bold;")
+        self._baseline_inches_label.setToolTip(
+            "This value was calculated by stereo calibration (more accurate than manual measurement)"
+        )
 
         # Re-enable buttons
         self._capture_button.setEnabled(True)
