@@ -45,6 +45,7 @@ class UvcCamera(CameraDevice):
         self._height = 0
         self._fps = 0
         self._pixfmt = "GRAY8"
+        self._flip_180 = False
 
     @retry_on_failure(
         policy=RetryPolicy(
@@ -112,7 +113,7 @@ class UvcCamera(CameraDevice):
                 camera_id=serial,
             )
 
-    def set_mode(self, width: int, height: int, fps: int, pixfmt: str) -> None:
+    def set_mode(self, width: int, height: int, fps: int, pixfmt: str, flip_180: bool = False) -> None:
         """Set camera capture mode.
 
         Args:
@@ -136,6 +137,7 @@ class UvcCamera(CameraDevice):
             self._height = height
             self._fps = fps
             self._pixfmt = pixfmt
+            self._flip_180 = flip_180
 
             self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -206,6 +208,11 @@ class UvcCamera(CameraDevice):
             )
         if self._pixfmt == "GRAY8":
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # Apply 180° rotation if camera mounted upside down
+        if self._flip_180:
+            frame = cv2.rotate(frame, cv2.ROTATE_180)
+
         now_ns = time.monotonic_ns()
         if self._stats.last_frame_ns:
             delta_ns = now_ns - self._stats.last_frame_ns

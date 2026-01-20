@@ -40,12 +40,13 @@ class PipelineInitializer:
         self._detector_model_format = "yolo_v5"
 
     @staticmethod
-    def configure_camera(camera: CameraDevice, config: AppConfig) -> None:
+    def configure_camera(camera: CameraDevice, config: AppConfig, is_left: bool = True) -> None:
         """Configure camera mode and controls.
 
         Args:
             camera: Camera device to configure
             config: Application configuration with camera settings
+            is_left: True for left camera, False for right camera
         """
         # Determine pixel format based on color_mode setting
         pixfmt = config.camera.pixfmt
@@ -53,11 +54,15 @@ class PipelineInitializer:
             # Override to color format when color_mode is enabled
             pixfmt = "YUYV" if pixfmt == "GRAY8" else pixfmt
 
+        # Select flip setting based on which camera this is
+        flip_180 = config.camera.flip_left if is_left else config.camera.flip_right
+
         camera.set_mode(
             config.camera.width,
             config.camera.height,
             config.camera.fps,
             pixfmt,
+            flip_180=flip_180,
         )
         camera.set_controls(
             config.camera.exposure_us,

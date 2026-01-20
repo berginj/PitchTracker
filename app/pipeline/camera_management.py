@@ -205,9 +205,9 @@ class CameraManager:
             # Configure cameras
             try:
                 logger.debug("Configuring left camera")
-                PipelineInitializer.configure_camera(self._left, config)
+                PipelineInitializer.configure_camera(self._left, config, is_left=True)
                 logger.debug("Configuring right camera")
-                PipelineInitializer.configure_camera(self._right, config)
+                PipelineInitializer.configure_camera(self._right, config, is_left=False)
             except Exception as exc:
                 logger.error(f"Failed to configure cameras: {exc}")
                 publish_error(

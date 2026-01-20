@@ -9,6 +9,8 @@ camera:
   wb_mode: null
   wb: null
   queue_depth: 6
+  flip_left: false  # Rotate left camera 180° if mounted upside down
+  flip_right: false  # Rotate right camera 180° if mounted upside down
 stereo:
   pairing_tolerance_ms: 8
   epipolar_epsilon_px: 3

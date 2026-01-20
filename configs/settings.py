@@ -27,6 +27,8 @@ class CameraConfig:
     wb: Optional[int]
     queue_depth: int
     color_mode: bool = True  # Enable color video capture
+    flip_left: bool = False  # Rotate left camera 180° (upside down mount)
+    flip_right: bool = False  # Rotate right camera 180° (upside down mount)
 
 
 @dataclass(frozen=True)

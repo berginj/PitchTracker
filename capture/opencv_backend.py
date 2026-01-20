@@ -37,6 +37,7 @@ class OpenCVCamera(CameraDevice):
         self._height = 0
         self._fps = 0
         self._pixfmt = "GRAY8"
+        self._flip_180 = False
 
     @retry_on_failure(
         policy=RetryPolicy(
@@ -104,7 +105,7 @@ class OpenCVCamera(CameraDevice):
             self._capture = None
             raise
 
-    def set_mode(self, width: int, height: int, fps: int, pixfmt: str) -> None:
+    def set_mode(self, width: int, height: int, fps: int, pixfmt: str, flip_180: bool = False) -> None:
         """Configure camera resolution, framerate, and pixel format.
 
         Args:
@@ -112,6 +113,7 @@ class OpenCVCamera(CameraDevice):
             height: Frame height in pixels
             fps: Target frames per second
             pixfmt: Pixel format ("GRAY8", "RGB24", etc.)
+            flip_180: Rotate frame 180° (for upside-down camera mount)
 
         Raises:
             RuntimeError: If camera not opened
@@ -126,6 +128,7 @@ class OpenCVCamera(CameraDevice):
         self._height = height
         self._fps = fps
         self._pixfmt = pixfmt
+        self._flip_180 = flip_180
 
         self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -187,6 +190,11 @@ class OpenCVCamera(CameraDevice):
             raise TimeoutError("Failed to read frame.")
         if self._pixfmt == "GRAY8":
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # Apply 180° rotation if camera mounted upside down
+        if self._flip_180:
+            frame = cv2.rotate(frame, cv2.ROTATE_180)
+
         now_ns = time.monotonic_ns()
         if self._stats.last_frame_ns:
             delta_s = (now_ns - self._stats.last_frame_ns) / 1e9

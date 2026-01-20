@@ -19,17 +19,19 @@ class SimulatedCamera(CameraDevice):
         self._height = 0
         self._fps = 0
         self._pixfmt = "GRAY8"
+        self._flip_180 = False
         self._frame_index = 0
         self._last_frame_time = time.monotonic()
 
     def open(self, serial: str) -> None:
         self._serial = serial
 
-    def set_mode(self, width: int, height: int, fps: int, pixfmt: str) -> None:
+    def set_mode(self, width: int, height: int, fps: int, pixfmt: str, flip_180: bool = False) -> None:
         self._width = width
         self._height = height
         self._fps = fps
         self._pixfmt = pixfmt
+        self._flip_180 = flip_180
 
     def set_controls(
         self,
@@ -64,6 +66,11 @@ class SimulatedCamera(CameraDevice):
         else:
             # Unknown format, default to grayscale
             image = np.zeros((self._height, self._width), dtype=np.uint8)
+
+        # Apply 180° rotation if camera mounted upside down
+        if self._flip_180:
+            import cv2
+            image = cv2.rotate(image, cv2.ROTATE_180)
 
         return Frame(
             camera_id=self._serial or "sim",
