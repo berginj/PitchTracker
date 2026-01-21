@@ -404,6 +404,18 @@ class CalibrationStep(BaseStep):
         )
         layout.addWidget(self._alignment_status_label)
 
+        # NEW: Quality gauge (visual score indicator)
+        self._quality_gauge = QtWidgets.QLabel()
+        self._quality_gauge.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._quality_gauge.setStyleSheet(
+            "font-size: 11pt; font-weight: bold; padding: 12px; "
+            "background-color: #F5F5F5; "
+            "border: 2px solid #E0E0E0; "
+            "border-radius: 8px;"
+        )
+        self._quality_gauge.hide()
+        layout.addWidget(self._quality_gauge)
+
         # Details (hidden by default, shown after check)
         self._alignment_details = QtWidgets.QLabel()
         self._alignment_details.setWordWrap(True)
@@ -476,10 +488,16 @@ class CalibrationStep(BaseStep):
         self._show_features_btn.clicked.connect(self._show_feature_overlay)
         self._show_features_btn.hide()
 
+        self._export_report_btn = QtWidgets.QPushButton("📄 Export Report")
+        self._export_report_btn.setToolTip("Export alignment report as HTML")
+        self._export_report_btn.clicked.connect(self._export_alignment_report)
+        self._export_report_btn.hide()
+
         buttons_layout.addWidget(self._recheck_alignment_btn)
         buttons_layout.addWidget(self._quick_check_btn)
         buttons_layout.addWidget(self._alignment_details_btn)
         buttons_layout.addWidget(self._show_features_btn)
+        buttons_layout.addWidget(self._export_report_btn)
         buttons_layout.addStretch()
         layout.addLayout(buttons_layout)
 
@@ -1440,6 +1458,8 @@ class CalibrationStep(BaseStep):
             self._recheck_alignment_btn.show()
             self._quick_check_btn.show()
             self._alignment_details_btn.show()
+            self._show_features_btn.show()
+            self._export_report_btn.show()
 
             # Quality gate: Disable calibrate button if alignment is critical
             if not results.can_calibrate():
@@ -1507,6 +1527,8 @@ class CalibrationStep(BaseStep):
             self._recheck_alignment_btn.show()
             self._quick_check_btn.show()
             self._alignment_details_btn.show()
+            self._show_features_btn.show()
+            self._export_report_btn.show()
 
             # Quality gate: Disable calibrate button if alignment is critical
             if not results.can_calibrate():
@@ -1599,6 +1621,51 @@ class CalibrationStep(BaseStep):
         )
         self._alignment_details.setText(details_text)
         self._alignment_details.show()
+
+        # NEW: Update quality gauge
+        quality_score = results.get_quality_score()
+        issues_count = sum([
+            results.scale_difference_percent > 2.0,
+            results.convergence_std_px > 5.0,
+            abs(results.vertical_mean_px) > 5.0,
+            abs(results.rotation_deg) > 1.0 and not results.rotation_correction_needed
+        ])
+
+        # Choose gauge color based on score
+        if quality_score >= 90:
+            gauge_color = "#4CAF50"  # Green
+            gauge_emoji = "✅"
+        elif quality_score >= 75:
+            gauge_color = "#8BC34A"  # Light green
+            gauge_emoji = "✓"
+        elif quality_score >= 60:
+            gauge_color = "#FFC107"  # Yellow
+            gauge_emoji = "🟡"
+        elif quality_score >= 40:
+            gauge_color = "#FF9800"  # Orange
+            gauge_emoji = "⚠️"
+        else:
+            gauge_color = "#F44336"  # Red
+            gauge_emoji = "❌"
+
+        gauge_html = f"""
+        <div style='text-align: center;'>
+            <div style='font-size: 32pt; color: {gauge_color};'>{gauge_emoji}</div>
+            <div style='font-size: 20pt; color: {gauge_color}; font-weight: bold;'>{quality_score}%</div>
+            <div style='font-size: 9pt; color: #666;'>{results.quality}</div>
+            <div style='font-size: 9pt; color: #888;'>
+                {issues_count} issue{'s' if issues_count != 1 else ''} detected
+            </div>
+        </div>
+        """
+        self._quality_gauge.setText(gauge_html)
+        self._quality_gauge.setStyleSheet(
+            f"font-size: 11pt; font-weight: bold; padding: 12px; "
+            f"background-color: {gauge_color}20; "  # 20 = 12% opacity
+            f"border: 2px solid {gauge_color}; "
+            f"border-radius: 8px;"
+        )
+        self._quality_gauge.show()
 
         # NEW: Show directional guidance if alignment needs adjustment
         guidance = results.get_directional_guidance()
@@ -1896,6 +1963,65 @@ class CalibrationStep(BaseStep):
 
         dialog.setLayout(layout)
         dialog.exec()
+
+    def _export_alignment_report(self) -> None:
+        """Export alignment report as HTML file."""
+        if not hasattr(self, '_alignment_results') or self._alignment_results is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "No Report Available",
+                "Run an alignment check first before exporting a report."
+            )
+            return
+
+        try:
+            from datetime import datetime
+            from analysis.camera_alignment import generate_html_report
+
+            # Generate HTML report
+            html = generate_html_report(
+                self._alignment_results,
+                self._left_serial or "Unknown",
+                self._right_serial or "Unknown"
+            )
+
+            # Prompt user for save location
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            default_filename = f"alignment_report_{timestamp}.html"
+
+            filename, _ = QtWidgets.QFileDialog.getSaveFileName(
+                self,
+                "Export Alignment Report",
+                str(Path("alignment_checks") / default_filename),
+                "HTML Files (*.html);;All Files (*.*)"
+            )
+
+            if filename:
+                # Save HTML file
+                Path(filename).parent.mkdir(parents=True, exist_ok=True)
+                Path(filename).write_text(html, encoding='utf-8')
+
+                # Ask if user wants to open the report
+                reply = QtWidgets.QMessageBox.question(
+                    self,
+                    "Report Exported",
+                    f"Alignment report exported successfully to:\n{filename}\n\n"
+                    f"Would you like to open it now?",
+                    QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+                    QtWidgets.QMessageBox.StandardButton.Yes
+                )
+
+                if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+                    # Open in default browser
+                    import webbrowser
+                    webbrowser.open(f"file:///{Path(filename).absolute()}")
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Export Failed",
+                f"Failed to export alignment report:\n{str(e)}"
+            )
 
     def _restart_cameras_after_correction(self) -> None:
         """Restart cameras after applying alignment corrections."""

@@ -57,6 +57,37 @@ class AlignmentResults:
         """Check if user should be warned about alignment quality."""
         return self.quality in ["POOR", "CRITICAL"]
 
+    def get_quality_score(self) -> int:
+        """Calculate overall alignment quality score (0-100).
+
+        Returns:
+            Score where 100 = perfect alignment, 0 = unusable
+        """
+        # Start with perfect score
+        score = 100.0
+
+        # Penalize focal length mismatch (0-30 points)
+        focal_penalty = min(30, self.scale_difference_percent * 2)
+        score -= focal_penalty
+
+        # Penalize toe-in/convergence (0-30 points)
+        toin_penalty = min(30, self.convergence_std_px * 1.5)
+        score -= toin_penalty
+
+        # Penalize vertical misalignment (0-20 points)
+        vertical_penalty = min(20, abs(self.vertical_mean_px) * 2)
+        score -= vertical_penalty
+
+        # Penalize rotation (0-20 points, if not auto-corrected)
+        if not self.rotation_correction_needed:
+            rotation_penalty = min(20, abs(self.rotation_deg) * 10)
+            score -= rotation_penalty
+
+        # Ensure score is in valid range
+        score = max(0, min(100, score))
+
+        return int(round(score))
+
     def get_directional_guidance(self) -> List[str]:
         """Get specific adjustment instructions based on alignment issues.
 
@@ -489,6 +520,219 @@ def save_alignment_frames(left_img: np.ndarray, right_img: np.ndarray,
     except Exception as e:
         # Don't fail alignment check if saving fails
         print(f"Warning: Could not save alignment frames: {e}")
+
+
+def generate_html_report(results: AlignmentResults, left_serial: str, right_serial: str) -> str:
+    """Generate HTML alignment report.
+
+    Args:
+        results: Alignment analysis results
+        left_serial: Left camera serial/ID
+        right_serial: Right camera serial/ID
+
+    Returns:
+        HTML string with comprehensive alignment report
+    """
+    from datetime import datetime
+
+    # Generate timestamp
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Calculate quality score
+    quality_score = results.get_quality_score()
+
+    # Choose colors
+    if results.quality == "EXCELLENT":
+        quality_color = "#4CAF50"
+    elif results.quality == "GOOD":
+        quality_color = "#8BC34A"
+    elif results.quality == "ACCEPTABLE":
+        quality_color = "#FFC107"
+    elif results.quality == "POOR":
+        quality_color = "#FF9800"
+    else:  # CRITICAL
+        quality_color = "#F44336"
+
+    # Build guidance section
+    guidance_html = ""
+    guidance = results.get_directional_guidance()
+    if guidance:
+        guidance_html = "<h3>Recommended Adjustments</h3><ul>"
+        for instruction in guidance:
+            guidance_html += f"<li>{instruction.replace('🔧', '').replace('→', '&rarr;')}</li>"
+        guidance_html += "</ul>"
+
+    # Build corrections section
+    corrections_html = ""
+    if results.corrections_applied:
+        corrections_html = "<h3>Automatic Corrections Applied</h3><ul>"
+        for correction in results.corrections_applied:
+            corrections_html += f"<li>{correction}</li>"
+        corrections_html += "</ul>"
+
+    # Generate HTML
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Camera Alignment Report - {timestamp}</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }}
+        .header {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }}
+        .header h1 {{
+            margin: 0 0 10px 0;
+            font-size: 28pt;
+        }}
+        .header p {{
+            margin: 5px 0;
+            opacity: 0.9;
+        }}
+        .score-card {{
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }}
+        .score {{
+            font-size: 64pt;
+            font-weight: bold;
+            color: {quality_color};
+            margin: 10px 0;
+        }}
+        .quality-label {{
+            font-size: 20pt;
+            color: {quality_color};
+            font-weight: bold;
+            margin: 10px 0;
+        }}
+        .section {{
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        h2 {{
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }}
+        h3 {{
+            color: #555;
+            margin-top: 20px;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }}
+        th, td {{
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }}
+        th {{
+            background-color: #f5f5f5;
+            font-weight: bold;
+            color: #555;
+        }}
+        .status-excellent {{ color: #4CAF50; font-weight: bold; }}
+        .status-good {{ color: #8BC34A; font-weight: bold; }}
+        .status-acceptable {{ color: #FFC107; font-weight: bold; }}
+        .status-poor {{ color: #FF9800; font-weight: bold; }}
+        .status-critical {{ color: #F44336; font-weight: bold; }}
+        ul {{
+            line-height: 1.8;
+        }}
+        li {{
+            margin: 10px 0;
+        }}
+        .footer {{
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #888;
+            font-size: 9pt;
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📹 Camera Alignment Report</h1>
+        <p><strong>Generated:</strong> {timestamp}</p>
+        <p><strong>Left Camera:</strong> {left_serial}</p>
+        <p><strong>Right Camera:</strong> {right_serial}</p>
+    </div>
+
+    <div class="score-card">
+        <div class="score">{quality_score}%</div>
+        <div class="quality-label">{results.quality}</div>
+        <p style="color: #666; margin-top: 15px;">{results.status_message}</p>
+    </div>
+
+    <div class="section">
+        <h2>Alignment Metrics</h2>
+        <table>
+            <tr>
+                <th>Metric</th>
+                <th>Value</th>
+                <th>Status</th>
+            </tr>
+            <tr>
+                <td><strong>Focal Length Difference</strong></td>
+                <td>{results.scale_difference_percent:.2f}%</td>
+                <td class="status-{results.scale_status.lower()}">{results.scale_status}</td>
+            </tr>
+            <tr>
+                <td><strong>Toe-in / Convergence</strong></td>
+                <td>{results.convergence_std_px:.2f} px std dev</td>
+                <td class="status-{results.horizontal_status.lower()}">{results.horizontal_status}</td>
+            </tr>
+            <tr>
+                <td><strong>Vertical Offset</strong></td>
+                <td>{results.vertical_mean_px:.2f} px mean ({results.vertical_max_px:.2f} px max)</td>
+                <td class="status-{results.vertical_status.lower()}">{results.vertical_status}</td>
+            </tr>
+            <tr>
+                <td><strong>Rotation Difference</strong></td>
+                <td>{results.rotation_deg:.2f}°</td>
+                <td class="status-{results.rotation_status.lower()}">{results.rotation_status}</td>
+            </tr>
+            <tr>
+                <td><strong>Feature Matches</strong></td>
+                <td>{results.num_matches}</td>
+                <td>{'<span class="status-excellent">Good</span>' if results.num_matches >= 200 else '<span class="status-acceptable">Acceptable</span>'}</td>
+            </tr>
+        </table>
+    </div>
+
+    {f'<div class="section">{guidance_html}</div>' if guidance_html else ''}
+    {f'<div class="section">{corrections_html}</div>' if corrections_html else ''}
+
+    <div class="footer">
+        <p>Generated by PitchTracker Camera Alignment System</p>
+        <p>For best results, keep alignment score above 75%</p>
+    </div>
+</body>
+</html>"""
+
+    return html
 
 
 def predict_calibration_quality(results: AlignmentResults) -> dict:
