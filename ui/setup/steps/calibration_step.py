@@ -92,6 +92,7 @@ class CalibrationStep(BaseStep):
         # Alignment history tracking
         self._alignment_history: list = []  # Track alignment iterations
         self._alignment_results: Optional = None  # Current alignment results
+        self._baseline_alignment: Optional = None  # Baseline from first capture (drift detection)
 
         self._build_ui()
 
@@ -455,10 +456,15 @@ class CalibrationStep(BaseStep):
         # Buttons row (hidden by default)
         buttons_layout = QtWidgets.QHBoxLayout()
 
-        self._recheck_alignment_btn = QtWidgets.QPushButton("🔄 Recheck")
-        self._recheck_alignment_btn.setToolTip("Run alignment check again (averaged over 10 frames)")
+        self._recheck_alignment_btn = QtWidgets.QPushButton("🔄 Full Check")
+        self._recheck_alignment_btn.setToolTip("Run full alignment check (averaged over 10 frames, ~1 second)")
         self._recheck_alignment_btn.clicked.connect(self._run_automatic_alignment_check)
         self._recheck_alignment_btn.hide()
+
+        self._quick_check_btn = QtWidgets.QPushButton("⚡ Quick Check")
+        self._quick_check_btn.setToolTip("Run quick alignment check (1 frame, <100ms)")
+        self._quick_check_btn.clicked.connect(self._run_quick_alignment_check)
+        self._quick_check_btn.hide()
 
         self._alignment_details_btn = QtWidgets.QPushButton("📊 Details")
         self._alignment_details_btn.setToolTip("Show detailed alignment report")
@@ -471,6 +477,7 @@ class CalibrationStep(BaseStep):
         self._show_features_btn.hide()
 
         buttons_layout.addWidget(self._recheck_alignment_btn)
+        buttons_layout.addWidget(self._quick_check_btn)
         buttons_layout.addWidget(self._alignment_details_btn)
         buttons_layout.addWidget(self._show_features_btn)
         buttons_layout.addStretch()
@@ -501,6 +508,7 @@ class CalibrationStep(BaseStep):
 
         # Reset capture state
         self._captures.clear()
+        self._baseline_alignment = None  # Reset drift detection baseline
         self._capture_count_label.setText(f"Captured: 0 / {self._min_captures} minimum")
         self._capture_count_label.setStyleSheet(
             "font-size: 14pt; font-weight: bold; color: #d32f2f; padding: 5px;"
@@ -516,6 +524,9 @@ class CalibrationStep(BaseStep):
         # Open cameras if serials are set
         if self._left_serial and self._right_serial:
             self._open_cameras()
+
+        # Load previous alignment history
+        self._load_alignment_history()
 
         # Start preview timer
         if self._left_camera and self._right_camera:
@@ -1038,6 +1049,12 @@ class CalibrationStep(BaseStep):
                 )
                 return
 
+            # NEW: Check for alignment drift (after first capture)
+            if len(self._captures) > 0:
+                drift_detected = self._check_alignment_drift(left_frame.image, right_frame.image)
+                if drift_detected:
+                    return  # User chose to abort this capture
+
             # Save to temp directory
             timestamp = int(time.time() * 1000)
             left_path = self._temp_dir / f"left_{timestamp}.png"
@@ -1070,12 +1087,137 @@ class CalibrationStep(BaseStep):
             self._capture_button.setStyleSheet("background-color: #4CAF50; color: white;")
             QtCore.QTimer.singleShot(200, lambda: self._capture_button.setStyleSheet(""))
 
+            # Store baseline alignment from first capture
+            if len(self._captures) == 1:
+                try:
+                    from analysis.camera_alignment import analyze_alignment
+                    self._baseline_alignment = analyze_alignment(left_frame.image, right_frame.image)
+                except Exception:
+                    pass  # Don't fail capture if alignment analysis fails
+
         except Exception as e:
             QtWidgets.QMessageBox.critical(
                 self,
                 "Capture Error",
                 f"Failed to capture image pair:\n{str(e)}",
             )
+
+    def _check_alignment_drift(self, left_img: np.ndarray, right_img: np.ndarray) -> bool:
+        """Check if camera alignment has drifted since first capture.
+
+        Args:
+            left_img: Current left camera image
+            right_img: Current right camera image
+
+        Returns:
+            True if user chose to abort this capture (drift too large), False to continue
+        """
+        if self._baseline_alignment is None:
+            return False  # No baseline, can't check drift
+
+        try:
+            from analysis.camera_alignment import analyze_alignment
+
+            # Analyze current alignment
+            current = analyze_alignment(left_img, right_img)
+
+            # Calculate drift in key metrics
+            toin_drift = abs(current.convergence_std_px - self._baseline_alignment.convergence_std_px)
+            vertical_drift = abs(current.vertical_mean_px - self._baseline_alignment.vertical_mean_px)
+            rotation_drift = abs(current.rotation_deg - self._baseline_alignment.rotation_deg)
+            focal_drift = abs(current.scale_difference_percent - self._baseline_alignment.scale_difference_percent)
+
+            # Determine if drift is significant
+            # Thresholds: toe-in > 5px, vertical > 3px, rotation > 2°, focal > 3%
+            significant_drift = (
+                toin_drift > 5.0 or
+                vertical_drift > 3.0 or
+                rotation_drift > 2.0 or
+                focal_drift > 3.0
+            )
+
+            if not significant_drift:
+                return False  # No significant drift, continue
+
+            # Build drift warning message
+            drift_details = []
+            if toin_drift > 5.0:
+                drift_details.append(
+                    f"  • Toe-in: {self._baseline_alignment.convergence_std_px:.1f}px → "
+                    f"{current.convergence_std_px:.1f}px (Δ {toin_drift:.1f}px)"
+                )
+            if vertical_drift > 3.0:
+                drift_details.append(
+                    f"  • Vertical: {self._baseline_alignment.vertical_mean_px:.1f}px → "
+                    f"{current.vertical_mean_px:.1f}px (Δ {vertical_drift:.1f}px)"
+                )
+            if rotation_drift > 2.0:
+                drift_details.append(
+                    f"  • Rotation: {self._baseline_alignment.rotation_deg:.1f}° → "
+                    f"{current.rotation_deg:.1f}° (Δ {rotation_drift:.1f}°)"
+                )
+            if focal_drift > 3.0:
+                drift_details.append(
+                    f"  • Focal Length: {self._baseline_alignment.scale_difference_percent:.1f}% → "
+                    f"{current.scale_difference_percent:.1f}% (Δ {focal_drift:.1f}%)"
+                )
+
+            warning_msg = (
+                f"⚠️ Camera alignment has drifted since capture 1!\n\n"
+                f"Changes detected:\n" + "\n".join(drift_details) + "\n\n"
+                f"This can invalidate calibration. Recommendations:\n\n"
+                f"• Click 'Restart' to clear captures and start over (recommended)\n"
+                f"• Click 'Continue' to capture anyway (may reduce calibration quality)\n"
+                f"• Click 'Cancel' to skip this capture and reposition cameras"
+            )
+
+            # Show warning dialog with options
+            msg_box = QtWidgets.QMessageBox(self)
+            msg_box.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+            msg_box.setWindowTitle("Alignment Drift Detected")
+            msg_box.setText(warning_msg)
+
+            restart_btn = msg_box.addButton("Restart Calibration", QtWidgets.QMessageBox.ButtonRole.DestructiveRole)
+            continue_btn = msg_box.addButton("Continue Anyway", QtWidgets.QMessageBox.ButtonRole.AcceptRole)
+            cancel_btn = msg_box.addButton("Cancel Capture", QtWidgets.QMessageBox.ButtonRole.RejectRole)
+
+            msg_box.setDefaultButton(restart_btn)
+            msg_box.exec()
+
+            clicked = msg_box.clickedButton()
+
+            if clicked == restart_btn:
+                # Restart calibration - clear all captures
+                self._captures.clear()
+                self._baseline_alignment = None
+                self._capture_count_label.setText(f"Captured: 0 / {self._min_captures} minimum")
+                self._capture_count_label.setStyleSheet(
+                    "font-size: 14pt; font-weight: bold; color: #d32f2f; padding: 5px;"
+                )
+                self._calibrate_button.setEnabled(False)
+
+                # Clear temp directory
+                self._clear_temp_images()
+
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "Calibration Restarted",
+                    "All captures cleared. Please start capturing again with stable camera positions."
+                )
+                return True  # Abort this capture
+
+            elif clicked == cancel_btn:
+                # Just skip this capture
+                return True  # Abort this capture
+
+            else:  # continue_btn
+                # User chose to continue despite drift
+                return False  # Allow capture to proceed
+
+        except Exception as e:
+            # Don't block captures if drift detection fails
+            print(f"Warning: Alignment drift check failed: {e}")
+            return False
 
     def _run_calibration(self) -> None:
         """Run stereo calibration on captured images."""
@@ -1296,6 +1438,7 @@ class CalibrationStep(BaseStep):
 
             # Enable buttons
             self._recheck_alignment_btn.show()
+            self._quick_check_btn.show()
             self._alignment_details_btn.show()
 
             # Quality gate: Disable calibrate button if alignment is critical
@@ -1317,7 +1460,74 @@ class CalibrationStep(BaseStep):
             )
             self._alignment_results = None
 
-    def _display_alignment_results(self, results) -> None:
+    def _run_quick_alignment_check(self) -> None:
+        """Run quick alignment check (single frame, no averaging).
+
+        Faster than full check but less robust. Good for rapid iteration
+        when making small adjustments.
+        """
+        if not self._left_camera or not self._right_camera:
+            return
+
+        try:
+            # Update UI to show checking
+            self._alignment_status_label.setText("⚡ Quick check (1 frame)...")
+            self._alignment_status_label.setStyleSheet(
+                "font-size: 10pt; padding: 8px; "
+                "background-color: #E3F2FD; "
+                "border: 1px solid #2196F3; "
+                "border-radius: 4px;"
+            )
+
+            # Run single-frame alignment analysis
+            from analysis.camera_alignment import analyze_alignment, apply_corrections
+
+            # Capture frames
+            left_frame = self._left_camera.read_frame(timeout_ms=1000)
+            right_frame = self._right_camera.read_frame(timeout_ms=1000)
+
+            # Analyze (single frame)
+            results = analyze_alignment(left_frame.image, right_frame.image)
+
+            # Store results for detail view
+            self._alignment_results = results
+
+            # Update UI based on results (will show quick check badge)
+            self._display_alignment_results(results, quick_check=True)
+
+            # Automatically apply software corrections if needed
+            if results.rotation_correction_needed or abs(results.vertical_offset_px) > 5:
+                apply_corrections(self._config_path, results)
+
+                # Restart cameras to apply rotation correction
+                if results.rotation_correction_needed:
+                    self._restart_cameras_after_correction()
+
+            # Enable buttons
+            self._recheck_alignment_btn.show()
+            self._quick_check_btn.show()
+            self._alignment_details_btn.show()
+
+            # Quality gate: Disable calibrate button if alignment is critical
+            if not results.can_calibrate():
+                self._calibrate_button.setEnabled(False)
+                self._calibrate_button.setToolTip(
+                    "Calibration blocked - camera alignment is too poor.\n"
+                    "Please adjust cameras to be parallel (fix toe-in)."
+                )
+
+        except Exception as e:
+            # Show error in alignment widget
+            self._alignment_status_label.setText(f"❌ Quick check failed: {str(e)}")
+            self._alignment_status_label.setStyleSheet(
+                "font-size: 10pt; padding: 8px; "
+                "background-color: #FFEBEE; "
+                "border: 1px solid #F44336; "
+                "border-radius: 4px; color: #C62828;"
+            )
+            self._alignment_results = None
+
+    def _display_alignment_results(self, results, quick_check: bool = False) -> None:
         """Display alignment results in the status widget.
 
         Args:
@@ -1352,6 +1562,11 @@ class CalibrationStep(BaseStep):
 
         # Build status message
         status_html = f"<b>{icon} {results.status_message}</b>"
+
+        # Add badge if quick check
+        if quick_check:
+            status_html += " <span style='background-color: #FFC107; color: black; padding: 2px 6px; border-radius: 3px; font-size: 8pt;'>⚡ QUICK CHECK</span>"
+            status_html += "<br><i style='font-size: 9pt;'>Single-frame analysis - run Full Check for averaged results</i>"
 
         # Add corrections applied
         if results.corrections_applied:
@@ -1444,6 +1659,103 @@ class CalibrationStep(BaseStep):
 
         self._history_list.setText(history_text)
         self._history_group.show()
+
+        # NEW: Auto-save history to file
+        self._save_alignment_history()
+
+    def _save_alignment_history(self) -> None:
+        """Save alignment history to JSON file for persistence across sessions."""
+        try:
+            import json
+            from datetime import datetime
+
+            history_file = Path("alignment_checks/history.json")
+            history_file.parent.mkdir(parents=True, exist_ok=True)
+
+            # Load existing history file (if exists)
+            if history_file.exists():
+                try:
+                    existing_data = json.loads(history_file.read_text())
+                except:
+                    existing_data = {"sessions": []}
+            else:
+                existing_data = {"sessions": []}
+
+            # Create current session entry
+            session_entry = {
+                "session_date": datetime.now().isoformat(),
+                "camera_serials": {
+                    "left": self._left_serial,
+                    "right": self._right_serial
+                },
+                "iterations": []
+            }
+
+            # Convert history entries to serializable format
+            for entry in self._alignment_history:
+                session_entry["iterations"].append({
+                    "timestamp": entry["timestamp"].isoformat(),
+                    "quality": entry["quality"],
+                    "focal_diff_percent": entry["focal"],
+                    "toin_std_px": entry["toin"],
+                    "vertical_mean_px": entry["vertical"],
+                    "rotation_deg": entry["rotation"]
+                })
+
+            # Append to sessions
+            existing_data["sessions"].append(session_entry)
+
+            # Keep only last 10 sessions to prevent file from growing too large
+            if len(existing_data["sessions"]) > 10:
+                existing_data["sessions"] = existing_data["sessions"][-10:]
+
+            # Write back to file
+            history_file.write_text(json.dumps(existing_data, indent=2))
+
+        except Exception as e:
+            # Don't fail alignment check if saving history fails
+            print(f"Warning: Could not save alignment history: {e}")
+
+    def _load_alignment_history(self) -> None:
+        """Load previous alignment history from file (for current session display)."""
+        try:
+            import json
+
+            history_file = Path("alignment_checks/history.json")
+            if not history_file.exists():
+                return
+
+            data = json.loads(history_file.read_text())
+
+            # Show summary of past sessions in history widget if no current history
+            if len(self._alignment_history) == 0 and len(data.get("sessions", [])) > 0:
+                past_sessions_text = "<b>Previous Sessions:</b>\n\n"
+
+                for session in data["sessions"][-5:]:  # Show last 5 sessions
+                    date = session["session_date"][:10]  # Just date part
+                    iterations = session["iterations"]
+
+                    if len(iterations) > 0:
+                        first = iterations[0]
+                        last = iterations[-1]
+
+                        past_sessions_text += f"📅 {date} ({len(iterations)} checks):\n"
+                        past_sessions_text += f"  Started: {first['quality']} "
+                        past_sessions_text += f"(Focal: {first['focal_diff_percent']:.1f}%, "
+                        past_sessions_text += f"Toe-in: {first['toin_std_px']:.1f}px)\n"
+
+                        if len(iterations) > 1:
+                            past_sessions_text += f"  Ended:   {last['quality']} "
+                            past_sessions_text += f"(Focal: {last['focal_diff_percent']:.1f}%, "
+                            past_sessions_text += f"Toe-in: {last['toin_std_px']:.1f}px)\n"
+
+                        past_sessions_text += "\n"
+
+                self._history_list.setText(past_sessions_text)
+                self._history_group.show()
+
+        except Exception as e:
+            print(f"Warning: Could not load alignment history: {e}")
 
     def _show_feature_overlay(self) -> None:
         """Show visual overlay of matched features on camera previews."""

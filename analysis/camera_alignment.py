@@ -29,6 +29,7 @@ class AlignmentResults:
     rotation_deg: float
     num_matches: int
     scale_difference_percent: float  # NEW: Scale/focal length mismatch percentage
+    scale_ratio: float = 1.0  # NEW: Actual scale ratio (1.0 = match, >1.0 = left zoomed, <1.0 = right zoomed)
 
     # Quality assessment
     quality: str  # "EXCELLENT", "GOOD", "ACCEPTABLE", "POOR", "CRITICAL"
@@ -63,19 +64,36 @@ class AlignmentResults:
         """
         guidance = []
 
-        # Focal length guidance
-        if self.scale_difference_percent > 5.0:
-            if hasattr(self, '_scale_ratio'):
-                if self._scale_ratio > 1.05:  # Left camera more zoomed
-                    guidance.append(
-                        f"🔧 LEFT Focus Ring: Turn COUNTER-CLOCKWISE ~1/8 turn "
-                        f"(currently {self.scale_difference_percent:.1f}% more zoomed than right)"
-                    )
-                elif self._scale_ratio < 0.95:  # Right camera more zoomed
-                    guidance.append(
-                        f"🔧 RIGHT Focus Ring: Turn COUNTER-CLOCKWISE ~1/8 turn "
-                        f"(currently {self.scale_difference_percent:.1f}% more zoomed than left)"
-                    )
+        # Focal length guidance (most important - put first)
+        if self.scale_difference_percent > 2.0:  # Lower threshold for earlier warning
+            # Estimate turn amount based on scale difference
+            # Typical lens: 1/8 turn ≈ 3-5% scale change
+            turn_estimate = self.scale_difference_percent / 4.0  # Rough estimate
+            if turn_estimate < 0.1:
+                turn_desc = "very small adjustment"
+            elif turn_estimate < 0.2:
+                turn_desc = "1/8 turn"
+            elif turn_estimate < 0.4:
+                turn_desc = "1/4 turn"
+            elif turn_estimate < 0.75:
+                turn_desc = "1/2 turn"
+            else:
+                turn_desc = "3/4 turn"
+
+            if self.scale_ratio > 1.02:  # Left camera more zoomed (zoomed in more = higher magnification)
+                guidance.append(
+                    f"🔧 FOCAL LENGTH: LEFT camera {self.scale_difference_percent:.1f}% more zoomed\n"
+                    f"   → Turn LEFT focus ring COUNTER-CLOCKWISE ~{turn_desc}\n"
+                    f"   → Goal: Match right camera's zoom level\n"
+                    f"   → After adjustment, run Quick Check to verify"
+                )
+            elif self.scale_ratio < 0.98:  # Right camera more zoomed
+                guidance.append(
+                    f"🔧 FOCAL LENGTH: RIGHT camera {self.scale_difference_percent:.1f}% more zoomed\n"
+                    f"   → Turn RIGHT focus ring COUNTER-CLOCKWISE ~{turn_desc}\n"
+                    f"   → Goal: Match left camera's zoom level\n"
+                    f"   → After adjustment, run Quick Check to verify"
+                )
 
         # Toe-in guidance
         if self.convergence_std_px > 10.0:
@@ -149,6 +167,7 @@ def analyze_alignment(left_img: np.ndarray, right_img: np.ndarray,
         correlation = horizontal["position_disparity_correlation"]
         rotation_deg = rotation["rotation_deg"]
         scale_difference_percent = scale["scale_difference_percent"]  # NEW
+        scale_ratio = scale.get("scale_ratio", 1.0)  # NEW: Extract scale ratio
 
         # Assess overall quality
         quality = _assess_quality(vertical_mean, convergence_std, rotation_deg, correlation, scale_difference_percent)
@@ -173,6 +192,7 @@ def analyze_alignment(left_img: np.ndarray, right_img: np.ndarray,
             rotation_deg=rotation_deg,
             num_matches=num_matches,
             scale_difference_percent=scale_difference_percent,  # NEW
+            scale_ratio=scale_ratio,  # NEW
             quality=quality,
             vertical_status=vertical["status"],
             horizontal_status=horizontal["status"],
@@ -193,6 +213,7 @@ def analyze_alignment(left_img: np.ndarray, right_img: np.ndarray,
             vertical_mean_px=0, vertical_max_px=0,
             convergence_std_px=0, correlation=0, rotation_deg=0, num_matches=0,
             scale_difference_percent=0.0,  # NEW
+            scale_ratio=1.0,  # NEW
             quality="CRITICAL",
             vertical_status="UNKNOWN",
             horizontal_status="UNKNOWN",
@@ -304,6 +325,7 @@ def analyze_alignment_averaged(left_camera, right_camera, num_frames: int = 10,
     avg_correlation = np.mean([r.correlation for r in results_list])
     avg_rotation = np.mean([r.rotation_deg for r in results_list])
     avg_scale_diff = np.mean([r.scale_difference_percent for r in results_list])
+    avg_scale_ratio = np.mean([r.scale_ratio for r in results_list])
     total_matches = sum(r.num_matches for r in results_list) // len(results_list)
 
     # Re-assess quality with averaged metrics
@@ -339,6 +361,7 @@ def analyze_alignment_averaged(left_camera, right_camera, num_frames: int = 10,
         rotation_deg=avg_rotation,
         num_matches=total_matches,
         scale_difference_percent=avg_scale_diff,
+        scale_ratio=avg_scale_ratio,
         quality=quality,
         vertical_status=first.vertical_status,
         horizontal_status=first.horizontal_status,
@@ -877,6 +900,7 @@ def _insufficient_features_result(num_matches: int) -> AlignmentResults:
         convergence_std_px=0, correlation=0, rotation_deg=0,
         num_matches=num_matches,
         scale_difference_percent=0.0,  # NEW
+        scale_ratio=1.0,  # NEW
         quality="CRITICAL",
         vertical_status="UNKNOWN",
         horizontal_status="UNKNOWN",
