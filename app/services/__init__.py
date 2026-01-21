@@ -1,24 +1,34 @@
 """Service layer for PitchTracker application.
 
-This module defines the service interfaces that separate concerns:
-- CaptureService: Camera management and frame capture
-- DetectionService: Detection orchestration and stereo matching
-- RecordingService: Async recording of frames and metadata
-- AnalysisService: Post-processing and pattern detection
-- PipelineOrchestrator: Composes services and manages state
+This module defines the service interfaces that separate concerns into
+clear, testable components with single responsibilities:
+
+├── capture/     - Camera management and frame capture
+├── detection/   - Detection orchestration and stereo matching
+├── recording/   - Async recording of frames and metadata
+└── analysis/    - Post-processing and pattern detection
+
+Each service module contains:
+- interface.py: Abstract base class defining the contract
+- implementation.py: Concrete implementation (to be added)
 """
 
-from .capture_service import CaptureService, FrameCallback
-from .detection_service import DetectionService, ObservationCallback
-from .recording_service import RecordingService, RecordingCallback
-from .analysis_service import AnalysisService
+from .capture import CaptureService, FrameCallback, CameraStateCallback
+from .detection import DetectionService, ObservationCallback
+from .recording import RecordingService, RecordingCallback
+from .analysis import AnalysisService
 
 __all__ = [
+    # Capture service
     "CaptureService",
-    "DetectionService",
-    "RecordingService",
-    "AnalysisService",
     "FrameCallback",
+    "CameraStateCallback",
+    # Detection service
+    "DetectionService",
     "ObservationCallback",
+    # Recording service
+    "RecordingService",
     "RecordingCallback",
+    # Analysis service
+    "AnalysisService",
 ]
