@@ -93,6 +93,7 @@ class CalibrationStep(BaseStep):
         self._alignment_history: list = []  # Track alignment iterations
         self._alignment_results: Optional = None  # Current alignment results
         self._baseline_alignment: Optional = None  # Baseline from first capture (drift detection)
+        self._warmup_attempts: int = 0  # Camera warmup retry counter
 
         self._build_ui()
 
@@ -501,6 +502,30 @@ class CalibrationStep(BaseStep):
         buttons_layout.addStretch()
         layout.addLayout(buttons_layout)
 
+        # NEW: Preset management buttons (second row)
+        preset_layout = QtWidgets.QHBoxLayout()
+
+        self._save_preset_btn = QtWidgets.QPushButton("💾 Save Preset")
+        self._save_preset_btn.setToolTip("Save current alignment as a preset")
+        self._save_preset_btn.clicked.connect(self._save_alignment_preset)
+        self._save_preset_btn.hide()
+
+        self._load_preset_btn = QtWidgets.QPushButton("📂 Load Preset")
+        self._load_preset_btn.setToolTip("Load a saved alignment preset")
+        self._load_preset_btn.clicked.connect(self._load_alignment_preset)
+        self._load_preset_btn.hide()
+
+        self._compare_preset_btn = QtWidgets.QPushButton("⚖️ Compare")
+        self._compare_preset_btn.setToolTip("Compare current alignment with saved preset")
+        self._compare_preset_btn.clicked.connect(self._compare_with_preset)
+        self._compare_preset_btn.hide()
+
+        preset_layout.addWidget(self._save_preset_btn)
+        preset_layout.addWidget(self._load_preset_btn)
+        preset_layout.addWidget(self._compare_preset_btn)
+        preset_layout.addStretch()
+        layout.addLayout(preset_layout)
+
         group.setLayout(layout)
         return group
 
@@ -527,6 +552,7 @@ class CalibrationStep(BaseStep):
         # Reset capture state
         self._captures.clear()
         self._baseline_alignment = None  # Reset drift detection baseline
+        self._warmup_attempts = 0  # Reset warmup counter
         self._capture_count_label.setText(f"Captured: 0 / {self._min_captures} minimum")
         self._capture_count_label.setStyleSheet(
             "font-size: 14pt; font-weight: bold; color: #d32f2f; padding: 5px;"
@@ -793,8 +819,8 @@ class CalibrationStep(BaseStep):
             self._right_status.setText(f"● {self._right_serial}")
             self._right_status.setStyleSheet("color: green; font-weight: bold;")
 
-            # NEW: Schedule automatic alignment check after cameras warm up (3 seconds)
-            QtCore.QTimer.singleShot(3000, self._run_automatic_alignment_check)
+            # NEW: Wait for cameras to warm up, then run alignment check
+            QtCore.QTimer.singleShot(1000, self._wait_for_camera_warmup)
 
         except Exception as e:
             # Clean up any partially opened cameras
@@ -1397,6 +1423,76 @@ class CalibrationStep(BaseStep):
     # Automatic Alignment Check
     # ========================================================================
 
+    def _wait_for_camera_warmup(self) -> None:
+        """Wait for cameras to warm up and stabilize before alignment check.
+
+        Monitors frame variance to detect when auto-exposure, auto-focus,
+        and auto-white-balance have settled.
+        """
+        if not self._left_camera or not self._right_camera:
+            return
+
+        try:
+            from analysis.camera_alignment import check_camera_warmup
+
+            # Update alignment widget
+            self._alignment_status_label.setText("⏳ Waiting for cameras to stabilize...")
+            self._alignment_status_label.setStyleSheet(
+                "font-size: 10pt; padding: 8px; "
+                "background-color: #FFF9C4; "
+                "border: 1px solid #FBC02D; "
+                "border-radius: 4px;"
+            )
+
+            # Check both cameras
+            left_stable, left_variance = check_camera_warmup(self._left_camera, num_frames=15)
+            right_stable, right_variance = check_camera_warmup(self._right_camera, num_frames=15)
+
+            both_stable = left_stable and right_stable
+
+            if both_stable:
+                # Cameras are stable - proceed with alignment check
+                self._alignment_status_label.setText(
+                    f"✓ Cameras stable (variance: L={left_variance:.3f}, R={right_variance:.3f})"
+                )
+                # Schedule alignment check
+                QtCore.QTimer.singleShot(500, self._run_automatic_alignment_check)
+            else:
+                # Cameras still warming up - wait longer
+                unstable_cameras = []
+                if not left_stable:
+                    unstable_cameras.append(f"Left ({left_variance:.3f})")
+                if not right_stable:
+                    unstable_cameras.append(f"Right ({right_variance:.3f})")
+
+                self._alignment_status_label.setText(
+                    f"⏳ Cameras still warming up: {', '.join(unstable_cameras)}\n"
+                    f"Waiting 2 more seconds..."
+                )
+
+                # Wait another 2 seconds and check again (max 3 attempts)
+                if not hasattr(self, '_warmup_attempts'):
+                    self._warmup_attempts = 0
+
+                self._warmup_attempts += 1
+
+                if self._warmup_attempts < 3:
+                    # Try again
+                    QtCore.QTimer.singleShot(2000, self._wait_for_camera_warmup)
+                else:
+                    # Give up waiting, proceed anyway
+                    self._alignment_status_label.setText(
+                        "⚠️ Cameras may not be fully stable, but proceeding with check..."
+                    )
+                    self._warmup_attempts = 0
+                    QtCore.QTimer.singleShot(500, self._run_automatic_alignment_check)
+
+        except Exception as e:
+            # If warmup check fails, just proceed with alignment check
+            print(f"Warning: Camera warmup check failed: {e}")
+            self._warmup_attempts = 0
+            QtCore.QTimer.singleShot(500, self._run_automatic_alignment_check)
+
     def _run_automatic_alignment_check(self) -> None:
         """Automatically run camera alignment check in background.
 
@@ -1460,6 +1556,9 @@ class CalibrationStep(BaseStep):
             self._alignment_details_btn.show()
             self._show_features_btn.show()
             self._export_report_btn.show()
+            self._save_preset_btn.show()
+            self._load_preset_btn.show()
+            self._compare_preset_btn.show()
 
             # Quality gate: Disable calibrate button if alignment is critical
             if not results.can_calibrate():
@@ -1529,6 +1628,9 @@ class CalibrationStep(BaseStep):
             self._alignment_details_btn.show()
             self._show_features_btn.show()
             self._export_report_btn.show()
+            self._save_preset_btn.show()
+            self._load_preset_btn.show()
+            self._compare_preset_btn.show()
 
             # Quality gate: Disable calibrate button if alignment is critical
             if not results.can_calibrate():
@@ -2021,6 +2123,281 @@ class CalibrationStep(BaseStep):
                 self,
                 "Export Failed",
                 f"Failed to export alignment report:\n{str(e)}"
+            )
+
+    def _save_alignment_preset(self) -> None:
+        """Save current alignment as a preset."""
+        if not hasattr(self, '_alignment_results') or self._alignment_results is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "No Alignment Available",
+                "Run an alignment check first before saving a preset."
+            )
+            return
+
+        try:
+            from datetime import datetime
+            from analysis.camera_alignment import save_alignment_preset
+
+            # Prompt for preset name
+            default_name = f"preset_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            preset_name, ok = QtWidgets.QInputDialog.getText(
+                self,
+                "Save Alignment Preset",
+                "Enter a name for this preset:\n(e.g., 'baseline_good', 'after_adjustment')",
+                QtWidgets.QLineEdit.EchoMode.Normal,
+                default_name
+            )
+
+            if ok and preset_name:
+                # Save preset
+                save_alignment_preset(
+                    self._alignment_results,
+                    preset_name,
+                    self._left_serial or "Unknown",
+                    self._right_serial or "Unknown"
+                )
+
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "Preset Saved",
+                    f"Alignment preset '{preset_name}' saved successfully!\n\n"
+                    f"Quality Score: {self._alignment_results.get_quality_score()}%\n"
+                    f"You can load this preset later for comparison."
+                )
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Save Failed",
+                f"Failed to save alignment preset:\n{str(e)}"
+            )
+
+    def _load_alignment_preset(self) -> None:
+        """Load a saved alignment preset and display it."""
+        try:
+            from analysis.camera_alignment import list_alignment_presets, load_alignment_preset
+
+            # Get list of available presets
+            presets = list_alignment_presets()
+
+            if not presets:
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "No Presets Found",
+                    "No saved alignment presets found.\n\n"
+                    "Save a preset first by running an alignment check "
+                    "and clicking 'Save Preset'."
+                )
+                return
+
+            # Show selection dialog
+            preset_names = [f"{p['name']} ({p['quality_score']}% - {p['saved_at'][:10]})"
+                           for p in presets]
+
+            preset_choice, ok = QtWidgets.QInputDialog.getItem(
+                self,
+                "Load Alignment Preset",
+                "Select a preset to view:",
+                preset_names,
+                0,
+                False
+            )
+
+            if ok and preset_choice:
+                # Extract preset name (before the parenthesis)
+                preset_name = preset_choice.split(" (")[0]
+
+                # Load preset data
+                preset_data = load_alignment_preset(preset_name)
+                if not preset_data:
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Load Failed",
+                        f"Could not load preset '{preset_name}'"
+                    )
+                    return
+
+                # Display preset details
+                metrics = preset_data["metrics"]
+                info_text = (
+                    f"<h3>Preset: {preset_data['preset_name']}</h3>"
+                    f"<p><b>Saved:</b> {preset_data['saved_at'][:19]}<br>"
+                    f"<b>Cameras:</b> {preset_data['left_camera']} / {preset_data['right_camera']}<br>"
+                    f"<b>Quality Score:</b> {preset_data['quality_score']}% ({preset_data['quality_rating']})</p>"
+                    f"<hr>"
+                    f"<h4>Metrics:</h4>"
+                    f"<table>"
+                    f"<tr><td><b>Focal Length Diff:</b></td><td>{metrics['focal_diff_percent']:.2f}%</td></tr>"
+                    f"<tr><td><b>Toe-in:</b></td><td>{metrics['toin_std_px']:.2f} px</td></tr>"
+                    f"<tr><td><b>Vertical Offset:</b></td><td>{metrics['vertical_mean_px']:.2f} px</td></tr>"
+                    f"<tr><td><b>Rotation:</b></td><td>{metrics['rotation_deg']:.2f}°</td></tr>"
+                    f"<tr><td><b>Feature Matches:</b></td><td>{metrics['num_matches']}</td></tr>"
+                    f"</table>"
+                )
+
+                # Show in dialog
+                dialog = QtWidgets.QDialog(self)
+                dialog.setWindowTitle("Alignment Preset Details")
+                dialog.resize(500, 400)
+
+                layout = QtWidgets.QVBoxLayout()
+
+                text = QtWidgets.QTextEdit()
+                text.setReadOnly(True)
+                text.setHtml(info_text)
+                layout.addWidget(text)
+
+                close_btn = QtWidgets.QPushButton("Close")
+                close_btn.clicked.connect(dialog.accept)
+                layout.addWidget(close_btn)
+
+                dialog.setLayout(layout)
+                dialog.exec()
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Load Failed",
+                f"Failed to load preset:\n{str(e)}"
+            )
+
+    def _compare_with_preset(self) -> None:
+        """Compare current alignment with a saved preset (side-by-side)."""
+        if not hasattr(self, '_alignment_results') or self._alignment_results is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "No Current Alignment",
+                "Run an alignment check first before comparing."
+            )
+            return
+
+        try:
+            from analysis.camera_alignment import (
+                list_alignment_presets,
+                load_alignment_preset,
+                compare_with_preset
+            )
+
+            # Get list of available presets
+            presets = list_alignment_presets()
+
+            if not presets:
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "No Presets Found",
+                    "No saved alignment presets found.\n\n"
+                    "Save a preset first to enable comparison."
+                )
+                return
+
+            # Show selection dialog
+            preset_names = [f"{p['name']} ({p['quality_score']}% - {p['saved_at'][:10]})"
+                           for p in presets]
+
+            preset_choice, ok = QtWidgets.QInputDialog.getItem(
+                self,
+                "Compare with Preset",
+                "Select a preset to compare with current alignment:",
+                preset_names,
+                0,
+                False
+            )
+
+            if ok and preset_choice:
+                # Extract preset name
+                preset_name = preset_choice.split(" (")[0]
+
+                # Load preset
+                preset_data = load_alignment_preset(preset_name)
+                if not preset_data:
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Load Failed",
+                        f"Could not load preset '{preset_name}'"
+                    )
+                    return
+
+                # Perform comparison
+                comparison = compare_with_preset(self._alignment_results, preset_data)
+
+                # Build comparison display
+                trend_color = "#4CAF50" if comparison["trend"] == "BETTER" else (
+                    "#F44336" if comparison["trend"] == "WORSE" else "#FFC107"
+                )
+
+                comparison_html = f"""
+                <h3>Alignment Comparison</h3>
+                <p><b>Current vs. Preset:</b> {comparison['preset_name']} ({comparison['preset_date']})</p>
+                <div style='text-align: center; padding: 15px; background-color: {trend_color}20;
+                            border: 2px solid {trend_color}; border-radius: 8px; margin: 10px 0;'>
+                    <div style='font-size: 32pt;'>{comparison['trend_emoji']}</div>
+                    <div style='font-size: 16pt; font-weight: bold; color: {trend_color};'>
+                        {comparison['trend']}
+                    </div>
+                    <div style='font-size: 12pt; margin-top: 5px;'>
+                        Score: {comparison['current_score']}% vs {comparison['preset_score']}%
+                        ({comparison['score_delta']:+.0f})
+                    </div>
+                </div>
+                <hr>
+                <h4>Detailed Comparison:</h4>
+                <table style='width: 100%;'>
+                    <tr style='background-color: #f5f5f5;'>
+                        <th>Metric</th>
+                        <th>Current</th>
+                        <th>Preset</th>
+                        <th>Δ</th>
+                        <th>Status</th>
+                    </tr>
+                """
+
+                for metric_name, metric_label in [
+                    ("focal", "Focal Length"),
+                    ("toin", "Toe-in"),
+                    ("vertical", "Vertical"),
+                    ("rotation", "Rotation")
+                ]:
+                    delta_data = comparison["deltas"][metric_name]
+                    status_emoji = "✓" if delta_data["better"] else "⚠️"
+                    status_color = "#4CAF50" if delta_data["better"] else "#FF9800"
+
+                    comparison_html += f"""
+                    <tr>
+                        <td><b>{metric_label}</b></td>
+                        <td>{delta_data['current']:.2f}</td>
+                        <td>{delta_data['preset']:.2f}</td>
+                        <td>{delta_data['delta']:+.2f}</td>
+                        <td style='color: {status_color}; font-weight: bold;'>{status_emoji}</td>
+                    </tr>
+                    """
+
+                comparison_html += "</table>"
+
+                # Show in dialog
+                dialog = QtWidgets.QDialog(self)
+                dialog.setWindowTitle("Alignment Comparison")
+                dialog.resize(650, 500)
+
+                layout = QtWidgets.QVBoxLayout()
+
+                text = QtWidgets.QTextEdit()
+                text.setReadOnly(True)
+                text.setHtml(comparison_html)
+                layout.addWidget(text)
+
+                close_btn = QtWidgets.QPushButton("Close")
+                close_btn.clicked.connect(dialog.accept)
+                layout.addWidget(close_btn)
+
+                dialog.setLayout(layout)
+                dialog.exec()
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Comparison Failed",
+                f"Failed to compare with preset:\n{str(e)}"
             )
 
     def _restart_cameras_after_correction(self) -> None:
