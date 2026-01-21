@@ -11,6 +11,9 @@ configs/locations/
 # Claude Code local settings
 .claude/
 
+# Test artifacts
+alignment_checks/
+
 # Build artifacts
 build/
 dist/
