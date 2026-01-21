@@ -16,7 +16,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from configs.settings import load_config
-from app.pipeline_service import InProcessPipelineService
+from app.services.orchestrator import PipelineOrchestrator
 from app.pipeline.recording.session_recorder import SessionRecorder
 from app.events import get_error_bus, ErrorCategory, ErrorSeverity
 
@@ -150,7 +150,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
 
     def test_disk_critical_callback_auto_stops_recording(self):
         """Test that critical disk space triggers auto-stop callback."""
-        service = InProcessPipelineService(backend="sim")
+        service = PipelineOrchestrator(backend="sim")
 
         # Track whether callback was invoked
         callback_invoked = []

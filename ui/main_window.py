@@ -16,7 +16,7 @@ import numpy as np
 import yaml
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from app.pipeline_service import InProcessPipelineService
+from app.services.orchestrator import PipelineOrchestrator
 from calib.plate_plane import estimate_and_write
 from configs.app_state import load_state, save_state
 from configs.lane_io import load_lane_rois, save_lane_rois
@@ -95,7 +95,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._init_resource_monitoring()
         self._init_resource_limits()
 
-        self._service = InProcessPipelineService(backend=backend)
+        self._service = PipelineOrchestrator(backend=backend)
         self._timer = QtCore.QTimer(self)
         self._timer.timeout.connect(self._update_preview)
         self._roi_path = Path("rois/shared_rois.json")

@@ -91,13 +91,13 @@ class TestErrorRecovery(unittest.TestCase):
             # Send frames that will cause detection to fail
             image = np.zeros((480, 640, 3), dtype=np.uint8)
             frame = Frame(
-                image=image,
+                camera_id="test",
+                frame_index=0,
                 t_capture_monotonic_ns=int(time.time() * 1e9),
-                t_capture_utc_ns=int(time.time() * 1e9),
-                t_received_monotonic_ns=int(time.time() * 1e9),
+                image=image,
                 width=640,
                 height=480,
-                camera_id="test",
+                pixfmt="BGR3",
             )
 
             # Enqueue multiple failing frames
@@ -164,13 +164,13 @@ class TestErrorRecovery(unittest.TestCase):
             # Send frames
             image = np.zeros((480, 640, 3), dtype=np.uint8)
             frame = Frame(
-                image=image,
+                camera_id="test",
+                frame_index=0,
                 t_capture_monotonic_ns=int(time.time() * 1e9),
-                t_capture_utc_ns=int(time.time() * 1e9),
-                t_received_monotonic_ns=int(time.time() * 1e9),
+                image=image,
                 width=640,
                 height=480,
-                camera_id="test",
+                pixfmt="BGR3",
             )
 
             # Process 30 frames (10 will fail)
@@ -215,13 +215,13 @@ class TestErrorRecovery(unittest.TestCase):
             image = np.zeros((480, 640, 3), dtype=np.uint8)
             for i in range(20):  # More than queue size
                 frame = Frame(
-                    image=image,
+                    camera_id="test",
+                    frame_index=i,
                     t_capture_monotonic_ns=int(time.time() * 1e9) + i * 1000000,
-                    t_capture_utc_ns=int(time.time() * 1e9) + i * 1000000,
-                    t_received_monotonic_ns=int(time.time() * 1e9) + i * 1000000,
+                    image=image,
                     width=640,
                     height=480,
-                    camera_id="test",
+                    pixfmt="BGR3",
                 )
                 pool.enqueue_frame("left", frame)
 
@@ -297,13 +297,13 @@ class TestErrorRecovery(unittest.TestCase):
             # Send frames
             image = np.zeros((480, 640, 3), dtype=np.uint8)
             frame = Frame(
-                image=image,
+                camera_id="test",
+                frame_index=0,
                 t_capture_monotonic_ns=int(time.time() * 1e9),
-                t_capture_utc_ns=int(time.time() * 1e9),
-                t_received_monotonic_ns=int(time.time() * 1e9),
+                image=image,
                 width=640,
                 height=480,
-                camera_id="test",
+                pixfmt="BGR3",
             )
 
             # Send 25 frames (12 fail, then recover)

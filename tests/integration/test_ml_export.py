@@ -17,7 +17,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from configs.settings import load_config
-from app.pipeline_service import InProcessPipelineService
+from app.services.orchestrator import PipelineOrchestrator
 
 
 class TestMLDataExport(unittest.TestCase):
@@ -47,7 +47,7 @@ class TestMLDataExport(unittest.TestCase):
 
     def test_ml_data_collection_enabled(self):
         """Test that ML data files are created when enabled."""
-        service = InProcessPipelineService(backend="sim")
+        service = PipelineOrchestrator(backend="sim")
 
         try:
             # Start capture
@@ -111,7 +111,7 @@ class TestMLDataExport(unittest.TestCase):
             recording=replace(config.recording, output_dir=str(self.test_dir)),
         )
 
-        service = InProcessPipelineService(backend="sim")
+        service = PipelineOrchestrator(backend="sim")
 
         try:
             # Start capture
@@ -153,7 +153,7 @@ class TestMLDataExport(unittest.TestCase):
 
     def test_session_manifest_created(self):
         """Test that session manifest.json is created with metadata."""
-        service = InProcessPipelineService(backend="sim")
+        service = PipelineOrchestrator(backend="sim")
 
         try:
             # Start capture
@@ -212,7 +212,7 @@ class TestMLDataExport(unittest.TestCase):
 
     def test_video_files_created_with_correct_names(self):
         """Test that video files are created with expected names."""
-        service = InProcessPipelineService(backend="sim")
+        service = PipelineOrchestrator(backend="sim")
 
         try:
             # Start capture
@@ -264,7 +264,7 @@ class TestMLDataExport(unittest.TestCase):
 
     def test_recording_bundle_contains_correct_metadata(self):
         """Test that recording bundle contains all expected metadata."""
-        service = InProcessPipelineService(backend="sim")
+        service = PipelineOrchestrator(backend="sim")
 
         try:
             # Start capture
@@ -308,7 +308,7 @@ class TestMLDataExport(unittest.TestCase):
 
     def test_multiple_recordings_create_separate_directories(self):
         """Test that multiple recordings create separate session directories."""
-        service = InProcessPipelineService(backend="sim")
+        service = PipelineOrchestrator(backend="sim")
 
         try:
             # Start capture once

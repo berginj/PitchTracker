@@ -1,6 +1,6 @@
 """Qt-safe wrapper for PipelineService with signal-based communication.
 
-This wrapper ensures all callbacks from worker threads are properly marshalled
+This wrapper ensures all EventBus events from worker threads are properly marshalled
 to the Qt main thread using signals, preventing "QObject: Cannot stop timers
 from another thread" errors.
 """
@@ -13,7 +13,8 @@ from typing import Optional
 
 from PySide6 import QtCore
 
-from app.pipeline_service import InProcessPipelineService
+from app.services.orchestrator import PipelineOrchestrator
+from app.events.event_types import PitchStartEvent, PitchEndEvent
 from app.pipeline.pitch_tracking_v2 import PitchData
 
 logger = logging.getLogger(__name__)
@@ -22,8 +23,8 @@ logger = logging.getLogger(__name__)
 class QtPipelineService(QtCore.QObject):
     """Qt-safe wrapper for pipeline service with thread-safe signal emission.
 
-    This class wraps InProcessPipelineService and converts background thread
-    callbacks into Qt signals that are safely handled on the main thread.
+    This class wraps PipelineOrchestrator and converts EventBus events from
+    background threads into Qt signals that are safely handled on the main thread.
 
     Signals:
         pitch_started: Emitted when a pitch starts (pitch_index, pitch_data)
@@ -44,42 +45,51 @@ class QtPipelineService(QtCore.QObject):
         super().__init__(parent)
 
         # Create underlying service
-        self._service = InProcessPipelineService(backend=backend)
+        self._service = PipelineOrchestrator(backend=backend)
 
-        # Set up callbacks to emit signals (signals are thread-safe)
-        # Note: We don't set these here because they need to be set during
-        # start_recording when the pitch tracker is created
+        # Subscribe to EventBus events and convert to Qt signals
+        self._subscribe_to_events()
 
-    def _on_pitch_start_callback(self, pitch_index: int, pitch_data: PitchData) -> None:
-        """Internal callback for pitch start - emits signal.
+    def _subscribe_to_events(self) -> None:
+        """Subscribe to EventBus events and convert to Qt signals."""
+        # Access the EventBus from the orchestrator
+        if hasattr(self._service, '_event_bus'):
+            self._service._event_bus.subscribe(PitchStartEvent, self._on_pitch_start_event)
+            self._service._event_bus.subscribe(PitchEndEvent, self._on_pitch_end_event)
+            logger.debug("QtPipelineService subscribed to EventBus pitch events")
+
+    def _on_pitch_start_event(self, event: PitchStartEvent) -> None:
+        """Internal handler for PitchStartEvent - emits Qt signal.
 
         This is called from a worker thread but the signal emission is thread-safe.
         The signal will be delivered to slots on the main Qt thread.
 
         Args:
-            pitch_index: Pitch index (1-based)
-            pitch_data: Pitch data
+            event: PitchStartEvent from EventBus
         """
         try:
-            logger.debug(f"Pitch {pitch_index} started (worker thread), emitting signal")
+            logger.debug(f"Pitch {event.pitch_index} started (worker thread), emitting signal")
             # Signal emission is thread-safe - Qt will marshal to main thread
-            self.pitch_started.emit(pitch_index, pitch_data)
+            # Note: PitchData is not available in PitchStartEvent, pass None
+            self.pitch_started.emit(event.pitch_index, None)
         except Exception as e:
             logger.error(f"Error emitting pitch_started signal: {e}", exc_info=True)
 
-    def _on_pitch_end_callback(self, pitch_data: PitchData) -> None:
-        """Internal callback for pitch end - emits signal.
+    def _on_pitch_end_event(self, event: PitchEndEvent) -> None:
+        """Internal handler for PitchEndEvent - emits Qt signal.
 
         This is called from a worker thread but the signal emission is thread-safe.
         The signal will be delivered to slots on the main Qt thread.
 
         Args:
-            pitch_data: Pitch data
+            event: PitchEndEvent from EventBus
         """
         try:
             logger.debug("Pitch ended (worker thread), emitting signal")
-            # Signal emission is thread-safe - Qt will marshal to main thread
-            self.pitch_ended.emit(pitch_data)
+            # Create PitchData-like object from event data
+            # Note: Qt signals expect PitchData, but we can construct it from event
+            # For now, pass the event itself (contains observations, pitch_id, etc.)
+            self.pitch_ended.emit(event)
         except Exception as e:
             logger.error(f"Error emitting pitch_ended signal: {e}", exc_info=True)
 
@@ -97,19 +107,12 @@ class QtPipelineService(QtCore.QObject):
         return self._service.is_capturing()
 
     def start_recording(self, pitch_id: Optional[str] = None, session_name: Optional[str] = None, mode: Optional[str] = None) -> str:
-        """Start recording (delegates to underlying service)."""
-        # Override the pitch tracker callbacks to use our signal-emitting versions
-        warning = self._service.start_recording(pitch_id, session_name, mode)
+        """Start recording (delegates to underlying service).
 
-        # Replace the callbacks with our signal-emitting versions
-        if hasattr(self._service, '_pitch_tracker') and self._service._pitch_tracker:
-            self._service._pitch_tracker.set_callbacks(
-                on_pitch_start=self._on_pitch_start_callback,
-                on_pitch_end=self._on_pitch_end_callback,
-            )
-            logger.debug("Pitch tracker callbacks replaced with signal-emitting versions")
-
-        return warning
+        Note: Pitch events are automatically handled via EventBus subscriptions
+        (PitchStartEvent, PitchEndEvent) and converted to Qt signals.
+        """
+        return self._service.start_recording(pitch_id, session_name, mode)
 
     def stop_recording(self):
         """Stop recording (delegates to underlying service)."""

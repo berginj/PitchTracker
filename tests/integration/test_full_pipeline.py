@@ -16,7 +16,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from configs.settings import load_config
-from app.pipeline_service import InProcessPipelineService
+from app.services.orchestrator import PipelineOrchestrator
 
 
 class TestFullPipeline(unittest.TestCase):
@@ -48,7 +48,7 @@ class TestFullPipeline(unittest.TestCase):
     def test_full_pipeline_simulated_cameras(self):
         """Test full pipeline: capture → detection → recording → stop."""
         # Create pipeline service with simulated backend
-        service = InProcessPipelineService(backend="sim")
+        service = PipelineOrchestrator(backend="sim")
 
         try:
             # Start capture with simulated cameras
@@ -136,7 +136,7 @@ class TestFullPipeline(unittest.TestCase):
 
     def test_multiple_sessions_sequential(self):
         """Test multiple recording sessions in sequence."""
-        service = InProcessPipelineService(backend="sim")
+        service = PipelineOrchestrator(backend="sim")
 
         try:
             # Start capture once
@@ -183,7 +183,7 @@ class TestFullPipeline(unittest.TestCase):
 
     def test_preview_frames_during_capture(self):
         """Test that preview frames update during capture."""
-        service = InProcessPipelineService(backend="sim")
+        service = PipelineOrchestrator(backend="sim")
 
         try:
             # Start capture
@@ -226,7 +226,7 @@ class TestFullPipeline(unittest.TestCase):
 
     def test_stop_capture_cleans_up_resources(self):
         """Test that stopping capture properly cleans up resources."""
-        service = InProcessPipelineService(backend="sim")
+        service = PipelineOrchestrator(backend="sim")
 
         try:
             # Start capture
@@ -261,7 +261,7 @@ class TestFullPipeline(unittest.TestCase):
 
     def test_recording_without_capture_fails(self):
         """Test that recording fails gracefully if capture not started."""
-        service = InProcessPipelineService(backend="sim")
+        service = PipelineOrchestrator(backend="sim")
 
         # Try to start recording without starting capture first
         with self.assertRaises(Exception):
