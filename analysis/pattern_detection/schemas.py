@@ -52,35 +52,76 @@ class ConsistencyMetrics:
 @dataclass
 class BaselineComparison:
     """Comparison with pitcher baseline profile."""
-    
+
     profile_exists: bool
     velocity_delta_mph: Optional[float] = None
     velocity_status: Optional[str] = None  # above, below, normal
     repertoire_changes: Optional[Dict[str, float]] = None  # % change per pitch type
+    _current_velocity: Optional[float] = None
+    _baseline_velocity: Optional[float] = None
+
+    @property
+    def velocity_vs_baseline(self) -> Optional[Dict]:
+        """Get velocity comparison dict (for compatibility with tests)."""
+        if not self.profile_exists or self.velocity_delta_mph is None:
+            return None
+
+        return {
+            "current": self._current_velocity,
+            "baseline": self._baseline_velocity,
+            "delta_mph": self.velocity_delta_mph,
+            "status": self.velocity_status
+        }
+
+
+@dataclass
+class _ReportSummary:
+    """Summary section for pattern analysis report (for compatibility)."""
+    total_pitches: int
+    anomalies_detected: int
+    pitch_types_detected: int
+    average_velocity_mph: float
+    strike_percentage: float
 
 
 @dataclass
 class PatternAnalysisReport:
     """Complete pattern analysis report for a session."""
-    
+
     schema_version: str
     created_utc: str
     session_id: str
     pitcher_id: Optional[str]
-    
+
     # Summary
     total_pitches: int
     anomalies_detected: int
     pitch_types_detected: int
     average_velocity_mph: float
     strike_percentage: float
-    
+
     # Detailed results
     pitch_classifications: List[PitchClassification]
     anomalies: List[Anomaly]
     pitch_repertoire: List[PitchRepertoire]
     consistency_metrics: ConsistencyMetrics
     baseline_comparison: Optional[BaselineComparison] = None
+
+    @property
+    def summary(self) -> _ReportSummary:
+        """Get summary section (for compatibility with tests)."""
+        return _ReportSummary(
+            total_pitches=self.total_pitches,
+            anomalies_detected=self.anomalies_detected,
+            pitch_types_detected=self.pitch_types_detected,
+            average_velocity_mph=self.average_velocity_mph,
+            strike_percentage=self.strike_percentage
+        )
+
+    @property
+    def pitch_classification(self) -> List[PitchClassification]:
+        """Get pitch classifications (singular name for compatibility)."""
+        return self.pitch_classifications
     
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
