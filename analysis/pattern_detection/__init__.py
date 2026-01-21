@@ -1,17 +1,20 @@
-"""Pattern detection for pitch classification and anomaly detection."""
+"""Pattern detection system for pitch analysis.
 
-from analysis.pattern_detection.detector import PatternDetector
-from analysis.pattern_detection.schemas import (
-    AnalysisReport,
-    Anomaly,
+Analyzes recorded pitch data to detect pitch types, anomalies, and trends.
+"""
+
+from .detector import PatternDetector
+from .schemas import (
     PitchClassification,
-    PitchRepertoireEntry,
+    Anomaly,
+    PitchRepertoire,
+    PatternAnalysisReport,
 )
 
 __all__ = [
     "PatternDetector",
-    "AnalysisReport",
-    "Anomaly",
     "PitchClassification",
-    "PitchRepertoireEntry",
+    "Anomaly",
+    "PitchRepertoire",
+    "PatternAnalysisReport",
 ]
