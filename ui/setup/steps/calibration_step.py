@@ -1,4 +1,4 @@
-"""Step 2: Stereo Calibration - Capture checkerboard images and calibrate."""
+"""Step 2: Stereo Calibration - Capture ChArUco board images and calibrate."""
 
 from __future__ import annotations
 
@@ -52,11 +52,11 @@ class CalibrationWorker(QtCore.QThread):
 
 
 class CalibrationStep(BaseStep):
-    """Step 2: Stereo calibration with checkerboard pattern.
+    """Step 2: Stereo calibration with ChArUco board pattern.
 
     Workflow:
     1. Show live preview from both cameras
-    2. Detect checkerboard in real-time
+    2. Detect ChArUco board in real-time (robust to partial occlusion)
     3. Capture image pairs when user clicks "Capture"
     4. Run calibration when minimum images captured
     5. Show results and save to config
@@ -108,8 +108,8 @@ class CalibrationStep(BaseStep):
         # Instructions
         instructions = QtWidgets.QLabel(
             "<b style='font-size: 12pt;'>Stereo Calibration - Need 10+ Image Pairs</b><br><br>"
-            "<b>1.</b> Position checkerboard in the overlapping field of view between both cameras<br>"
-            "<b>2.</b> Board can be distant/small - it doesn't need to fill the frame<br>"
+            "<b>1.</b> Position ChArUco board in the overlapping field of view between both cameras<br>"
+            "<b>2.</b> Board can be distant/small or partially visible - ChArUco is robust to occlusion<br>"
             "<b>3.</b> When BOTH indicators turn <b>GREEN</b>, click <b>'Capture'</b><br>"
             "<b>4.</b> Move board to different positions, angles, and depths (near/far)<br>"
             "<b>5.</b> Capture at least 10 poses covering the tracking volume<br>"
@@ -261,8 +261,8 @@ class CalibrationStep(BaseStep):
         container = QtWidgets.QWidget()
         main_layout = QtWidgets.QVBoxLayout()
 
-        # Checkerboard settings
-        board_group = QtWidgets.QGroupBox("Checkerboard Settings")
+        # ChArUco board settings
+        board_group = QtWidgets.QGroupBox("ChArUco Board Settings")
         board_layout = QtWidgets.QHBoxLayout()
 
         # Pattern size
@@ -598,9 +598,9 @@ class CalibrationStep(BaseStep):
     def _update_pattern_info(self) -> None:
         """Update the pattern info label."""
         self._pattern_info.setText(
-            f"<b>Looking for:</b> {self._pattern_cols}x{self._pattern_rows} checkerboard (internal corners). "
-            f"<b>Stereo tip:</b> Board doesn't need to fill frame - move it to different positions "
-            f"and angles in the shared view area between cameras. Capture 10+ poses for good calibration."
+            f"<b>Looking for:</b> {self._pattern_cols}x{self._pattern_rows} ChArUco board (squares with ArUco markers). "
+            f"<b>Stereo tip:</b> Board can be partially visible - ChArUco is robust to occlusion. "
+            f"Move it to different positions and angles in the shared view area. Capture 10+ poses for good calibration."
         )
 
     def _toggle_flip(self, camera: str, checked: bool) -> None:
@@ -931,7 +931,7 @@ class CalibrationStep(BaseStep):
         )
 
     def _update_preview(self) -> None:
-        """Update camera previews and check for checkerboard."""
+        """Update camera previews and check for ChArUco board."""
         if not self._left_camera or not self._right_camera:
             return
 
@@ -943,9 +943,9 @@ class CalibrationStep(BaseStep):
             if left_frame is None or right_frame is None:
                 return
 
-            # Check for checkerboard in both
-            left_detected, left_image = self._detect_checkerboard(left_frame.image)
-            right_detected, right_image = self._detect_checkerboard(right_frame.image)
+            # Check for ChArUco board in both cameras
+            left_detected, left_image = self._detect_charuco(left_frame.image)
+            right_detected, right_image = self._detect_charuco(right_frame.image)
 
             # Update previews
             self._update_view(self._left_view, left_image)
@@ -953,17 +953,17 @@ class CalibrationStep(BaseStep):
 
             # Update status indicators
             if left_detected:
-                self._left_status.setText("● Checkerboard detected")
+                self._left_status.setText("● ChArUco board detected")
                 self._left_status.setStyleSheet("color: green; font-weight: bold;")
             else:
-                self._left_status.setText("● No checkerboard")
+                self._left_status.setText("● No ChArUco board")
                 self._left_status.setStyleSheet("color: red; font-weight: bold;")
 
             if right_detected:
-                self._right_status.setText("● Checkerboard detected")
+                self._right_status.setText("● ChArUco board detected")
                 self._right_status.setStyleSheet("color: green; font-weight: bold;")
             else:
-                self._right_status.setText("● No checkerboard")
+                self._right_status.setText("● No ChArUco board")
                 self._right_status.setStyleSheet("color: red; font-weight: bold;")
 
             # Enable capture if both detected
@@ -972,8 +972,8 @@ class CalibrationStep(BaseStep):
         except Exception:
             pass
 
-    def _detect_checkerboard(self, image: np.ndarray) -> tuple[bool, np.ndarray]:
-        """Detect checkerboard and draw corners.
+    def _detect_charuco(self, image: np.ndarray) -> tuple[bool, np.ndarray]:
+        """Detect ChArUco board and draw corners.
 
         Returns:
             (detected, annotated_image)
@@ -984,48 +984,30 @@ class CalibrationStep(BaseStep):
         else:
             gray = image.copy()
 
-        # Find checkerboard corners with multiple strategies
-        pattern_size = (self._pattern_cols, self._pattern_rows)
-        found = False
-        corners = None
-
-        # Strategy 1: Fast check with adaptive threshold (fastest, good for clear images)
-        flags = (
-            cv2.CALIB_CB_ADAPTIVE_THRESH +
-            cv2.CALIB_CB_NORMALIZE_IMAGE +
-            cv2.CALIB_CB_FAST_CHECK
-        )
-        found, corners = cv2.findChessboardCorners(gray, pattern_size, flags)
-
-        # Strategy 2: Without fast check (slower, more thorough)
-        if not found:
-            flags = cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE
-            found, corners = cv2.findChessboardCorners(gray, pattern_size, flags)
-
-        # Strategy 3: With filtering for distant/small boards
-        if not found:
-            flags = (
-                cv2.CALIB_CB_ADAPTIVE_THRESH +
-                cv2.CALIB_CB_NORMALIZE_IMAGE +
-                cv2.CALIB_CB_FILTER_QUADS
-            )
-            found, corners = cv2.findChessboardCorners(gray, pattern_size, flags)
-
-        # Prepare annotated image - convert to BGR if grayscale for drawing
+        # Prepare annotated image
         if len(image.shape) == 2:
             annotated = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
         else:
             annotated = image.copy()
 
-        # Draw corners if found
-        if found and corners is not None:
-            # Refine corner positions for better accuracy
-            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-            corners_refined = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-            cv2.drawChessboardCorners(annotated, pattern_size, corners_refined, found)
-        else:
-            # Draw hint text when not detected
-            hint_text = f"Move {self._pattern_cols}x{self._pattern_rows} board into shared view"
+        # Get ArUco dictionary and detector parameters
+        aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+
+        # Try newer API first (OpenCV 4.7+)
+        try:
+            detector_params = cv2.aruco.DetectorParameters()
+            detector = cv2.aruco.ArucoDetector(aruco_dict, detector_params)
+            marker_corners, marker_ids, rejected = detector.detectMarkers(gray)
+        except AttributeError:
+            # Fall back to older API
+            detector_params = cv2.aruco.DetectorParameters_create()
+            marker_corners, marker_ids, rejected = cv2.aruco.detectMarkers(
+                gray, aruco_dict, parameters=detector_params
+            )
+
+        # Check if any markers were detected
+        if marker_ids is None or len(marker_ids) == 0:
+            hint_text = f"Move {self._pattern_cols}x{self._pattern_rows} ChArUco board into shared view"
             cv2.putText(
                 annotated,
                 hint_text,
@@ -1035,8 +1017,73 @@ class CalibrationStep(BaseStep):
                 (0, 0, 255),
                 2
             )
+            return False, annotated
 
-        return found, annotated
+        # Draw detected markers
+        cv2.aruco.drawDetectedMarkers(annotated, marker_corners, marker_ids)
+
+        # Create ChArUco board
+        try:
+            # Try newer API first (OpenCV 4.7+)
+            board = cv2.aruco.CharucoBoard(
+                (self._pattern_cols, self._pattern_rows),
+                self._square_size,
+                self._square_size * 0.75,  # Marker size is 75% of square
+                aruco_dict
+            )
+        except (AttributeError, TypeError):
+            # Fall back to older API
+            board = cv2.aruco.CharucoBoard_create(
+                self._pattern_cols,
+                self._pattern_rows,
+                self._square_size,
+                self._square_size * 0.75,
+                aruco_dict
+            )
+
+        # Interpolate ChArUco corners
+        try:
+            # Try newer API first (OpenCV 4.7+)
+            num_corners, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
+                marker_corners, marker_ids, gray, board
+            )
+        except TypeError:
+            # Fall back to older API
+            num_corners, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
+                marker_corners, marker_ids, gray, board
+            )
+
+        # Check if enough corners were detected
+        # Need at least 4 corners for calibration
+        MIN_CORNERS = 4
+        if num_corners is not None and num_corners >= MIN_CORNERS:
+            # Draw ChArUco corners
+            cv2.aruco.drawDetectedCornersCharuco(annotated, charuco_corners, charuco_ids, (0, 255, 0))
+
+            # Add corner count indicator
+            cv2.putText(
+                annotated,
+                f"Corners: {num_corners}",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 0),
+                2
+            )
+            return True, annotated
+        else:
+            # Not enough corners detected
+            corner_count = num_corners if num_corners is not None else 0
+            cv2.putText(
+                annotated,
+                f"Need {MIN_CORNERS}+ corners (found {corner_count})",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 165, 255),  # Orange
+                2
+            )
+            return False, annotated
 
     def _update_view(self, label: QtWidgets.QLabel, image: np.ndarray) -> None:
         """Update QLabel with image."""

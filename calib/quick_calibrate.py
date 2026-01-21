@@ -16,8 +16,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", type=Path, default=Path("configs/default.yaml"))
     parser.add_argument("--left", type=Path, nargs="+", required=True, help="Left image paths.")
     parser.add_argument("--right", type=Path, nargs="+", required=True, help="Right image paths.")
-    parser.add_argument("--pattern", default="9x6", help="Checkerboard pattern colsxrows.")
-    parser.add_argument("--square-mm", type=float, required=True, help="Checkerboard square size in mm.")
+    parser.add_argument("--pattern", default="9x6", help="ChArUco board pattern colsxrows (number of squares).")
+    parser.add_argument("--square-mm", type=float, required=True, help="ChArUco board square size in mm.")
     parser.add_argument("--write", action="store_true", help="Write calibration to config.")
     return parser.parse_args()
 
@@ -30,8 +30,9 @@ def _parse_pattern(pattern: str) -> Tuple[int, int]:
 def _collect_corners(
     paths: List[Path],
     pattern_size: Tuple[int, int],
+    square_mm: float,
 ) -> Tuple[List[np.ndarray], List[np.ndarray], Tuple[int, int], List[int]]:
-    """Detect checkerboard corners in images.
+    """Detect ChArUco board corners in images.
 
     Returns:
         objpoints: Object points for successful detections
@@ -44,10 +45,38 @@ def _collect_corners(
     success_indices: List[int] = []
     img_size: Tuple[int, int] | None = None
 
-    objp = np.zeros((pattern_size[0] * pattern_size[1], 3), np.float32)
-    objp[:, :2] = np.mgrid[0 : pattern_size[0], 0 : pattern_size[1]].T.reshape(-1, 2)
+    # Create ChArUco board
+    aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
 
-    print(f"Processing {len(paths)} images for corner detection...")
+    try:
+        # Try newer API first (OpenCV 4.7+)
+        board = cv2.aruco.CharucoBoard(
+            (pattern_size[0], pattern_size[1]),
+            square_mm,
+            square_mm * 0.75,  # Marker size is 75% of square
+            aruco_dict
+        )
+    except (AttributeError, TypeError):
+        # Fall back to older API
+        board = cv2.aruco.CharucoBoard_create(
+            pattern_size[0],
+            pattern_size[1],
+            square_mm,
+            square_mm * 0.75,
+            aruco_dict
+        )
+
+    # Get detector parameters
+    try:
+        # Try newer API first (OpenCV 4.7+)
+        detector_params = cv2.aruco.DetectorParameters()
+        detector = cv2.aruco.ArucoDetector(aruco_dict, detector_params)
+    except AttributeError:
+        # Fall back to older API
+        detector_params = cv2.aruco.DetectorParameters_create()
+        detector = None
+
+    print(f"Processing {len(paths)} images for ChArUco corner detection...")
     for i, path in enumerate(paths):
         print(f"  [{i+1}/{len(paths)}] {path.name}...", end=" ", flush=True)
         image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
@@ -55,23 +84,56 @@ def _collect_corners(
             print("❌ Failed to load")
             continue
         img_size = (image.shape[1], image.shape[0])
-        found, corners = cv2.findChessboardCorners(image, pattern_size)
-        if not found:
-            print("❌ No corners")
-            continue
-        corners = cv2.cornerSubPix(
-            image,
-            corners,
-            winSize=(11, 11),
-            zeroZone=(-1, -1),
-            criteria=(cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001),
-        )
-        objpoints.append(objp.copy())
-        imgpoints.append(corners)
-        success_indices.append(i)
-        print("✓")
 
-    print(f"Found corners in {len(objpoints)} images")
+        # Detect ArUco markers
+        if detector is not None:
+            # Newer API
+            marker_corners, marker_ids, rejected = detector.detectMarkers(image)
+        else:
+            # Older API
+            marker_corners, marker_ids, rejected = cv2.aruco.detectMarkers(
+                image, aruco_dict, parameters=detector_params
+            )
+
+        # Check if any markers were detected
+        if marker_ids is None or len(marker_ids) == 0:
+            print("❌ No markers")
+            continue
+
+        # Interpolate ChArUco corners
+        try:
+            # Try newer API first (OpenCV 4.7+)
+            num_corners, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
+                marker_corners, marker_ids, image, board
+            )
+        except TypeError:
+            # Fall back to older API
+            num_corners, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
+                marker_corners, marker_ids, image, board
+            )
+
+        # Check if enough corners were detected (need at least 4 for calibration)
+        MIN_CORNERS = 4
+        if num_corners is None or num_corners < MIN_CORNERS:
+            corner_count = num_corners if num_corners is not None else 0
+            print(f"❌ Not enough corners ({corner_count}/{MIN_CORNERS})")
+            continue
+
+        # Create object points for detected corners
+        # ChArUco gives us corner IDs, so we use the board's chessboard corners
+        try:
+            # Newer API
+            obj_pts = board.getChessboardCorners()[charuco_ids.flatten()]
+        except AttributeError:
+            # Older API
+            obj_pts = board.chessboardCorners[charuco_ids.flatten()]
+
+        objpoints.append(obj_pts)
+        imgpoints.append(charuco_corners)
+        success_indices.append(i)
+        print(f"✓ ({num_corners} corners)")
+
+    print(f"Found ChArUco corners in {len(objpoints)} images")
     if img_size is None:
         raise RuntimeError("No valid images found for calibration.")
     return objpoints, imgpoints, img_size, success_indices
@@ -222,29 +284,29 @@ def _rate_calibration_quality(rms_error: float, num_images: int) -> dict:
     # Add specific recommendations based on metrics
     if rms_error > 1.0:
         recommendations.extend([
-            "• Hold checkerboard steadier during capture",
-            "• Ensure checkerboard is perfectly flat (no warping)",
+            "• Hold ChArUco board steadier during capture",
+            "• Ensure ChArUco board is perfectly flat (no warping)",
             "• Check camera focus is sharp",
             "• Improve lighting (even, no shadows or glare)",
         ])
 
     if num_images < MIN_IMAGES_ACCEPTABLE:
         recommendations.append(f"⚠️  Critical: Need at least {MIN_IMAGES_ACCEPTABLE} images (have {num_images})")
-        recommendations.append("• Recapture with checkerboard visible in BOTH cameras")
+        recommendations.append("• Recapture with ChArUco board visible in BOTH cameras")
     elif num_images < MIN_IMAGES_GOOD:
         recommendations.append(f"• Capture {MIN_IMAGES_GOOD - num_images} more images for better quality")
 
     if rms_error > 2.0:
         recommendations.extend([
             "• Try recalibrating from scratch",
-            "• Verify checkerboard dimensions are correct (measure square size)",
+            "• Verify ChArUco board dimensions are correct (measure square size)",
             "• Check for lens distortion or damage",
-            "• Ensure checkerboard pattern size matches actual board (count inner corners)",
+            "• Ensure ChArUco board pattern size matches actual board (count squares)",
         ])
 
     # Add positional coverage recommendations if borderline
     if MIN_IMAGES_ACCEPTABLE <= num_images < MIN_IMAGES_GOOD or rms_error > GOOD_RMS:
-        recommendations.append("• Vary checkerboard positions: center, corners, near, far, tilted")
+        recommendations.append("• Vary ChArUco board positions: center, corners, near, far, tilted")
 
     return {
         "rating": rating,
@@ -267,9 +329,9 @@ def _calibrate(
     RECOMMENDED_PAIRS = 15
 
     print("\n=== LEFT CAMERA ===")
-    left_obj, left_img, img_size, left_indices = _collect_corners(left_paths, pattern_size)
+    left_obj, left_img, img_size, left_indices = _collect_corners(left_paths, pattern_size, square_mm)
     print("\n=== RIGHT CAMERA ===")
-    right_obj, right_img, _, right_indices = _collect_corners(right_paths, pattern_size)
+    right_obj, right_img, _, right_indices = _collect_corners(right_paths, pattern_size, square_mm)
 
     # Match pairs where both cameras detected corners
     print("\n=== MATCHING STEREO PAIRS ===")
@@ -290,13 +352,13 @@ def _calibrate(
 
     if num_pairs == 0:
         raise RuntimeError(
-            "No matching image pairs found. Ensure checkerboard is visible in BOTH cameras for all images."
+            "No matching image pairs found. Ensure ChArUco board is visible in BOTH cameras for all images."
         )
 
     if num_pairs < MIN_PAIRS:
         raise RuntimeError(
             f"Insufficient matching pairs ({num_pairs} found, need at least {MIN_PAIRS}). "
-            f"Recapture more images with checkerboard visible in BOTH cameras."
+            f"Recapture more images with ChArUco board visible in BOTH cameras."
         )
 
     if num_pairs < RECOMMENDED_PAIRS:
@@ -305,10 +367,9 @@ def _calibrate(
 
     print(f"\nCalibrating with {num_pairs} matched image pairs...")
 
-    # Scale object points by square size
-    objp_scaled = objpoints[0].copy()
-    objp_scaled[:, :2] *= float(square_mm)
-    objpoints_scaled = [objp_scaled for _ in objpoints]
+    # ChArUco object points are already scaled by square_mm in the board definition
+    # No additional scaling needed
+    objpoints_scaled = objpoints
 
     print("Calibrating left camera intrinsics...", flush=True)
     _, mtx_left, dist_left, _, _ = cv2.calibrateCamera(
