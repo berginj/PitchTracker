@@ -5,5 +5,6 @@ and disk space monitoring.
 """
 
 from .interface import RecordingService, RecordingCallback
+from .implementation import RecordingServiceImpl
 
-__all__ = ["RecordingService", "RecordingCallback"]
+__all__ = ["RecordingService", "RecordingCallback", "RecordingServiceImpl"]

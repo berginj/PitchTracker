@@ -5,5 +5,6 @@ and reconnection handling.
 """
 
 from .interface import CaptureService, FrameCallback, CameraStateCallback
+from .implementation import CaptureServiceImpl
 
-__all__ = ["CaptureService", "FrameCallback", "CameraStateCallback"]
+__all__ = ["CaptureService", "FrameCallback", "CameraStateCallback", "CaptureServiceImpl"]

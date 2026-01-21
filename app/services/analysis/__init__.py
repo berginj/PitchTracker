@@ -5,5 +5,6 @@ pattern detection, and strike zone calculation.
 """
 
 from .interface import AnalysisService
+from .implementation import AnalysisServiceImpl
 
-__all__ = ["AnalysisService"]
+__all__ = ["AnalysisService", "AnalysisServiceImpl"]

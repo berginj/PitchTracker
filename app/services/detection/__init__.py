@@ -5,5 +5,6 @@ and observation generation.
 """
 
 from .interface import DetectionService, ObservationCallback
+from .implementation import DetectionServiceImpl
 
-__all__ = ["DetectionService", "ObservationCallback"]
+__all__ = ["DetectionService", "ObservationCallback", "DetectionServiceImpl"]
