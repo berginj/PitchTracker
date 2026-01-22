@@ -15,6 +15,9 @@ configs/locations/
 alignment_checks/
 screenshots/
 
+# Benchmark results
+benchmarks/results_*.json
+
 # Build artifacts
 build/
 dist/

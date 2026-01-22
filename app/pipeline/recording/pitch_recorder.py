@@ -52,8 +52,11 @@ class PitchRecorder:
         # Pre-roll buffers
         pre_roll_ns = int(config.recording.pre_roll_ms * 1e6)
         self._pre_roll_ns = pre_roll_ns
-        self._pre_roll_left: deque[Frame] = deque()
-        self._pre_roll_right: deque[Frame] = deque()
+
+        # Calculate max frames for pre-roll based on config (with 20% safety margin)
+        max_pre_roll_frames = int(config.recording.pre_roll_ms * config.camera.fps / 1000 * 1.2)
+        self._pre_roll_left: deque[Frame] = deque(maxlen=max_pre_roll_frames)
+        self._pre_roll_right: deque[Frame] = deque(maxlen=max_pre_roll_frames)
 
         # Post-roll tracking
         post_roll_ns = int(config.recording.post_roll_ms * 1e6)
@@ -299,9 +302,44 @@ class PitchRecorder:
 
     def _open_writers(self) -> None:
         """Open video writers and CSV files."""
-        left_path = self._pitch_dir / "left.avi"
-        right_path = self._pitch_dir / "right.avi"
-        fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+        # Try H.264 first (better compression, hardware acceleration if available)
+        # Fall back to MJPEG if H.264 not supported
+        codec_options = [
+            ("H264", ".mp4"),   # H.264 codec - 5-10x better compression
+            ("avc1", ".mp4"),   # Alternative H.264 fourcc
+            ("MJPG", ".avi"),   # Fallback to MJPEG
+        ]
+
+        fourcc = None
+        extension = None
+        for codec, ext in codec_options:
+            test_fourcc = cv2.VideoWriter_fourcc(*codec)
+            # Test if codec is supported by trying to open a writer
+            test_writer = cv2.VideoWriter(
+                "test.tmp",
+                test_fourcc,
+                self._config.camera.fps,
+                (self._config.camera.width, self._config.camera.height),
+                True,
+            )
+            if test_writer.isOpened():
+                fourcc = test_fourcc
+                extension = ext
+                test_writer.release()
+                import os
+                if os.path.exists("test.tmp"):
+                    os.remove("test.tmp")
+                logger.info(f"Using video codec: {codec} (extension: {extension})")
+                break
+            test_writer.release()
+
+        if fourcc is None:
+            logger.warning("No supported video codec found, defaulting to MJPEG")
+            fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+            extension = ".avi"
+
+        left_path = self._pitch_dir / f"left{extension}"
+        right_path = self._pitch_dir / f"right{extension}"
 
         self._left_writer = cv2.VideoWriter(
             str(left_path),

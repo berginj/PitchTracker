@@ -391,8 +391,8 @@ class SessionRecorder:
         Raises:
             RuntimeError: If no codec works
         """
-        # Try codecs in order of preference
-        codec_list = ["MJPG", "XVID", "H264", "MP4V"]
+        # Try codecs in order of preference (H.264 first for better compression)
+        codec_list = ["H264", "avc1", "XVID", "MP4V", "MJPG"]
 
         for codec_name in codec_list:
             fourcc = cv2.VideoWriter_fourcc(*codec_name)
