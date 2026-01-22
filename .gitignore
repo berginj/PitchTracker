@@ -13,6 +13,7 @@ configs/locations/
 
 # Test artifacts
 alignment_checks/
+screenshots/
 
 # Build artifacts
 build/
