@@ -4,8 +4,7 @@
 This script properly sets up the Python path and launches the PitchTracker application.
 
 Usage:
-    python launch_app.py              # Launch with simulated backend
-    python launch_app.py --backend opencv  # Launch with real cameras
+    python launch_app.py
 """
 
 import sys
@@ -15,7 +14,7 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-# Import and run main window
+# Import and run launcher
 if __name__ == "__main__":
-    from ui.main_window import main
+    from launcher import main
     sys.exit(main())
