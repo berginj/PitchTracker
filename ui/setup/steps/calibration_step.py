@@ -74,8 +74,8 @@ class CalibrationStep(BaseStep):
         self._left_serial: Optional[str] = None
         self._right_serial: Optional[str] = None
 
-        # Calibration settings
-        self._pattern_cols = 8
+        # Calibration settings (must match generated board in alignment_checks/test_charuco_board.png)
+        self._pattern_cols = 9  # Changed from 8 to match generated board (9x6)
         self._pattern_rows = 6
         self._square_mm = 30.0  # 30mm square size
         self._min_captures = 10
