@@ -3,6 +3,7 @@
 
 import sys
 from importlib import import_module
+from importlib.metadata import version as get_version
 
 REQUIRED_PACKAGES = [
     ('cv2', 'opencv-contrib-python'),
@@ -27,8 +28,12 @@ def check_dependencies():
 
     for module_name, package_name in REQUIRED_PACKAGES:
         try:
-            mod = import_module(module_name)
-            version = getattr(mod, '__version__', 'unknown')
+            import_module(module_name)
+            # Use importlib.metadata to avoid deprecation warnings
+            try:
+                version = get_version(package_name)
+            except Exception:
+                version = 'unknown'
             installed.append((package_name, version))
             print(f"[OK] {package_name:25} {version}")
         except ImportError:
