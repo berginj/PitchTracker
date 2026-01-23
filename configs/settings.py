@@ -29,6 +29,10 @@ class CameraConfig:
     color_mode: bool = True  # Enable color video capture
     flip_left: bool = False  # Rotate left camera 180° (upside down mount)
     flip_right: bool = False  # Rotate right camera 180° (upside down mount)
+    rotation_left: float = 0.0  # Software rotation correction (degrees)
+    rotation_right: float = 0.0  # Software rotation correction (degrees)
+    vertical_offset_px: int = 0  # Vertical alignment offset (pixels)
+    alignment_quality: Optional[Dict] = None  # Alignment diagnostics (populated by alignment check)
 
 
 @dataclass(frozen=True)
