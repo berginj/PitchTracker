@@ -643,8 +643,15 @@ class CalibrationStep(BaseStep):
 
         if camera == "left":
             data["camera"]["flip_left"] = checked
+            # Clear rotation correction since alignment will be rechecked after flip
+            data["camera"]["rotation_left"] = 0.0
         else:
             data["camera"]["flip_right"] = checked
+            # Clear rotation correction since alignment will be rechecked after flip
+            data["camera"]["rotation_right"] = 0.0
+
+        # Also clear vertical offset since camera orientation changed
+        data["camera"]["vertical_offset_px"] = 0
 
         self._config_path.write_text(yaml.safe_dump(data, sort_keys=False))
 
@@ -768,13 +775,22 @@ class CalibrationStep(BaseStep):
             if not self._left_serial or not self._right_serial:
                 raise ValueError("Camera serials not set. Please select cameras in Step 1.")
 
-            # Read flip and rotation settings from config
+            # Read camera settings from config
             import yaml
             config_data = yaml.safe_load(self._config_path.read_text())
-            flip_left = config_data.get("camera", {}).get("flip_left", False)
-            flip_right = config_data.get("camera", {}).get("flip_right", False)
-            rotation_left = config_data.get("camera", {}).get("rotation_left", 0.0)
-            rotation_right = config_data.get("camera", {}).get("rotation_right", 0.0)
+
+            # Resolution and framerate from config
+            camera_config = config_data.get("camera", {})
+            width = camera_config.get("width", 1280)
+            height = camera_config.get("height", 720)
+            fps = camera_config.get("fps", 60)
+            pixfmt = camera_config.get("pixfmt", "GRAY8")
+
+            # Flip and rotation settings
+            flip_left = camera_config.get("flip_left", False)
+            flip_right = camera_config.get("flip_right", False)
+            rotation_left = camera_config.get("rotation_left", 0.0)
+            rotation_right = camera_config.get("rotation_right", 0.0)
 
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
@@ -799,9 +815,9 @@ class CalibrationStep(BaseStep):
                 print(f"DEBUG: Opening right camera with index: {right_index} (flip={flip_right})")
                 self._right_camera.open(right_index)
 
-                # Configure cameras with basic settings including flip and rotation correction
-                self._left_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_left, rotation_correction=rotation_left)
-                self._right_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_right, rotation_correction=rotation_right)
+                # Configure cameras with settings from config including flip and rotation correction
+                self._left_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_left, rotation_correction=rotation_left)
+                self._right_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_right, rotation_correction=rotation_right)
 
             else:  # uvc
                 from capture import UvcCamera
@@ -834,9 +850,9 @@ class CalibrationStep(BaseStep):
                         else:
                             raise
 
-                # Configure cameras with basic settings including flip and rotation correction
-                self._left_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_left, rotation_correction=rotation_left)
-                self._right_camera.set_mode(640, 480, 30, "GRAY8", flip_180=flip_right, rotation_correction=rotation_right)
+                # Configure cameras with settings from config including flip and rotation correction
+                self._left_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_left, rotation_correction=rotation_left)
+                self._right_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_right, rotation_correction=rotation_right)
 
             # Update status labels to show which camera is assigned to which position
             self._left_status.setText(f"● {self._left_serial}")
