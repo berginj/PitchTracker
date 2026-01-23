@@ -95,6 +95,12 @@ class CalibrationStep(BaseStep):
         self._baseline_alignment: Optional = None  # Baseline from first capture (drift detection)
         self._warmup_attempts: int = 0  # Camera warmup retry counter
 
+        # Detection optimization (prevent processing loop)
+        self._cached_dict_name: Optional[str] = None  # Best dictionary found
+        self._dict_scan_counter: int = 0  # Only rescan every N frames
+        self._last_auto_detect_time: float = 0  # Debounce auto-detection
+        self._detection_log_counter: int = 0  # Reduce log spam
+
         self._build_ui()
 
         # Preview timer
@@ -1245,7 +1251,7 @@ class CalibrationStep(BaseStep):
         else:
             annotated = image.copy()
 
-        # Try multiple ArUco dictionaries (board might use different dictionary than expected)
+        # Dictionary detection with caching to prevent processing loop
         DICTIONARIES_TO_TRY = [
             ('DICT_6X6_250', cv2.aruco.DICT_6X6_250),
             ('DICT_5X5_250', cv2.aruco.DICT_5X5_250),
@@ -1257,27 +1263,101 @@ class CalibrationStep(BaseStep):
             ('DICT_ARUCO_ORIGINAL', cv2.aruco.DICT_ARUCO_ORIGINAL),
         ]
 
-        best_marker_corners = None
-        best_marker_ids = None
-        best_rejected = None
-        best_dict_name = 'DICT_6X6_250'
-        best_marker_count = 0
+        # Increment frame counter
+        self._dict_scan_counter += 1
 
-        print(f"[ChArUco Detection] Trying {len(DICTIONARIES_TO_TRY)} dictionaries...")
+        # Only rescan all dictionaries every 60 frames (~2 seconds at 30fps) or if no cached dict
+        if self._cached_dict_name is None or self._dict_scan_counter >= 60:
+            self._dict_scan_counter = 0
 
-        for dict_name, dict_id in DICTIONARIES_TO_TRY:
+            best_marker_corners = None
+            best_marker_ids = None
+            best_rejected = None
+            best_dict_name = 'DICT_6X6_250'
+            best_marker_count = 0
+
+            # Log only on full scan
+            if self._detection_log_counter % 10 == 0:
+                print(f"[ChArUco Detection] Scanning {len(DICTIONARIES_TO_TRY)} dictionaries...")
+
+            for dict_name, dict_id in DICTIONARIES_TO_TRY:
+                aruco_dict = cv2.aruco.getPredefinedDictionary(dict_id)
+
+                # Try newer API first (OpenCV 4.7+)
+                try:
+                    detector_params = cv2.aruco.DetectorParameters()
+                    # Make detection more permissive
+                    detector_params.adaptiveThreshWinSizeMin = 3
+                    detector_params.adaptiveThreshWinSizeMax = 23
+                    detector_params.adaptiveThreshWinSizeStep = 10
+                    detector_params.adaptiveThreshConstant = 7
+                    detector_params.minMarkerPerimeterRate = 0.03
+                    detector_params.maxMarkerPerimeterRate = 4.0
+                    detector_params.polygonalApproxAccuracyRate = 0.05
+                    detector_params.minCornerDistanceRate = 0.05
+                    detector_params.minDistanceToBorder = 3
+                    detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
+                    detector_params.cornerRefinementWinSize = 5
+                    detector_params.cornerRefinementMaxIterations = 30
+                    detector_params.cornerRefinementMinAccuracy = 0.1
+
+                    detector = cv2.aruco.ArucoDetector(aruco_dict, detector_params)
+                    marker_corners, marker_ids, rejected = detector.detectMarkers(gray)
+                except AttributeError:
+                    # Fall back to older API
+                    detector_params = cv2.aruco.DetectorParameters_create()
+                    detector_params.adaptiveThreshWinSizeMin = 3
+                    detector_params.adaptiveThreshWinSizeMax = 23
+                    detector_params.adaptiveThreshWinSizeStep = 10
+                    detector_params.adaptiveThreshConstant = 7
+                    detector_params.minMarkerPerimeterRate = 0.03
+                    detector_params.maxMarkerPerimeterRate = 4.0
+                    detector_params.polygonalApproxAccuracyRate = 0.05
+                    detector_params.minCornerDistanceRate = 0.05
+                    detector_params.minDistanceToBorder = 3
+                    detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
+                    detector_params.cornerRefinementWinSize = 5
+                    detector_params.cornerRefinementMaxIterations = 30
+                    detector_params.cornerRefinementMinAccuracy = 0.1
+
+                    marker_corners, marker_ids, rejected = cv2.aruco.detectMarkers(
+                        gray, aruco_dict, parameters=detector_params
+                    )
+
+                # Check if this dictionary found more markers
+                num_found = len(marker_ids) if marker_ids is not None else 0
+                if num_found > best_marker_count:
+                    best_marker_count = num_found
+                    best_marker_corners = marker_corners
+                    best_marker_ids = marker_ids
+                    best_rejected = rejected
+                    best_dict_name = dict_name
+
+            # Cache the best dictionary found
+            self._cached_dict_name = best_dict_name
+            marker_corners = best_marker_corners
+            marker_ids = best_marker_ids
+            rejected = best_rejected
+
+            # Log only occasionally
+            if self._detection_log_counter % 10 == 0:
+                num_detected = len(marker_ids) if marker_ids is not None else 0
+                num_rejected = len(rejected) if rejected is not None and len(rejected) > 0 else 0
+                print(f"[ChArUco Detection] BEST: {best_dict_name} with {num_detected} markers, {num_rejected} rejected")
+        else:
+            # Use cached dictionary for fast detection
+            dict_id = next(d[1] for d in DICTIONARIES_TO_TRY if d[0] == self._cached_dict_name)
             aruco_dict = cv2.aruco.getPredefinedDictionary(dict_id)
 
             # Try newer API first (OpenCV 4.7+)
             try:
                 detector_params = cv2.aruco.DetectorParameters()
-                # Make detection more permissive
                 detector_params.adaptiveThreshWinSizeMin = 3
                 detector_params.adaptiveThreshWinSizeMax = 23
                 detector_params.adaptiveThreshWinSizeStep = 10
                 detector_params.adaptiveThreshConstant = 7
-                detector_params.minMarkerPerimeterRate = 0.03  # Allow smaller markers
-                detector_params.maxMarkerPerimeterRate = 4.0  # Allow larger markers
+                detector_params.minMarkerPerimeterRate = 0.03
+                detector_params.maxMarkerPerimeterRate = 4.0
                 detector_params.polygonalApproxAccuracyRate = 0.05
                 detector_params.minCornerDistanceRate = 0.05
                 detector_params.minDistanceToBorder = 3
@@ -1291,7 +1371,6 @@ class CalibrationStep(BaseStep):
             except AttributeError:
                 # Fall back to older API
                 detector_params = cv2.aruco.DetectorParameters_create()
-                # Make detection more permissive
                 detector_params.adaptiveThreshWinSizeMin = 3
                 detector_params.adaptiveThreshWinSizeMax = 23
                 detector_params.adaptiveThreshWinSizeStep = 10
@@ -1310,30 +1389,20 @@ class CalibrationStep(BaseStep):
                     gray, aruco_dict, parameters=detector_params
                 )
 
-            # Check if this dictionary found more markers
-            num_found = len(marker_ids) if marker_ids is not None else 0
-            if num_found > best_marker_count:
-                best_marker_count = num_found
-                best_marker_corners = marker_corners
-                best_marker_ids = marker_ids
-                best_rejected = rejected
-                best_dict_name = dict_name
-                print(f"[ChArUco Detection] {dict_name}: Found {num_found} markers (NEW BEST!)")
-            elif num_found > 0:
-                print(f"[ChArUco Detection] {dict_name}: Found {num_found} markers")
+        # Get dict name for display (either from cache or from scan)
+        best_dict_name = self._cached_dict_name if self._cached_dict_name else 'DICT_6X6_250'
 
-        # Use best results
-        marker_corners = best_marker_corners
-        marker_ids = best_marker_ids
-        rejected = best_rejected
+        # Increment log counter
+        self._detection_log_counter += 1
+
+        # Get aruco_dict for later use in board creation
         aruco_dict = cv2.aruco.getPredefinedDictionary(
             next(d[1] for d in DICTIONARIES_TO_TRY if d[0] == best_dict_name)
         )
 
-        # Log detailed detection info to console
+        # Get detection counts
         num_detected = len(marker_ids) if marker_ids is not None else 0
         num_rejected = len(rejected) if rejected is not None and len(rejected) > 0 else 0
-        print(f"[ChArUco Detection] BEST: {best_dict_name} with {num_detected} markers, {num_rejected} rejected")
 
         # Calculate blur metric (Laplacian variance) - low values indicate blur
         blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
@@ -1354,7 +1423,6 @@ class CalibrationStep(BaseStep):
             for corners in rejected:
                 pts = corners.reshape((-1, 1, 2)).astype(np.int32)
                 cv2.polylines(annotated, [pts], True, (0, 0, 255), 2)
-            print(f"[ChArUco Detection] Drew {len(rejected)} rejected markers in red")
 
         # Check if any markers were detected
         if marker_ids is None or len(marker_ids) == 0:
@@ -1379,32 +1447,38 @@ class CalibrationStep(BaseStep):
 
             return False, annotated
 
-        # Log which markers were found
-        marker_id_list = marker_ids.flatten().tolist() if marker_ids is not None else []
-        print(f"[ChArUco Detection] Marker IDs found: {marker_id_list}")
+        # Log which markers were found (reduced frequency)
+        if self._detection_log_counter % 30 == 0:
+            marker_id_list = marker_ids.flatten().tolist() if marker_ids is not None else []
+            print(f"[ChArUco Detection] Marker IDs found: {marker_id_list}")
 
         # AUTO-DETECT: Try to infer pattern size from detected markers
-        auto_detected_pattern = self._auto_detect_charuco_pattern(marker_ids)
-        if auto_detected_pattern:
-            auto_cols, auto_rows, auto_square_mm = auto_detected_pattern
-            # Update if different from current settings
-            if (auto_cols != self._pattern_cols or auto_rows != self._pattern_rows or
-                abs(auto_square_mm - self._square_mm) > 0.5):
-                print(f"[ChArUco Detection] AUTO-DETECTED: Pattern {auto_cols}x{auto_rows}, square={auto_square_mm:.1f}mm")
-                self._pattern_cols = auto_cols
-                self._pattern_rows = auto_rows
-                self._square_mm = auto_square_mm
-                # Update UI controls
-                self._pattern_cols_spin.blockSignals(True)
-                self._pattern_rows_spin.blockSignals(True)
-                self._square_spin.blockSignals(True)
-                self._pattern_cols_spin.setValue(auto_cols)
-                self._pattern_rows_spin.setValue(auto_rows)
-                self._square_spin.setValue(auto_square_mm)
-                self._pattern_cols_spin.blockSignals(False)
-                self._pattern_rows_spin.blockSignals(False)
-                self._square_spin.blockSignals(False)
-                self._update_pattern_info()
+        # Debounce to every 3 seconds to prevent UI update loop
+        import time
+        current_time = time.time()
+        if current_time - self._last_auto_detect_time >= 3.0:
+            auto_detected_pattern = self._auto_detect_charuco_pattern(marker_ids)
+            if auto_detected_pattern:
+                auto_cols, auto_rows, auto_square_mm = auto_detected_pattern
+                # Update if different from current settings
+                if (auto_cols != self._pattern_cols or auto_rows != self._pattern_rows or
+                    abs(auto_square_mm - self._square_mm) > 0.5):
+                    print(f"[ChArUco Detection] AUTO-DETECTED: Pattern {auto_cols}x{auto_rows}, square={auto_square_mm:.1f}mm")
+                    self._pattern_cols = auto_cols
+                    self._pattern_rows = auto_rows
+                    self._square_mm = auto_square_mm
+                    # Update UI controls
+                    self._pattern_cols_spin.blockSignals(True)
+                    self._pattern_rows_spin.blockSignals(True)
+                    self._square_spin.blockSignals(True)
+                    self._pattern_cols_spin.setValue(auto_cols)
+                    self._pattern_rows_spin.setValue(auto_rows)
+                    self._square_spin.setValue(auto_square_mm)
+                    self._pattern_cols_spin.blockSignals(False)
+                    self._pattern_rows_spin.blockSignals(False)
+                    self._square_spin.blockSignals(False)
+                    self._update_pattern_info()
+                    self._last_auto_detect_time = current_time
 
         # Draw detected markers in green
         cv2.aruco.drawDetectedMarkers(annotated, marker_corners, marker_ids)
@@ -1429,16 +1503,16 @@ class CalibrationStep(BaseStep):
             )
 
         # Interpolate ChArUco corners
-        print(f"[ChArUco Detection] Creating board {self._pattern_cols}x{self._pattern_rows}, square={self._square_mm}mm, marker={self._square_mm*0.75}mm")
+        # Log only occasionally to avoid spam
+        if self._detection_log_counter % 30 == 0:
+            print(f"[ChArUco Detection] Creating board {self._pattern_cols}x{self._pattern_rows}, square={self._square_mm}mm, marker={self._square_mm*0.75}mm")
         try:
             # Try newer API first (OpenCV 4.7+)
             num_corners, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
                 marker_corners, marker_ids, gray, board
             )
-            print(f"[ChArUco Detection] Corner interpolation result: {num_corners} corners found")
         except TypeError:
             # Fall back to older API
-            print(f"[ChArUco Detection] Using older OpenCV API for corner interpolation")
             num_corners, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
                 marker_corners, marker_ids, gray, board
             )
