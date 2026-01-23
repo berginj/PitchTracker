@@ -47,8 +47,8 @@ class TestCodecFallback(unittest.TestCase):
         # Should return the writer
         self.assertEqual(writer, mock_writer)
 
-        # Should only try MJPG (first codec)
-        mock_fourcc.assert_called_once_with(*"MJPG")
+        # Should only try H264 (first codec in new priority order)
+        mock_fourcc.assert_called_once_with(*"H264")
         mock_writer_class.assert_called_once()
 
     @patch('cv2.VideoWriter')
@@ -73,16 +73,16 @@ class TestCodecFallback(unittest.TestCase):
         # Should return second writer
         self.assertEqual(writer, success_writer)
 
-        # Should try MJPG then XVID
+        # Should try H264 then avc1 (new codec priority order)
         self.assertEqual(mock_fourcc.call_count, 2)
-        mock_fourcc.assert_any_call(*"MJPG")
-        mock_fourcc.assert_any_call(*"XVID")
+        mock_fourcc.assert_any_call(*"H264")
+        mock_fourcc.assert_any_call(*"avc1")
 
         # Should release failed writer
         failed_writer.release.assert_called_once()
 
         # Should log fallback attempt
-        self.assertTrue(any("Codec MJPG failed" in msg for msg in log_context.output))
+        self.assertTrue(any("Codec H264 failed" in msg for msg in log_context.output))
 
     @patch('cv2.VideoWriter')
     @patch('cv2.VideoWriter_fourcc')
@@ -99,17 +99,18 @@ class TestCodecFallback(unittest.TestCase):
         with self.assertRaises(RuntimeError) as context:
             self.recorder._open_video_writer(path, 640, 480, 30)
 
-        # Error message should list attempted codecs
-        self.assertIn("MJPG", str(context.exception))
-        self.assertIn("XVID", str(context.exception))
+        # Error message should list attempted codecs (new priority order has 5 codecs)
         self.assertIn("H264", str(context.exception))
+        self.assertIn("avc1", str(context.exception))
+        self.assertIn("XVID", str(context.exception))
         self.assertIn("MP4V", str(context.exception))
+        self.assertIn("MJPG", str(context.exception))
 
-        # Should have tried all 4 codecs
-        self.assertEqual(mock_writer_class.call_count, 4)
+        # Should have tried all 5 codecs
+        self.assertEqual(mock_writer_class.call_count, 5)
 
         # Should have released all failed writers
-        self.assertEqual(failed_writer.release.call_count, 4)
+        self.assertEqual(failed_writer.release.call_count, 5)
 
     @patch('cv2.VideoWriter')
     @patch('cv2.VideoWriter_fourcc')
@@ -185,7 +186,7 @@ class TestCodecFallback(unittest.TestCase):
     def test_codec_success_logged(self, mock_fourcc, mock_writer_class):
         """Test that successful codec is logged."""
 
-        # MJPG fails, XVID succeeds
+        # H264 fails, avc1 succeeds (new codec priority order)
         failed_writer = Mock()
         failed_writer.isOpened.return_value = False
 
@@ -201,7 +202,7 @@ class TestCodecFallback(unittest.TestCase):
 
         # Should log successful codec
         self.assertTrue(any("Video writer opened successfully" in msg for msg in log_context.output))
-        self.assertTrue(any("XVID" in msg for msg in log_context.output))
+        self.assertTrue(any("avc1" in msg for msg in log_context.output))
 
     @patch('cv2.VideoWriter')
     @patch('cv2.VideoWriter_fourcc')
