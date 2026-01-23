@@ -1299,8 +1299,8 @@ class CalibrationStep(BaseStep):
             # Try newer API first (OpenCV 4.7+)
             board = cv2.aruco.CharucoBoard(
                 (self._pattern_cols, self._pattern_rows),
-                self._square_size,
-                self._square_size * 0.75,  # Marker size is 75% of square
+                self._square_mm,
+                self._square_mm * 0.75,  # Marker size is 75% of square
                 aruco_dict
             )
         except (AttributeError, TypeError):
@@ -1308,8 +1308,8 @@ class CalibrationStep(BaseStep):
             board = cv2.aruco.CharucoBoard_create(
                 self._pattern_cols,
                 self._pattern_rows,
-                self._square_size,
-                self._square_size * 0.75,
+                self._square_mm,
+                self._square_mm * 0.75,
                 aruco_dict
             )
 
