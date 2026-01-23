@@ -335,6 +335,17 @@ class CalibrationStep(BaseStep):
         self._flip_left_btn.clicked.connect(lambda checked: self._toggle_flip("left", checked))
         self._flip_right_btn.clicked.connect(lambda checked: self._toggle_flip("right", checked))
 
+        # Auto-correction checkbox
+        self._auto_correct_checkbox = QtWidgets.QCheckBox("Auto-apply alignment corrections")
+        self._auto_correct_checkbox.setChecked(False)  # OFF by default
+        self._auto_correct_checkbox.setToolTip(
+            "When enabled, automatically apply software corrections for camera rotation and vertical offset.\n"
+            "When disabled, alignment is checked but corrections are NOT applied automatically.\n"
+            "You can manually apply corrections using the alignment widget buttons.\n\n"
+            "Recommendation: Keep OFF unless you understand the alignment diagnostics."
+        )
+        self._auto_correct_checkbox.setStyleSheet("font-weight: bold; color: #D32F2F;")  # Red to emphasize OFF default
+
         # Swap L/R button
         self._swap_lr_btn = QtWidgets.QPushButton("🔄 Swap L/R")
         self._swap_lr_btn.setToolTip("Swap left and right camera assignments")
@@ -388,6 +399,8 @@ class CalibrationStep(BaseStep):
         camera_layout.addWidget(self._flip_left_btn)
         camera_layout.addWidget(self._flip_right_btn)
         camera_layout.addWidget(self._swap_lr_btn)
+        camera_layout.addWidget(QtWidgets.QLabel("  |  "))
+        camera_layout.addWidget(self._auto_correct_checkbox)
         camera_layout.addWidget(QtWidgets.QLabel("  |  "))
         camera_layout.addWidget(baseline_label)
         camera_layout.addWidget(self._baseline_spin)
@@ -1631,13 +1644,18 @@ class CalibrationStep(BaseStep):
             # Update UI based on results
             self._display_alignment_results(results)
 
-            # Automatically apply software corrections if needed
-            if results.rotation_correction_needed or abs(results.vertical_offset_px) > 5:
-                apply_corrections(self._config_path, results)
+            # Automatically apply software corrections if enabled AND needed
+            if self._auto_correct_checkbox.isChecked():
+                if results.rotation_correction_needed or abs(results.vertical_offset_px) > 5:
+                    apply_corrections(self._config_path, results)
 
-                # Restart cameras to apply rotation correction
-                if results.rotation_correction_needed:
-                    self._restart_cameras_after_correction()
+                    # Restart cameras to apply rotation correction
+                    if results.rotation_correction_needed:
+                        self._restart_cameras_after_correction()
+            else:
+                # Show message that auto-corrections are disabled
+                if results.rotation_correction_needed or abs(results.vertical_offset_px) > 5:
+                    print("INFO: Alignment corrections detected but NOT applied (auto-correct is disabled)")
 
             # Enable buttons
             self._recheck_alignment_btn.show()
@@ -1704,13 +1722,18 @@ class CalibrationStep(BaseStep):
             # Update UI based on results (will show quick check badge)
             self._display_alignment_results(results, quick_check=True)
 
-            # Automatically apply software corrections if needed
-            if results.rotation_correction_needed or abs(results.vertical_offset_px) > 5:
-                apply_corrections(self._config_path, results)
+            # Automatically apply software corrections if enabled AND needed
+            if self._auto_correct_checkbox.isChecked():
+                if results.rotation_correction_needed or abs(results.vertical_offset_px) > 5:
+                    apply_corrections(self._config_path, results)
 
-                # Restart cameras to apply rotation correction
-                if results.rotation_correction_needed:
-                    self._restart_cameras_after_correction()
+                    # Restart cameras to apply rotation correction
+                    if results.rotation_correction_needed:
+                        self._restart_cameras_after_correction()
+            else:
+                # Show message that auto-corrections are disabled
+                if results.rotation_correction_needed or abs(results.vertical_offset_px) > 5:
+                    print("INFO: Alignment corrections detected but NOT applied (auto-correct is disabled)")
 
             # Enable buttons
             self._recheck_alignment_btn.show()
