@@ -62,18 +62,27 @@ def detect_anomalies(pitches: List[dict]) -> List[Anomaly]:
         pitch_id = pitch.get('pitch_id', 'unknown')
         
         # Check for poor trajectory fit
-        rmse = pitch.get('rmse_3d_ft', 0)
-        inlier_ratio = pitch.get('inlier_ratio', 1.0)
+        trajectory_error = pitch.get('trajectory_expected_error_ft', None)
+        trajectory_conf = pitch.get('trajectory_confidence', None)
         sample_count = pitch.get('sample_count', 100)
-        
-        if rmse > 0.5 or inlier_ratio < 0.7 or sample_count < 10:
-            severity = "high" if rmse > 1.0 else "medium"
-            
+
+        # Skip if trajectory data not available
+        if trajectory_error is None and trajectory_conf is None:
+            continue
+
+        # Check thresholds
+        has_high_error = trajectory_error is not None and trajectory_error > 0.5
+        has_low_confidence = trajectory_conf is not None and trajectory_conf < 0.7
+        has_low_samples = sample_count < 10
+
+        if has_high_error or has_low_confidence or has_low_samples:
+            severity = "high" if (trajectory_error or 0) > 1.0 else "medium"
+
             issues = []
-            if rmse > 0.5:
-                issues.append(f"high trajectory error ({rmse:.2f} ft)")
-            if inlier_ratio < 0.7:
-                issues.append(f"low inlier ratio ({inlier_ratio:.2f})")
+            if has_high_error:
+                issues.append(f"high trajectory error ({trajectory_error:.2f} ft)")
+            if has_low_confidence:
+                issues.append(f"low trajectory confidence ({trajectory_conf:.2f})")
             if sample_count < 10:
                 issues.append(f"insufficient samples ({sample_count})")
             
@@ -82,8 +91,8 @@ def detect_anomalies(pitches: List[dict]) -> List[Anomaly]:
                 anomaly_type="trajectory_quality",
                 severity=severity,
                 details={
-                    "rmse_3d_ft": rmse,
-                    "inlier_ratio": inlier_ratio,
+                    "trajectory_expected_error_ft": trajectory_error,
+                    "trajectory_confidence": trajectory_conf,
                     "sample_count": sample_count
                 },
                 recommendation=f"Poor trajectory quality: {', '.join(issues)}. "

@@ -104,12 +104,12 @@ class PatternDetector:
         avg_speed = np.mean(speeds) if speeds else 0.0
 
         strikes = sum(1 for p in pitches if p.get('is_strike', False))
-        strike_pct = (strikes / len(pitches) * 100) if pitches else 0.0
+        strike_pct = (strikes / len(pitches)) if pitches else 0.0  # 0-1 range (UI multiplies by 100)
 
         # Baseline comparison if pitcher_id provided
         baseline_comparison = None
         if pitcher_id:
-            baseline_comparison = self._compute_baseline_comparison(pitcher_id, pitches, avg_speed)
+            baseline_comparison = self._compute_baseline_comparison(pitcher_id, pitches, avg_speed, strike_pct)
 
         # Build report
         report = PatternAnalysisReport(
@@ -195,6 +195,10 @@ class PatternDetector:
 
         velocity_std = np.std(speeds) if len(speeds) > 1 else 0.0
 
+        # Calculate coefficient of variation (CV = std/mean)
+        velocity_mean = np.mean(speeds) if speeds else 0.0
+        velocity_cv = (velocity_std / velocity_mean) if velocity_mean > 0 else 0.0
+
         # Movement consistency: inverse of combined std dev (normalized)
         if len(runs) > 1 and len(rises) > 1:
             run_std = np.std(runs)
@@ -207,14 +211,16 @@ class PatternDetector:
 
         return ConsistencyMetrics(
             velocity_std_mph=velocity_std,
-            movement_consistency_score=movement_consistency
+            movement_consistency_score=movement_consistency,
+            velocity_cv=velocity_cv
         )
 
     def _compute_baseline_comparison(
         self,
         pitcher_id: str,
         pitches: list,
-        avg_speed: float
+        avg_speed: float,
+        strike_pct: float
     ) -> Optional[BaselineComparison]:
         """Compute baseline comparison if profile exists.
 
@@ -222,6 +228,7 @@ class PatternDetector:
             pitcher_id: Pitcher identifier
             pitches: List of pitch dictionaries
             avg_speed: Average velocity for current session
+            strike_pct: Strike percentage for current session (0-1 range)
 
         Returns:
             BaselineComparison or None if no profile exists
@@ -235,21 +242,39 @@ class PatternDetector:
         baseline_velocity = profile.baseline_metrics.velocity.get('mean', 0.0)
         velocity_delta = avg_speed - baseline_velocity
 
-        # Determine status
+        # Determine velocity status
         velocity_std = profile.baseline_metrics.velocity.get('std', 1.0)
         if abs(velocity_delta) < velocity_std:
-            status = "normal"
+            velocity_status = "normal"
         elif velocity_delta > 0:
-            status = "above"
+            velocity_status = "above"
         else:
-            status = "below"
+            velocity_status = "below"
+
+        # Calculate strike percentage delta (if baseline has strike data)
+        baseline_strike_pct = getattr(profile.baseline_metrics, 'strike_percentage', None)
+        strike_delta = None
+        strike_status = None
+        if baseline_strike_pct is not None:
+            strike_delta = strike_pct - baseline_strike_pct
+            # Use 5% threshold for strike percentage status
+            if abs(strike_delta) < 0.05:
+                strike_status = "normal"
+            elif strike_delta > 0:
+                strike_status = "above"
+            else:
+                strike_status = "below"
 
         return BaselineComparison(
             profile_exists=True,
             velocity_delta_mph=velocity_delta,
-            velocity_status=status,
+            velocity_status=velocity_status,
+            strike_delta=strike_delta,
+            strike_status=strike_status,
             _current_velocity=avg_speed,
-            _baseline_velocity=baseline_velocity
+            _baseline_velocity=baseline_velocity,
+            _current_strike_pct=strike_pct,
+            _baseline_strike_pct=baseline_strike_pct
         )
 
     def _create_error_report(

@@ -95,11 +95,21 @@ def _create_strike_zone_heatmap(report: PatternAnalysisReport) -> str:
     """Create strike zone heatmap and return as base64 PNG."""
     fig, ax = plt.subplots(figsize=(6, 6))
 
-    # Create 3x3 heatmap (placeholder with dummy data since we don't have zone_row/zone_col)
+    # Create 3x3 heatmap
     heatmap_data = np.zeros((3, 3))
 
-    # Try to extract zone data from classifications (if available)
-    # For now, just create a basic visualization
+    # Extract zone data from pitch classifications
+    for classification in report.pitch_classifications:
+        zone_row = classification.features.get('zone_row', None)
+        zone_col = classification.features.get('zone_col', None)
+
+        # If zone data is available, increment the corresponding cell
+        if zone_row is not None and zone_col is not None:
+            row_idx = int(zone_row)
+            col_idx = int(zone_col)
+            # Validate indices are within bounds
+            if 0 <= row_idx < 3 and 0 <= col_idx < 3:
+                heatmap_data[row_idx, col_idx] += 1
 
     im = ax.imshow(heatmap_data, cmap='YlOrRd', interpolation='nearest', vmin=0, vmax=max(1, heatmap_data.max()))
 

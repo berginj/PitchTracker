@@ -44,9 +44,10 @@ class PitchRepertoire:
 @dataclass
 class ConsistencyMetrics:
     """Consistency analysis metrics."""
-    
+
     velocity_std_mph: float
     movement_consistency_score: float  # 0-1, higher is more consistent
+    velocity_cv: float = 0.0  # Coefficient of variation (std/mean)
 
 
 @dataclass
@@ -56,9 +57,13 @@ class BaselineComparison:
     profile_exists: bool
     velocity_delta_mph: Optional[float] = None
     velocity_status: Optional[str] = None  # above, below, normal
+    strike_delta: Optional[float] = None
+    strike_status: Optional[str] = None  # above, below, normal
     repertoire_changes: Optional[Dict[str, float]] = None  # % change per pitch type
     _current_velocity: Optional[float] = None
     _baseline_velocity: Optional[float] = None
+    _current_strike_pct: Optional[float] = None
+    _baseline_strike_pct: Optional[float] = None
 
     @property
     def velocity_vs_baseline(self) -> Optional[Dict]:
@@ -71,6 +76,19 @@ class BaselineComparison:
             "baseline": self._baseline_velocity,
             "delta_mph": self.velocity_delta_mph,
             "status": self.velocity_status
+        }
+
+    @property
+    def strike_percentage_vs_baseline(self) -> Optional[Dict]:
+        """Get strike percentage comparison dict (for compatibility with UI)."""
+        if not self.profile_exists or self.strike_delta is None:
+            return None
+
+        return {
+            "current": self._current_strike_pct,
+            "baseline": self._baseline_strike_pct,
+            "delta": self.strike_delta,
+            "status": self.strike_status
         }
 
 

@@ -58,8 +58,8 @@ class TestAnomalyDetection:
             {
                 'pitch_id': f'p{i}',
                 'speed_mph': 85.0,
-                'rmse_3d_ft': 0.2,
-                'inlier_ratio': 0.9,
+                'trajectory_expected_error_ft': 0.2,
+                'trajectory_confidence': 0.9,
                 'sample_count': 20
             }
             for i in range(5)
@@ -68,8 +68,8 @@ class TestAnomalyDetection:
         pitches.append({
             'pitch_id': 'bad_traj',
             'speed_mph': 85.0,
-            'rmse_3d_ft': 1.5,  # High error
-            'inlier_ratio': 0.9,
+            'trajectory_expected_error_ft': 1.5,  # High error
+            'trajectory_confidence': 0.9,
             'sample_count': 20
         })
 
@@ -80,14 +80,14 @@ class TestAnomalyDetection:
         assert traj_anomalies[0].severity == "high"
         assert "high trajectory error" in traj_anomalies[0].recommendation
 
-    def test_trajectory_quality_low_inlier_ratio(self):
+    def test_trajectory_quality_low_trajectory_confidence(self):
         """Test detection of low inlier ratio."""
         pitches = [
             {
                 'pitch_id': f'p{i}',
                 'speed_mph': 85.0,
-                'rmse_3d_ft': 0.2,
-                'inlier_ratio': 0.9,
+                'trajectory_expected_error_ft': 0.2,
+                'trajectory_confidence': 0.9,
                 'sample_count': 20
             }
             for i in range(5)
@@ -96,8 +96,8 @@ class TestAnomalyDetection:
         pitches.append({
             'pitch_id': 'bad_inlier',
             'speed_mph': 85.0,
-            'rmse_3d_ft': 0.2,
-            'inlier_ratio': 0.5,  # Low inlier ratio
+            'trajectory_expected_error_ft': 0.2,
+            'trajectory_confidence': 0.5,  # Low inlier ratio
             'sample_count': 20
         })
 
@@ -105,7 +105,7 @@ class TestAnomalyDetection:
 
         traj_anomalies = [a for a in anomalies if a.anomaly_type == "trajectory_quality"]
         assert len(traj_anomalies) > 0
-        assert "low inlier ratio" in traj_anomalies[0].recommendation
+        assert "low trajectory confidence" in traj_anomalies[0].recommendation
 
     def test_trajectory_quality_insufficient_samples(self):
         """Test detection of insufficient sample count."""
@@ -113,8 +113,8 @@ class TestAnomalyDetection:
             {
                 'pitch_id': f'p{i}',
                 'speed_mph': 85.0,
-                'rmse_3d_ft': 0.2,
-                'inlier_ratio': 0.9,
+                'trajectory_expected_error_ft': 0.2,
+                'trajectory_confidence': 0.9,
                 'sample_count': 20
             }
             for i in range(5)
@@ -123,8 +123,8 @@ class TestAnomalyDetection:
         pitches.append({
             'pitch_id': 'bad_samples',
             'speed_mph': 85.0,
-            'rmse_3d_ft': 0.2,
-            'inlier_ratio': 0.9,
+            'trajectory_expected_error_ft': 0.2,
+            'trajectory_confidence': 0.9,
             'sample_count': 5  # Too few samples
         })
 

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from PySide6 import QtCore, QtWidgets
 
 if TYPE_CHECKING:
-    from analysis.pattern_detection.schemas import AnalysisReport
+    from analysis.pattern_detection.schemas import PatternAnalysisReport
 
 
 class PatternAnalysisDialog(QtWidgets.QDialog):
@@ -36,7 +36,7 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
         self.resize(800, 600)
         self.session_dir = session_dir
         self.pitcher_id = pitcher_id
-        self.analysis_report: AnalysisReport | None = None
+        self.analysis_report: PatternAnalysisReport | None = None
 
         # Create tab widget
         self.tabs = QtWidgets.QTabWidget()
@@ -190,8 +190,8 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
 <h3>Pitch Repertoire</h3>
 """
         if repertoire:
-            for pitch_type, entry in repertoire.items():
-                text += f"<p><b>{pitch_type}:</b> {entry.count} pitches ({entry.percentage * 100:.1f}%), avg {entry.avg_speed_mph:.1f} mph</p>"
+            for entry in repertoire:
+                text += f"<p><b>{entry.pitch_type}:</b> {entry.count} pitches ({entry.percentage * 100:.1f}%), avg {entry.avg_speed_mph:.1f} mph</p>"
         else:
             text += "<p>No pitch types classified</p>"
 
