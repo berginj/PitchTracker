@@ -298,24 +298,26 @@ class CameraStep(BaseStep):
             return
 
         try:
-            # Load config to get camera resolution
+            # Load config to get camera resolution and flip/rotation settings
             from configs.settings import load_config
             from pathlib import Path
             config = load_config(Path("configs/default.yaml"))
             width = config.camera.width
             height = config.camera.height
             fps = 30  # Use lower fps for preview to reduce load
+            flip_left = config.camera.flip_left
+            rotation_left = getattr(config.camera, 'rotation_left', 0.0)
 
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
                 camera = OpenCVCamera()
                 camera.open(self._left_serial)
-                camera.set_mode(width, height, fps, "YUYV")
+                camera.set_mode(width, height, fps, "YUYV", flip_180=flip_left, rotation_correction=rotation_left)
             else:
                 from capture.uvc_backend import UvcCamera
                 camera = UvcCamera()
                 camera.open(self._left_serial)
-                camera.set_mode(width, height, fps, "YUYV")
+                camera.set_mode(width, height, fps, "YUYV", flip_180=flip_left, rotation_correction=rotation_left)
 
             self._left_camera = camera
             self._left_preview.setText("Opening camera...")
@@ -331,24 +333,26 @@ class CameraStep(BaseStep):
             return
 
         try:
-            # Load config to get camera resolution
+            # Load config to get camera resolution and flip/rotation settings
             from configs.settings import load_config
             from pathlib import Path
             config = load_config(Path("configs/default.yaml"))
             width = config.camera.width
             height = config.camera.height
             fps = 30  # Use lower fps for preview to reduce load
+            flip_right = config.camera.flip_right
+            rotation_right = getattr(config.camera, 'rotation_right', 0.0)
 
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
                 camera = OpenCVCamera()
                 camera.open(self._right_serial)
-                camera.set_mode(width, height, fps, "YUYV")
+                camera.set_mode(width, height, fps, "YUYV", flip_180=flip_right, rotation_correction=rotation_right)
             else:
                 from capture.uvc_backend import UvcCamera
                 camera = UvcCamera()
                 camera.open(self._right_serial)
-                camera.set_mode(width, height, fps, "YUYV")
+                camera.set_mode(width, height, fps, "YUYV", flip_180=flip_right, rotation_correction=rotation_right)
 
             self._right_camera = camera
             self._right_preview.setText("Opening camera...")
