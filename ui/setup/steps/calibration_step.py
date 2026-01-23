@@ -1244,14 +1244,49 @@ class CalibrationStep(BaseStep):
         # Try newer API first (OpenCV 4.7+)
         try:
             detector_params = cv2.aruco.DetectorParameters()
+            # Make detection more permissive
+            detector_params.adaptiveThreshWinSizeMin = 3
+            detector_params.adaptiveThreshWinSizeMax = 23
+            detector_params.adaptiveThreshWinSizeStep = 10
+            detector_params.adaptiveThreshConstant = 7
+            detector_params.minMarkerPerimeterRate = 0.03  # Allow smaller markers
+            detector_params.maxMarkerPerimeterRate = 4.0  # Allow larger markers
+            detector_params.polygonalApproxAccuracyRate = 0.05
+            detector_params.minCornerDistanceRate = 0.05
+            detector_params.minDistanceToBorder = 3
+            detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
+            detector_params.cornerRefinementWinSize = 5
+            detector_params.cornerRefinementMaxIterations = 30
+            detector_params.cornerRefinementMinAccuracy = 0.1
+
             detector = cv2.aruco.ArucoDetector(aruco_dict, detector_params)
             marker_corners, marker_ids, rejected = detector.detectMarkers(gray)
         except AttributeError:
             # Fall back to older API
             detector_params = cv2.aruco.DetectorParameters_create()
+            # Make detection more permissive
+            detector_params.adaptiveThreshWinSizeMin = 3
+            detector_params.adaptiveThreshWinSizeMax = 23
+            detector_params.adaptiveThreshWinSizeStep = 10
+            detector_params.adaptiveThreshConstant = 7
+            detector_params.minMarkerPerimeterRate = 0.03
+            detector_params.maxMarkerPerimeterRate = 4.0
+            detector_params.polygonalApproxAccuracyRate = 0.05
+            detector_params.minCornerDistanceRate = 0.05
+            detector_params.minDistanceToBorder = 3
+            detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
+            detector_params.cornerRefinementWinSize = 5
+            detector_params.cornerRefinementMaxIterations = 30
+            detector_params.cornerRefinementMinAccuracy = 0.1
+
             marker_corners, marker_ids, rejected = cv2.aruco.detectMarkers(
                 gray, aruco_dict, parameters=detector_params
             )
+
+        # Log detailed detection info to console
+        num_detected = len(marker_ids) if marker_ids is not None else 0
+        num_rejected = len(rejected) if rejected is not None and len(rejected) > 0 else 0
+        print(f"[ChArUco Detection] Markers detected: {num_detected}, Rejected: {num_rejected}")
 
         # Calculate blur metric (Laplacian variance) - low values indicate blur
         blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
@@ -1267,20 +1302,37 @@ class CalibrationStep(BaseStep):
         cv2.rectangle(annotated, (header_x - 10, 5), (header_x + header_size[0] + 10, 35), (200, 200, 200), 2)
         cv2.putText(annotated, header_text, (header_x, header_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
+        # Draw rejected markers in red to show what was found but not accepted
+        if rejected is not None and len(rejected) > 0:
+            for corners in rejected:
+                pts = corners.reshape((-1, 1, 2)).astype(np.int32)
+                cv2.polylines(annotated, [pts], True, (0, 0, 255), 2)
+            print(f"[ChArUco Detection] Drew {len(rejected)} rejected markers in red")
+
         # Check if any markers were detected
         if marker_ids is None or len(marker_ids) == 0:
             # Add diagnostic info
-            hint_text = "Move ChArUco board into view"
-            cv2.putText(annotated, hint_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            if num_rejected > 0:
+                hint_text = f"Found {num_rejected} candidate(s) but rejected (see red outlines)"
+                cv2.putText(annotated, hint_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                cv2.putText(annotated, "Try: Improve lighting, reduce glare, flatten board", (10, 90),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+            else:
+                hint_text = "Move ChArUco board into view"
+                cv2.putText(annotated, hint_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
             # Show blur warning if image is blurry
             if is_blurry:
-                cv2.putText(annotated, f"WARNING: Image blurry! (score={blur_score:.0f})", (10, 90),
+                cv2.putText(annotated, f"WARNING: Image blurry! (score={blur_score:.0f})", (10, 120),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
-                cv2.putText(annotated, "Try: Adjust camera focus, better lighting", (10, 120),
+                cv2.putText(annotated, "Try: Adjust camera focus, better lighting", (10, 150),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
 
             return False, annotated
+
+        # Log which markers were found
+        marker_id_list = marker_ids.flatten().tolist() if marker_ids is not None else []
+        print(f"[ChArUco Detection] Marker IDs found: {marker_id_list}")
 
         # AUTO-DETECT: Try to infer pattern size from detected markers
         auto_detected_pattern = self._auto_detect_charuco_pattern(marker_ids)
@@ -1289,7 +1341,7 @@ class CalibrationStep(BaseStep):
             # Update if different from current settings
             if (auto_cols != self._pattern_cols or auto_rows != self._pattern_rows or
                 abs(auto_square_mm - self._square_mm) > 0.5):
-                print(f"AUTO-DETECTED: ChArUco pattern {auto_cols}x{auto_rows}, square={auto_square_mm:.1f}mm")
+                print(f"[ChArUco Detection] AUTO-DETECTED: Pattern {auto_cols}x{auto_rows}, square={auto_square_mm:.1f}mm")
                 self._pattern_cols = auto_cols
                 self._pattern_rows = auto_rows
                 self._square_mm = auto_square_mm
@@ -1305,7 +1357,7 @@ class CalibrationStep(BaseStep):
                 self._square_mm_spin.blockSignals(False)
                 self._update_pattern_info()
 
-        # Draw detected markers
+        # Draw detected markers in green
         cv2.aruco.drawDetectedMarkers(annotated, marker_corners, marker_ids)
 
         # Create ChArUco board
@@ -1328,13 +1380,16 @@ class CalibrationStep(BaseStep):
             )
 
         # Interpolate ChArUco corners
+        print(f"[ChArUco Detection] Creating board {self._pattern_cols}x{self._pattern_rows}, square={self._square_mm}mm, marker={self._square_mm*0.75}mm")
         try:
             # Try newer API first (OpenCV 4.7+)
             num_corners, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
                 marker_corners, marker_ids, gray, board
             )
+            print(f"[ChArUco Detection] Corner interpolation result: {num_corners} corners found")
         except TypeError:
             # Fall back to older API
+            print(f"[ChArUco Detection] Using older OpenCV API for corner interpolation")
             num_corners, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
                 marker_corners, marker_ids, gray, board
             )
@@ -1346,7 +1401,7 @@ class CalibrationStep(BaseStep):
         # Add detection diagnostics at bottom with background
         num_markers = len(marker_ids) if marker_ids is not None else 0
         corner_count = num_corners if num_corners is not None else 0
-        diag_text = f"Markers: {num_markers} | Corners: {corner_count} | Blur: {blur_score:.0f}"
+        diag_text = f"Markers: {num_markers} (Rejected: {num_rejected}) | Corners: {corner_count} | Blur: {blur_score:.0f}"
         blur_status = " (BLURRY!)" if is_blurry else " (OK)"
         full_text = diag_text + blur_status
 
