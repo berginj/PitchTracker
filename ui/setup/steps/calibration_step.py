@@ -100,6 +100,8 @@ class CalibrationStep(BaseStep):
         self._dict_scan_counter: int = 0  # Only rescan every N frames
         self._last_auto_detect_time: float = 0  # Debounce auto-detection
         self._detection_log_counter: int = 0  # Reduce log spam
+        self._pattern_locked: bool = False  # Lock pattern once auto-detected
+        self._user_changed_pattern: bool = False  # Track if user manually changed pattern
 
         self._build_ui()
 
@@ -697,18 +699,23 @@ class CalibrationStep(BaseStep):
         self._pattern_cols = self._pattern_cols_spin.value()
         self._pattern_rows = self._pattern_rows_spin.value()
         self._update_pattern_info()
-        print(f"[ChArUco Settings] Pattern changed to {self._pattern_cols}x{self._pattern_rows}")
+        self._user_changed_pattern = True  # User manually changed, allow re-detection
+        self._pattern_locked = False  # Unlock to allow new auto-detection
+        print(f"[ChArUco Settings] Pattern manually changed to {self._pattern_cols}x{self._pattern_rows}")
 
     def _on_square_size_changed(self, value: float) -> None:
         """Handle square size change."""
         self._square_mm = value
         self._update_pattern_info()
-        print(f"[ChArUco Settings] Square size changed to {self._square_mm}mm")
+        self._user_changed_pattern = True  # User manually changed, allow re-detection
+        self._pattern_locked = False  # Unlock to allow new auto-detection
+        print(f"[ChArUco Settings] Square size manually changed to {self._square_mm}mm")
 
     def _update_pattern_info(self) -> None:
         """Update the pattern info label."""
+        lock_status = " 🔒 <b>LOCKED</b> (change settings to unlock)" if self._pattern_locked else " 🔓 Auto-detecting..."
         self._pattern_info.setText(
-            f"<b>Looking for:</b> {self._pattern_cols}x{self._pattern_rows} ChArUco board with {self._square_mm:.0f}mm squares. "
+            f"<b>Looking for:</b> {self._pattern_cols}x{self._pattern_rows} ChArUco board with {self._square_mm:.0f}mm squares.{lock_status}<br>"
             f"<b>Stereo tip:</b> Board can be partially visible - ChArUco is robust to occlusion. "
             f"Move it to different positions and angles in the shared view area. Capture 10+ poses for good calibration."
         )
@@ -1453,17 +1460,18 @@ class CalibrationStep(BaseStep):
             print(f"[ChArUco Detection] Marker IDs found: {marker_id_list}")
 
         # AUTO-DETECT: Try to infer pattern size from detected markers
-        # Debounce to every 3 seconds to prevent UI update loop
+        # Only run if pattern not locked (user can unlock by manually changing settings)
         import time
         current_time = time.time()
-        if current_time - self._last_auto_detect_time >= 3.0:
+
+        if not self._pattern_locked and current_time - self._last_auto_detect_time >= 3.0:
             auto_detected_pattern = self._auto_detect_charuco_pattern(marker_ids)
             if auto_detected_pattern:
                 auto_cols, auto_rows, auto_square_mm = auto_detected_pattern
                 # Update if different from current settings
                 if (auto_cols != self._pattern_cols or auto_rows != self._pattern_rows or
                     abs(auto_square_mm - self._square_mm) > 0.5):
-                    print(f"[ChArUco Detection] AUTO-DETECTED: Pattern {auto_cols}x{auto_rows}, square={auto_square_mm:.1f}mm")
+                    print(f"[ChArUco Detection] AUTO-DETECTED: Pattern {auto_cols}x{auto_rows}, square={auto_square_mm:.1f}mm - LOCKING")
                     self._pattern_cols = auto_cols
                     self._pattern_rows = auto_rows
                     self._square_mm = auto_square_mm
@@ -1479,6 +1487,9 @@ class CalibrationStep(BaseStep):
                     self._square_spin.blockSignals(False)
                     self._update_pattern_info()
                     self._last_auto_detect_time = current_time
+                    # LOCK THE PATTERN - stop scanning
+                    self._pattern_locked = True
+                    print(f"[ChArUco Detection] Pattern LOCKED at {auto_cols}x{auto_rows}. Change settings to unlock.")
 
         # Draw detected markers in green
         cv2.aruco.drawDetectedMarkers(annotated, marker_corners, marker_ids)
