@@ -406,6 +406,7 @@ class CalibrationStep(BaseStep):
         )
 
         # Load current baseline from config
+        baseline_ft = 1.625  # Initialize with default
         try:
             baseline_ft = config_data.get("stereo", {}).get("baseline_ft", 1.625)
             self._baseline_spin.setValue(baseline_ft)
