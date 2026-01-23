@@ -28,7 +28,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         """
         super().__init__(parent)
         self.setWindowTitle("Calibration & Training Wizard")
-        self.resize(720, 420)
+        self.resize(900, 700)  # Larger dialog to accommodate camera previews
         self._parent = parent
         self._index = 0
         self._skipped_steps: list[str] = []
@@ -37,6 +37,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._target_label: Optional[QtWidgets.QLabel] = None
         self._fiducial_label: Optional[QtWidgets.QLabel] = None
         self._fiducial_error_label: Optional[QtWidgets.QLabel] = None
+        self._fiducial_error_scroll: Optional[QtWidgets.QScrollArea] = None
         self._baseline_spin: Optional[QtWidgets.QDoubleSpinBox] = None
         self._baseline_inches_label: Optional[QtWidgets.QLabel] = None
         self._steps = [
@@ -139,6 +140,19 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         header.addWidget(self._detail)
         header.addWidget(self._status)
 
+        # Wrap header and step area in a scrollable container
+        scroll_content = QtWidgets.QWidget()
+        scroll_layout = QtWidgets.QVBoxLayout()
+        scroll_layout.addLayout(header)
+        scroll_layout.addWidget(self._step_area)
+        scroll_layout.addStretch(1)
+        scroll_content.setLayout(scroll_layout)
+
+        scroll_area = QtWidgets.QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(scroll_content)
+        scroll_area.setFrameShape(QtWidgets.QFrame.NoFrame)
+
         button_row = QtWidgets.QHBoxLayout()
         button_row.addWidget(self._action_button)
         button_row.addStretch(1)
@@ -147,9 +161,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         button_row.addWidget(self._next_button)
 
         layout = QtWidgets.QVBoxLayout()
-        layout.addLayout(header)
-        layout.addWidget(self._step_area)
-        layout.addStretch(1)
+        layout.addWidget(scroll_area, 1)  # Stretch to fill
         layout.addLayout(button_row)
         self.setLayout(layout)
 
@@ -189,6 +201,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._target_label = None
         self._fiducial_label = None
         self._fiducial_error_label = None
+        self._fiducial_error_scroll = None
         if builder is None:
             return
         widget = builder()
@@ -408,7 +421,22 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         plate_id = self._parent._fiducial_ids["plate"]
         rubber_id = self._parent._fiducial_ids["rubber"]
         self._fiducial_label = QtWidgets.QLabel("Tags detected: 0")
+
+        # Make error message collapsible
         self._fiducial_error_label = QtWidgets.QLabel("")
+        self._fiducial_error_label.setWordWrap(True)
+        self._fiducial_error_label.setStyleSheet("color: #d32f2f; padding: 5px;")
+        self._fiducial_error_label.setMaximumHeight(100)  # Limit height
+
+        # Add scroll area for long error messages
+        error_scroll = QtWidgets.QScrollArea()
+        error_scroll.setWidget(self._fiducial_error_label)
+        error_scroll.setWidgetResizable(True)
+        error_scroll.setMaximumHeight(100)
+        error_scroll.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        error_scroll.setVisible(False)  # Hidden by default
+        self._fiducial_error_scroll = error_scroll
+
         hint = QtWidgets.QLabel(
             f"Required IDs: plate={plate_id}, rubber={rubber_id} (AprilTag 36h11, 100mm)."
         )
@@ -416,7 +444,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         form = QtWidgets.QFormLayout()
         form.addRow(hint)
         form.addRow(self._fiducial_label)
-        form.addRow(self._fiducial_error_label)
+        form.addRow(error_scroll)
         widget.setLayout(form)
         return widget
 
@@ -504,9 +532,14 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         if self._fiducial_label is not None:
             ids = [det.tag_id for det in self._parent._fiducial_detections]
             self._fiducial_label.setText(f"Tags detected: {len(ids)} ({ids})")
-        if self._fiducial_error_label is not None:
+        if self._fiducial_error_label is not None and self._fiducial_error_scroll is not None:
             error = self._parent._fiducial_error
-            self._fiducial_error_label.setText(error or "")
+            if error:
+                self._fiducial_error_label.setText(error)
+                self._fiducial_error_scroll.setVisible(True)
+            else:
+                self._fiducial_error_label.setText("")
+                self._fiducial_error_scroll.setVisible(False)
 
     def _validate_health(self) -> bool:
         """Validate system health.
