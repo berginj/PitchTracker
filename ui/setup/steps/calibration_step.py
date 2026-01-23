@@ -489,7 +489,8 @@ class CalibrationStep(BaseStep):
         status_scroll = QtWidgets.QScrollArea()
         status_scroll.setWidget(self._alignment_status_label)
         status_scroll.setWidgetResizable(True)
-        status_scroll.setMaximumHeight(150)  # Limit to 150px
+        status_scroll.setMinimumHeight(100)  # Minimum height to show content
+        status_scroll.setMaximumHeight(200)  # Increased from 150px to show more issues
         status_scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
         status_scroll.setStyleSheet("background-color: transparent;")
         layout.addWidget(status_scroll)
@@ -511,7 +512,11 @@ class CalibrationStep(BaseStep):
         self._alignment_details = QtWidgets.QLabel()
         self._alignment_details.setWordWrap(True)
         self._alignment_details.setStyleSheet(
-            "font-size: 9pt; padding: 6px; color: #555;"
+            "font-size: 10pt; padding: 6px; "
+            "color: #000000; "  # Black text for readability
+            "background-color: #F5F5F5; "
+            "border: 1px solid #E0E0E0; "
+            "border-radius: 4px;"
         )
         self._alignment_details.hide()
         layout.addWidget(self._alignment_details)
@@ -520,9 +525,10 @@ class CalibrationStep(BaseStep):
         self._guidance_label = QtWidgets.QLabel()
         self._guidance_label.setWordWrap(True)
         self._guidance_label.setStyleSheet(
-            "font-size: 9pt; padding: 8px; "
+            "font-size: 10pt; padding: 8px; "
+            "color: #000000; "  # Black text for readability
             "background-color: #FFF9C4; "
-            "border: 1px solid #FBC02D; "
+            "border: 2px solid #FBC02D; "
             "border-radius: 4px;"
         )
         self._guidance_label.hide()
@@ -532,9 +538,10 @@ class CalibrationStep(BaseStep):
         self._prediction_label = QtWidgets.QLabel()
         self._prediction_label.setWordWrap(True)
         self._prediction_label.setStyleSheet(
-            "font-size: 9pt; padding: 8px; "
+            "font-size: 10pt; padding: 8px; "
+            "color: #000000; "  # Black text for readability
             "background-color: #E8F5E9; "
-            "border: 1px solid #4CAF50; "
+            "border: 2px solid #4CAF50; "
             "border-radius: 4px;"
         )
         self._prediction_label.hide()
@@ -1250,22 +1257,29 @@ class CalibrationStep(BaseStep):
         blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
         is_blurry = blur_score < 100  # Threshold for blur detection
 
+        # Add header showing what we're looking for
+        header_text = f"Looking for {self._pattern_cols}x{self._pattern_rows} ChArUco ({self._square_mm:.0f}mm squares)"
+        header_size = cv2.getTextSize(header_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+        header_x = (gray.shape[1] - header_size[0]) // 2  # Center horizontally
+        header_y = 25
+        # Draw background for header
+        cv2.rectangle(annotated, (header_x - 10, 5), (header_x + header_size[0] + 10, 35), (50, 50, 50), -1)
+        cv2.rectangle(annotated, (header_x - 10, 5), (header_x + header_size[0] + 10, 35), (200, 200, 200), 2)
+        cv2.putText(annotated, header_text, (header_x, header_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
         # Check if any markers were detected
         if marker_ids is None or len(marker_ids) == 0:
             # Add diagnostic info
             hint_text = "Move ChArUco board into view"
-            cv2.putText(annotated, hint_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            cv2.putText(annotated, hint_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
             # Show blur warning if image is blurry
             if is_blurry:
-                cv2.putText(annotated, f"WARNING: Image blurry! (score={blur_score:.0f})", (10, 60),
+                cv2.putText(annotated, f"WARNING: Image blurry! (score={blur_score:.0f})", (10, 90),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
-                cv2.putText(annotated, "Try: Adjust camera focus, better lighting", (10, 90),
+                cv2.putText(annotated, "Try: Adjust camera focus, better lighting", (10, 120),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
 
-            # Show detection info
-            cv2.putText(annotated, f"Markers: 0 | Blur: {blur_score:.0f}", (10, gray.shape[0] - 10),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 100, 100), 1)
             return False, annotated
 
         # AUTO-DETECT: Try to infer pattern size from detected markers
@@ -1329,36 +1343,55 @@ class CalibrationStep(BaseStep):
         # Need at least 4 corners for calibration
         MIN_CORNERS = 4
 
-        # Add detection diagnostics at bottom
+        # Add detection diagnostics at bottom with background
         num_markers = len(marker_ids) if marker_ids is not None else 0
         corner_count = num_corners if num_corners is not None else 0
         diag_text = f"Markers: {num_markers} | Corners: {corner_count} | Blur: {blur_score:.0f}"
         blur_status = " (BLURRY!)" if is_blurry else " (OK)"
-        cv2.putText(annotated, diag_text + blur_status, (10, gray.shape[0] - 10),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        full_text = diag_text + blur_status
+
+        # Draw background rectangle for text
+        text_size = cv2.getTextSize(full_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+        bg_x1, bg_y1 = 5, gray.shape[0] - 35
+        bg_x2, bg_y2 = text_size[0] + 15, gray.shape[0] - 5
+        cv2.rectangle(annotated, (bg_x1, bg_y1), (bg_x2, bg_y2), (0, 0, 0), -1)
+        cv2.rectangle(annotated, (bg_x1, bg_y1), (bg_x2, bg_y2), (255, 255, 255), 2)
+
+        # Draw text on background
+        text_color = (0, 0, 255) if is_blurry else (0, 255, 0)  # Red if blurry, green if OK
+        cv2.putText(annotated, full_text, (10, gray.shape[0] - 10),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_color, 2)
 
         if num_corners is not None and num_corners >= MIN_CORNERS:
             # Draw ChArUco corners
             cv2.aruco.drawDetectedCornersCharuco(annotated, charuco_corners, charuco_ids, (0, 255, 0))
 
-            # Add success indicator
-            cv2.putText(annotated, f"READY - {num_corners} corners", (10, 30),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            # Add success indicator with background
+            success_text = f"READY - {num_corners} corners detected"
+            text_size = cv2.getTextSize(success_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+            cv2.rectangle(annotated, (5, 50), (text_size[0] + 15, 85), (0, 128, 0), -1)
+            cv2.rectangle(annotated, (5, 50), (text_size[0] + 15, 85), (0, 255, 0), 2)
+            cv2.putText(annotated, success_text, (10, 75),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
             # Warn if blurry even though detected
             if is_blurry:
-                cv2.putText(annotated, "WARNING: Blurry - may affect calibration", (10, 60),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 2)
+                cv2.putText(annotated, "WARNING: Blurry - may affect calibration", (10, 110),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
 
             return True, annotated
         else:
             # Not enough corners detected - provide detailed diagnostics
             corner_count = num_corners if num_corners is not None else 0
-            cv2.putText(annotated, f"Need {MIN_CORNERS}+ corners (found {corner_count})", (10, 30),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
+            error_text = f"Need {MIN_CORNERS}+ corners (found {corner_count})"
+            text_size = cv2.getTextSize(error_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+            cv2.rectangle(annotated, (5, 50), (text_size[0] + 15, 85), (0, 0, 128), -1)
+            cv2.rectangle(annotated, (5, 50), (text_size[0] + 15, 85), (0, 165, 255), 2)
+            cv2.putText(annotated, error_text, (10, 75),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
             # Provide specific suggestions based on detection state
-            y_offset = 60
+            y_offset = 105
             if is_blurry:
                 cv2.putText(annotated, "ISSUE: Image is blurry - adjust camera focus!", (10, y_offset),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
@@ -1366,13 +1399,13 @@ class CalibrationStep(BaseStep):
 
             if num_markers < 4:
                 cv2.putText(annotated, f"ISSUE: Only {num_markers} markers detected (need more)", (10, y_offset),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
-                cv2.putText(annotated, "Try: Move board closer, better lighting, sharper focus", (10, y_offset + 25),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+                cv2.putText(annotated, "Try: Move board closer, better lighting, sharper focus", (10, y_offset + 30),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
             else:
                 cv2.putText(annotated, f"Markers OK ({num_markers} found), but corners failed", (10, y_offset),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
-                cv2.putText(annotated, "Try: Ensure full board visible, check pattern size", (10, y_offset + 25),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+                cv2.putText(annotated, "Try: Ensure full board visible, check pattern size", (10, y_offset + 30),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
             return False, annotated
 
@@ -2104,8 +2137,8 @@ class CalibrationStep(BaseStep):
         <div style='text-align: center;'>
             <div style='font-size: 32pt; color: {gauge_color};'>{gauge_emoji}</div>
             <div style='font-size: 20pt; color: {gauge_color}; font-weight: bold;'>{quality_score}%</div>
-            <div style='font-size: 9pt; color: #666;'>{results.quality}</div>
-            <div style='font-size: 9pt; color: #888;'>
+            <div style='font-size: 11pt; color: #000000; font-weight: bold;'>{results.quality}</div>
+            <div style='font-size: 10pt; color: #000000;'>
                 {issues_count} issue{'s' if issues_count != 1 else ''} detected
             </div>
         </div>
