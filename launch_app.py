@@ -7,12 +7,14 @@ Usage:
     python launch_app.py
 """
 
+import os
 import sys
 from pathlib import Path
 
-# Add project root to Python path
-project_root = Path(__file__).parent
+# Add project root to Python path and set working directory
+project_root = Path(__file__).parent.resolve()
 sys.path.insert(0, str(project_root))
+os.chdir(project_root)
 
 # Import and run launcher
 if __name__ == "__main__":

@@ -2,13 +2,16 @@
 """PitchTracker unified launcher - role selector entry point."""
 
 import json
+import os
 import sys
 from pathlib import Path
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add project root to path and set working directory
+project_root = Path(__file__).parent.resolve()
+sys.path.insert(0, str(project_root))
+os.chdir(project_root)
 
 from startup_validator import create_required_directories, validate_environment
 from updater import check_for_updates, get_current_version
