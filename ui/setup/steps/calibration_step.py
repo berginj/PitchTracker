@@ -335,6 +335,43 @@ class CalibrationStep(BaseStep):
         self._flip_left_btn.clicked.connect(lambda checked: self._toggle_flip("left", checked))
         self._flip_right_btn.clicked.connect(lambda checked: self._toggle_flip("right", checked))
 
+        # Manual rotation controls
+        rotate_left_label = QtWidgets.QLabel("Rotate L:")
+        self._rotate_left_spin = QtWidgets.QDoubleSpinBox()
+        self._rotate_left_spin.setRange(-45.0, 45.0)
+        self._rotate_left_spin.setSingleStep(0.5)
+        self._rotate_left_spin.setDecimals(1)
+        self._rotate_left_spin.setSuffix("°")
+        self._rotate_left_spin.setToolTip("Manually rotate left camera (positive = clockwise, negative = counter-clockwise)")
+
+        rotate_right_label = QtWidgets.QLabel("Rotate R:")
+        self._rotate_right_spin = QtWidgets.QDoubleSpinBox()
+        self._rotate_right_spin.setRange(-45.0, 45.0)
+        self._rotate_right_spin.setSingleStep(0.5)
+        self._rotate_right_spin.setDecimals(1)
+        self._rotate_right_spin.setSuffix("°")
+        self._rotate_right_spin.setToolTip("Manually rotate right camera (positive = clockwise, negative = counter-clockwise)")
+
+        # Load current rotation values from config
+        try:
+            rotation_left = config_data.get("camera", {}).get("rotation_left", 0.0)
+            rotation_right = config_data.get("camera", {}).get("rotation_right", 0.0)
+            self._rotate_left_spin.setValue(rotation_left)
+            self._rotate_right_spin.setValue(rotation_right)
+        except Exception:
+            self._rotate_left_spin.setValue(0.0)
+            self._rotate_right_spin.setValue(0.0)
+
+        # Connect after setting initial values to avoid triggering restart
+        self._rotate_left_spin.valueChanged.connect(lambda val: self._set_manual_rotation("left", val))
+        self._rotate_right_spin.valueChanged.connect(lambda val: self._set_manual_rotation("right", val))
+
+        # Reset corrections button
+        self._reset_corrections_btn = QtWidgets.QPushButton("🔄 Reset All")
+        self._reset_corrections_btn.setToolTip("Reset all rotation and offset corrections to zero")
+        self._reset_corrections_btn.clicked.connect(self._reset_all_corrections)
+        self._reset_corrections_btn.setStyleSheet("background-color: #607D8B; color: white; font-weight: bold;")
+
         # Auto-correction checkbox
         self._auto_correct_checkbox = QtWidgets.QCheckBox("Auto-apply alignment corrections")
         self._auto_correct_checkbox.setChecked(False)  # OFF by default
@@ -398,18 +435,32 @@ class CalibrationStep(BaseStep):
         camera_layout.addWidget(flip_label)
         camera_layout.addWidget(self._flip_left_btn)
         camera_layout.addWidget(self._flip_right_btn)
+        camera_layout.addWidget(QtWidgets.QLabel("  |  "))
+        camera_layout.addWidget(rotate_left_label)
+        camera_layout.addWidget(self._rotate_left_spin)
+        camera_layout.addWidget(rotate_right_label)
+        camera_layout.addWidget(self._rotate_right_spin)
+        camera_layout.addWidget(self._reset_corrections_btn)
+        camera_layout.addWidget(QtWidgets.QLabel("  |  "))
         camera_layout.addWidget(self._swap_lr_btn)
         camera_layout.addWidget(QtWidgets.QLabel("  |  "))
         camera_layout.addWidget(self._auto_correct_checkbox)
-        camera_layout.addWidget(QtWidgets.QLabel("  |  "))
-        camera_layout.addWidget(baseline_label)
-        camera_layout.addWidget(self._baseline_spin)
-        camera_layout.addWidget(self._baseline_inches_label)
         camera_layout.addStretch()
         camera_group.setLayout(camera_layout)
 
+        # Baseline row (separate row to avoid cramping)
+        baseline_layout = QtWidgets.QHBoxLayout()
+        baseline_layout.addWidget(baseline_label)
+        baseline_layout.addWidget(self._baseline_spin)
+        baseline_layout.addWidget(self._baseline_inches_label)
+        baseline_layout.addStretch()
+
+        baseline_group = QtWidgets.QGroupBox("Stereo Baseline")
+        baseline_group.setLayout(baseline_layout)
+
         main_layout.addWidget(board_group)
         main_layout.addWidget(camera_group)
+        main_layout.addWidget(baseline_group)
         container.setLayout(main_layout)
         return container
 
@@ -681,6 +732,63 @@ class CalibrationStep(BaseStep):
             self._close_cameras()
 
             # Reopen with new flip setting after short delay
+            QtCore.QTimer.singleShot(300, self._restart_cameras_after_flip)
+
+    def _set_manual_rotation(self, camera: str, degrees: float) -> None:
+        """Set manual rotation correction for a camera.
+
+        Args:
+            camera: "left" or "right"
+            degrees: Rotation angle in degrees (positive = clockwise)
+        """
+        import yaml
+
+        # Update config file
+        data = yaml.safe_load(self._config_path.read_text())
+        data.setdefault("camera", {})
+
+        if camera == "left":
+            data["camera"]["rotation_left"] = float(degrees)
+        else:
+            data["camera"]["rotation_right"] = float(degrees)
+
+        self._config_path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+        # Restart cameras if open to apply rotation
+        if self._left_camera is not None or self._right_camera is not None:
+            self._preview_timer.stop()
+            self._close_cameras()
+            QtCore.QTimer.singleShot(300, self._restart_cameras_after_flip)
+
+    def _reset_all_corrections(self) -> None:
+        """Reset all rotation and offset corrections to zero."""
+        import yaml
+
+        # Update config file
+        data = yaml.safe_load(self._config_path.read_text())
+        data.setdefault("camera", {})
+
+        # Reset all correction values
+        data["camera"]["rotation_left"] = 0.0
+        data["camera"]["rotation_right"] = 0.0
+        data["camera"]["vertical_offset_px"] = 0
+
+        # Clear alignment quality data
+        if "alignment_quality" in data["camera"]:
+            del data["camera"]["alignment_quality"]
+
+        self._config_path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+        # Reset UI controls
+        self._rotate_left_spin.setValue(0.0)
+        self._rotate_right_spin.setValue(0.0)
+
+        print("INFO: All rotation and offset corrections reset to zero")
+
+        # Restart cameras if open to apply reset
+        if self._left_camera is not None or self._right_camera is not None:
+            self._preview_timer.stop()
+            self._close_cameras()
             QtCore.QTimer.singleShot(300, self._restart_cameras_after_flip)
 
     def _restart_cameras_after_flip(self) -> None:
