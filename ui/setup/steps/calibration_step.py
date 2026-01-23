@@ -154,7 +154,8 @@ class CalibrationStep(BaseStep):
         # Left preview
         left_group = QtWidgets.QGroupBox("Left Camera")
         self._left_view = QtWidgets.QLabel("No preview")
-        self._left_view.setMinimumSize(320, 240)
+        self._left_view.setMinimumSize(640, 480)  # Large preview for better visibility (960x600 expectation)
+        self._left_view.setScaledContents(True)
         self._left_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._left_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._left_view.setStyleSheet("background-color: #f5f5f5;")
@@ -170,7 +171,8 @@ class CalibrationStep(BaseStep):
         # Right preview
         right_group = QtWidgets.QGroupBox("Right Camera")
         self._right_view = QtWidgets.QLabel("No preview")
-        self._right_view.setMinimumSize(320, 240)
+        self._right_view.setMinimumSize(640, 480)  # Large preview for better visibility (960x600 expectation)
+        self._right_view.setScaledContents(True)
         self._right_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._right_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._right_view.setStyleSheet("background-color: #f5f5f5;")
@@ -254,7 +256,20 @@ class CalibrationStep(BaseStep):
         self._results_text.hide()
         layout.addWidget(self._results_text)
 
-        self.setLayout(layout)
+        # Wrap entire layout in scroll area for accessibility
+        scroll_content = QtWidgets.QWidget()
+        scroll_content.setLayout(layout)
+
+        scroll_area = QtWidgets.QScrollArea()
+        scroll_area.setWidget(scroll_content)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QtWidgets.QFrame.NoFrame)
+
+        main_layout = QtWidgets.QVBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(scroll_area)
+
+        self.setLayout(main_layout)
 
     def _build_settings_group(self) -> QtWidgets.QWidget:
         """Build calibration settings groups."""
@@ -394,22 +409,32 @@ class CalibrationStep(BaseStep):
         group = QtWidgets.QGroupBox("Camera Alignment Status")
         layout = QtWidgets.QVBoxLayout()
 
-        # Status label (updated automatically)
+        # Status label (updated automatically) - wrapped in scroll area
         self._alignment_status_label = QtWidgets.QLabel("⏳ Checking alignment...")
         self._alignment_status_label.setWordWrap(True)
         self._alignment_status_label.setStyleSheet(
             "font-size: 10pt; padding: 8px; "
+            "color: #000000; "  # Dark text for readability
             "background-color: #E3F2FD; "
             "border: 1px solid #2196F3; "
             "border-radius: 4px;"
         )
-        layout.addWidget(self._alignment_status_label)
+
+        # Wrap in scroll area to limit height
+        status_scroll = QtWidgets.QScrollArea()
+        status_scroll.setWidget(self._alignment_status_label)
+        status_scroll.setWidgetResizable(True)
+        status_scroll.setMaximumHeight(150)  # Limit to 150px
+        status_scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        status_scroll.setStyleSheet("background-color: transparent;")
+        layout.addWidget(status_scroll)
 
         # NEW: Quality gauge (visual score indicator)
         self._quality_gauge = QtWidgets.QLabel()
         self._quality_gauge.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._quality_gauge.setStyleSheet(
             "font-size: 11pt; font-weight: bold; padding: 12px; "
+            "color: #000000; "  # Dark text for readability
             "background-color: #F5F5F5; "
             "border: 2px solid #E0E0E0; "
             "border-radius: 8px;"
@@ -1556,6 +1581,7 @@ class CalibrationStep(BaseStep):
             self._alignment_status_label.setText("⏳ Analyzing alignment (averaging 10 frames)...")
             self._alignment_status_label.setStyleSheet(
                 "font-size: 10pt; padding: 8px; "
+                "color: #000000; "  # Dark text for readability
                 "background-color: #E3F2FD; "
                 "border: 1px solid #2196F3; "
                 "border-radius: 4px;"
@@ -1640,6 +1666,7 @@ class CalibrationStep(BaseStep):
             self._alignment_status_label.setText("⚡ Quick check (1 frame)...")
             self._alignment_status_label.setStyleSheet(
                 "font-size: 10pt; padding: 8px; "
+                "color: #000000; "  # Dark text for readability
                 "background-color: #E3F2FD; "
                 "border: 1px solid #2196F3; "
                 "border-radius: 4px;"
