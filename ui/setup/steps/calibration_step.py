@@ -74,10 +74,10 @@ class CalibrationStep(BaseStep):
         self._left_serial: Optional[str] = None
         self._right_serial: Optional[str] = None
 
-        # Calibration settings (must match generated board in alignment_checks/test_charuco_board.png)
-        self._pattern_cols = 9  # Changed from 8 to match generated board (9x6)
-        self._pattern_rows = 6
-        self._square_mm = 30.0  # 30mm square size
+        # Calibration settings (default pattern)
+        self._pattern_cols = 5  # Default: 5 columns
+        self._pattern_rows = 6  # Default: 6 rows
+        self._square_mm = 30.0  # Default: 30mm square size
         self._min_captures = 10
         self._config_path = Path("configs/default.yaml")
 
@@ -300,7 +300,7 @@ class CalibrationStep(BaseStep):
         self._square_spin.setRange(1.0, 100.0)
         self._square_spin.setValue(self._square_mm)
         self._square_spin.setSuffix(" mm")
-        self._square_spin.valueChanged.connect(lambda v: setattr(self, '_square_mm', v))
+        self._square_spin.valueChanged.connect(self._on_square_size_changed)
 
         board_layout.addWidget(pattern_label)
         board_layout.addWidget(self._pattern_cols_spin)
@@ -691,11 +691,18 @@ class CalibrationStep(BaseStep):
         self._pattern_cols = self._pattern_cols_spin.value()
         self._pattern_rows = self._pattern_rows_spin.value()
         self._update_pattern_info()
+        print(f"[ChArUco Settings] Pattern changed to {self._pattern_cols}x{self._pattern_rows}")
+
+    def _on_square_size_changed(self, value: float) -> None:
+        """Handle square size change."""
+        self._square_mm = value
+        self._update_pattern_info()
+        print(f"[ChArUco Settings] Square size changed to {self._square_mm}mm")
 
     def _update_pattern_info(self) -> None:
         """Update the pattern info label."""
         self._pattern_info.setText(
-            f"<b>Looking for:</b> {self._pattern_cols}x{self._pattern_rows} ChArUco board (squares with ArUco markers). "
+            f"<b>Looking for:</b> {self._pattern_cols}x{self._pattern_rows} ChArUco board with {self._square_mm:.0f}mm squares. "
             f"<b>Stereo tip:</b> Board can be partially visible - ChArUco is robust to occlusion. "
             f"Move it to different positions and angles in the shared view area. Capture 10+ poses for good calibration."
         )
@@ -1390,13 +1397,13 @@ class CalibrationStep(BaseStep):
                 # Update UI controls
                 self._pattern_cols_spin.blockSignals(True)
                 self._pattern_rows_spin.blockSignals(True)
-                self._square_mm_spin.blockSignals(True)
+                self._square_spin.blockSignals(True)
                 self._pattern_cols_spin.setValue(auto_cols)
                 self._pattern_rows_spin.setValue(auto_rows)
-                self._square_mm_spin.setValue(auto_square_mm)
+                self._square_spin.setValue(auto_square_mm)
                 self._pattern_cols_spin.blockSignals(False)
                 self._pattern_rows_spin.blockSignals(False)
-                self._square_mm_spin.blockSignals(False)
+                self._square_spin.blockSignals(False)
                 self._update_pattern_info()
 
         # Draw detected markers in green
