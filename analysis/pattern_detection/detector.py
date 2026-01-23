@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import List, Optional
 
@@ -114,7 +114,7 @@ class PatternDetector:
         # Build report
         report = PatternAnalysisReport(
             schema_version="1.0.0",
-            created_utc=datetime.utcnow().isoformat() + "Z",
+            created_utc=datetime.now(UTC).isoformat().replace('+00:00', 'Z'),
             session_id=session_data.get("session_id", session_path.name),
             pitcher_id=pitcher_id,
             total_pitches=len(pitches),
@@ -297,7 +297,7 @@ class PatternDetector:
         """
         return PatternAnalysisReport(
             schema_version="1.0.0",
-            created_utc=datetime.utcnow().isoformat() + "Z",
+            created_utc=datetime.now(UTC).isoformat().replace('+00:00', 'Z'),
             session_id=session_id,
             pitcher_id=pitcher_id,
             total_pitches=pitch_count,

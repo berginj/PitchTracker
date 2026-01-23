@@ -274,7 +274,7 @@ class PipelineOrchestrator(PipelineService):
 
         Note: Not implemented in current architecture
         """
-        # TODO: Implement manual speed override if needed
+        # Future Enhancement: Implement manual speed override (requires UI integration)
         pass
 
     def stop_recording(self) -> RecordingBundle:
@@ -311,7 +311,7 @@ class PipelineOrchestrator(PipelineService):
 
         Note: Calibration runs in separate calibration pipeline
         """
-        # TODO: Implement calibration via separate pipeline
+        # Future Enhancement: Implement calibration via separate pipeline
         raise NotImplementedError("Calibration not yet implemented in orchestrator")
 
     def get_stats(self) -> Dict[str, Dict[str, float]]:

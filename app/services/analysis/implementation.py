@@ -185,8 +185,8 @@ class AnalysisServiceImpl(AnalysisService):
         if not session_path.exists():
             raise FileNotFoundError(f"Session directory not found: {session_path}")
 
-        # TODO: Load session summary from disk
-        # For now, return empty summary
+        # Not Implemented: Load session summary from disk
+        # Currently returns empty summary (use review service for full session data)
         return SessionSummary(
             session_id=session_path.name,
             pitch_count=0,
@@ -221,8 +221,8 @@ class AnalysisServiceImpl(AnalysisService):
         if not session_path.exists():
             raise FileNotFoundError(f"Session directory not found: {session_path}")
 
-        # TODO: Integrate pattern detection module
-        # For now, return empty report
+        # Note: Pattern detection is implemented via analysis.cli and PatternAnalysisDialog
+        # This service method returns stub (use analysis.pattern_detection.detector directly)
         return {
             "session_id": session_path.name,
             "pitcher_id": pitcher_id,

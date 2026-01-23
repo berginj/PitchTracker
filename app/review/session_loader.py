@@ -242,7 +242,7 @@ class SessionLoader:
             left_timestamps_path=left_timestamps_path,
             right_timestamps_path=right_timestamps_path,
             session_summary=session_summary,
-            calibration=None,  # TODO: Load calibration data if available
+            calibration=None,  # Future: Load calibration data from session directory
             original_config=original_config,
         )
 

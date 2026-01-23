@@ -202,7 +202,7 @@ class ReviewService:
         # Calculate frame index from pitch start time
         # This is approximate - need to correlate with video timestamps
         # For now, just estimate based on frame rate
-        # TODO: Load and parse timestamp CSV files for accurate frame mapping
+        # Future Enhancement: Load and parse timestamp CSV files for accurate frame mapping
 
         logger.info(f"Seeking to pitch {pitch.pitch_id}")
         # Placeholder: just seek to a frame proportional to pitch number
@@ -434,7 +434,7 @@ class ReviewService:
             logger.warning("No detector config to export")
             return
 
-        # TODO: Convert DetectorConfig to YAML format
+        # Future Enhancement: Convert DetectorConfig to YAML format for consistency
         # For now, just save as JSON
         output_json = output_path.with_suffix('.json')
 

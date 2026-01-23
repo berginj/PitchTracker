@@ -346,7 +346,7 @@ class DetectionServiceImpl(DetectionService):
             return {
                 "detections_per_sec": self._detection_count / elapsed,
                 "observations_per_sec": self._observation_count / elapsed,
-                "avg_detection_ms": 0.0,  # TODO: Track detection timing
+                "avg_detection_ms": 0.0,  # Future: Track detection timing metrics
                 "stereo_match_rate": (
                     (self._observation_count / self._detection_count * 100)
                     if self._detection_count > 0
@@ -372,7 +372,7 @@ class DetectionServiceImpl(DetectionService):
             self._lane_rois = lane_rois
             self._plate_rois = plate_rois
 
-            # TODO: Rebuild processor with new ROIs
+            # Future Enhancement: Rebuild processor with new ROIs (requires hot-swap mechanism)
             logger.info(f"Lane ROIs set for cameras: {list(lane_rois.keys())}")
 
     def is_running(self) -> bool:
