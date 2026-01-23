@@ -29,7 +29,6 @@ class AlignmentResults:
     rotation_deg: float
     num_matches: int
     scale_difference_percent: float  # NEW: Scale/focal length mismatch percentage
-    scale_ratio: float = 1.0  # NEW: Actual scale ratio (1.0 = match, >1.0 = left zoomed, <1.0 = right zoomed)
 
     # Quality assessment
     quality: str  # "EXCELLENT", "GOOD", "ACCEPTABLE", "POOR", "CRITICAL"
@@ -48,6 +47,9 @@ class AlignmentResults:
     status_message: str
     warnings: list[str]
     corrections_applied: list[str]
+
+    # Scale ratio (with default) - must be last because it has a default value
+    scale_ratio: float = 1.0  # NEW: Actual scale ratio (1.0 = match, >1.0 = left zoomed, <1.0 = right zoomed)
 
     def can_calibrate(self) -> bool:
         """Check if calibration should be allowed with this alignment."""
