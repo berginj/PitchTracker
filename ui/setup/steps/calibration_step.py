@@ -1134,6 +1134,84 @@ class CalibrationStep(BaseStep):
         except Exception:
             pass
 
+    def _auto_detect_charuco_pattern(self, marker_ids: np.ndarray) -> Optional[tuple[int, int, float]]:
+        """Auto-detect ChArUco pattern size and calculate square size.
+
+        Assumes board is printed vertically on standard US letter paper (8.5" x 11").
+
+        Args:
+            marker_ids: Detected ArUco marker IDs
+
+        Returns:
+            (cols, rows, square_mm) tuple or None if cannot detect
+        """
+        if marker_ids is None or len(marker_ids) == 0:
+            return None
+
+        # ChArUco boards have (cols-1)*(rows-1) markers
+        # Marker IDs are sequential: 0, 1, 2, ..., (cols-1)*(rows-1)-1
+        max_id = int(np.max(marker_ids))
+        num_markers = max_id + 1
+
+        # Try common ChArUco configurations
+        # Format: (cols, rows) where num_markers = (cols-1)*(rows-1)
+        COMMON_PATTERNS = [
+            (9, 6),   # 8*5 = 40 markers
+            (7, 5),   # 6*4 = 24 markers
+            (11, 8),  # 10*7 = 70 markers
+            (8, 6),   # 7*5 = 35 markers
+            (10, 7),  # 9*6 = 54 markers
+            (12, 9),  # 11*8 = 88 markers
+        ]
+
+        detected_pattern = None
+        for cols, rows in COMMON_PATTERNS:
+            expected_markers = (cols - 1) * (rows - 1)
+            # Allow some missing markers (partial view)
+            if abs(num_markers - expected_markers) <= 5:
+                detected_pattern = (cols, rows)
+                break
+
+        if not detected_pattern:
+            # Fallback: try to infer from marker count
+            # Find factors of (num_markers + small_tolerance)
+            for tolerance in range(6):
+                test_count = num_markers + tolerance
+                for divisor in range(4, 12):  # Reasonable range for (cols-1) or (rows-1)
+                    if test_count % divisor == 0:
+                        other = test_count // divisor
+                        if 4 <= other <= 12:
+                            # Found plausible dimensions
+                            cols = divisor + 1
+                            rows = other + 1
+                            detected_pattern = (cols, rows)
+                            break
+                if detected_pattern:
+                    break
+
+        if not detected_pattern:
+            return None
+
+        cols, rows = detected_pattern
+
+        # Calculate square size assuming US letter paper (215.9mm x 279.4mm) vertical orientation
+        # Board uses approximately 70-75% of paper height
+        LETTER_HEIGHT_MM = 279.4
+        USABLE_HEIGHT_RATIO = 0.70  # Board uses ~70% of paper
+
+        # For N rows, board height = N * square_size
+        board_height_mm = LETTER_HEIGHT_MM * USABLE_HEIGHT_RATIO
+        square_mm = board_height_mm / rows
+
+        # Round to nearest 0.5mm for cleaner values
+        square_mm = round(square_mm * 2) / 2
+
+        print(f"  Detected {len(marker_ids)} markers (max_id={max_id})")
+        print(f"  Inferred pattern: {cols}x{rows}")
+        print(f"  Calculated square size: {square_mm:.1f}mm (assuming letter paper vertical)")
+
+        return (cols, rows, square_mm)
+
     def _detect_charuco(self, image: np.ndarray) -> tuple[bool, np.ndarray]:
         """Detect ChArUco board and draw corners.
 
@@ -1169,7 +1247,7 @@ class CalibrationStep(BaseStep):
 
         # Check if any markers were detected
         if marker_ids is None or len(marker_ids) == 0:
-            hint_text = f"Move {self._pattern_cols}x{self._pattern_rows} ChArUco board into shared view"
+            hint_text = f"Move ChArUco board into shared view (any pattern)"
             cv2.putText(
                 annotated,
                 hint_text,
@@ -1180,6 +1258,29 @@ class CalibrationStep(BaseStep):
                 2
             )
             return False, annotated
+
+        # AUTO-DETECT: Try to infer pattern size from detected markers
+        auto_detected_pattern = self._auto_detect_charuco_pattern(marker_ids)
+        if auto_detected_pattern:
+            auto_cols, auto_rows, auto_square_mm = auto_detected_pattern
+            # Update if different from current settings
+            if (auto_cols != self._pattern_cols or auto_rows != self._pattern_rows or
+                abs(auto_square_mm - self._square_mm) > 0.5):
+                print(f"AUTO-DETECTED: ChArUco pattern {auto_cols}x{auto_rows}, square={auto_square_mm:.1f}mm")
+                self._pattern_cols = auto_cols
+                self._pattern_rows = auto_rows
+                self._square_mm = auto_square_mm
+                # Update UI controls
+                self._pattern_cols_spin.blockSignals(True)
+                self._pattern_rows_spin.blockSignals(True)
+                self._square_mm_spin.blockSignals(True)
+                self._pattern_cols_spin.setValue(auto_cols)
+                self._pattern_rows_spin.setValue(auto_rows)
+                self._square_mm_spin.setValue(auto_square_mm)
+                self._pattern_cols_spin.blockSignals(False)
+                self._pattern_rows_spin.blockSignals(False)
+                self._square_mm_spin.blockSignals(False)
+                self._update_pattern_info()
 
         # Draw detected markers
         cv2.aruco.drawDetectedMarkers(annotated, marker_corners, marker_ids)
