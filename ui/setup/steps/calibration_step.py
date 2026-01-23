@@ -1245,18 +1245,26 @@ class CalibrationStep(BaseStep):
                 gray, aruco_dict, parameters=detector_params
             )
 
+        # Calculate blur metric (Laplacian variance) - low values indicate blur
+        blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
+        is_blurry = blur_score < 100  # Threshold for blur detection
+
         # Check if any markers were detected
         if marker_ids is None or len(marker_ids) == 0:
-            hint_text = f"Move ChArUco board into shared view (any pattern)"
-            cv2.putText(
-                annotated,
-                hint_text,
-                (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 0, 255),
-                2
-            )
+            # Add diagnostic info
+            hint_text = "Move ChArUco board into view"
+            cv2.putText(annotated, hint_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+
+            # Show blur warning if image is blurry
+            if is_blurry:
+                cv2.putText(annotated, f"WARNING: Image blurry! (score={blur_score:.0f})", (10, 60),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+                cv2.putText(annotated, "Try: Adjust camera focus, better lighting", (10, 90),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+
+            # Show detection info
+            cv2.putText(annotated, f"Markers: 0 | Blur: {blur_score:.0f}", (10, gray.shape[0] - 10),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 100, 100), 1)
             return False, annotated
 
         # AUTO-DETECT: Try to infer pattern size from detected markers
@@ -1319,33 +1327,52 @@ class CalibrationStep(BaseStep):
         # Check if enough corners were detected
         # Need at least 4 corners for calibration
         MIN_CORNERS = 4
+
+        # Add detection diagnostics at bottom
+        num_markers = len(marker_ids) if marker_ids is not None else 0
+        corner_count = num_corners if num_corners is not None else 0
+        diag_text = f"Markers: {num_markers} | Corners: {corner_count} | Blur: {blur_score:.0f}"
+        blur_status = " (BLURRY!)" if is_blurry else " (OK)"
+        cv2.putText(annotated, diag_text + blur_status, (10, gray.shape[0] - 10),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
         if num_corners is not None and num_corners >= MIN_CORNERS:
             # Draw ChArUco corners
             cv2.aruco.drawDetectedCornersCharuco(annotated, charuco_corners, charuco_ids, (0, 255, 0))
 
-            # Add corner count indicator
-            cv2.putText(
-                annotated,
-                f"Corners: {num_corners}",
-                (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 0),
-                2
-            )
+            # Add success indicator
+            cv2.putText(annotated, f"READY - {num_corners} corners", (10, 30),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+            # Warn if blurry even though detected
+            if is_blurry:
+                cv2.putText(annotated, "WARNING: Blurry - may affect calibration", (10, 60),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 2)
+
             return True, annotated
         else:
-            # Not enough corners detected
+            # Not enough corners detected - provide detailed diagnostics
             corner_count = num_corners if num_corners is not None else 0
-            cv2.putText(
-                annotated,
-                f"Need {MIN_CORNERS}+ corners (found {corner_count})",
-                (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 165, 255),  # Orange
-                2
-            )
+            cv2.putText(annotated, f"Need {MIN_CORNERS}+ corners (found {corner_count})", (10, 30),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
+
+            # Provide specific suggestions based on detection state
+            y_offset = 60
+            if is_blurry:
+                cv2.putText(annotated, "ISSUE: Image is blurry - adjust camera focus!", (10, y_offset),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                y_offset += 30
+
+            if num_markers < 4:
+                cv2.putText(annotated, f"ISSUE: Only {num_markers} markers detected (need more)", (10, y_offset),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+                cv2.putText(annotated, "Try: Move board closer, better lighting, sharper focus", (10, y_offset + 25),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+            else:
+                cv2.putText(annotated, f"Markers OK ({num_markers} found), but corners failed", (10, y_offset),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+                cv2.putText(annotated, "Try: Ensure full board visible, check pattern size", (10, y_offset + 25),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
             return False, annotated
 
     def _update_view(self, label: QtWidgets.QLabel, image: np.ndarray) -> None:
