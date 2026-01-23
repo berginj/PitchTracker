@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
 import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtWidgets
 
 if TYPE_CHECKING:
     from analysis.pattern_detection.schemas import PatternAnalysisReport

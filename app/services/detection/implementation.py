@@ -9,9 +9,8 @@ Manages detection pipeline:
 
 from __future__ import annotations
 
-import logging
 import threading
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from app.events.event_bus import EventBus
 from app.events.event_types import FrameCapturedEvent, ObservationDetectedEvent

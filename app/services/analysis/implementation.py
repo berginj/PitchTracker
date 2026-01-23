@@ -10,7 +10,6 @@ Manages analysis pipeline:
 
 from __future__ import annotations
 
-import logging
 import threading
 from collections import deque
 from pathlib import Path
