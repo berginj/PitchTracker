@@ -110,129 +110,211 @@ class CalibrationStep(BaseStep):
         self._preview_timer.timeout.connect(self._update_preview)
 
     def _build_ui(self) -> None:
-        """Build calibration step UI."""
+        """Build simplified calibration step UI."""
         layout = QtWidgets.QVBoxLayout()
 
-        # Instructions
-        instructions = QtWidgets.QLabel(
-            "<b style='font-size: 12pt;'>Stereo Calibration - Need 10+ Image Pairs</b><br><br>"
-            "<b>1.</b> Position ChArUco board in the overlapping field of view between both cameras<br>"
-            "<b>2.</b> Board can be distant/small or partially visible - ChArUco is robust to occlusion<br>"
-            "<b>3.</b> When BOTH indicators turn <b>GREEN</b>, click <b>'Capture'</b><br>"
-            "<b>4.</b> Move board to different positions, angles, and depths (near/far)<br>"
-            "<b>5.</b> Capture at least 10 poses covering the tracking volume<br>"
-            "<b>6.</b> More captures (15-20) = better calibration accuracy<br>"
-            "<b>7.</b> Click <b>'Calibrate'</b> when you have 10+ captures"
+        # Simple instruction at top
+        instruction = QtWidgets.QLabel(
+            "<b style='font-size: 14pt;'>📷 Capture 10+ ChArUco Board Poses</b>"
         )
-        instructions.setWordWrap(True)
-        instructions.setStyleSheet(
-            "font-size: 10pt; padding: 12px; "
-            "background-color: white; "
-            "border: 2px solid #4CAF50; "
-            "border-radius: 5px; "
-            "color: black;"
-        )
-        layout.addWidget(instructions)
+        instruction.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        instruction.setStyleSheet("padding: 10px; background-color: #E3F2FD; border-radius: 5px; color: #000000;")
+        layout.addWidget(instruction)
 
-        # Settings row
-        settings_group = self._build_settings_group()
-        layout.addWidget(settings_group)
+        # Progress bar showing captures
+        progress_layout = QtWidgets.QHBoxLayout()
+        self._capture_count_label = QtWidgets.QLabel("Progress: 0/10 poses captured")
+        self._capture_count_label.setStyleSheet("font-size: 12pt; font-weight: bold; color: #000000;")
 
-        # NEW: Alignment status widget (automatically populated after cameras open)
-        self._alignment_widget = self._build_alignment_widget()
-        layout.addWidget(self._alignment_widget)
+        self._capture_progress_bar = QtWidgets.QProgressBar()
+        self._capture_progress_bar.setMinimum(0)
+        self._capture_progress_bar.setMaximum(10)
+        self._capture_progress_bar.setValue(0)
+        self._capture_progress_bar.setFormat("%v/%m")
+        self._capture_progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid #4CAF50;
+                border-radius: 5px;
+                text-align: center;
+                font-weight: bold;
+                font-size: 11pt;
+                min-height: 30px;
+            }
+            QProgressBar::chunk {
+                background-color: #4CAF50;
+            }
+        """)
 
-        # Pattern info
-        self._pattern_info = QtWidgets.QLabel()
-        self._pattern_info.setWordWrap(True)
-        self._pattern_info.setStyleSheet(
-            "color: black; "
-            "background-color: #FFF9C4; "
-            "padding: 8px; "
-            "border: 1px solid #F57F17; "
-            "border-radius: 4px; "
-            "font-weight: bold;"
-        )
-        self._update_pattern_info()
-        layout.addWidget(self._pattern_info)
+        progress_layout.addWidget(self._capture_count_label, 1)
+        progress_layout.addWidget(self._capture_progress_bar, 3)
+        layout.addLayout(progress_layout)
 
-        # Camera previews
+        # Camera previews (LARGE - 80% of screen)
         preview_layout = QtWidgets.QHBoxLayout()
 
         # Left preview
-        left_group = QtWidgets.QGroupBox("Left Camera")
+        left_group = QtWidgets.QGroupBox()
+        left_group.setTitle("")  # No title for cleaner look
         self._left_view = QtWidgets.QLabel("No preview")
-        self._left_view.setMinimumSize(640, 480)  # Large preview for better visibility (960x600 expectation)
+        self._left_view.setMinimumSize(800, 600)  # Much larger preview
         self._left_view.setScaledContents(True)
         self._left_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._left_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._left_view.setStyleSheet("background-color: #f5f5f5;")
+        self._left_view.setStyleSheet("background-color: #2c3e50; color: white; border: 2px solid #34495e;")
 
-        self._left_status = QtWidgets.QLabel("● Waiting...")
-        self._left_status.setStyleSheet("color: gray; font-weight: bold;")
+        # Simple status - just READY or NOT READY
+        self._left_status = QtWidgets.QLabel("⏳ Waiting for board...")
+        self._left_status.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._left_status.setStyleSheet(
+            "font-size: 14pt; font-weight: bold; padding: 8px; "
+            "background-color: #95a5a6; color: #000000; border-radius: 5px;"
+        )
 
         left_layout = QtWidgets.QVBoxLayout()
-        left_layout.addWidget(self._left_view)
-        left_layout.addWidget(self._left_status, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+        left_layout.addWidget(QtWidgets.QLabel("<b>LEFT CAMERA</b>"), alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+        left_layout.addWidget(self._left_view, 10)  # 10x stretch for large preview
+        left_layout.addWidget(self._left_status)
         left_group.setLayout(left_layout)
 
         # Right preview
-        right_group = QtWidgets.QGroupBox("Right Camera")
+        right_group = QtWidgets.QGroupBox()
+        right_group.setTitle("")  # No title for cleaner look
         self._right_view = QtWidgets.QLabel("No preview")
-        self._right_view.setMinimumSize(640, 480)  # Large preview for better visibility (960x600 expectation)
+        self._right_view.setMinimumSize(800, 600)  # Much larger preview
         self._right_view.setScaledContents(True)
         self._right_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._right_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._right_view.setStyleSheet("background-color: #f5f5f5;")
+        self._right_view.setStyleSheet("background-color: #2c3e50; color: white; border: 2px solid #34495e;")
 
-        self._right_status = QtWidgets.QLabel("● Waiting...")
-        self._right_status.setStyleSheet("color: gray; font-weight: bold;")
+        # Simple status - just READY or NOT READY
+        self._right_status = QtWidgets.QLabel("⏳ Waiting for board...")
+        self._right_status.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._right_status.setStyleSheet(
+            "font-size: 14pt; font-weight: bold; padding: 8px; "
+            "background-color: #95a5a6; color: #000000; border-radius: 5px;"
+        )
 
         right_layout = QtWidgets.QVBoxLayout()
-        right_layout.addWidget(self._right_view)
-        right_layout.addWidget(self._right_status, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+        right_layout.addWidget(QtWidgets.QLabel("<b>RIGHT CAMERA</b>"), alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+        right_layout.addWidget(self._right_view, 10)  # 10x stretch for large preview
+        right_layout.addWidget(self._right_status)
         right_group.setLayout(right_layout)
 
         preview_layout.addWidget(left_group)
         preview_layout.addWidget(right_group)
-        layout.addLayout(preview_layout)
+        layout.addLayout(preview_layout, 10)  # Give previews most of the space
 
-        # Controls
+        # Controls - Large buttons for capture and calibration
         controls_layout = QtWidgets.QHBoxLayout()
 
-        self._capture_button = QtWidgets.QPushButton("📷 Capture")
-        self._capture_button.setMinimumHeight(40)
+        self._capture_button = QtWidgets.QPushButton("📷 Capture Pose")
+        self._capture_button.setMinimumHeight(50)
+        self._capture_button.setMinimumWidth(200)
         self._capture_button.setEnabled(False)
+        self._capture_button.setStyleSheet("""
+            QPushButton {
+                font-size: 14pt;
+                font-weight: bold;
+                background-color: #95a5a6;
+                color: white;
+                border-radius: 8px;
+                padding: 10px;
+            }
+            QPushButton:enabled {
+                background-color: #4CAF50;
+            }
+            QPushButton:enabled:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+        """)
         self._capture_button.clicked.connect(self._capture_image_pair)
 
-        # Release cameras button for when they get stuck
-        self._release_button = QtWidgets.QPushButton("🔓 Force Release Cameras")
-        self._release_button.setStyleSheet("background-color: #ff9800; color: white; font-weight: bold;")
-        self._release_button.clicked.connect(self._force_release_cameras)
-
-        self._capture_count_label = QtWidgets.QLabel("Captured: 0 / 10 minimum")
-        self._capture_count_label.setStyleSheet(
-            "font-size: 14pt; "
-            "font-weight: bold; "
-            "color: #d32f2f; "
-            "padding: 5px;"
-        )
-
-        self._calibrate_button = QtWidgets.QPushButton("🔧 Calibrate")
-        self._calibrate_button.setMinimumHeight(40)
+        self._calibrate_button = QtWidgets.QPushButton("🔧 Run Calibration")
+        self._calibrate_button.setMinimumHeight(50)
+        self._calibrate_button.setMinimumWidth(200)
         self._calibrate_button.setEnabled(False)
+        self._calibrate_button.setStyleSheet("""
+            QPushButton {
+                font-size: 14pt;
+                font-weight: bold;
+                background-color: #95a5a6;
+                color: white;
+                border-radius: 8px;
+                padding: 10px;
+            }
+            QPushButton:enabled {
+                background-color: #2196F3;
+            }
+            QPushButton:enabled:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #1565C0;
+            }
+        """)
         self._calibrate_button.clicked.connect(self._run_calibration)
 
-        controls_layout.addWidget(self._capture_button, 2)
-        controls_layout.addWidget(self._capture_count_label, 1)
-        controls_layout.addWidget(self._calibrate_button, 2)
+        controls_layout.addStretch()
+        controls_layout.addWidget(self._capture_button)
+        controls_layout.addWidget(self._calibrate_button)
+        controls_layout.addStretch()
         layout.addLayout(controls_layout)
 
-        # Release button in separate row for emergencies
+        # Advanced Settings - Collapsible section (collapsed by default)
+        advanced_group = QtWidgets.QGroupBox("⚙️ Advanced Settings")
+        advanced_group.setCheckable(True)
+        advanced_group.setChecked(False)  # Collapsed by default
+        advanced_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 11pt;
+                font-weight: bold;
+                border: 2px solid #9E9E9E;
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }
+        """)
+        advanced_layout = QtWidgets.QVBoxLayout()
+
+        # Add settings group (pattern, camera flips, baseline, etc.)
+        settings_widget = self._build_settings_group()
+        advanced_layout.addWidget(settings_widget)
+
+        # Add alignment widget
+        alignment_widget = self._build_alignment_widget()
+        advanced_layout.addWidget(alignment_widget)
+
+        advanced_group.setLayout(advanced_layout)
+        layout.addWidget(advanced_group)
+
+        # Release cameras button (for emergencies) - Small and tucked away
+        self._release_button = QtWidgets.QPushButton("🔓 Force Release Cameras")
+        self._release_button.setMaximumWidth(200)
+        self._release_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ff9800;
+                color: white;
+                font-weight: bold;
+                font-size: 9pt;
+                padding: 5px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #f57c00;
+            }
+        """)
+        self._release_button.clicked.connect(self._force_release_cameras)
         release_layout = QtWidgets.QHBoxLayout()
         release_layout.addStretch()
         release_layout.addWidget(self._release_button)
-        release_layout.addStretch()
         layout.addLayout(release_layout)
 
         # Progress bar for calibration
@@ -658,10 +740,11 @@ class CalibrationStep(BaseStep):
         self._captures.clear()
         self._baseline_alignment = None  # Reset drift detection baseline
         self._warmup_attempts = 0  # Reset warmup counter
-        self._capture_count_label.setText(f"Captured: 0 / {self._min_captures} minimum")
+        self._capture_count_label.setText(f"Progress: 0/{self._min_captures} poses captured")
         self._capture_count_label.setStyleSheet(
-            "font-size: 14pt; font-weight: bold; color: #d32f2f; padding: 5px;"
+            "font-size: 12pt; font-weight: bold; color: #d32f2f;"
         )
+        self._capture_progress_bar.setValue(0)
         self._calibrate_button.setEnabled(False)
 
         # Close any existing cameras first to release resources
@@ -1141,20 +1224,32 @@ class CalibrationStep(BaseStep):
             self._update_view(self._left_view, left_image)
             self._update_view(self._right_view, right_image)
 
-            # Update status indicators
+            # Update status indicators - Simplified READY/NOT READY
             if left_detected:
-                self._left_status.setText("● ChArUco board detected")
-                self._left_status.setStyleSheet("color: green; font-weight: bold;")
+                self._left_status.setText("✅ READY")
+                self._left_status.setStyleSheet(
+                    "font-size: 14pt; font-weight: bold; padding: 8px; "
+                    "background-color: #4CAF50; color: #FFFFFF; border-radius: 5px;"
+                )
             else:
-                self._left_status.setText("● No ChArUco board")
-                self._left_status.setStyleSheet("color: red; font-weight: bold;")
+                self._left_status.setText("⏳ Waiting for board...")
+                self._left_status.setStyleSheet(
+                    "font-size: 14pt; font-weight: bold; padding: 8px; "
+                    "background-color: #95a5a6; color: #FFFFFF; border-radius: 5px;"
+                )
 
             if right_detected:
-                self._right_status.setText("● ChArUco board detected")
-                self._right_status.setStyleSheet("color: green; font-weight: bold;")
+                self._right_status.setText("✅ READY")
+                self._right_status.setStyleSheet(
+                    "font-size: 14pt; font-weight: bold; padding: 8px; "
+                    "background-color: #4CAF50; color: #FFFFFF; border-radius: 5px;"
+                )
             else:
-                self._right_status.setText("● No ChArUco board")
-                self._right_status.setStyleSheet("color: red; font-weight: bold;")
+                self._right_status.setText("⏳ Waiting for board...")
+                self._right_status.setStyleSheet(
+                    "font-size: 14pt; font-weight: bold; padding: 8px; "
+                    "background-color: #95a5a6; color: #FFFFFF; border-radius: 5px;"
+                )
 
             # Enable capture if both detected
             self._capture_button.setEnabled(left_detected and right_detected)
@@ -1670,17 +1765,19 @@ class CalibrationStep(BaseStep):
             # Store capture
             self._captures.append((left_frame.image, right_frame.image))
 
-            # Update UI
+            # Update UI - Both progress bar and label
             count = len(self._captures)
+            self._capture_progress_bar.setValue(count)
+
             if count < self._min_captures:
-                self._capture_count_label.setText(f"Captured: {count} / {self._min_captures} minimum")
+                self._capture_count_label.setText(f"Progress: {count}/{self._min_captures} poses captured")
                 self._capture_count_label.setStyleSheet(
-                    "font-size: 14pt; font-weight: bold; color: #d32f2f; padding: 5px;"
+                    "font-size: 12pt; font-weight: bold; color: #d32f2f;"
                 )
             else:
-                self._capture_count_label.setText(f"Captured: {count} ✓ (Ready to calibrate)")
+                self._capture_count_label.setText(f"Progress: {count}/{self._min_captures} poses ✓ Ready!")
                 self._capture_count_label.setStyleSheet(
-                    "font-size: 14pt; font-weight: bold; color: #388e3c; padding: 5px;"
+                    "font-size: 12pt; font-weight: bold; color: #388e3c;"
                 )
 
             # Enable calibrate button if enough captures
@@ -1794,10 +1891,11 @@ class CalibrationStep(BaseStep):
                 # Restart calibration - clear all captures
                 self._captures.clear()
                 self._baseline_alignment = None
-                self._capture_count_label.setText(f"Captured: 0 / {self._min_captures} minimum")
+                self._capture_count_label.setText(f"Progress: 0/{self._min_captures} poses captured")
                 self._capture_count_label.setStyleSheet(
-                    "font-size: 14pt; font-weight: bold; color: #d32f2f; padding: 5px;"
+                    "font-size: 12pt; font-weight: bold; color: #d32f2f;"
                 )
+                self._capture_progress_bar.setValue(0)
                 self._calibrate_button.setEnabled(False)
 
                 # Clear temp directory
