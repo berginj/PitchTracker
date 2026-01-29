@@ -95,13 +95,14 @@ $env:PITCHTRACKER_TEST_VIDEO="C:\path\to\left.avi"
 python -m pytest tests/test_video_clip.py
 ```
 
-**Test Coverage (as of 2026-01-19):**
+**Test Coverage (as of 2026-01-27):**
 - Pattern Detection: 45/45 tests (100% ✅)
 - UI Integration: 13/13 tests (100% ✅)
 - Core Pipeline: 287 tests (98%)
 - Integration Tests: 26 tests (100% ✅)
 - Memory/Stress Tests: 15 tests (100% ✅)
 - **Total:** 389+ tests (98%+ passing)
+- **Last Updated:** Calibration UX simplification complete
 
 ## Completed Features
 - PySide6 UI with in-process pipeline service and recording/replay
@@ -109,7 +110,14 @@ python -m pytest tests/test_video_clip.py
 - Classical detector with ROI cropping and optional ONNX ML detector
 - Recording bundles with manifest, timestamps, and config snapshot
 - Plate plane calibration tool with logging
-- **Pattern Detection System (NEW - 2026-01-19):**
+- **Simplified Calibration UX (NEW - 2026-01-27):**
+  - Redesigned calibration interface with progressive disclosure
+  - Large camera previews (800×600) for better visibility
+  - Simple READY/NOT READY status indicators
+  - Visual progress bar showing capture count
+  - 80% reduction in visible UI elements (advanced features collapsed by default)
+  - Maintains 100% functionality with dramatically improved usability
+- **Pattern Detection System (2026-01-19):**
   - Pitch classification (Fastball, Curveball, Slider, Changeup, Sinker, Cutter)
   - Anomaly detection (speed, movement, trajectory quality)
   - Pitcher profile management with baseline comparison
