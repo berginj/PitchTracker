@@ -1531,25 +1531,35 @@ class CalibrationStep(BaseStep):
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
 
+                print(f"[OpenCV Backend] Extracting camera indices:")
+                print(f"  Left serial: '{self._left_serial}'")
+                print(f"  Right serial: '{self._right_serial}'")
+
                 # Extract index from "Camera N" format or use serial directly if it's a number
+                # Convert to integer for OpenCV
                 if self._left_serial.isdigit():
-                    left_index = self._left_serial
+                    left_index = int(self._left_serial)
                 else:
-                    left_index = self._left_serial.split()[-1]
+                    left_index = int(self._left_serial.split()[-1])
 
                 if self._right_serial.isdigit():
-                    right_index = self._right_serial
+                    right_index = int(self._right_serial)
                 else:
-                    right_index = self._right_serial.split()[-1]
+                    right_index = int(self._right_serial.split()[-1])
+
+                print(f"  Extracted left index: {left_index} (type: {type(left_index)})")
+                print(f"  Extracted right index: {right_index} (type: {type(right_index)})")
 
                 self._left_camera = OpenCVCamera()
                 self._right_camera = OpenCVCamera()
 
                 print(f"DEBUG: Opening left camera with index: {left_index} (flip={flip_left})")
                 self._left_camera.open(left_index)
+                print(f"DEBUG: Left camera opened successfully")
 
                 print(f"DEBUG: Opening right camera with index: {right_index} (flip={flip_right})")
                 self._right_camera.open(right_index)
+                print(f"DEBUG: Right camera opened successfully")
 
                 # Configure cameras with settings from config including flip and rotation correction
                 self._left_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_left, rotation_correction=rotation_left)
