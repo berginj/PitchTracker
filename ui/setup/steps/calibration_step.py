@@ -176,10 +176,19 @@ class CalibrationStep(BaseStep):
             "background-color: #95a5a6; color: #000000; border-radius: 5px;"
         )
 
+        # Focus quality indicator
+        self._left_focus = QtWidgets.QLabel("Focus: Unknown")
+        self._left_focus.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._left_focus.setStyleSheet(
+            "font-size: 12pt; font-weight: bold; padding: 6px; "
+            "background-color: #34495e; color: #FFFFFF; border-radius: 3px;"
+        )
+
         left_layout = QtWidgets.QVBoxLayout()
         left_layout.addWidget(QtWidgets.QLabel("<b>LEFT CAMERA</b>"), alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
         left_layout.addWidget(self._left_view, 10)  # 10x stretch for large preview
         left_layout.addWidget(self._left_status)
+        left_layout.addWidget(self._left_focus)
         left_group.setLayout(left_layout)
 
         # Right preview
@@ -200,10 +209,19 @@ class CalibrationStep(BaseStep):
             "background-color: #95a5a6; color: #000000; border-radius: 5px;"
         )
 
+        # Focus quality indicator
+        self._right_focus = QtWidgets.QLabel("Focus: Unknown")
+        self._right_focus.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._right_focus.setStyleSheet(
+            "font-size: 12pt; font-weight: bold; padding: 6px; "
+            "background-color: #34495e; color: #FFFFFF; border-radius: 3px;"
+        )
+
         right_layout = QtWidgets.QVBoxLayout()
         right_layout.addWidget(QtWidgets.QLabel("<b>RIGHT CAMERA</b>"), alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
         right_layout.addWidget(self._right_view, 10)  # 10x stretch for large preview
         right_layout.addWidget(self._right_status)
+        right_layout.addWidget(self._right_focus)
         right_group.setLayout(right_layout)
 
         preview_layout.addWidget(left_group)
@@ -1257,6 +1275,60 @@ class CalibrationStep(BaseStep):
 
         return display_image
 
+    def _update_focus_indicators(self, left_blur: float, right_blur: float) -> None:
+        """Update focus quality indicators for both cameras.
+
+        Args:
+            left_blur: Blur score for left camera (Laplacian variance)
+            right_blur: Blur score for right camera (Laplacian variance)
+        """
+        # Focus quality thresholds
+        EXCELLENT_THRESHOLD = 300  # >300 is excellent
+        GOOD_THRESHOLD = 150       # 150-300 is good
+        POOR_THRESHOLD = 100       # 100-150 is acceptable, <100 is poor
+
+        def get_focus_status(blur_score: float) -> tuple[str, str, str]:
+            """Get focus status text, color, and background color.
+
+            Returns:
+                (status_text, text_color, background_color)
+            """
+            if blur_score >= EXCELLENT_THRESHOLD:
+                return (f"Focus: Excellent ({blur_score:.0f})", "#FFFFFF", "#4CAF50")  # Green
+            elif blur_score >= GOOD_THRESHOLD:
+                return (f"Focus: Good ({blur_score:.0f})", "#000000", "#8BC34A")  # Light green
+            elif blur_score >= POOR_THRESHOLD:
+                return (f"Focus: Acceptable ({blur_score:.0f})", "#000000", "#FFC107")  # Yellow
+            else:
+                return (f"⚠ ADJUST FOCUS ⚠ ({blur_score:.0f})", "#FFFFFF", "#F44336")  # Red
+
+        # Update left camera focus indicator
+        left_text, left_color, left_bg = get_focus_status(left_blur)
+        self._left_focus.setText(left_text)
+        self._left_focus.setStyleSheet(
+            f"font-size: 12pt; font-weight: bold; padding: 6px; "
+            f"background-color: {left_bg}; color: {left_color}; border-radius: 3px;"
+        )
+
+        # Update right camera focus indicator
+        right_text, right_color, right_bg = get_focus_status(right_blur)
+        self._right_focus.setText(right_text)
+        self._right_focus.setStyleSheet(
+            f"font-size: 12pt; font-weight: bold; padding: 6px; "
+            f"background-color: {right_bg}; color: {right_color}; border-radius: 3px;"
+        )
+
+        # Determine which camera needs adjustment (if any)
+        if left_blur < POOR_THRESHOLD and right_blur < POOR_THRESHOLD:
+            # Both cameras need adjustment
+            print(f"[Focus] ⚠ BOTH CAMERAS need focus adjustment! Left: {left_blur:.0f}, Right: {right_blur:.0f}")
+        elif left_blur < POOR_THRESHOLD:
+            # Only left camera needs adjustment
+            print(f"[Focus] ⚠ LEFT CAMERA needs focus adjustment! Score: {left_blur:.0f} (Right: {right_blur:.0f})")
+        elif right_blur < POOR_THRESHOLD:
+            # Only right camera needs adjustment
+            print(f"[Focus] ⚠ RIGHT CAMERA needs focus adjustment! Score: {right_blur:.0f} (Left: {left_blur:.0f})")
+
     def _load_camera_history(self) -> dict:
         """Load historical camera position assignments.
 
@@ -1631,8 +1703,8 @@ class CalibrationStep(BaseStep):
                 return
 
             # Check for ChArUco board in both cameras
-            left_detected, left_image = self._detect_charuco(left_frame.image)
-            right_detected, right_image = self._detect_charuco(right_frame.image)
+            left_detected, left_image, left_blur = self._detect_charuco(left_frame.image)
+            right_detected, right_image, right_blur = self._detect_charuco(right_frame.image)
 
             # Add visual marker position overlay (if enabled)
             if self._show_marker_overlay:
@@ -1669,6 +1741,9 @@ class CalibrationStep(BaseStep):
                     "font-size: 14pt; font-weight: bold; padding: 8px; "
                     "background-color: #95a5a6; color: #FFFFFF; border-radius: 5px;"
                 )
+
+            # Update focus quality indicators
+            self._update_focus_indicators(left_blur, right_blur)
 
             # Enable capture if both detected
             self._capture_button.setEnabled(left_detected and right_detected)
@@ -1754,11 +1829,11 @@ class CalibrationStep(BaseStep):
 
         return (cols, rows, square_mm)
 
-    def _detect_charuco(self, image: np.ndarray) -> tuple[bool, np.ndarray]:
+    def _detect_charuco(self, image: np.ndarray) -> tuple[bool, np.ndarray, float]:
         """Detect ChArUco board and draw corners.
 
         Returns:
-            (detected, annotated_image)
+            (detected, annotated_image, blur_score)
         """
         # Convert to grayscale for detection
         if len(image.shape) == 3:
@@ -1972,7 +2047,7 @@ class CalibrationStep(BaseStep):
                 cv2.putText(annotated, "Try: Adjust camera focus, better lighting", (10, 150),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
 
-            return False, annotated
+            return False, annotated, blur_score
 
         # Log which markers were found (reduced frequency)
         if self._detection_log_counter % 30 == 0:
@@ -2103,7 +2178,7 @@ class CalibrationStep(BaseStep):
                 cv2.putText(annotated, "WARNING: Blurry - may affect calibration", (10, 110),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
 
-            return True, annotated
+            return True, annotated, blur_score
         else:
             # Not enough corners detected - provide detailed diagnostics
             corner_count = num_corners if num_corners is not None else 0
@@ -2131,7 +2206,7 @@ class CalibrationStep(BaseStep):
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
                 cv2.putText(annotated, "Try: Ensure full board visible, check pattern size", (10, y_offset + 30),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
-            return False, annotated
+            return False, annotated, blur_score
 
     def _update_view(self, label: QtWidgets.QLabel, image: np.ndarray) -> None:
         """Update QLabel with image."""
