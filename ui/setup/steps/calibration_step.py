@@ -1855,6 +1855,12 @@ class CalibrationStep(BaseStep):
                     best_dict_name = dict_name
 
             # Cache the best dictionary found
+            # Log if dictionary changed
+            dict_changed = (self._cached_dict_name != best_dict_name)
+            if dict_changed and best_marker_count > 0:
+                print(f"[ChArUco Detection] *** DICTIONARY CHANGED: {self._cached_dict_name or 'None'} -> {best_dict_name} ***")
+                print(f"[ChArUco Detection] Detected {best_marker_count} markers with {best_dict_name}")
+
             self._cached_dict_name = best_dict_name
             marker_corners = best_marker_corners
             marker_ids = best_marker_ids
@@ -1864,7 +1870,7 @@ class CalibrationStep(BaseStep):
             if self._detection_log_counter % 10 == 0:
                 num_detected = len(marker_ids) if marker_ids is not None else 0
                 num_rejected = len(rejected) if rejected is not None and len(rejected) > 0 else 0
-                print(f"[ChArUco Detection] BEST: {best_dict_name} with {num_detected} markers, {num_rejected} rejected")
+                print(f"[ChArUco Detection] Using {best_dict_name}: {num_detected} markers detected, {num_rejected} rejected")
         else:
             # Use cached dictionary for fast detection
             dict_id = next(d[1] for d in DICTIONARIES_TO_TRY if d[0] == self._cached_dict_name)

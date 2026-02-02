@@ -25,7 +25,8 @@ def generate_charuco_board(
     rows: int = 6,
     square_mm: float = 30.0,
     output: str = "charuco_board.png",
-    paper_size: str = "letter"
+    paper_size: str = "letter",
+    dict_name: str = "6x6_250"
 ) -> None:
     """Generate ChArUco board for calibration.
 
@@ -35,9 +36,25 @@ def generate_charuco_board(
         square_mm: Square size in millimeters (default: 30)
         output: Output filename (default: charuco_board.png)
         paper_size: Paper size - 'letter' or 'a4' (default: letter)
+        dict_name: ArUco dictionary name (default: 6x6_250)
     """
-    # ArUco dictionary (6x6 with 250 markers)
-    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+    # ArUco dictionary mapping
+    DICT_MAP = {
+        "6x6_250": cv2.aruco.DICT_6X6_250,
+        "5x5_250": cv2.aruco.DICT_5X5_250,
+        "4x4_250": cv2.aruco.DICT_4X4_250,
+        "6x6_100": cv2.aruco.DICT_6X6_100,
+        "5x5_100": cv2.aruco.DICT_5X5_100,
+        "4x4_100": cv2.aruco.DICT_4X4_100,
+        "4x4_50": cv2.aruco.DICT_4X4_50,
+    }
+
+    if dict_name.lower() not in DICT_MAP:
+        print(f"Error: Unknown dictionary '{dict_name}'", file=sys.stderr)
+        print(f"Available: {', '.join(DICT_MAP.keys())}", file=sys.stderr)
+        sys.exit(1)
+
+    dictionary = cv2.aruco.getPredefinedDictionary(DICT_MAP[dict_name.lower()])
 
     # Marker size is typically 73% of square size (prevents marker overlap)
     marker_mm = square_mm * 0.73
@@ -78,6 +95,7 @@ def generate_charuco_board(
     print(f"Square size: {square_mm} mm")
     print(f"Marker size: {marker_mm:.1f} mm")
     print(f"Total markers: {(cols - 1) * (rows - 1)}")
+    print(f"Dictionary: {dict_name.upper()}")
     print(f"Paper size: {paper_name}")
     print()
     print("=" * 70)
@@ -133,8 +151,14 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Generate default 5x6 board with 30mm squares
+  # Generate default 5x6 board with 30mm squares (6x6_250 dictionary)
   python generate_charuco.py
+
+  # Generate board with 4x4 dictionary (smaller markers)
+  python generate_charuco.py --dict 4x4_250
+
+  # Generate 5x6 board with 20mm squares and 6x6 dictionary
+  python generate_charuco.py --cols 5 --rows 6 --size 20 --dict 6x6_250
 
   # Generate larger 7x5 board with 25mm squares
   python generate_charuco.py --cols 7 --rows 5 --size 25
@@ -142,8 +166,9 @@ Examples:
   # Generate A4 paper format
   python generate_charuco.py --paper a4
 
-  # Custom output filename
-  python generate_charuco.py --output my_calibration_board.png
+Available dictionaries:
+  6x6_250, 5x5_250, 4x4_250 (recommended)
+  6x6_100, 5x5_100, 4x4_100, 4x4_50 (less common)
         """
     )
 
@@ -178,6 +203,12 @@ Examples:
         default="letter",
         help="Paper size: 'letter' (8.5x11) or 'a4' (210x297mm) (default: letter)"
     )
+    parser.add_argument(
+        "--dict",
+        type=str,
+        default="6x6_250",
+        help="ArUco dictionary: 6x6_250, 5x5_250, 4x4_250, 6x6_100, 5x5_100, 4x4_100, 4x4_50 (default: 6x6_250)"
+    )
 
     args = parser.parse_args()
 
@@ -197,7 +228,8 @@ Examples:
             rows=args.rows,
             square_mm=args.size,
             output=args.output,
-            paper_size=args.paper
+            paper_size=args.paper,
+            dict_name=args.dict
         )
     except Exception as e:
         print(f"Error generating board: {e}", file=sys.stderr)
