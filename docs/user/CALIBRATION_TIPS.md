@@ -1,13 +1,14 @@
 # PitchTracker - Calibration Tips & Best Practices
 
-**Last Updated:** 2026-01-18
-**Version:** 1.2.0
+**Last Updated:** 2026-01-27
+**Version:** 1.2.1
 
 ---
 
 ## Table of Contents
 
 - [Why Calibration Matters](#why-calibration-matters)
+- [Generate Calibration Board](#generate-calibration-board) ⭐ START HERE
 - [Camera Placement](#camera-placement)
 - [Equipment Needed](#equipment-needed)
 - [Intrinsic Calibration](#intrinsic-calibration)
@@ -36,6 +37,91 @@ Calibration is the process of teaching the application about your camera setup. 
 - Reliable pitch metrics
 
 **Time Investment:** 30-60 minutes for initial setup, 10-15 minutes for recalibration
+
+---
+
+## Generate Calibration Board
+
+### ⭐ Step 1: Generate the Board
+
+Before starting calibration, generate and print a ChArUco board:
+
+```bash
+# From project directory
+python generate_charuco.py
+```
+
+**Output:** `charuco_board.png`
+
+**Options:**
+```bash
+# Custom size board (e.g., 7×5 with 25mm squares)
+python generate_charuco.py --cols 7 --rows 5 --size 25
+
+# A4 paper instead of US Letter
+python generate_charuco.py --paper a4
+
+# Custom output filename
+python generate_charuco.py --output my_board.png
+```
+
+### 📄 Step 2: Print the Board
+
+**CRITICAL PRINTING INSTRUCTIONS:**
+
+1. **Open File:** Open `charuco_board.png` in image viewer or browser
+
+2. **Print Settings:**
+   - ✅ **Scale: 100%** (CRITICAL - NO "Fit to Page" or "Shrink to Fit")
+   - ✅ **Quality: High/Best** quality
+   - ✅ **Paper: Thick paper or cardstock** (for rigidity)
+   - ✅ **Finish: Matte** (reduces glare - important!)
+   - ✅ **Color: Black & White** is fine
+
+3. **Mounting:**
+   - Mount on **rigid surface** (foam board, cardboard, 1/4" plywood)
+   - Keep it **perfectly FLAT** (warping ruins calibration)
+   - Optional: **Laminate** for durability and easy cleaning
+
+4. **Verification:**
+   - Measure actual square size with a **ruler**
+   - Should be **30mm ± 0.5mm**
+   - If different, note actual size for Advanced Settings
+
+### ❓ Why ChArUco Board?
+
+**ChArUco** (Checkerboard + ArUco markers) is **superior to plain checkerboard** because:
+
+✅ **Partial Occlusion OK** - Don't need entire board visible
+✅ **Auto-Detection** - Automatically detects board size and orientation
+✅ **Robust to Lighting** - Works in varied lighting conditions
+✅ **Flexible Distance** - Can be closer or further from cameras
+✅ **Better Accuracy** - More corners = better calibration
+
+**Alternative:** Plain checkerboard works but requires entire board visible at all times.
+
+### 🖨️ Printing Troubleshooting
+
+**Problem:** Board prints too small or large
+
+**Solution 1:** Check printer settings
+- Disable "Fit to Page"
+- Disable "Shrink to Fit"
+- Set to "Actual Size" or "100%"
+
+**Solution 2:** Measure and adjust
+- Print board
+- Measure actual square size
+- In calibration UI, expand "⚙️ Advanced Settings"
+- Enter actual measured size in "Square size (mm)" field
+
+**Problem:** Board is warped or curved
+
+**Solution:** Mount on rigid surface BEFORE calibration
+- Foam board (from craft store)
+- 1/4" plywood
+- Thick cardboard (multiple layers glued together)
+- Acrylic sheet (if available)
 
 ---
 

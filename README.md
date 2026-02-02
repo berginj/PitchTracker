@@ -33,6 +33,41 @@ The application includes automatic updates - you'll be notified when new version
 
 ---
 
+## Calibration Board Preparation
+
+### Generate & Print ChArUco Board
+
+Before running the Setup Wizard, you'll need to print a calibration board. Use the included generator:
+
+```bash
+# Generate default 5x6 board (30mm squares)
+python generate_charuco.py
+
+# Generate custom size board
+python generate_charuco.py --cols 7 --rows 5 --size 25
+
+# Generate for A4 paper (instead of US Letter)
+python generate_charuco.py --paper a4
+```
+
+**Output:** `charuco_board.png` - ready to print!
+
+**Printing Instructions:**
+1. Open `charuco_board.png` in image viewer
+2. Print at **100% scale** (CRITICAL - disable "Fit to Page")
+3. Use **high quality** print mode
+4. Print on **thick paper** or cardstock
+5. Mount on **rigid surface** (foam board, wood)
+6. Verify with ruler: squares should be 30mm ± 0.5mm
+
+**Why ChArUco?**
+- Works with partial occlusion (don't need entire board visible)
+- Auto-detects board size and orientation
+- More robust to lighting
+- Can be used at varying distances
+
+---
+
 ## For Developers
 
 ### First-Time Setup
