@@ -2051,9 +2051,12 @@ class CalibrationStep(BaseStep):
 
             # FALLBACK: Try plain checkerboard detection if ChArUco markers failed
             print("[Calibration] ChArUco markers not detected, trying plain checkerboard fallback...")
-            fallback_result = self._try_checkerboard_fallback(gray, annotated, blur_score, is_blurry)
-            if fallback_result is not None:
-                return fallback_result  # Returns (True, annotated_image, blur_score)
+            try:
+                fallback_result = self._try_checkerboard_fallback(gray, annotated, blur_score, is_blurry)
+                if fallback_result is not None:
+                    return fallback_result  # Returns (True, annotated_image, blur_score)
+            except Exception as e:
+                print(f"[Calibration] Checkerboard fallback threw exception: {e}")
 
             return False, annotated, blur_score
 
@@ -2217,9 +2220,12 @@ class CalibrationStep(BaseStep):
 
             # FALLBACK: Try plain checkerboard detection if ChArUco corner interpolation failed
             print(f"[Calibration] ChArUco found {num_markers} markers but only {corner_count} corners, trying checkerboard fallback...")
-            fallback_result = self._try_checkerboard_fallback(gray, annotated, blur_score, is_blurry)
-            if fallback_result is not None:
-                return fallback_result  # Returns (True, annotated_image, blur_score)
+            try:
+                fallback_result = self._try_checkerboard_fallback(gray, annotated, blur_score, is_blurry)
+                if fallback_result is not None:
+                    return fallback_result  # Returns (True, annotated_image, blur_score)
+            except Exception as e:
+                print(f"[Calibration] Checkerboard fallback threw exception: {e}")
 
             return False, annotated, blur_score
 
@@ -2241,58 +2247,70 @@ class CalibrationStep(BaseStep):
         Returns:
             (True, annotated_image, blur_score) if successful, None if failed
         """
-        # Checkerboard has (cols-1, rows-1) internal corners
-        board_size = (self._pattern_cols - 1, self._pattern_rows - 1)
+        try:
+            # Validate inputs
+            if gray is None or annotated is None or gray.size == 0 or annotated.size == 0:
+                print("[Checkerboard Fallback] Invalid input images")
+                return None
 
-        # Try to find checkerboard corners
-        # flags: Use adaptive threshold + normalize image for better detection
-        flags = cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE
+            # Checkerboard has (cols-1, rows-1) internal corners
+            board_size = (self._pattern_cols - 1, self._pattern_rows - 1)
 
-        ret, corners = cv2.findChessboardCorners(gray, board_size, flags)
+            # Try to find checkerboard corners
+            # flags: Use adaptive threshold + normalize image for better detection
+            flags = cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE
 
-        if not ret or corners is None:
-            print(f"[Checkerboard Fallback] Failed to detect {board_size} checkerboard pattern")
+            ret, corners = cv2.findChessboardCorners(gray, board_size, flags)
+
+            if not ret or corners is None:
+                print(f"[Checkerboard Fallback] Failed to detect {board_size} checkerboard pattern")
+                return None
+
+            # Refine corner locations to sub-pixel accuracy
+            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+            corners_refined = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+
+            # Draw detected corners
+            cv2.drawChessboardCorners(annotated, board_size, corners_refined, ret)
+
+            num_corners = len(corners_refined)
+            print(f"[Checkerboard Fallback] SUCCESS! Detected {num_corners} corners using plain checkerboard mode")
+
+            # Add success indicator with "CHECKERBOARD MODE" label
+            success_text = f"READY - {num_corners} corners (CHECKERBOARD MODE)"
+            text_size = cv2.getTextSize(success_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
+            cv2.rectangle(annotated, (5, 50), (text_size[0] + 15, 85), (0, 128, 128), -1)  # Teal background
+            cv2.rectangle(annotated, (5, 50), (text_size[0] + 15, 85), (0, 255, 255), 2)  # Cyan border
+            cv2.putText(annotated, success_text, (10, 75),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+            # Add diagnostic info at bottom
+            diag_text = f"Plain Checkerboard: {num_corners} corners | Blur: {blur_score:.0f}"
+            blur_status = " (BLURRY!)" if is_blurry else " (OK)"
+            full_text = diag_text + blur_status
+
+            text_size = cv2.getTextSize(full_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+            bg_x1, bg_y1 = 5, gray.shape[0] - 35
+            bg_x2, bg_y2 = text_size[0] + 15, gray.shape[0] - 5
+            cv2.rectangle(annotated, (bg_x1, bg_y1), (bg_x2, bg_y2), (0, 0, 0), -1)
+            cv2.rectangle(annotated, (bg_x1, bg_y1), (bg_x2, bg_y2), (255, 255, 255), 2)
+
+            text_color = (0, 0, 255) if is_blurry else (0, 255, 255)  # Red if blurry, cyan if OK
+            cv2.putText(annotated, full_text, (10, gray.shape[0] - 10),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_color, 2)
+
+            # Warn if blurry
+            if is_blurry:
+                cv2.putText(annotated, "WARNING: Blurry - may affect calibration", (10, 110),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+
+            return (True, annotated, blur_score)
+
+        except Exception as e:
+            print(f"[Checkerboard Fallback] ERROR: {e}")
+            import traceback
+            traceback.print_exc()
             return None
-
-        # Refine corner locations to sub-pixel accuracy
-        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-        corners_refined = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-
-        # Draw detected corners
-        cv2.drawChessboardCorners(annotated, board_size, corners_refined, ret)
-
-        num_corners = len(corners_refined)
-        print(f"[Checkerboard Fallback] SUCCESS! Detected {num_corners} corners using plain checkerboard mode")
-
-        # Add success indicator with "CHECKERBOARD MODE" label
-        success_text = f"READY - {num_corners} corners (CHECKERBOARD MODE)"
-        text_size = cv2.getTextSize(success_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
-        cv2.rectangle(annotated, (5, 50), (text_size[0] + 15, 85), (0, 128, 128), -1)  # Teal background
-        cv2.rectangle(annotated, (5, 50), (text_size[0] + 15, 85), (0, 255, 255), 2)  # Cyan border
-        cv2.putText(annotated, success_text, (10, 75),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-
-        # Add diagnostic info at bottom
-        diag_text = f"Plain Checkerboard: {num_corners} corners | Blur: {blur_score:.0f}"
-        blur_status = " (BLURRY!)" if is_blurry else " (OK)"
-        full_text = diag_text + blur_status
-
-        text_size = cv2.getTextSize(full_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
-        bg_x1, bg_y1 = 5, gray.shape[0] - 35
-        bg_x2, bg_y2 = text_size[0] + 15, gray.shape[0] - 5
-        cv2.rectangle(annotated, (bg_x1, bg_y1), (bg_x2, bg_y2), (0, 0, 0), -1)
-        cv2.rectangle(annotated, (bg_x1, bg_y1), (bg_x2, bg_y2), (255, 255, 255), 2)
-
-        text_color = (0, 0, 255) if is_blurry else (0, 255, 255)  # Red if blurry, cyan if OK
-        cv2.putText(annotated, full_text, (10, gray.shape[0] - 10),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_color, 2)
-
-        # Warn if blurry
-        if is_blurry:
-            cv2.putText(annotated, "WARNING: Blurry - may affect calibration", (10, 110),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
-
-        return (True, annotated, blur_score)
 
     def _update_view(self, label: QtWidgets.QLabel, image: np.ndarray) -> None:
         """Update QLabel with image."""
