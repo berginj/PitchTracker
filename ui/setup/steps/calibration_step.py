@@ -1508,6 +1508,11 @@ class CalibrationStep(BaseStep):
     def _open_cameras(self) -> None:
         """Open camera devices."""
         try:
+            print(f"[_open_cameras] Starting camera initialization")
+            print(f"  Backend: '{self._backend}'")
+            print(f"  Left serial: '{self._left_serial}'")
+            print(f"  Right serial: '{self._right_serial}'")
+
             if not self._left_serial or not self._right_serial:
                 raise ValueError("Camera serials not set. Please select cameras in Step 1.")
 
@@ -1553,17 +1558,48 @@ class CalibrationStep(BaseStep):
                 self._left_camera = OpenCVCamera()
                 self._right_camera = OpenCVCamera()
 
-                print(f"DEBUG: Opening left camera with index: {left_index} (flip={flip_left})")
-                self._left_camera.open(left_index)
-                print(f"DEBUG: Left camera opened successfully")
+                # Open left camera
+                try:
+                    print(f"DEBUG: Opening left camera with index: {left_index} (flip={flip_left})")
+                    self._left_camera.open(left_index)
+                    print(f"DEBUG: Left camera opened successfully")
+                except Exception as e:
+                    print(f"ERROR: Failed to open left camera (index {left_index}): {e}")
+                    import traceback
+                    traceback.print_exc()
+                    raise RuntimeError(f"Failed to open left camera at index {left_index}: {e}")
 
-                print(f"DEBUG: Opening right camera with index: {right_index} (flip={flip_right})")
-                self._right_camera.open(right_index)
-                print(f"DEBUG: Right camera opened successfully")
+                # Open right camera
+                try:
+                    print(f"DEBUG: Opening right camera with index: {right_index} (flip={flip_right})")
+                    self._right_camera.open(right_index)
+                    print(f"DEBUG: Right camera opened successfully")
+                except Exception as e:
+                    print(f"ERROR: Failed to open right camera (index {right_index}): {e}")
+                    import traceback
+                    traceback.print_exc()
+                    raise RuntimeError(f"Failed to open right camera at index {right_index}: {e}")
 
                 # Configure cameras with settings from config including flip and rotation correction
-                self._left_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_left, rotation_correction=rotation_left)
-                self._right_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_right, rotation_correction=rotation_right)
+                try:
+                    print(f"DEBUG: Configuring left camera (width={width}, height={height}, fps={fps})")
+                    self._left_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_left, rotation_correction=rotation_left)
+                    print(f"DEBUG: Left camera configured successfully")
+                except Exception as e:
+                    print(f"ERROR: Failed to configure left camera: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    raise RuntimeError(f"Failed to configure left camera: {e}")
+
+                try:
+                    print(f"DEBUG: Configuring right camera (width={width}, height={height}, fps={fps})")
+                    self._right_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_right, rotation_correction=rotation_right)
+                    print(f"DEBUG: Right camera configured successfully")
+                except Exception as e:
+                    print(f"ERROR: Failed to configure right camera: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    raise RuntimeError(f"Failed to configure right camera: {e}")
 
             else:  # uvc
                 from capture import UvcCamera
