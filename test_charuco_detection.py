@@ -38,6 +38,8 @@ def test_all_dictionaries(image: np.ndarray):
         ('DICT_6X6_100', cv2.aruco.DICT_6X6_100),
         ('DICT_5X5_100', cv2.aruco.DICT_5X5_100),
         ('DICT_4X4_100', cv2.aruco.DICT_4X4_100),
+        ('DICT_6X6_50', cv2.aruco.DICT_6X6_50),      # Calib.io boards
+        ('DICT_5X5_50', cv2.aruco.DICT_5X5_50),      # Calib.io boards
         ('DICT_4X4_50', cv2.aruco.DICT_4X4_50),
         ('DICT_ARUCO_ORIGINAL', cv2.aruco.DICT_ARUCO_ORIGINAL),
     ]
@@ -54,11 +56,11 @@ def test_all_dictionaries(image: np.ndarray):
             detector_params.adaptiveThreshWinSizeMax = 23
             detector_params.adaptiveThreshWinSizeStep = 10
             detector_params.adaptiveThreshConstant = 7
-            detector_params.minMarkerPerimeterRate = 0.03
+            detector_params.minMarkerPerimeterRate = 0.01
             detector_params.maxMarkerPerimeterRate = 4.0
             detector_params.polygonalApproxAccuracyRate = 0.05
             detector_params.minCornerDistanceRate = 0.05
-            detector_params.minDistanceToBorder = 3
+            detector_params.minDistanceToBorder = 1
             detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
             detector_params.cornerRefinementWinSize = 5
             detector_params.cornerRefinementMaxIterations = 30
@@ -73,11 +75,11 @@ def test_all_dictionaries(image: np.ndarray):
             detector_params.adaptiveThreshWinSizeMax = 23
             detector_params.adaptiveThreshWinSizeStep = 10
             detector_params.adaptiveThreshConstant = 7
-            detector_params.minMarkerPerimeterRate = 0.03
+            detector_params.minMarkerPerimeterRate = 0.01
             detector_params.maxMarkerPerimeterRate = 4.0
             detector_params.polygonalApproxAccuracyRate = 0.05
             detector_params.minCornerDistanceRate = 0.05
-            detector_params.minDistanceToBorder = 3
+            detector_params.minDistanceToBorder = 1
             detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
             detector_params.cornerRefinementWinSize = 5
             detector_params.cornerRefinementMaxIterations = 30
