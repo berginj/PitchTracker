@@ -100,6 +100,24 @@ python generate_charuco.py --output my_board.png
 
 **Alternative:** Plain checkerboard works but requires entire board visible at all times.
 
+### 🤖 Smart Camera Features (NEW)
+
+**Auto-Swap Cameras:**
+- **Problem:** Not sure which camera is left/right?
+- **Solution:** Click "🔍 Auto-Swap" button in Advanced Settings
+- Hold board in view of both cameras
+- System analyzes marker positions and automatically swaps if needed
+- Uses horizontal position of markers to determine correct orientation
+
+**Auto-Detection Toggle:**
+- **Purpose:** Control whether system auto-detects board size
+- **Enabled** (default): Automatically detects ChArUco pattern size and dictionary
+- **Disabled:** Uses your manual pattern settings only
+- **When to disable:**
+  - Force specific board size
+  - Multiple boards in view causing confusion
+  - Auto-detection causing issues
+
 ### 🖨️ Printing Troubleshooting
 
 **Problem:** Board prints too small or large

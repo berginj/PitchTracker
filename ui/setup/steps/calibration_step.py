@@ -392,6 +392,18 @@ class CalibrationStep(BaseStep):
         self._square_spin.setSuffix(" mm")
         self._square_spin.valueChanged.connect(self._on_square_size_changed)
 
+        # Auto-detection toggle
+        self._auto_detect_pattern_checkbox = QtWidgets.QCheckBox("Enable Auto-Detection")
+        self._auto_detect_pattern_checkbox.setChecked(True)  # ON by default
+        self._auto_detect_pattern_checkbox.setToolTip(
+            "When enabled, automatically detects ChArUco board size and dictionary.\n"
+            "When disabled, uses the manual pattern settings above.\n\n"
+            "Disable this if you want to force a specific board size\n"
+            "or if auto-detection is causing issues."
+        )
+        self._auto_detect_pattern_checkbox.setStyleSheet("font-weight: bold; color: #2196F3;")
+        self._auto_detect_pattern_checkbox.stateChanged.connect(self._on_auto_detect_toggled)
+
         board_layout.addWidget(pattern_label)
         board_layout.addWidget(self._pattern_cols_spin)
         board_layout.addWidget(cross_label)
@@ -399,6 +411,8 @@ class CalibrationStep(BaseStep):
         board_layout.addWidget(QtWidgets.QLabel("  |  "))
         board_layout.addWidget(square_label)
         board_layout.addWidget(self._square_spin)
+        board_layout.addWidget(QtWidgets.QLabel("  |  "))
+        board_layout.addWidget(self._auto_detect_pattern_checkbox)
         board_layout.addStretch()
         board_group.setLayout(board_layout)
 
@@ -473,13 +487,27 @@ class CalibrationStep(BaseStep):
         )
         self._auto_correct_checkbox.setStyleSheet("font-weight: bold; color: #D32F2F;")  # Red to emphasize OFF default
 
-        # Swap L/R button
+        # Swap L/R button (manual)
         self._swap_lr_btn = QtWidgets.QPushButton("🔄 Swap L/R")
-        self._swap_lr_btn.setToolTip("Swap left and right camera assignments")
+        self._swap_lr_btn.setToolTip("Manually swap left and right camera assignments")
         self._swap_lr_btn.clicked.connect(self._swap_left_right)
         self._swap_lr_btn.setStyleSheet(
             "QPushButton { background-color: #FF9800; color: white; font-weight: bold; padding: 5px 10px; }"
             "QPushButton:hover { background-color: #F57C00; }"
+        )
+
+        # Auto-swap button (intelligent swap based on marker positions)
+        self._auto_swap_btn = QtWidgets.QPushButton("🔍 Auto-Swap")
+        self._auto_swap_btn.setToolTip(
+            "Intelligently detect which camera should be left/right\n"
+            "based on ChArUco marker positions.\n\n"
+            "Hold board in view of both cameras and click this button.\n"
+            "System will analyze marker positions and swap if needed."
+        )
+        self._auto_swap_btn.clicked.connect(self._auto_swap_cameras)
+        self._auto_swap_btn.setStyleSheet(
+            "QPushButton { background-color: #4CAF50; color: white; font-weight: bold; padding: 5px 10px; }"
+            "QPushButton:hover { background-color: #45a049; }"
         )
 
         # Baseline setting
@@ -534,6 +562,7 @@ class CalibrationStep(BaseStep):
         camera_layout.addWidget(self._reset_corrections_btn)
         camera_layout.addWidget(QtWidgets.QLabel("  |  "))
         camera_layout.addWidget(self._swap_lr_btn)
+        camera_layout.addWidget(self._auto_swap_btn)
         camera_layout.addWidget(QtWidgets.QLabel("  |  "))
         camera_layout.addWidget(self._auto_correct_checkbox)
         camera_layout.addStretch()
@@ -913,6 +942,197 @@ class CalibrationStep(BaseStep):
                 print("INFO: Cameras restarted with new flip setting")
         except Exception as e:
             print(f"ERROR: Failed to restart cameras: {e}")
+
+    def _on_auto_detect_toggled(self, state: int) -> None:
+        """Handle auto-detection checkbox toggle."""
+        enabled = state == QtCore.Qt.CheckState.Checked.value
+
+        if enabled:
+            # Re-enable auto-detection
+            self._pattern_locked = False
+            print("[ChArUco] Auto-detection ENABLED - will detect board size automatically")
+        else:
+            # Disable auto-detection, use manual settings
+            self._pattern_locked = True  # Lock prevents auto-detection
+            print(f"[ChArUco] Auto-detection DISABLED - using manual settings: {self._pattern_cols}x{self._pattern_rows}, {self._square_mm}mm")
+
+    def _auto_swap_cameras(self) -> None:
+        """Intelligently swap cameras based on ChArUco marker positions.
+
+        Analyzes the horizontal position of markers in both camera views.
+        If left camera sees markers more on the right side and right camera
+        sees markers more on the left side, they should be swapped.
+        """
+        if not self._left_camera or not self._right_camera:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Cameras Not Ready",
+                "Both cameras must be open to perform auto-swap.\n\n"
+                "Please ensure both cameras are connected and showing previews."
+            )
+            return
+
+        try:
+            # Get current frames
+            left_frame = self._left_camera.read_frame(timeout_ms=1000)
+            right_frame = self._right_camera.read_frame(timeout_ms=1000)
+
+            if not left_frame or not right_frame:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Frame Capture Failed",
+                    "Could not capture frames from cameras.\n\n"
+                    "Please ensure both cameras are working properly."
+                )
+                return
+
+            # Detect markers in both images
+            left_marker_pos = self._get_marker_horizontal_position(left_frame.image)
+            right_marker_pos = self._get_marker_horizontal_position(right_frame.image)
+
+            if left_marker_pos is None or right_marker_pos is None:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Board Not Detected",
+                    "Could not detect ChArUco board in both cameras.\n\n"
+                    "Please:\n"
+                    "1. Hold board in view of BOTH cameras\n"
+                    "2. Ensure board is well-lit and in focus\n"
+                    "3. Wait for 'READY' status on both cameras\n"
+                    "4. Try again"
+                )
+                return
+
+            # Determine if swap is needed
+            # Left camera should see board on LEFT side of image (markers toward right)
+            # Right camera should see board on RIGHT side of image (markers toward left)
+            # If left camera's markers are on the right (> 0.5) and right camera's markers are on left (< 0.5), they're correct
+            # If opposite, they need swapping
+
+            should_swap = False
+            explanation = ""
+
+            if left_marker_pos > 0.6 and right_marker_pos < 0.4:
+                # Correct orientation - left camera sees board toward right, right camera sees board toward left
+                explanation = (
+                    "Cameras are correctly positioned:\n\n"
+                    f"Left camera sees board at {left_marker_pos:.1%} (toward right side) ✓\n"
+                    f"Right camera sees board at {right_marker_pos:.1%} (toward left side) ✓\n\n"
+                    "No swap needed!"
+                )
+            elif left_marker_pos < 0.4 and right_marker_pos > 0.6:
+                # Incorrect orientation - cameras need swapping
+                should_swap = True
+                explanation = (
+                    "Cameras appear to be SWAPPED:\n\n"
+                    f"Left camera sees board at {left_marker_pos:.1%} (toward left side) ✗\n"
+                    f"Right camera sees board at {right_marker_pos:.1%} (toward right side) ✗\n\n"
+                    "Cameras will be swapped automatically."
+                )
+            else:
+                # Ambiguous - board might be centered or detection unclear
+                explanation = (
+                    "Cannot determine camera orientation:\n\n"
+                    f"Left camera sees board at {left_marker_pos:.1%}\n"
+                    f"Right camera sees board at {right_marker_pos:.1%}\n\n"
+                    "Board appears centered or detection is unclear.\n\n"
+                    "Tips:\n"
+                    "• Move board more to one side\n"
+                    "• Ensure board is clearly visible in both cameras\n"
+                    "• Try manual swap if needed"
+                )
+
+            # Show results
+            if should_swap:
+                reply = QtWidgets.QMessageBox.question(
+                    self,
+                    "Swap Cameras?",
+                    explanation + "\n\nSwap cameras now?",
+                    QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
+                )
+
+                if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+                    self._swap_left_right()
+                    QtWidgets.QMessageBox.information(
+                        self,
+                        "Cameras Swapped",
+                        "Left and right cameras have been swapped.\n\n"
+                        "The system will restart the cameras with the new assignment."
+                    )
+            else:
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "Camera Orientation",
+                    explanation
+                )
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Auto-Swap Error",
+                f"Error during auto-swap detection:\n{str(e)}\n\n"
+                "Please try manual swap if needed."
+            )
+
+    def _get_marker_horizontal_position(self, image: np.ndarray) -> Optional[float]:
+        """Get average horizontal position of ChArUco markers (0.0 = left, 1.0 = right).
+
+        Args:
+            image: Camera image
+
+        Returns:
+            Average horizontal position (0.0-1.0) or None if no markers detected
+        """
+        # Convert to grayscale
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image
+
+        # Use cached dictionary or default
+        dict_id = cv2.aruco.DICT_6X6_250
+        if self._cached_dict_name:
+            # Map dict name to ID
+            dict_map = {
+                'DICT_6X6_250': cv2.aruco.DICT_6X6_250,
+                'DICT_5X5_250': cv2.aruco.DICT_5X5_250,
+                'DICT_4X4_250': cv2.aruco.DICT_4X4_250,
+                'DICT_6X6_100': cv2.aruco.DICT_6X6_100,
+                'DICT_5X5_100': cv2.aruco.DICT_5X5_100,
+                'DICT_4X4_100': cv2.aruco.DICT_4X4_100,
+                'DICT_4X4_50': cv2.aruco.DICT_4X4_50,
+                'DICT_ARUCO_ORIGINAL': cv2.aruco.DICT_ARUCO_ORIGINAL,
+            }
+            dict_id = dict_map.get(self._cached_dict_name, cv2.aruco.DICT_6X6_250)
+
+        aruco_dict = cv2.aruco.getPredefinedDictionary(dict_id)
+
+        # Detect markers
+        try:
+            detector_params = cv2.aruco.DetectorParameters()
+            detector = cv2.aruco.ArucoDetector(aruco_dict, detector_params)
+            marker_corners, marker_ids, _ = detector.detectMarkers(gray)
+        except AttributeError:
+            # Older OpenCV API
+            detector_params = cv2.aruco.DetectorParameters_create()
+            marker_corners, marker_ids, _ = cv2.aruco.detectMarkers(gray, aruco_dict, parameters=detector_params)
+
+        if marker_ids is None or len(marker_ids) == 0:
+            return None
+
+        # Calculate average horizontal position of marker centers
+        image_width = image.shape[1]
+        horizontal_positions = []
+
+        for corners in marker_corners:
+            # Corners is shape (1, 4, 2) - get center point
+            center_x = corners[0][:, 0].mean()
+            # Normalize to 0.0-1.0
+            normalized_x = center_x / image_width
+            horizontal_positions.append(normalized_x)
+
+        # Return average position
+        return np.mean(horizontal_positions)
 
     def _swap_left_right(self) -> None:
         """Swap left and right camera assignments."""
@@ -1559,7 +1779,10 @@ class CalibrationStep(BaseStep):
         import time
         current_time = time.time()
 
-        if not self._pattern_locked and current_time - self._last_auto_detect_time >= 3.0:
+        # Auto-detect pattern only if checkbox is enabled and pattern not locked
+        if (self._auto_detect_pattern_checkbox.isChecked() and
+            not self._pattern_locked and
+            current_time - self._last_auto_detect_time >= 3.0):
             auto_detected_pattern = self._auto_detect_charuco_pattern(marker_ids)
             if auto_detected_pattern:
                 auto_cols, auto_rows, auto_square_mm = auto_detected_pattern
