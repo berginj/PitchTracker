@@ -204,9 +204,23 @@ class SetupWindow(QtWidgets.QMainWindow):
                 left_serial = camera_step.get_left_serial()
                 right_serial = camera_step.get_right_serial()
                 backend = camera_step.get_backend()
+                print(f"[SetupWizard] Transitioning to Calibration Step:")
+                print(f"  Left Serial: {left_serial}")
+                print(f"  Right Serial: {right_serial}")
+                print(f"  Backend: {backend}")
                 if left_serial and right_serial:
                     current_step.set_camera_serials(left_serial, right_serial)
                     current_step._backend = backend  # Update backend
+                    print(f"[SetupWizard] Camera serials passed to calibration step")
+                else:
+                    print(f"[SetupWizard] ERROR: Camera serials not set! Left={left_serial}, Right={right_serial}")
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Cameras Not Selected",
+                        "Please select both left and right cameras in Step 1 before proceeding to calibration.\n\n"
+                        f"Left camera: {'✓ Selected' if left_serial else '✗ Not selected'}\n"
+                        f"Right camera: {'✓ Selected' if right_serial else '✗ Not selected'}"
+                    )
 
         elif index == 2 and isinstance(current_step, RoiStep):
             # Pass left camera serial and backend from Step 1 to Step 3
