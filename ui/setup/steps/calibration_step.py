@@ -793,6 +793,10 @@ class CalibrationStep(BaseStep):
 
     def on_enter(self) -> None:
         """Called when step becomes active."""
+        print(f"[CalibrationStep] on_enter() called")
+        print(f"  Current left serial: '{self._left_serial}'")
+        print(f"  Current right serial: '{self._right_serial}'")
+
         # Clear any old calibration images from temp directory
         self._clear_temp_images()
 
@@ -815,7 +819,12 @@ class CalibrationStep(BaseStep):
 
         # Open cameras if serials are set
         if self._left_serial and self._right_serial:
+            print(f"[CalibrationStep] Both serials set, calling _open_cameras()")
             self._open_cameras()
+        else:
+            print(f"[CalibrationStep] ERROR: Cannot open cameras - serials not set!")
+            print(f"  Left: '{self._left_serial}' (set: {bool(self._left_serial)})")
+            print(f"  Right: '{self._right_serial}' (set: {bool(self._right_serial)})")
 
         # Load previous alignment history
         self._load_alignment_history()
@@ -829,7 +838,12 @@ class CalibrationStep(BaseStep):
 
         # Start preview timer
         if self._left_camera and self._right_camera:
+            print(f"[CalibrationStep] Starting preview timer (both cameras present)")
             self._preview_timer.start(33)  # ~30 FPS
+        else:
+            print(f"[CalibrationStep] WARNING: Not starting preview timer!")
+            print(f"  Left camera: {self._left_camera}")
+            print(f"  Right camera: {self._right_camera}")
 
     def on_exit(self) -> None:
         """Called when leaving step."""
@@ -841,8 +855,12 @@ class CalibrationStep(BaseStep):
 
     def set_camera_serials(self, left_serial: str, right_serial: str) -> None:
         """Set camera serials from Step 1."""
+        print(f"[CalibrationStep] set_camera_serials() called:")
+        print(f"  Left serial: '{left_serial}'")
+        print(f"  Right serial: '{right_serial}'")
         self._left_serial = left_serial
         self._right_serial = right_serial
+        print(f"[CalibrationStep] Serials stored successfully")
 
     def _on_pattern_changed(self, value: int) -> None:
         """Handle pattern size change."""
@@ -1578,6 +1596,10 @@ class CalibrationStep(BaseStep):
             self._right_status.setText(f"● {self._right_serial}")
             self._right_status.setStyleSheet("color: green; font-weight: bold;")
 
+            print(f"[CalibrationStep] Cameras opened successfully!")
+            print(f"  Left camera object: {self._left_camera} (serial: {self._left_serial})")
+            print(f"  Right camera object: {self._right_camera} (serial: {self._right_serial})")
+
             # NEW: Wait for cameras to warm up, then run alignment check
             QtCore.QTimer.singleShot(1000, self._wait_for_camera_warmup)
 
@@ -1692,6 +1714,12 @@ class CalibrationStep(BaseStep):
     def _update_preview(self) -> None:
         """Update camera previews and check for ChArUco board."""
         if not self._left_camera or not self._right_camera:
+            # Only log once to avoid spam
+            if not hasattr(self, '_logged_missing_cameras'):
+                print(f"[CalibrationStep] _update_preview() - missing cameras!")
+                print(f"  Left camera: {self._left_camera}")
+                print(f"  Right camera: {self._right_camera}")
+                self._logged_missing_cameras = True
             return
 
         try:
