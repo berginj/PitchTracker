@@ -102,12 +102,47 @@ python generate_charuco.py --output my_board.png
 
 ### 🤖 Smart Camera Features (NEW)
 
-**Auto-Swap Cameras:**
+**1. Auto-Swap on Startup:**
+- **What it does:** Automatically detects if cameras are swapped based on historical data
+- **How it works:** Remembers which camera serial numbers were previously left/right
+- **When it activates:** Every time you enter the calibration step
+- **Result:** Cameras are automatically swapped if they were connected in wrong positions
+- **Storage:** Camera history saved in `configs/camera_history.json`
+
+**2. Manual Auto-Swap:**
 - **Problem:** Not sure which camera is left/right?
 - **Solution:** Click "🔍 Auto-Swap" button in Advanced Settings
 - Hold board in view of both cameras
 - System analyzes marker positions and automatically swaps if needed
-- Uses horizontal position of markers to determine correct orientation
+- **How it works:** Left camera should see board toward RIGHT, right camera should see board toward LEFT
+- **Shows confidence score:** "85% confident cameras are swapped"
+
+**3. Visual Marker Position Overlay:**
+- **What it shows:** Colored bar at bottom of camera previews
+- **Position indicator:** Shows where markers are detected horizontally
+  - **GREEN (RIGHT):** Markers on right side (good for left camera)
+  - **ORANGE (LEFT):** Markers on left side (good for right camera)
+  - **YELLOW (CENTER):** Markers centered (ambiguous)
+- **Marker count:** Displays number of detected markers
+- **When visible:** Always enabled during calibration preview
+
+**4. Confidence Score Display:**
+- **What it shows:** Percentage confidence in swap decision
+- **High confidence (>60%):** Clear indication of correct/swapped orientation
+- **Low confidence (<40%):** Board too centered, move to one side
+- **Shown in:** Auto-swap dialog results
+
+**5. Multi-Pattern Detection:**
+- **What it shows:** Current detected pattern and dictionary
+- **Display location:** Next to "Enable Auto-Detection" checkbox
+- **Information shown:**
+  - Pattern size (e.g., "5×6")
+  - Dictionary type (e.g., "6X6 250")
+  - Detection status: Scanning / Detected / Locked
+- **Color coding:**
+  - GREEN: Pattern detected and locked
+  - ORANGE: Scanning for patterns
+  - GRAY: No pattern detected
 
 **Auto-Detection Toggle:**
 - **Purpose:** Control whether system auto-detects board size

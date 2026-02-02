@@ -103,6 +103,12 @@ class CalibrationStep(BaseStep):
         self._pattern_locked: bool = False  # Lock pattern once auto-detected
         self._user_changed_pattern: bool = False  # Track if user manually changed pattern
 
+        # Smart calibration features
+        self._show_marker_overlay: bool = True  # Show marker position indicators
+        self._camera_history_file: Path = Path("configs") / "camera_history.json"  # Track camera assignments
+        self._detected_patterns: list = []  # Multiple detected ChArUco patterns
+        self._auto_swap_on_startup: bool = True  # Auto-check camera orientation on startup
+
         self._build_ui()
 
         # Preview timer
@@ -404,6 +410,11 @@ class CalibrationStep(BaseStep):
         self._auto_detect_pattern_checkbox.setStyleSheet("font-weight: bold; color: #2196F3;")
         self._auto_detect_pattern_checkbox.stateChanged.connect(self._on_auto_detect_toggled)
 
+        # Pattern detection info label
+        self._pattern_info_label = QtWidgets.QLabel("No pattern detected")
+        self._pattern_info_label.setStyleSheet("font-size: 9pt; color: #666;")
+        self._pattern_info_label.setToolTip("Shows currently detected ChArUco pattern and dictionary")
+
         board_layout.addWidget(pattern_label)
         board_layout.addWidget(self._pattern_cols_spin)
         board_layout.addWidget(cross_label)
@@ -413,6 +424,8 @@ class CalibrationStep(BaseStep):
         board_layout.addWidget(self._square_spin)
         board_layout.addWidget(QtWidgets.QLabel("  |  "))
         board_layout.addWidget(self._auto_detect_pattern_checkbox)
+        board_layout.addWidget(QtWidgets.QLabel("  |  "))
+        board_layout.addWidget(self._pattern_info_label)
         board_layout.addStretch()
         board_group.setLayout(board_layout)
 
@@ -789,6 +802,13 @@ class CalibrationStep(BaseStep):
         # Load previous alignment history
         self._load_alignment_history()
 
+        # Auto-swap cameras based on history (if enabled)
+        if self._auto_swap_on_startup and self._left_camera and self._right_camera:
+            if self._check_camera_history():
+                print("[Auto-Swap] Camera history indicates swap needed, performing automatic swap...")
+                self._swap_left_right(save_to_history=False)  # Don't save yet, just swap
+                print("[Auto-Swap] Cameras swapped based on historical data")
+
         # Start preview timer
         if self._left_camera and self._right_camera:
             self._preview_timer.start(33)  # ~30 FPS
@@ -831,6 +851,21 @@ class CalibrationStep(BaseStep):
             f"<b>Stereo tip:</b> Board can be partially visible - ChArUco is robust to occlusion. "
             f"Move it to different positions and angles in the shared view area. Capture 10+ poses for good calibration."
         )
+
+        # Update pattern info label with current detection
+        if self._pattern_locked and self._cached_dict_name:
+            dict_display = self._cached_dict_name.replace('DICT_', '').replace('_', ' ')
+            self._pattern_info_label.setText(
+                f"Detected: {self._pattern_cols}×{self._pattern_rows} ({dict_display})"
+            )
+            self._pattern_info_label.setStyleSheet("font-size: 9pt; color: #4CAF50; font-weight: bold;")
+        elif self._cached_dict_name:
+            dict_display = self._cached_dict_name.replace('DICT_', '').replace('_', ' ')
+            self._pattern_info_label.setText(f"Scanning... ({dict_display})")
+            self._pattern_info_label.setStyleSheet("font-size: 9pt; color: #FF9800;")
+        else:
+            self._pattern_info_label.setText("No pattern detected")
+            self._pattern_info_label.setStyleSheet("font-size: 9pt; color: #666;")
 
     def _toggle_flip(self, camera: str, checked: bool) -> None:
         """Toggle camera flip and restart cameras.
@@ -1011,6 +1046,14 @@ class CalibrationStep(BaseStep):
 
             should_swap = False
             explanation = ""
+            confidence = 0.0
+
+            # Calculate confidence based on how far markers are from center
+            # Confidence increases as markers move away from center (0.5)
+            left_deviation = abs(left_marker_pos - 0.5)
+            right_deviation = abs(right_marker_pos - 0.5)
+            avg_deviation = (left_deviation + right_deviation) / 2.0
+            confidence = min(100, avg_deviation * 200)  # Scale to 0-100%
 
             if left_marker_pos > 0.6 and right_marker_pos < 0.4:
                 # Correct orientation - left camera sees board toward right, right camera sees board toward left
@@ -1018,6 +1061,7 @@ class CalibrationStep(BaseStep):
                     "Cameras are correctly positioned:\n\n"
                     f"Left camera sees board at {left_marker_pos:.1%} (toward right side) ✓\n"
                     f"Right camera sees board at {right_marker_pos:.1%} (toward left side) ✓\n\n"
+                    f"Confidence: {confidence:.0f}%\n\n"
                     "No swap needed!"
                 )
             elif left_marker_pos < 0.4 and right_marker_pos > 0.6:
@@ -1027,6 +1071,7 @@ class CalibrationStep(BaseStep):
                     "Cameras appear to be SWAPPED:\n\n"
                     f"Left camera sees board at {left_marker_pos:.1%} (toward left side) ✗\n"
                     f"Right camera sees board at {right_marker_pos:.1%} (toward right side) ✗\n\n"
+                    f"Confidence: {confidence:.0f}%\n\n"
                     "Cameras will be swapped automatically."
                 )
             else:
@@ -1035,6 +1080,7 @@ class CalibrationStep(BaseStep):
                     "Cannot determine camera orientation:\n\n"
                     f"Left camera sees board at {left_marker_pos:.1%}\n"
                     f"Right camera sees board at {right_marker_pos:.1%}\n\n"
+                    f"Confidence: {confidence:.0f}% (too low for reliable detection)\n\n"
                     "Board appears centered or detection is unclear.\n\n"
                     "Tips:\n"
                     "• Move board more to one side\n"
@@ -1074,14 +1120,16 @@ class CalibrationStep(BaseStep):
                 "Please try manual swap if needed."
             )
 
-    def _get_marker_horizontal_position(self, image: np.ndarray) -> Optional[float]:
+    def _get_marker_horizontal_position(self, image: np.ndarray, return_details: bool = False) -> Optional[float | tuple]:
         """Get average horizontal position of ChArUco markers (0.0 = left, 1.0 = right).
 
         Args:
             image: Camera image
+            return_details: If True, return (position, marker_count, marker_corners, marker_ids)
 
         Returns:
             Average horizontal position (0.0-1.0) or None if no markers detected
+            If return_details=True: (position, count, corners, ids) tuple
         """
         # Convert to grayscale
         if len(image.shape) == 3:
@@ -1118,7 +1166,7 @@ class CalibrationStep(BaseStep):
             marker_corners, marker_ids, _ = cv2.aruco.detectMarkers(gray, aruco_dict, parameters=detector_params)
 
         if marker_ids is None or len(marker_ids) == 0:
-            return None
+            return None if not return_details else (None, 0, None, None)
 
         # Calculate average horizontal position of marker centers
         image_width = image.shape[1]
@@ -1132,16 +1180,162 @@ class CalibrationStep(BaseStep):
             horizontal_positions.append(normalized_x)
 
         # Return average position
-        return np.mean(horizontal_positions)
+        avg_position = np.mean(horizontal_positions)
 
-    def _swap_left_right(self) -> None:
-        """Swap left and right camera assignments."""
+        if return_details:
+            return (avg_position, len(marker_ids), marker_corners, marker_ids)
+        return avg_position
+
+    def _draw_marker_position_overlay(self, display_image: np.ndarray, original_image: np.ndarray) -> np.ndarray:
+        """Draw visual indicator showing marker horizontal position.
+
+        Args:
+            display_image: Image to draw on (annotated image from _detect_charuco)
+            original_image: Original camera frame for detection
+
+        Returns:
+            Image with position overlay
+        """
+        # Get marker position details
+        result = self._get_marker_horizontal_position(original_image, return_details=True)
+
+        if result[0] is None:  # No markers detected
+            return display_image
+
+        avg_position, marker_count, marker_corners, marker_ids = result
+
+        # Draw position indicator bar at bottom
+        height, width = display_image.shape[:2]
+        bar_height = 30
+        bar_y = height - bar_height
+
+        # Draw background bar
+        cv2.rectangle(
+            display_image,
+            (0, bar_y),
+            (width, height),
+            (50, 50, 50),  # Dark gray background
+            -1
+        )
+
+        # Draw position marker
+        marker_x = int(avg_position * width)
+        marker_color = (0, 255, 0)  # Green
+
+        # Determine if position indicates correct orientation
+        if avg_position < 0.4:
+            marker_color = (0, 165, 255)  # Orange - markers on left
+            position_text = "LEFT"
+        elif avg_position > 0.6:
+            marker_color = (0, 255, 0)  # Green - markers on right (good for left camera)
+            position_text = "RIGHT"
+        else:
+            marker_color = (0, 255, 255)  # Yellow - centered
+            position_text = "CENTER"
+
+        # Draw vertical line at marker position
+        cv2.line(
+            display_image,
+            (marker_x, bar_y),
+            (marker_x, height),
+            marker_color,
+            3
+        )
+
+        # Draw position text
+        text = f"{position_text} ({avg_position:.1%}) | {marker_count} markers"
+        cv2.putText(
+            display_image,
+            text,
+            (10, bar_y + 20),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (255, 255, 255),
+            1,
+            cv2.LINE_AA
+        )
+
+        return display_image
+
+    def _load_camera_history(self) -> dict:
+        """Load historical camera position assignments.
+
+        Returns:
+            Dict mapping serial -> 'left' or 'right'
+        """
+        import json
+
+        if not self._camera_history_file.exists():
+            return {}
+
+        try:
+            with open(self._camera_history_file, 'r') as f:
+                return json.load(f)
+        except Exception:
+            return {}
+
+    def _save_camera_history(self):
+        """Save current camera assignments to history."""
+        import json
+
+        history = self._load_camera_history()
+
+        # Update with current assignments
+        if self._left_serial:
+            history[self._left_serial] = 'left'
+        if self._right_serial:
+            history[self._right_serial] = 'right'
+
+        # Save
+        try:
+            self._camera_history_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._camera_history_file, 'w') as f:
+                json.dump(history, f, indent=2)
+            print(f"[Camera History] Saved: {self._left_serial}=left, {self._right_serial}=right")
+        except Exception as e:
+            print(f"[Camera History] Failed to save: {e}")
+
+    def _check_camera_history(self) -> bool:
+        """Check if current cameras match historical assignments.
+
+        Returns:
+            True if cameras need swapping based on history
+        """
+        history = self._load_camera_history()
+
+        if not history or not self._left_serial or not self._right_serial:
+            return False
+
+        # Check if serials are in history
+        left_history = history.get(self._left_serial)
+        right_history = history.get(self._right_serial)
+
+        # If both cameras have history, check if they're swapped
+        if left_history and right_history:
+            if left_history == 'right' and right_history == 'left':
+                print(f"[Camera History] Cameras appear SWAPPED based on history:")
+                print(f"  {self._left_serial} was previously 'right' (now in left position)")
+                print(f"  {self._right_serial} was previously 'left' (now in right position)")
+                return True
+
+        return False
+
+    def _swap_left_right(self, save_to_history: bool = True) -> None:
+        """Swap left and right camera assignments.
+
+        Args:
+            save_to_history: Whether to save the new assignment to history
+        """
         import yaml
 
         # Swap the serial numbers
         self._left_serial, self._right_serial = self._right_serial, self._left_serial
 
         print(f"INFO: Swapped cameras - Left: {self._left_serial}, Right: {self._right_serial}")
+
+        # Save to history
+        if save_to_history:
+            self._save_camera_history()
 
         # Swap flip button states (flip settings follow the camera, not the position)
         config_data = yaml.safe_load(self._config_path.read_text())
@@ -1439,6 +1633,11 @@ class CalibrationStep(BaseStep):
             # Check for ChArUco board in both cameras
             left_detected, left_image = self._detect_charuco(left_frame.image)
             right_detected, right_image = self._detect_charuco(right_frame.image)
+
+            # Add visual marker position overlay (if enabled)
+            if self._show_marker_overlay:
+                left_image = self._draw_marker_position_overlay(left_image.copy(), left_frame.image)
+                right_image = self._draw_marker_position_overlay(right_image.copy(), right_frame.image)
 
             # Update previews
             self._update_view(self._left_view, left_image)
@@ -1808,6 +2007,18 @@ class CalibrationStep(BaseStep):
                     # LOCK THE PATTERN - stop scanning
                     self._pattern_locked = True
                     print(f"[ChArUco Detection] Pattern LOCKED at {auto_cols}x{auto_rows}. Change settings to unlock.")
+
+                    # Store detected pattern for multi-pattern support
+                    pattern_info = {
+                        'cols': auto_cols,
+                        'rows': auto_rows,
+                        'square_mm': auto_square_mm,
+                        'dictionary': self._cached_dict_name or 'DICT_6X6_250'
+                    }
+                    # Add to list if not already present
+                    if pattern_info not in self._detected_patterns:
+                        self._detected_patterns.append(pattern_info)
+                        print(f"[Multi-Pattern] Stored pattern: {pattern_info}")
 
         # Draw detected markers in green
         cv2.aruco.drawDetectedMarkers(annotated, marker_corners, marker_ids)
