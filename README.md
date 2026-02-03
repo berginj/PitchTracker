@@ -108,6 +108,31 @@ If you only have an internal camera, use:
 .\run.ps1 -Backend opencv
 ```
 
+### Automatic Cache Clearing
+
+**As of recent versions,** `launcher.py` automatically clears Python bytecode cache (`.pyc` files, `__pycache__` directories) on startup. This ensures fresh code loads after `git pull` or code changes, preventing confusing bugs from stale bytecode.
+
+**To disable automatic cache clearing** (e.g., for performance reasons in production):
+```bash
+# Windows PowerShell
+$env:PITCHTRACKER_NO_CACHE_CLEAR=1
+python launcher.py
+
+# Linux/Mac
+export PITCHTRACKER_NO_CACHE_CLEAR=1
+python launcher.py
+```
+
+**Manual cache clearing** (typically not needed):
+```bash
+python clear_cache.py
+```
+
+Use manual clearing when:
+- Running tests or scripts directly (not via `launcher.py`)
+- Troubleshooting persistent cache issues
+- Auto-clearing is disabled
+
 ## Notes
 - Use the `Refresh Devices` button to populate cameras.
 - The calibration wizard runs after startup; follow the steps or use Skip to reach the UI.

@@ -17,6 +17,40 @@ from startup_validator import create_required_directories, validate_environment
 from updater import check_for_updates, get_current_version
 
 
+def clear_python_cache(verbose: bool = False) -> None:
+    """Clear Python bytecode cache files to ensure fresh code loads.
+
+    This prevents issues where old .pyc files cause stale code to run
+    after git pull or code changes.
+
+    Args:
+        verbose: Print statistics about cleared files
+    """
+    import shutil
+
+    pyc_count = 0
+    cache_count = 0
+
+    # Remove all .pyc files
+    for p in Path('.').rglob('*.pyc'):
+        try:
+            p.unlink()
+            pyc_count += 1
+        except Exception:
+            pass
+
+    # Remove all __pycache__ directories
+    for p in Path('.').rglob('__pycache__'):
+        try:
+            shutil.rmtree(p)
+            cache_count += 1
+        except Exception:
+            pass
+
+    if verbose and (pyc_count > 0 or cache_count > 0):
+        print(f"[Cache] Cleared {pyc_count} .pyc files and {cache_count} __pycache__ directories")
+
+
 class AboutDialog(QtWidgets.QDialog):
     """About dialog with version and project information."""
 
@@ -408,6 +442,12 @@ class UpdateCheckThread(QtCore.QThread):
 
 def main():
     """Main entry point."""
+    # Clear Python bytecode cache to ensure fresh code loads
+    # (prevents issues after git pull or code changes)
+    # Set PITCHTRACKER_NO_CACHE_CLEAR=1 to disable if needed
+    if not os.environ.get('PITCHTRACKER_NO_CACHE_CLEAR'):
+        clear_python_cache(verbose=False)
+
     # Create required directories first
     create_required_directories()
 
