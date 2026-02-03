@@ -2526,12 +2526,16 @@ class CalibrationStep(BaseStep):
             focal_drift = abs(current.scale_difference_percent - self._baseline_alignment.scale_difference_percent)
 
             # Determine if drift is significant
-            # Thresholds: toe-in > 5px, vertical > 3px, rotation > 2°, focal > 3%
+            # Thresholds for FIXED MOUNTS (allow for vibration, thermal settling, etc.):
+            # - Vertical > 10px (was 3px - too sensitive for fixed mounts)
+            # - Toe-in > 15px (was 5px - normal environmental variation)
+            # - Rotation > 5° (was 2° - too tight for fixed setups)
+            # - Focal > 5% (was 3% - thermal expansion, etc.)
             significant_drift = (
-                toin_drift > 5.0 or
-                vertical_drift > 3.0 or
-                rotation_drift > 2.0 or
-                focal_drift > 3.0
+                toin_drift > 15.0 or
+                vertical_drift > 10.0 or
+                rotation_drift > 5.0 or
+                focal_drift > 5.0
             )
 
             if not significant_drift:
@@ -2539,25 +2543,25 @@ class CalibrationStep(BaseStep):
 
             # Build drift warning message
             drift_details = []
-            if toin_drift > 5.0:
+            if toin_drift > 15.0:
                 drift_details.append(
                     f"  • Toe-in: {self._baseline_alignment.convergence_std_px:.1f}px → "
-                    f"{current.convergence_std_px:.1f}px (Δ {toin_drift:.1f}px)"
+                    f"{current.convergence_std_px:.1f}px (Δ {toin_drift:.1f}px, threshold: 15px)"
                 )
-            if vertical_drift > 3.0:
+            if vertical_drift > 10.0:
                 drift_details.append(
                     f"  • Vertical: {self._baseline_alignment.vertical_mean_px:.1f}px → "
-                    f"{current.vertical_mean_px:.1f}px (Δ {vertical_drift:.1f}px)"
+                    f"{current.vertical_mean_px:.1f}px (Δ {vertical_drift:.1f}px, threshold: 10px)"
                 )
-            if rotation_drift > 2.0:
+            if rotation_drift > 5.0:
                 drift_details.append(
                     f"  • Rotation: {self._baseline_alignment.rotation_deg:.1f}° → "
-                    f"{current.rotation_deg:.1f}° (Δ {rotation_drift:.1f}°)"
+                    f"{current.rotation_deg:.1f}° (Δ {rotation_drift:.1f}°, threshold: 5°)"
                 )
-            if focal_drift > 3.0:
+            if focal_drift > 5.0:
                 drift_details.append(
                     f"  • Focal Length: {self._baseline_alignment.scale_difference_percent:.1f}% → "
-                    f"{current.scale_difference_percent:.1f}% (Δ {focal_drift:.1f}%)"
+                    f"{current.scale_difference_percent:.1f}% (Δ {focal_drift:.1f}%, threshold: 5%)"
                 )
 
             warning_msg = (
