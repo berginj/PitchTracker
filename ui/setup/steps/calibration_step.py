@@ -1537,20 +1537,24 @@ class CalibrationStep(BaseStep):
                 from capture.opencv_backend import OpenCVCamera
 
                 print(f"[OpenCV Backend] Extracting camera indices:")
-                print(f"  Left serial: '{self._left_serial}'")
-                print(f"  Right serial: '{self._right_serial}'")
+                print(f"  Left serial: '{self._left_serial}' (type: {type(self._left_serial)})")
+                print(f"  Right serial: '{self._right_serial}' (type: {type(self._right_serial)})")
+
+                # Ensure serials are strings (they might be ints from some code paths)
+                left_serial_str = str(self._left_serial)
+                right_serial_str = str(self._right_serial)
 
                 # Extract index from "Camera N" format or use serial directly if it's a number
                 # Convert to integer for OpenCV
-                if self._left_serial.isdigit():
-                    left_index = int(self._left_serial)
+                if left_serial_str.isdigit():
+                    left_index = int(left_serial_str)
                 else:
-                    left_index = int(self._left_serial.split()[-1])
+                    left_index = int(left_serial_str.split()[-1])
 
-                if self._right_serial.isdigit():
-                    right_index = int(self._right_serial)
+                if right_serial_str.isdigit():
+                    right_index = int(right_serial_str)
                 else:
-                    right_index = int(self._right_serial.split()[-1])
+                    right_index = int(right_serial_str.split()[-1])
 
                 print(f"  Extracted left index: {left_index} (type: {type(left_index)})")
                 print(f"  Extracted right index: {right_index} (type: {type(right_index)})")
