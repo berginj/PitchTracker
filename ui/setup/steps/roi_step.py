@@ -157,11 +157,15 @@ class RoiStep(BaseStep):
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
 
+                # Ensure serial is a string (might be int from some code paths)
+                left_serial_str = str(self._left_serial)
+
                 # Extract index from "Camera N" format or use serial directly if it's a number
-                if self._left_serial.isdigit():
-                    left_index = self._left_serial
+                # Convert to integer for OpenCV
+                if left_serial_str.isdigit():
+                    left_index = int(left_serial_str)
                 else:
-                    left_index = self._left_serial.split()[-1]
+                    left_index = int(left_serial_str.split()[-1])
 
                 self._left_camera = OpenCVCamera()
                 self._left_camera.open(left_index)

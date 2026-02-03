@@ -64,11 +64,13 @@ class OpenCVCamera(CameraDevice):
             - Retries up to 3 times with exponential backoff
             - Logs all attempts for debugging
         """
-        self._serial = serial
-        logger.info(f"Opening OpenCV camera index {serial}")
+        # Ensure serial is a string (might be int from some code paths)
+        serial_str = str(serial)
+        self._serial = serial_str
+        logger.info(f"Opening OpenCV camera index {serial_str}")
 
-        if not serial.isdigit():
-            logger.error(f"Invalid camera index: {serial}")
+        if not serial_str.isdigit():
+            logger.error(f"Invalid camera index: {serial_str}")
             raise ValueError(
                 "OpenCVCamera only supports index-based devices. "
                 "Use UvcCamera for serial-based selection."
@@ -80,7 +82,7 @@ class OpenCVCamera(CameraDevice):
             RuntimeWarning,
         )
 
-        index = int(serial)
+        index = int(serial_str)
 
         def _open_camera():
             """Inner function for timeout wrapper."""

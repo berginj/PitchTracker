@@ -72,15 +72,17 @@ class UvcCamera(CameraDevice):
             - Logs all attempts for debugging
         """
         try:
-            logger.info(f"Opening UVC camera with serial: {serial}")
-            self._serial = serial
-            target = self._resolve_device(serial)
+            # Ensure serial is a string (might be int from some code paths)
+            serial_str = str(serial)
+            logger.info(f"Opening UVC camera with serial: {serial_str}")
+            self._serial = serial_str
+            target = self._resolve_device(serial_str)
             self._friendly_name = target
 
             def _open_camera():
                 """Inner function for timeout wrapper."""
-                if target.isdigit() and target == serial:
-                    capture = cv2.VideoCapture(int(serial), cv2.CAP_DSHOW)
+                if target.isdigit() and target == serial_str:
+                    capture = cv2.VideoCapture(int(serial_str), cv2.CAP_DSHOW)
                 else:
                     capture = cv2.VideoCapture(f"video={target}", cv2.CAP_DSHOW)
 
@@ -88,9 +90,9 @@ class UvcCamera(CameraDevice):
                     if capture is not None:
                         capture.release()
                     raise CameraConnectionError(
-                        f"Failed to open camera for serial '{serial}'. "
+                        f"Failed to open camera for serial '{serial_str}'. "
                         "Check that the camera is connected and not in use by another application.",
-                        camera_id=serial,
+                        camera_id=serial_str,
                     )
                 return capture
 
@@ -98,10 +100,10 @@ class UvcCamera(CameraDevice):
             self._capture = run_with_timeout(
                 _open_camera,
                 timeout_seconds=5.0,
-                error_message=f"UVC camera {serial} open timed out",
+                error_message=f"UVC camera {serial_str} open timed out",
             )
 
-            logger.info(f"UVC camera {serial} opened successfully: {self._friendly_name}")
+            logger.info(f"UVC camera {serial_str} opened successfully: {self._friendly_name}")
 
         except CameraNotFoundError:
             raise
