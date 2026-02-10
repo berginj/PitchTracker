@@ -11,6 +11,10 @@ camera:
   queue_depth: 6
   flip_left: false  # Rotate left camera 180° if mounted upside down
   flip_right: false  # Rotate right camera 180° if mounted upside down
+  # Camera type and capabilities (auto-detected during setup)
+  type: null  # "webcam", "industrial", "unknown"
+  has_autofocus: null  # true/false/null (auto-detected)
+  focal_stability_score: null  # 0-100 (higher = more stable)
 stereo:
   pairing_tolerance_ms: 8
   epipolar_epsilon_px: 3
@@ -21,6 +25,14 @@ stereo:
   z_min_ft: 3
   z_max_ft: 80
   max_jump_in: 12
+  # Calibration metadata (set during calibration)
+  calibration_mode: null  # "QUICK", "FULL"
+  calibration_date: null  # ISO timestamp
+  calibration_quality_rating: null  # "EXCELLENT", "GOOD", "ACCEPTABLE", "POOR"
+  calibration_rms_error_px: null  # Reprojection error
+  calibration_num_images: null  # Number of image pairs used
+  # Online refinement state
+  time_sync_offset_ns: 0  # Systematic time sync bias (refined online)
 tracking:
   gate_distance_ft: 0.5
   min_track_frames: 20
@@ -33,6 +45,10 @@ metrics:
   hb_bounds_in: [-30, 30]
   ivb_bounds_in: [-30, 30]
   release_height_bounds_ft: [1, 8]
+  # Online refinement state
+  online_refinement_enabled: true  # Enable automatic parameter refinement
+  last_refinement_date: null  # ISO timestamp
+  drag_k0_default: 0.1  # Default drag coefficient (refined online)
 recording:
   pre_roll_ms: 500
   post_roll_ms: 500
@@ -86,3 +102,9 @@ upload:
   enabled: false
   swa_api_base: ""
   api_key: ""
+# Calibration health monitoring
+calibration_validation:
+  enabled: true  # Monitor calibration health at runtime
+  alert_threshold_px: 5.0  # Alert when epipolar error exceeds this
+  recalibration_interval_days: 30  # Suggest recalibration every N days
+  min_trajectories_for_refinement: 50  # Accumulate N trajectories before refining

@@ -28,6 +28,7 @@ class CalibrationWorker(QtCore.QThread):
         pattern: str,
         square_mm: float,
         config_path: Path,
+        quick_mode: bool = False,
     ):
         super().__init__()
         self.left_paths = left_paths
@@ -35,17 +36,35 @@ class CalibrationWorker(QtCore.QThread):
         self.pattern = pattern
         self.square_mm = square_mm
         self.config_path = config_path
+        self.quick_mode = quick_mode
 
     def run(self):
         """Run calibration in background thread."""
         try:
-            result = calibrate_and_write(
-                self.left_paths,
-                self.right_paths,
-                self.pattern,
-                self.square_mm,
-                self.config_path,
-            )
+            if self.quick_mode:
+                # Use quick calibration
+                from calib.quick_calibrate import quick_calibrate, _parse_pattern, _write_config, _save_calibration_file
+
+                pattern_size = _parse_pattern(self.pattern)
+                result = quick_calibrate(
+                    self.left_paths,
+                    self.right_paths,
+                    pattern_size,
+                    self.square_mm,
+                )
+                # Save to config
+                _write_config(self.config_path, result)
+                _save_calibration_file(result)
+            else:
+                # Use full calibration
+                result = calibrate_and_write(
+                    self.left_paths,
+                    self.right_paths,
+                    self.pattern,
+                    self.square_mm,
+                    self.config_path,
+                )
+
             self.finished.emit(result)
         except Exception as e:
             self.error.emit(str(e))
@@ -71,8 +90,8 @@ class CalibrationStep(BaseStep):
         self._backend = backend
         self._left_camera: Optional[CameraDevice] = None
         self._right_camera: Optional[CameraDevice] = None
-        self._left_serial: Optional[str] = None
-        self._right_serial: Optional[str] = None
+        self._left_serial: Optional[str | int] = None  # Can be string or int from some code paths
+        self._right_serial: Optional[str | int] = None  # Can be string or int from some code paths
 
         # Calibration settings (default pattern)
         self._pattern_cols = 5  # Default: 5 columns
@@ -109,6 +128,11 @@ class CalibrationStep(BaseStep):
         self._detected_patterns: list = []  # Multiple detected ChArUco patterns
         self._auto_swap_on_startup: bool = True  # Auto-check camera orientation on startup
 
+        # Camera capability detection (Phase 3)
+        self._camera_capabilities: Optional = None  # CameraCapabilities from detection
+        self._calibration_mode: str = "FULL"  # "QUICK" or "FULL"
+        self._camera_detection_complete: bool = False  # Track if detection ran
+
         self._build_ui()
 
         # Preview timer
@@ -120,12 +144,55 @@ class CalibrationStep(BaseStep):
         layout = QtWidgets.QVBoxLayout()
 
         # Simple instruction at top
-        instruction = QtWidgets.QLabel(
+        self._instruction_label = QtWidgets.QLabel(
             "<b style='font-size: 14pt;'>📷 Capture 10+ ChArUco Board Poses</b>"
         )
-        instruction.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        instruction.setStyleSheet("padding: 10px; background-color: #E3F2FD; border-radius: 5px; color: #000000;")
-        layout.addWidget(instruction)
+        self._instruction_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._instruction_label.setStyleSheet("padding: 10px; background-color: #E3F2FD; border-radius: 5px; color: #000000;")
+        layout.addWidget(self._instruction_label)
+
+        # Camera type and calibration mode section
+        mode_layout = QtWidgets.QHBoxLayout()
+
+        # Camera type indicator
+        camera_type_group = QtWidgets.QGroupBox("Camera Type")
+        camera_type_layout = QtWidgets.QVBoxLayout()
+        self._camera_type_label = QtWidgets.QLabel("Detecting...")
+        self._camera_type_label.setStyleSheet("font-size: 11pt; padding: 5px;")
+        self._camera_stability_label = QtWidgets.QLabel("Stability: --/100")
+        self._camera_stability_label.setStyleSheet("font-size: 10pt; color: #666;")
+        camera_type_layout.addWidget(self._camera_type_label)
+        camera_type_layout.addWidget(self._camera_stability_label)
+        camera_type_group.setLayout(camera_type_layout)
+        mode_layout.addWidget(camera_type_group, 1)
+
+        # Calibration mode selection
+        mode_group = QtWidgets.QGroupBox("Calibration Mode")
+        mode_select_layout = QtWidgets.QVBoxLayout()
+
+        self._quick_radio = QtWidgets.QRadioButton("Quick (3-5 min, 90-95% accuracy)")
+        self._full_radio = QtWidgets.QRadioButton("Full (10-15 min, best accuracy)")
+        self._full_radio.setChecked(True)  # Default to full mode
+
+        self._quick_radio.toggled.connect(self._on_mode_changed)
+        self._full_radio.toggled.connect(self._on_mode_changed)
+
+        mode_select_layout.addWidget(self._quick_radio)
+        mode_select_layout.addWidget(self._full_radio)
+        mode_group.setLayout(mode_select_layout)
+        mode_layout.addWidget(mode_group, 1)
+
+        layout.addLayout(mode_layout)
+
+        # Webcam warning banner (hidden by default)
+        self._webcam_warning = QtWidgets.QLabel()
+        self._webcam_warning.setWordWrap(True)
+        self._webcam_warning.setStyleSheet(
+            "background-color: #FFA726; color: #000000; padding: 10px; "
+            "border-radius: 5px; font-weight: bold;"
+        )
+        self._webcam_warning.hide()  # Hidden until webcam detected
+        layout.addWidget(self._webcam_warning)
 
         # Progress bar showing captures
         progress_layout = QtWidgets.QHBoxLayout()
@@ -803,6 +870,7 @@ class CalibrationStep(BaseStep):
         # Reset capture state
         self._captures.clear()
         self._baseline_alignment = None  # Reset drift detection baseline
+        self._alignment_history.clear()  # Reset alignment history for moving average
         self._warmup_attempts = 0  # Reset warmup counter
         self._capture_count_label.setText(f"Progress: 0/{self._min_captures} poses captured")
         self._capture_count_label.setStyleSheet(
@@ -836,6 +904,12 @@ class CalibrationStep(BaseStep):
                 self._swap_left_right(save_to_history=False)  # Don't save yet, just swap
                 print("[Auto-Swap] Cameras swapped based on historical data")
 
+        # Detect camera capabilities (Phase 3)
+        if self._left_camera and not self._camera_detection_complete:
+            print("[CalibrationStep] Running camera capability detection...")
+            # Run in background to avoid blocking UI
+            QtCore.QTimer.singleShot(1000, self._detect_camera_capabilities)  # Delay 1s for camera warmup
+
         # Start preview timer
         if self._left_camera and self._right_camera:
             print(f"[CalibrationStep] Starting preview timer (both cameras present)")
@@ -852,6 +926,133 @@ class CalibrationStep(BaseStep):
 
         # Close cameras
         self._close_cameras()
+
+    def _on_mode_changed(self) -> None:
+        """Handle calibration mode radio button change."""
+        if self._quick_radio.isChecked():
+            self._calibration_mode = "QUICK"
+            self._min_captures = 5
+            self._instruction_label.setText(
+                "<b style='font-size: 14pt;'>📷 Capture 3-5 ChArUco Board Poses (Quick Mode)</b>"
+            )
+            self._capture_progress_bar.setMaximum(5)
+        else:
+            self._calibration_mode = "FULL"
+            self._min_captures = 10
+            self._instruction_label.setText(
+                "<b style='font-size: 14pt;'>📷 Capture 10+ ChArUco Board Poses</b>"
+            )
+            self._capture_progress_bar.setMaximum(10)
+
+        # Update progress label
+        count = len(self._captures)
+        self._capture_count_label.setText(f"Progress: {count}/{self._min_captures} poses captured")
+
+        print(f"[CalibrationStep] Calibration mode changed to: {self._calibration_mode}")
+
+    def _detect_camera_capabilities(self) -> None:
+        """Detect camera capabilities (type, autofocus, stability)."""
+        if self._camera_detection_complete or not self._left_camera:
+            return
+
+        print("[CalibrationStep] Detecting camera capabilities...")
+        self._camera_type_label.setText("Detecting camera type...")
+
+        try:
+            from calib.camera_capabilities import CameraCapabilityDetector
+
+            detector = CameraCapabilityDetector()
+
+            # Detect capabilities for left camera (representative of both)
+            self._camera_capabilities = detector.detect_capabilities(
+                self._left_camera,
+                num_test_frames=20,  # Reduced for faster detection
+                test_duration_s=3.0,  # Reduced for faster detection
+            )
+
+            self._camera_detection_complete = True
+            self._update_camera_type_display()
+
+            print(f"[CalibrationStep] Camera detection complete:")
+            print(f"  Type: {self._camera_capabilities.camera_type}")
+            print(f"  Autofocus: {self._camera_capabilities.has_autofocus}")
+            print(f"  Stability: {self._camera_capabilities.focal_stability_score:.1f}/100")
+
+        except Exception as e:
+            print(f"[CalibrationStep] Camera detection failed: {e}")
+            self._camera_type_label.setText("Detection failed")
+            self._camera_stability_label.setText("See console for details")
+
+    def _update_camera_type_display(self) -> None:
+        """Update UI with detected camera capabilities."""
+        if not self._camera_capabilities:
+            return
+
+        caps = self._camera_capabilities
+
+        # Update camera type label with emoji
+        if caps.camera_type == "industrial":
+            type_emoji = "✓"
+            type_color = "#4CAF50"  # Green
+            type_text = f"{type_emoji} Industrial (Fixed Focus)"
+        elif caps.camera_type == "webcam":
+            type_emoji = "⚠️"
+            type_color = "#FF9800"  # Orange
+            type_text = f"{type_emoji} Webcam (Autofocus)"
+        else:
+            type_emoji = "?"
+            type_color = "#666666"  # Gray
+            type_text = f"{type_emoji} Unknown"
+
+        self._camera_type_label.setText(type_text)
+        self._camera_type_label.setStyleSheet(
+            f"font-size: 11pt; font-weight: bold; padding: 5px; color: {type_color};"
+        )
+
+        # Update stability score
+        score = caps.focal_stability_score
+        if score >= 90:
+            score_color = "#4CAF50"  # Green
+        elif score >= 70:
+            score_color = "#FF9800"  # Orange
+        else:
+            score_color = "#F44336"  # Red
+
+        self._camera_stability_label.setText(f"Stability: {score:.0f}/100")
+        self._camera_stability_label.setStyleSheet(
+            f"font-size: 10pt; padding: 3px; color: {score_color};"
+        )
+
+        # Show webcam warning if detected
+        if caps.camera_type == "webcam" or caps.has_autofocus:
+            warning_text = (
+                "⚠️ WEBCAM DETECTED: Autofocus cameras may reduce accuracy\n"
+                "Recommendation: Disable autofocus in camera settings or use manual focus cameras\n"
+            )
+            if caps.recommendations:
+                # Show first 2 recommendations
+                warning_text += "\n" + "\n".join(f"• {r}" for r in caps.recommendations[:2])
+
+            self._webcam_warning.setText(warning_text)
+            self._webcam_warning.show()
+
+            # Suggest quick mode for webcams
+            if self._calibration_mode == "FULL":
+                reply = QtWidgets.QMessageBox.question(
+                    self,
+                    "Quick Calibration Recommended",
+                    "Webcam detected with autofocus.\n\n"
+                    "Quick calibration mode is recommended for cameras with autofocus "
+                    "as it's less sensitive to focal drift.\n\n"
+                    "Switch to Quick mode?",
+                    QtWidgets.QMessageBox.StandardButton.Yes |
+                    QtWidgets.QMessageBox.StandardButton.No
+                )
+
+                if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+                    self._quick_radio.setChecked(True)
+        else:
+            self._webcam_warning.hide()
 
     def set_camera_serials(self, left_serial: str, right_serial: str) -> None:
         """Set camera serials from Step 1."""
@@ -2485,13 +2686,16 @@ class CalibrationStep(BaseStep):
             self._capture_button.setStyleSheet("background-color: #4CAF50; color: white;")
             QtCore.QTimer.singleShot(200, lambda: self._capture_button.setStyleSheet(""))
 
-            # Store baseline alignment from first capture
-            if len(self._captures) == 1:
-                try:
-                    from analysis.camera_alignment import analyze_alignment
-                    self._baseline_alignment = analyze_alignment(left_frame.image, right_frame.image)
-                except Exception:
-                    pass  # Don't fail capture if alignment analysis fails
+            # Store baseline alignment from first capture and track alignment history
+            try:
+                from analysis.camera_alignment import analyze_alignment
+                current_alignment = analyze_alignment(left_frame.image, right_frame.image)
+                self._alignment_history.append(current_alignment)
+
+                if len(self._captures) == 1:
+                    self._baseline_alignment = current_alignment
+            except Exception:
+                pass  # Don't fail capture if alignment analysis fails
 
         except Exception as e:
             QtWidgets.QMessageBox.critical(
@@ -2503,6 +2707,8 @@ class CalibrationStep(BaseStep):
     def _check_alignment_drift(self, left_img: np.ndarray, right_img: np.ndarray) -> bool:
         """Check if camera alignment has drifted since first capture.
 
+        Uses moving average of recent alignments to reduce false positives from single-frame anomalies.
+
         Args:
             left_img: Current left camera image
             right_img: Current right camera image
@@ -2510,7 +2716,7 @@ class CalibrationStep(BaseStep):
         Returns:
             True if user chose to abort this capture (drift too large), False to continue
         """
-        if self._baseline_alignment is None:
+        if self._baseline_alignment is None or len(self._alignment_history) == 0:
             return False  # No baseline, can't check drift
 
         try:
@@ -2519,54 +2725,89 @@ class CalibrationStep(BaseStep):
             # Analyze current alignment
             current = analyze_alignment(left_img, right_img)
 
-            # Calculate drift in key metrics
-            toin_drift = abs(current.convergence_std_px - self._baseline_alignment.convergence_std_px)
-            vertical_drift = abs(current.vertical_mean_px - self._baseline_alignment.vertical_mean_px)
-            rotation_drift = abs(current.rotation_deg - self._baseline_alignment.rotation_deg)
-            focal_drift = abs(current.scale_difference_percent - self._baseline_alignment.scale_difference_percent)
+            # Calculate moving average of recent alignments (last 3-5 captures)
+            # This reduces false positives from single-capture anomalies
+            window_size = min(5, len(self._alignment_history))
+            recent_alignments = self._alignment_history[-window_size:]
 
-            # Determine if drift is significant
-            # Thresholds for FIXED MOUNTS (allow for vibration, thermal settling, etc.):
-            # - Vertical > 10px (was 3px - too sensitive for fixed mounts)
-            # - Toe-in > 15px (was 5px - normal environmental variation)
-            # - Rotation > 5° (was 2° - too tight for fixed setups)
-            # - Focal > 5% (was 3% - thermal expansion, etc.)
+            # Calculate average metrics from recent captures
+            avg_convergence = sum(a.convergence_std_px for a in recent_alignments) / len(recent_alignments)
+            avg_vertical = sum(a.vertical_mean_px for a in recent_alignments) / len(recent_alignments)
+            avg_rotation = sum(a.rotation_deg for a in recent_alignments) / len(recent_alignments)
+            avg_focal = sum(a.scale_difference_percent for a in recent_alignments) / len(recent_alignments)
+
+            # Calculate drift compared to moving average (more robust than single baseline)
+            toin_drift = abs(current.convergence_std_px - avg_convergence)
+            vertical_drift = abs(current.vertical_mean_px - avg_vertical)
+            rotation_drift = abs(current.rotation_deg - avg_rotation)
+            focal_drift = abs(current.scale_difference_percent - avg_focal)
+
+            # Dynamic threshold adjustment based on alignment history variance
+            # More stable mounts get tighter thresholds; less stable mounts get more tolerance
+            if len(recent_alignments) >= 3:
+                # Calculate standard deviation of recent measurements
+                import math
+                toin_std = math.sqrt(sum((a.convergence_std_px - avg_convergence) ** 2 for a in recent_alignments) / len(recent_alignments))
+                vertical_std = math.sqrt(sum((a.vertical_mean_px - avg_vertical) ** 2 for a in recent_alignments) / len(recent_alignments))
+                rotation_std = math.sqrt(sum((a.rotation_deg - avg_rotation) ** 2 for a in recent_alignments) / len(recent_alignments))
+                focal_std = math.sqrt(sum((a.scale_difference_percent - avg_focal) ** 2 for a in recent_alignments) / len(recent_alignments))
+
+                # Base thresholds for FIXED MOUNTS
+                base_toin_threshold = 15.0
+                base_vertical_threshold = 10.0
+                base_rotation_threshold = 5.0
+                base_focal_threshold = 5.0
+
+                # Adjust thresholds: if variance is high, be more tolerant (up to 1.5x)
+                # if variance is very low, be stricter (down to 0.7x)
+                toin_threshold = base_toin_threshold * max(0.7, min(1.5, 1.0 + toin_std / 10.0))
+                vertical_threshold = base_vertical_threshold * max(0.7, min(1.5, 1.0 + vertical_std / 5.0))
+                rotation_threshold = base_rotation_threshold * max(0.7, min(1.5, 1.0 + rotation_std / 2.0))
+                focal_threshold = base_focal_threshold * max(0.7, min(1.5, 1.0 + focal_std / 2.0))
+            else:
+                # Not enough history for dynamic adjustment, use fixed thresholds
+                toin_threshold = 15.0
+                vertical_threshold = 10.0
+                rotation_threshold = 5.0
+                focal_threshold = 5.0
+
+            # Determine if drift is significant using dynamic thresholds
             significant_drift = (
-                toin_drift > 15.0 or
-                vertical_drift > 10.0 or
-                rotation_drift > 5.0 or
-                focal_drift > 5.0
+                toin_drift > toin_threshold or
+                vertical_drift > vertical_threshold or
+                rotation_drift > rotation_threshold or
+                focal_drift > focal_threshold
             )
 
             if not significant_drift:
                 return False  # No significant drift, continue
 
-            # Build drift warning message
+            # Build drift warning message with dynamic thresholds
             drift_details = []
-            if toin_drift > 15.0:
+            if toin_drift > toin_threshold:
                 drift_details.append(
-                    f"  • Toe-in: {self._baseline_alignment.convergence_std_px:.1f}px → "
-                    f"{current.convergence_std_px:.1f}px (Δ {toin_drift:.1f}px, threshold: 15px)"
+                    f"  • Toe-in: {avg_convergence:.1f}px (avg) → "
+                    f"{current.convergence_std_px:.1f}px (Δ {toin_drift:.1f}px, threshold: {toin_threshold:.1f}px)"
                 )
-            if vertical_drift > 10.0:
+            if vertical_drift > vertical_threshold:
                 drift_details.append(
-                    f"  • Vertical: {self._baseline_alignment.vertical_mean_px:.1f}px → "
-                    f"{current.vertical_mean_px:.1f}px (Δ {vertical_drift:.1f}px, threshold: 10px)"
+                    f"  • Vertical: {avg_vertical:.1f}px (avg) → "
+                    f"{current.vertical_mean_px:.1f}px (Δ {vertical_drift:.1f}px, threshold: {vertical_threshold:.1f}px)"
                 )
-            if rotation_drift > 5.0:
+            if rotation_drift > rotation_threshold:
                 drift_details.append(
-                    f"  • Rotation: {self._baseline_alignment.rotation_deg:.1f}° → "
-                    f"{current.rotation_deg:.1f}° (Δ {rotation_drift:.1f}°, threshold: 5°)"
+                    f"  • Rotation: {avg_rotation:.1f}° (avg) → "
+                    f"{current.rotation_deg:.1f}° (Δ {rotation_drift:.1f}°, threshold: {rotation_threshold:.1f}°)"
                 )
-            if focal_drift > 5.0:
+            if focal_drift > focal_threshold:
                 drift_details.append(
-                    f"  • Focal Length: {self._baseline_alignment.scale_difference_percent:.1f}% → "
-                    f"{current.scale_difference_percent:.1f}% (Δ {focal_drift:.1f}%, threshold: 5%)"
+                    f"  • Focal Length: {avg_focal:.1f}% (avg) → "
+                    f"{current.scale_difference_percent:.1f}% (Δ {focal_drift:.1f}%, threshold: {focal_threshold:.1f}%)"
                 )
 
             warning_msg = (
-                f"⚠️ Camera alignment has drifted since capture 1!\n\n"
-                f"Changes detected:\n" + "\n".join(drift_details) + "\n\n"
+                f"⚠️ Camera alignment has drifted from recent captures!\n\n"
+                f"Changes detected (compared to last {window_size} captures):\n" + "\n".join(drift_details) + "\n\n"
                 f"This can invalidate calibration. Recommendations:\n\n"
                 f"• Click 'Restart' to clear captures and start over (recommended)\n"
                 f"• Click 'Continue' to capture anyway (may reduce calibration quality)\n"
@@ -2589,9 +2830,10 @@ class CalibrationStep(BaseStep):
             clicked = msg_box.clickedButton()
 
             if clicked == restart_btn:
-                # Restart calibration - clear all captures
+                # Restart calibration - clear all captures and alignment history
                 self._captures.clear()
                 self._baseline_alignment = None
+                self._alignment_history.clear()
                 self._capture_count_label.setText(f"Progress: 0/{self._min_captures} poses captured")
                 self._capture_count_label.setStyleSheet(
                     "font-size: 12pt; font-weight: bold; color: #d32f2f;"
@@ -2644,12 +2886,17 @@ class CalibrationStep(BaseStep):
 
         # Create and start worker thread
         pattern = f"{self._pattern_cols}x{self._pattern_rows}"
+        quick_mode = (self._calibration_mode == "QUICK")
+
+        print(f"[CalibrationStep] Running calibration in {self._calibration_mode} mode")
+
         self._calibration_worker = CalibrationWorker(
             left_paths,
             right_paths,
             pattern,
             self._square_mm,
             self._config_path,
+            quick_mode=quick_mode,
         )
         self._calibration_worker.finished.connect(self._on_calibration_complete)
         self._calibration_worker.error.connect(self._on_calibration_error)
@@ -2673,8 +2920,9 @@ class CalibrationStep(BaseStep):
         recommendations = result.get('recommendations', [])
 
         # Build results text with quality metrics
+        mode = result.get('calibration_mode', 'FULL')
         results_text = (
-            f"{emoji} Calibration {rating}!\n\n"
+            f"{emoji} Calibration {rating}! (Mode: {mode})\n\n"
             f"Baseline: {result['baseline_ft']:.3f} ft\n"
             f"Focal Length: {result['focal_length_px']:.1f} px\n"
             f"Principal Point: ({result['cx']:.1f}, {result['cy']:.1f})\n\n"

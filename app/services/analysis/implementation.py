@@ -21,6 +21,7 @@ from app.pipeline.analysis.pitch_summary import PitchAnalyzer
 from app.pipeline.pitch_tracking_v2 import PitchData
 from app.pipeline_service import PitchSummary, SessionSummary
 from app.services.analysis.interface import AnalysisService
+from calib.online_refinement import OnlineCalibrationRefiner
 from configs.settings import AppConfig
 from contracts import StereoObservation
 from log_config.logger import get_logger
@@ -84,6 +85,19 @@ class AnalysisServiceImpl(AnalysisService):
         self._batter_height_in = config.strike_zone.batter_height_in
         self._top_ratio = config.strike_zone.top_ratio
         self._bottom_ratio = config.strike_zone.bottom_ratio
+
+        # Online calibration refinement
+        self._refiner: Optional[OnlineCalibrationRefiner] = None
+        self._refinement_enabled = config.metrics.online_refinement_enabled
+        if self._refinement_enabled:
+            try:
+                # Initialize refiner with config path
+                config_path = Path("configs/default.yaml")
+                self._refiner = OnlineCalibrationRefiner(config_path)
+                logger.info("Online calibration refinement enabled")
+            except Exception as e:
+                logger.warning(f"Failed to initialize calibration refiner: {e}")
+                self._refinement_enabled = False
 
         # EventBus subscription
         self._subscribed = False
@@ -375,6 +389,19 @@ class AnalysisServiceImpl(AnalysisService):
             self._analyzer.update_config(config)
             logger.info("Analysis config updated")
 
+    def get_refinement_summary(self) -> Optional[dict]:
+        """Get online calibration refinement summary.
+
+        Returns:
+            Dictionary with refinement state and calibration health, or None if disabled
+
+        Note: Includes refined parameters, accumulation progress, and health metrics.
+        """
+        if not self._refinement_enabled or not self._refiner:
+            return None
+
+        return self._refiner.get_refinement_summary()
+
     # Internal Event Handlers
 
     def _on_pitch_end_internal(self, event: PitchEndEvent) -> None:
@@ -429,8 +456,73 @@ class AnalysisServiceImpl(AnalysisService):
 
             logger.info(f"Pitch analyzed: {event.pitch_id}, strike={summary.is_strike}")
 
+            # Online calibration refinement
+            if self._refinement_enabled and self._refiner and summary.trajectory_confidence:
+                try:
+                    self._accumulate_trajectory_for_refinement(summary, event)
+                except Exception as ref_error:
+                    logger.warning(f"Error accumulating trajectory for refinement: {ref_error}")
+
         except Exception as e:
             logger.error(f"Error analyzing pitch: {e}", exc_info=True)
+
+    def _accumulate_trajectory_for_refinement(
+        self,
+        summary: PitchSummary,
+        event: PitchEndEvent
+    ) -> None:
+        """Accumulate trajectory for online calibration refinement.
+
+        Converts PitchSummary to refinement format and checks if refinement should occur.
+
+        Args:
+            summary: Pitch summary with trajectory data
+            event: Original pitch end event with observations
+
+        Note: TODO - Enhance PitchSummary to include diagnostic fields:
+            - drag_param (from TrajectoryDiagnostics)
+            - rmse_px (epipolar error from TrajectoryDiagnostics)
+            - time_sync_residual_ns (from trajectory fitting)
+        For now, using placeholder values and available data.
+        """
+        if not self._refiner:
+            return
+
+        # Convert PitchSummary to refinement format
+        trajectory_data = {
+            'timestamp_ns': summary.t_end_ns,
+            'drag_k0_fit': 0.1,  # TODO: Extract from TrajectoryDiagnostics.drag_param
+            'time_sync_residual_ns': 0,  # TODO: Extract from trajectory fitting
+            'plate_crossing_z_ft': summary.trajectory_plate_z_ft or 0.0,
+            'mean_epipolar_error_px': 1.0,  # TODO: Extract from TrajectoryDiagnostics.rmse_px
+            'max_epipolar_error_px': 1.5,  # TODO: Extract from TrajectoryDiagnostics
+            'num_observations': summary.sample_count,
+            'confidence_score': summary.trajectory_confidence or 0.0,
+        }
+
+        # Accumulate trajectory
+        accepted = self._refiner.accumulate_trajectory(trajectory_data)
+
+        if accepted:
+            logger.debug(f"Trajectory {summary.pitch_id} accumulated for refinement "
+                        f"({self._refiner.state.num_trajectories_accumulated} total)")
+
+            # Check if we should refine parameters
+            if self._refiner.should_refine():
+                result = self._refiner.refine_parameters()
+
+                if result['refined']:
+                    logger.info(f"Calibration parameters refined: {'; '.join(result['changes'])}")
+                    logger.info(f"Refinement confidence: {result['confidence']:.2f}")
+                else:
+                    logger.info(f"Refinement check: {result['reason']}")
+
+                # Check calibration health
+                health = self._refiner.validate_calibration_health()
+                if health['alert']:
+                    logger.warning(f"Calibration health alert: {health['reason']}")
+                else:
+                    logger.debug(f"Calibration health: {health['reason']}")
 
     # EventBus Subscription Management
 

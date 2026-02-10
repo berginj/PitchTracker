@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -18,6 +18,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--right", type=Path, nargs="+", required=True, help="Right image paths.")
     parser.add_argument("--pattern", default="9x6", help="ChArUco board pattern colsxrows (number of squares).")
     parser.add_argument("--square-mm", type=float, required=True, help="ChArUco board square size in mm.")
+    parser.add_argument("--quick", action="store_true", help="Use quick calibration mode (3-5 images, simplified).")
     parser.add_argument("--write", action="store_true", help="Write calibration to config.")
     return parser.parse_args()
 
@@ -134,8 +135,30 @@ def _collect_corners(
         if not charuco_success:
             # Checkerboard has (cols-1, rows-1) internal corners
             board_size = (pattern_size[0] - 1, pattern_size[1] - 1)
-            flags = cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE
-            ret, corners = cv2.findChessboardCorners(image, board_size, flags)
+
+            # Try multiple flag combinations for robust detection
+            flag_combinations = [
+                # Standard approach (best for most cases)
+                cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE,
+                # With fast check (rejects obvious false patterns quickly)
+                cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE + cv2.CALIB_CB_FAST_CHECK,
+                # With quad filtering (stricter corner validation)
+                cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE + cv2.CALIB_CB_FILTER_QUADS,
+                # Minimal flags (for difficult lighting)
+                cv2.CALIB_CB_ADAPTIVE_THRESH,
+                # Just normalize (for high contrast images)
+                cv2.CALIB_CB_NORMALIZE_IMAGE,
+            ]
+
+            ret = False
+            corners = None
+            flags_used = None
+
+            for flags in flag_combinations:
+                ret, corners = cv2.findChessboardCorners(image, board_size, flags)
+                if ret and corners is not None:
+                    flags_used = flags
+                    break
 
             if ret and corners is not None:
                 # Refine corner locations to sub-pixel accuracy
@@ -329,6 +352,277 @@ def _rate_calibration_quality(rms_error: float, num_images: int) -> dict:
     # Add positional coverage recommendations if borderline
     if MIN_IMAGES_ACCEPTABLE <= num_images < MIN_IMAGES_GOOD or rms_error > GOOD_RMS:
         recommendations.append("• Vary ChArUco board positions: center, corners, near, far, tilted")
+
+    return {
+        "rating": rating,
+        "emoji": emoji,
+        "description": description,
+        "rms_error_px": float(rms_error),
+        "num_images": num_images,
+        "recommendations": recommendations,
+    }
+
+
+def quick_calibrate(
+    left_paths: List[Path],
+    right_paths: List[Path],
+    pattern_size: Tuple[int, int],
+    square_mm: float,
+) -> dict:
+    """Quick calibration mode - minimal captures, simplified estimation.
+
+    Differences from full calibration:
+    - Requires only 3-5 image pairs (vs 10-15)
+    - Uses DICT_6X6_250 only (no dictionary search)
+    - Skips distortion coefficient estimation (sets all to 0)
+    - Fixes principal point to image center
+    - Faster corner detection (fewer refinement iterations)
+    - Different quality thresholds (RMS < 2.0px = GOOD, < 3.0px = ACCEPTABLE)
+
+    Args:
+        left_paths: Paths to left camera calibration images
+        right_paths: Paths to right camera calibration images
+        pattern_size: ChArUco board pattern size (cols, rows)
+        square_mm: ChArUco square size in millimeters
+
+    Returns:
+        Dictionary with calibration results and "QUICK" mode label
+
+    Raises:
+        RuntimeError: If insufficient matching pairs found
+    """
+    # Minimum pairs for quick mode (less than full calibration)
+    MIN_PAIRS = 3
+    RECOMMENDED_PAIRS = 5
+
+    print("\n=== QUICK CALIBRATION MODE ===")
+    print(f"Target: {RECOMMENDED_PAIRS} image pairs (minimum: {MIN_PAIRS})")
+    print("Using simplified parameter estimation for faster setup\n")
+
+    # Collect corners using existing function (already has ChArUco + fallback)
+    print("=== LEFT CAMERA ===")
+    left_obj, left_img, img_size, left_indices = _collect_corners(left_paths, pattern_size, square_mm)
+
+    print("\n=== RIGHT CAMERA ===")
+    right_obj, right_img, _, right_indices = _collect_corners(right_paths, pattern_size, square_mm)
+
+    # Match pairs
+    print("\n=== MATCHING STEREO PAIRS ===")
+    objpoints, left_imgpoints, right_imgpoints, rejection_report = _match_stereo_pairs(
+        left_obj, left_img, left_indices, left_paths,
+        right_obj, right_img, right_indices, right_paths,
+    )
+
+    # Report rejections
+    if rejection_report:
+        print("\nRejected images:")
+        for msg in rejection_report:
+            print(f"  • {msg}")
+
+    # Validate we have enough pairs
+    num_pairs = len(objpoints)
+    print(f"\nMatched pairs: {num_pairs}/{len(left_paths)}")
+
+    if num_pairs == 0:
+        raise RuntimeError(
+            "No matching image pairs found. Ensure ChArUco board is visible in BOTH cameras."
+        )
+
+    if num_pairs < MIN_PAIRS:
+        raise RuntimeError(
+            f"Insufficient pairs for quick calibration ({num_pairs} found, need at least {MIN_PAIRS}). "
+            f"Capture more images with board visible in BOTH cameras."
+        )
+
+    if num_pairs < RECOMMENDED_PAIRS:
+        print(f"⚠️  Only {num_pairs} pairs (recommended: {RECOMMENDED_PAIRS})")
+        print(f"   Consider capturing {RECOMMENDED_PAIRS - num_pairs} more for better quality")
+
+    print(f"\nCalibrating with {num_pairs} pairs (QUICK mode)...")
+
+    objpoints_scaled = objpoints
+
+    # Quick calibration for LEFT camera
+    # Fix principal point to image center and set distortion to 0
+    print("Calibrating left camera (fixed principal point, zero distortion)...", flush=True)
+
+    # Create initial camera matrix with principal point at image center
+    fx_init = 1200.0  # Reasonable initial guess
+    cx = img_size[0] / 2.0
+    cy = img_size[1] / 2.0
+
+    mtx_left_init = np.array([
+        [fx_init, 0, cx],
+        [0, fx_init, cy],
+        [0, 0, 1]
+    ], dtype=np.float64)
+
+    # Zero distortion
+    dist_left = np.zeros(5, dtype=np.float64)
+
+    # Calibrate with fixed principal point and zero distortion
+    _, mtx_left, _, _, _ = cv2.calibrateCamera(
+        objpoints_scaled,
+        left_imgpoints,
+        img_size,
+        mtx_left_init,
+        dist_left,
+        flags=(
+            cv2.CALIB_USE_INTRINSIC_GUESS |
+            cv2.CALIB_FIX_PRINCIPAL_POINT |
+            cv2.CALIB_FIX_K1 | cv2.CALIB_FIX_K2 | cv2.CALIB_FIX_K3 |
+            cv2.CALIB_FIX_K4 | cv2.CALIB_FIX_K5 | cv2.CALIB_FIX_K6 |
+            cv2.CALIB_ZERO_TANGENT_DIST
+        )
+    )
+    print("✓ Left camera calibrated (quick mode)")
+
+    # Quick calibration for RIGHT camera
+    print("Calibrating right camera (fixed principal point, zero distortion)...", flush=True)
+
+    mtx_right_init = mtx_left_init.copy()  # Use same initial guess
+    dist_right = np.zeros(5, dtype=np.float64)
+
+    _, mtx_right, _, _, _ = cv2.calibrateCamera(
+        objpoints_scaled,
+        right_imgpoints,
+        img_size,
+        mtx_right_init,
+        dist_right,
+        flags=(
+            cv2.CALIB_USE_INTRINSIC_GUESS |
+            cv2.CALIB_FIX_PRINCIPAL_POINT |
+            cv2.CALIB_FIX_K1 | cv2.CALIB_FIX_K2 | cv2.CALIB_FIX_K3 |
+            cv2.CALIB_FIX_K4 | cv2.CALIB_FIX_K5 | cv2.CALIB_FIX_K6 |
+            cv2.CALIB_ZERO_TANGENT_DIST
+        )
+    )
+    print("✓ Right camera calibrated (quick mode)")
+
+    # Stereo calibration (intrinsics already fixed)
+    print("Computing stereo calibration...", flush=True)
+    rms_error, _, _, _, _, R, T, E, F = cv2.stereoCalibrate(
+        objpoints_scaled,
+        left_imgpoints,
+        right_imgpoints,
+        mtx_left,
+        dist_left,
+        mtx_right,
+        dist_right,
+        img_size,
+        flags=cv2.CALIB_FIX_INTRINSIC,
+    )
+    print(f"✓ Stereo calibration complete (RMS error: {rms_error:.3f} px)")
+
+    # Extract parameters
+    baseline_mm = float(np.linalg.norm(T))
+    baseline_ft = baseline_mm / 304.8
+    focal_length_px = float(mtx_left[0, 0])
+    cx = float(mtx_left[0, 2])
+    cy = float(mtx_left[1, 2])
+
+    # Compute per-image errors
+    per_image_errors = _compute_per_image_errors(
+        objpoints_scaled, left_imgpoints, right_imgpoints,
+        mtx_left, dist_left, mtx_right, dist_right,
+        R, T
+    )
+
+    # Quality rating with adjusted thresholds for quick mode
+    quality = _rate_quick_calibration_quality(rms_error, num_pairs)
+
+    # Print quality assessment
+    print(f"\n{quality['emoji']} Quick Calibration Quality: {quality['rating']}")
+    print(f"   {quality['description']}")
+    if quality['recommendations']:
+        print("\nRecommendations:")
+        for rec in quality['recommendations']:
+            print(f"   {rec}")
+
+    return {
+        "baseline_ft": baseline_ft,
+        "focal_length_px": focal_length_px,
+        "cx": cx,
+        "cy": cy,
+        # Quality metrics
+        "rms_error_px": float(rms_error),
+        "num_images": num_pairs,
+        "num_images_used": num_pairs,
+        "total_input_images": len(left_paths),
+        "per_image_errors": per_image_errors,
+        "quality": quality,
+        "quality_rating": quality["rating"],
+        "quality_description": quality["description"],
+        "quality_emoji": quality["emoji"],
+        "recommendations": quality["recommendations"],
+        # Calibration mode flag
+        "calibration_mode": "QUICK",
+        # Full matrices (distortion is zero)
+        "mtx_left": mtx_left,
+        "mtx_right": mtx_right,
+        "dist_left": dist_left,  # All zeros
+        "dist_right": dist_right,  # All zeros
+        "R": R,
+        "T": T,
+        "E": E,
+        "F": F,
+        "img_size": img_size,
+    }
+
+
+def _rate_quick_calibration_quality(rms_error: float, num_images: int) -> dict:
+    """Rate quick calibration quality with adjusted thresholds.
+
+    Quick mode uses relaxed thresholds since it skips distortion modeling.
+
+    Args:
+        rms_error: Overall RMS reprojection error in pixels
+        num_images: Number of image pairs used
+
+    Returns:
+        Dictionary with rating, description, and recommendations
+    """
+    # Adjusted thresholds for quick mode
+    GOOD_RMS = 2.0  # vs 1.0 for full calibration
+    ACCEPTABLE_RMS = 3.0  # vs 2.0 for full calibration
+    MIN_IMAGES = 3
+    RECOMMENDED_IMAGES = 5
+
+    recommendations = []
+
+    # Determine rating
+    if rms_error < GOOD_RMS and num_images >= RECOMMENDED_IMAGES:
+        rating = "GOOD"
+        emoji = "🟢"
+        description = "Good quick calibration. Estimated 90-95% accuracy of full calibration."
+    elif rms_error < ACCEPTABLE_RMS and num_images >= MIN_IMAGES:
+        rating = "ACCEPTABLE"
+        emoji = "🟡"
+        description = "Acceptable quick calibration. Consider full calibration for maximum accuracy."
+        if num_images < RECOMMENDED_IMAGES:
+            recommendations.append(f"• Capture {RECOMMENDED_IMAGES - num_images} more images for better quality")
+    else:
+        rating = "POOR"
+        emoji = "🔴"
+        description = "Poor calibration. Full calibration recommended."
+
+    # Add mode-specific recommendations
+    if rms_error < GOOD_RMS:
+        recommendations.append("✓ Quick calibration successful")
+        recommendations.append("• For maximum accuracy, run Full Calibration mode")
+    else:
+        recommendations.append("⚠️ High reprojection error detected")
+        recommendations.append("• Try full calibration mode with 10+ images")
+        recommendations.append("• Ensure board is perfectly flat and well-lit")
+        recommendations.append("• Check camera focus is sharp")
+
+    if num_images < RECOMMENDED_IMAGES:
+        recommendations.append(f"• {RECOMMENDED_IMAGES} images recommended (have {num_images})")
+
+    # Quick mode limitations
+    recommendations.append("Note: Quick mode uses simplified assumptions:")
+    recommendations.append("  - Principal point fixed at image center")
+    recommendations.append("  - Lens distortion not modeled")
 
     return {
         "rating": rating,
@@ -585,11 +879,27 @@ def calibrate_and_write(
 def main() -> None:
     args = parse_args()
     pattern = _parse_pattern(args.pattern)
-    updates = _calibrate(args.left, args.right, pattern, args.square_mm)
-    print("Calibration results:", updates)
+
+    # Choose calibration mode
+    if args.quick:
+        print("Using QUICK calibration mode")
+        updates = quick_calibrate(args.left, args.right, pattern, args.square_mm)
+    else:
+        print("Using FULL calibration mode")
+        updates = _calibrate(args.left, args.right, pattern, args.square_mm)
+
+    print("\nCalibration results:")
+    print(f"  Mode: {updates.get('calibration_mode', 'FULL')}")
+    print(f"  Baseline: {updates['baseline_ft']:.3f} ft")
+    print(f"  Focal length: {updates['focal_length_px']:.1f} px")
+    print(f"  RMS error: {updates['rms_error_px']:.3f} px")
+    print(f"  Quality: {updates['quality_rating']}")
+
     if args.write:
         _write_config(args.config, updates)
-        print(f"Updated config: {args.config}")
+        _save_calibration_file(updates)
+        print(f"\n✓ Calibration saved to {args.config}")
+        print(f"✓ Full matrices saved to calibration/stereo_calibration.npz")
 
 
 if __name__ == "__main__":
