@@ -96,6 +96,9 @@ class PitchAnalyzer:
         # Extract plate crossing
         crossing_xyz = trajectory_result.plate_crossing_xyz_ft if trajectory_result else None
 
+        # Extract diagnostics
+        diagnostics = trajectory_result.diagnostics if trajectory_result else None
+
         # Create summary
         summary = PitchSummary(
             pitch_id=pitch_id,
@@ -116,6 +119,10 @@ class PitchAnalyzer:
             trajectory_model=trajectory_result.model_name if trajectory_result else None,
             trajectory_expected_error_ft=trajectory_result.expected_plate_error_ft if trajectory_result else None,
             trajectory_confidence=trajectory_result.confidence if trajectory_result else None,
+            # Diagnostics for online calibration refinement
+            trajectory_drag_param=diagnostics.drag_param if diagnostics else None,
+            trajectory_rmse_px=diagnostics.rmse_px if diagnostics else None,
+            trajectory_rmse_3d_ft=diagnostics.rmse_3d_ft if diagnostics else None,
         )
 
         return summary

@@ -106,6 +106,10 @@ class PitchSummary:
     trajectory_model: Optional[str] = None
     trajectory_expected_error_ft: Optional[float] = None
     trajectory_confidence: Optional[float] = None
+    # Trajectory diagnostics for online calibration refinement
+    trajectory_drag_param: Optional[float] = None
+    trajectory_rmse_px: Optional[float] = None
+    trajectory_rmse_3d_ft: Optional[float] = None
 
 
 @dataclass(frozen=True)

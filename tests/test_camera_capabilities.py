@@ -63,8 +63,10 @@ def create_stable_focus_frames(index: int) -> MockFrame:
         for j in range(0, 640, 40):
             if (i // 40 + j // 40) % 2 == 0:
                 image[i:i+40, j:j+40] = 255
-    # Add small random noise (consistent focus)
-    image = image + np.random.normal(0, 2, image.shape).astype(np.uint8)
+    # Add consistent fixed pattern noise (same for all frames = no drift)
+    np.random.seed(42)  # Fixed seed for consistency
+    noise = np.random.normal(0, 2, image.shape).astype(np.uint8)
+    image = image + noise
     return MockFrame(image=image)
 
 

@@ -479,11 +479,8 @@ class AnalysisServiceImpl(AnalysisService):
             summary: Pitch summary with trajectory data
             event: Original pitch end event with observations
 
-        Note: TODO - Enhance PitchSummary to include diagnostic fields:
-            - drag_param (from TrajectoryDiagnostics)
-            - rmse_px (epipolar error from TrajectoryDiagnostics)
-            - time_sync_residual_ns (from trajectory fitting)
-        For now, using placeholder values and available data.
+        Note: time_sync_residual_ns is not currently extracted from trajectory fitting.
+        This could be added in the future if systematic time sync bias is detected.
         """
         if not self._refiner:
             return
@@ -491,11 +488,11 @@ class AnalysisServiceImpl(AnalysisService):
         # Convert PitchSummary to refinement format
         trajectory_data = {
             'timestamp_ns': summary.t_end_ns,
-            'drag_k0_fit': 0.1,  # TODO: Extract from TrajectoryDiagnostics.drag_param
-            'time_sync_residual_ns': 0,  # TODO: Extract from trajectory fitting
+            'drag_k0_fit': summary.trajectory_drag_param or 0.1,
+            'time_sync_residual_ns': 0,  # Not currently extracted from trajectory fitting
             'plate_crossing_z_ft': summary.trajectory_plate_z_ft or 0.0,
-            'mean_epipolar_error_px': 1.0,  # TODO: Extract from TrajectoryDiagnostics.rmse_px
-            'max_epipolar_error_px': 1.5,  # TODO: Extract from TrajectoryDiagnostics
+            'mean_epipolar_error_px': summary.trajectory_rmse_px or 1.0,
+            'max_epipolar_error_px': (summary.trajectory_rmse_px * 1.5) if summary.trajectory_rmse_px else 1.5,
             'num_observations': summary.sample_count,
             'confidence_score': summary.trajectory_confidence or 0.0,
         }
