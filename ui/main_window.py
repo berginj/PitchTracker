@@ -31,6 +31,7 @@ from detect.classical_detector import ClassicalDetector
 from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig, Mode
 from detect.fiducials import FiducialDetection, detect_apriltags
 from detect.lane import LaneRoi
+from detect.utils import compute_focus_score
 from metrics.strike_zone import build_strike_zone
 from exceptions import ConfigValidationError
 from ui.device_utils import current_serial, probe_opencv_indices, probe_uvc_devices
@@ -1011,7 +1012,6 @@ class MainWindow(QtWidgets.QMainWindow):
             fiducials = self._fiducial_detections
 
         # Compute focus scores for both cameras (will be used in health panel and overlay)
-        from detect.utils import compute_focus_score
         focus_left = compute_focus_score(left_frame.image)
         focus_right = compute_focus_score(right_frame.image)
 
