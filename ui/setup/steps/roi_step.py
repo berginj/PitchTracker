@@ -34,7 +34,7 @@ class RoiStep(BaseStep):
         super().__init__(parent)
         self._backend = backend
         self._left_camera: Optional[CameraDevice] = None
-        self._left_serial: Optional[str] = None
+        self._left_serial: Optional[str | int] = None  # Can be string or int from some code paths
 
         # ROI state
         self._lane_polygon: Optional[list[tuple[int, int]]] = None
@@ -162,10 +162,20 @@ class RoiStep(BaseStep):
 
                 # Extract index from "Camera N" format or use serial directly if it's a number
                 # Convert to integer for OpenCV
-                if left_serial_str.isdigit():
-                    left_index = int(left_serial_str)
-                else:
-                    left_index = int(left_serial_str.split()[-1])
+                try:
+                    if left_serial_str.isdigit():
+                        left_index = int(left_serial_str)
+                    else:
+                        left_index = int(left_serial_str.split()[-1])
+
+                    # Validate the index
+                    if left_index < 0:
+                        raise ValueError(f"Camera index must be non-negative, got: {left_index}")
+
+                except (ValueError, IndexError) as e:
+                    error_msg = f"Invalid camera serial format: '{left_serial_str}'. Expected numeric index or 'Camera N' format."
+                    QtWidgets.QMessageBox.critical(self, "Camera Open Error", error_msg)
+                    return
 
                 self._left_camera = OpenCVCamera()
                 self._left_camera.open(left_index)

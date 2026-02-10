@@ -76,13 +76,24 @@ class OpenCVCamera(CameraDevice):
                 "Use UvcCamera for serial-based selection."
             )
 
+        index = int(serial_str)
+
+        # Validate that the index is within a reasonable range
+        if index < 0:
+            logger.error(f"Invalid camera index: {index} (must be >= 0)")
+            raise ValueError(f"Camera index must be non-negative, got: {index}")
+
+        if index > 15:
+            logger.warning(
+                f"Camera index {index} is unusually high (>15). "
+                "This may indicate an incorrect index or configuration issue."
+            )
+
         warnings.warn(
             "OpenCVCamera is index-based and not stable for multi-camera rigs. "
             "Use UvcCamera with serials for production.",
             RuntimeWarning,
         )
-
-        index = int(serial_str)
 
         def _open_camera():
             """Inner function for timeout wrapper."""

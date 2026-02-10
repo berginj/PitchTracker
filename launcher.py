@@ -17,7 +17,7 @@ from startup_validator import create_required_directories, validate_environment
 from updater import check_for_updates, get_current_version
 
 
-def clear_python_cache(verbose: bool = False) -> None:
+def clear_python_cache(verbose: bool = False, clear_memory: bool = True) -> None:
     """Clear Python bytecode cache files to ensure fresh code loads.
 
     This prevents issues where old .pyc files cause stale code to run
@@ -25,30 +25,100 @@ def clear_python_cache(verbose: bool = False) -> None:
 
     Args:
         verbose: Print statistics about cleared files
+        clear_memory: Also clear project modules from sys.modules (default: True)
     """
     import shutil
+    import logging
+    import sys
 
+    logger = logging.getLogger(__name__)
     pyc_count = 0
     cache_count = 0
+    pyc_failures = []
+    cache_failures = []
+    modules_cleared = 0
 
     # Remove all .pyc files
     for p in Path('.').rglob('*.pyc'):
         try:
             p.unlink()
             pyc_count += 1
-        except Exception:
-            pass
+        except Exception as e:
+            pyc_failures.append((str(p), str(e)))
+            if verbose:
+                logger.warning(f"Failed to remove .pyc file {p}: {e}")
 
     # Remove all __pycache__ directories
     for p in Path('.').rglob('__pycache__'):
         try:
             shutil.rmtree(p)
             cache_count += 1
-        except Exception:
-            pass
+        except Exception as e:
+            cache_failures.append((str(p), str(e)))
+            if verbose:
+                logger.warning(f"Failed to remove __pycache__ directory {p}: {e}")
 
-    if verbose and (pyc_count > 0 or cache_count > 0):
-        print(f"[Cache] Cleared {pyc_count} .pyc files and {cache_count} __pycache__ directories")
+    # Clear project modules from sys.modules to force reimport
+    if clear_memory:
+        project_root = Path('.').resolve()
+        modules_to_clear = []
+
+        for module_name, module in list(sys.modules.items()):
+            # Skip built-in modules and None entries
+            if module is None or not hasattr(module, '__file__'):
+                continue
+
+            # Skip if module has no file path (built-in)
+            if module.__file__ is None:
+                continue
+
+            try:
+                module_path = Path(module.__file__).resolve()
+                # Only clear modules that are from our project directory
+                # Exclude stdlib and site-packages
+                if (project_root in module_path.parents or module_path.parent == project_root):
+                    # Don't clear the launcher module itself or critical startup modules
+                    if module_name not in ('__main__', '__mp_main__', 'launcher', 'startup_validator', 'updater'):
+                        modules_to_clear.append(module_name)
+            except (ValueError, OSError):
+                # Skip modules with invalid paths
+                continue
+
+        # Clear the identified modules
+        for module_name in modules_to_clear:
+            try:
+                del sys.modules[module_name]
+                modules_cleared += 1
+            except KeyError:
+                # Module was already removed
+                pass
+
+    # Verify cache clearing succeeded
+    if verbose or pyc_failures or cache_failures:
+        # Count remaining cache files
+        remaining_pyc = sum(1 for _ in Path('.').rglob('*.pyc'))
+        remaining_cache = sum(1 for _ in Path('.').rglob('__pycache__'))
+
+        if verbose:
+            if pyc_count > 0 or cache_count > 0:
+                print(f"[Cache] Cleared {pyc_count} .pyc files and {cache_count} __pycache__ directories")
+            if modules_cleared > 0:
+                print(f"[Cache] Cleared {modules_cleared} project modules from memory")
+
+            # Verification results
+            if remaining_pyc > 0 or remaining_cache > 0:
+                print(f"[Cache] Verification: {remaining_pyc} .pyc files and {remaining_cache} __pycache__ directories remain")
+                if remaining_pyc > 0 or remaining_cache > 0:
+                    print(f"[Cache] Note: Remaining files may be in use by Python or other processes")
+            else:
+                print(f"[Cache] Verification: All cache files successfully cleared")
+
+        if pyc_failures or cache_failures:
+            total_failures = len(pyc_failures) + len(cache_failures)
+            print(f"[Cache] Warning: {total_failures} items could not be cleared (may be in use)")
+            if verbose:
+                print(f"[Cache] Failed items: {', '.join(f[0] for f in (pyc_failures + cache_failures)[:5])}"
+                      + (" ..." if total_failures > 5 else ""))
 
 
 class AboutDialog(QtWidgets.QDialog):

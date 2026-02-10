@@ -82,7 +82,16 @@ class UvcCamera(CameraDevice):
             def _open_camera():
                 """Inner function for timeout wrapper."""
                 if target.isdigit() and target == serial_str:
-                    capture = cv2.VideoCapture(int(serial_str), cv2.CAP_DSHOW)
+                    # Validate index before using it
+                    index = int(serial_str)
+                    if index < 0:
+                        raise ValueError(f"Camera index must be non-negative, got: {index}")
+                    if index > 15:
+                        logger.warning(
+                            f"Camera index {index} is unusually high (>15). "
+                            "This may indicate an incorrect index."
+                        )
+                    capture = cv2.VideoCapture(index, cv2.CAP_DSHOW)
                 else:
                     capture = cv2.VideoCapture(f"video={target}", cv2.CAP_DSHOW)
 
