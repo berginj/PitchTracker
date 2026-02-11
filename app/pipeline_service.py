@@ -348,11 +348,20 @@ class InProcessPipelineService(PipelineService):
                 f"Detection failed for {label} camera: {e.__class__.__name__}: {e}",
                 exc_info=True
             )
+            # Create user-friendly error message
+            error_type = e.__class__.__name__
+            if "memory" in str(e).lower() or "allocation" in str(e).lower():
+                user_msg = f"Detection failed on {label} camera due to memory issue. Try closing other applications."
+            elif "model" in str(e).lower():
+                user_msg = f"Detection model error on {label} camera. Switch to classical detector in settings."
+            else:
+                user_msg = f"Detection failed on {label} camera: {error_type}. Check logs for details."
+
             # Publish error to error bus for UI notification
             publish_error(
                 category=ErrorCategory.DETECTION,
                 severity=ErrorSeverity.ERROR,
-                message=f"Detection failed for {label} camera",
+                message=user_msg,
                 source=f"PipelineService.{label}",
                 exception=e,
                 camera=label,
@@ -535,7 +544,14 @@ class InProcessPipelineService(PipelineService):
             except Exception as exc:
                 logger.error(f"Failed to load ROIs: {exc}")
                 self._camera_mgr.stop_capture()
-                raise InvalidROIError(f"Failed to load ROI configuration: {exc}") from exc
+                error_msg = (
+                    f"Failed to load ROI configuration: {exc}\n\n"
+                    f"Possible solutions:\n"
+                    f"  • Run the setup wizard to configure ROIs\n"
+                    f"  • Check that roi.yaml exists in the configs directory\n"
+                    f"  • Verify camera serials match configured ROIs"
+                )
+                raise InvalidROIError(error_msg) from exc
 
             # Initialize detector
             try:
@@ -550,8 +566,25 @@ class InProcessPipelineService(PipelineService):
                 logger.error(f"Failed to initialize detector: {exc}")
                 self._camera_mgr.stop_capture()
                 if "model" in str(exc).lower() or "onnx" in str(exc).lower():
-                    raise ModelLoadError(f"Failed to load detector model: {exc}") from exc
-                raise DetectionError(f"Failed to initialize detector: {exc}") from exc
+                    model_path = config.detector.model_path if config.detector.model_path else "not specified"
+                    error_msg = (
+                        f"Failed to load ML detector model: {exc}\n\n"
+                        f"Model path: {model_path}\n\n"
+                        f"Possible solutions:\n"
+                        f"  • Switch to classical detector in settings (recommended for most users)\n"
+                        f"  • Download the ML model and place it at: {model_path}\n"
+                        f"  • Check that ONNX Runtime is installed: pip install onnxruntime\n"
+                        f"  • Verify model file is not corrupted"
+                    )
+                    raise ModelLoadError(error_msg) from exc
+                error_msg = (
+                    f"Failed to initialize detector: {exc}\n\n"
+                    f"Possible solutions:\n"
+                    f"  • Check detector configuration in settings\n"
+                    f"  • Reset detector settings to defaults\n"
+                    f"  • Check logs for detailed error information"
+                )
+                raise DetectionError(error_msg) from exc
 
             # Initialize stereo
             try:
@@ -560,7 +593,16 @@ class InProcessPipelineService(PipelineService):
             except Exception as exc:
                 logger.error(f"Failed to initialize stereo: {exc}")
                 self._camera_mgr.stop_capture()
-                raise PitchTrackerError(f"Failed to initialize stereo system: {exc}") from exc
+                error_msg = (
+                    f"Failed to initialize stereo system: {exc}\n\n"
+                    f"This usually indicates a calibration issue.\n\n"
+                    f"Possible solutions:\n"
+                    f"  • Re-run camera calibration in the setup wizard\n"
+                    f"  • Check that calibration.npz exists in the configs directory\n"
+                    f"  • Verify baseline_ft and focal_length_px in default.yaml\n"
+                    f"  • Ensure both cameras are properly configured"
+                )
+                raise PitchTrackerError(error_msg) from exc
 
             # Create detection processor
             try:
@@ -578,7 +620,15 @@ class InProcessPipelineService(PipelineService):
             except Exception as exc:
                 logger.error(f"Failed to create detection processor: {exc}")
                 self._camera_mgr.stop_capture()
-                raise DetectionError(f"Failed to create detection processor: {exc}") from exc
+                error_msg = (
+                    f"Failed to create detection processor: {exc}\n\n"
+                    f"Possible solutions:\n"
+                    f"  • Check that ROIs and gates are properly configured\n"
+                    f"  • Verify stereo calibration is valid\n"
+                    f"  • Restart the application\n"
+                    f"  • Check system memory availability"
+                )
+                raise DetectionError(error_msg) from exc
 
             # Create and start detection thread pool
             try:
@@ -590,7 +640,16 @@ class InProcessPipelineService(PipelineService):
             except Exception as exc:
                 logger.error(f"Failed to start detection threads: {exc}")
                 self._camera_mgr.stop_capture()
-                raise CameraConnectionError(f"Failed to start detection threads: {exc}") from exc
+                error_msg = (
+                    f"Failed to start detection threads: {exc}\n\n"
+                    f"This usually indicates a system resource issue.\n\n"
+                    f"Possible solutions:\n"
+                    f"  • Close other applications to free up system resources\n"
+                    f"  • Check Task Manager for high CPU or memory usage\n"
+                    f"  • Restart the application\n"
+                    f"  • Restart your computer if the issue persists"
+                )
+                raise CameraConnectionError(error_msg) from exc
 
             logger.info("Capture started successfully")
 

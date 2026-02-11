@@ -165,18 +165,26 @@ class CameraManager:
                 self._left.open(left_serial)
             except Exception as exc:
                 logger.error(f"Failed to open left camera {left_serial}: {exc}")
+                error_msg = (
+                    f"Failed to open left camera (serial: {left_serial})\n\n"
+                    f"Error: {exc}\n\n"
+                    f"Possible solutions:\n"
+                    f"  • Check that the camera is plugged in\n"
+                    f"  • Try a different USB port (preferably USB 3.0)\n"
+                    f"  • Close other applications using the camera\n"
+                    f"  • Verify the camera serial/index is correct\n"
+                    f"  • Check Windows Device Manager for camera status"
+                )
                 publish_error(
                     category=ErrorCategory.CAMERA,
                     severity=ErrorSeverity.CRITICAL,
-                    message=f"Failed to open left camera",
+                    message=f"Failed to open left camera: {exc}",
                     source="CameraManager.start_capture",
                     exception=exc,
                     camera_id="left",
                     serial=left_serial,
                 )
-                raise CameraConnectionError(
-                    f"Failed to open left camera {left_serial}: {exc}"
-                ) from exc
+                raise CameraConnectionError(error_msg) from exc
 
             # Open right camera
             try:
@@ -184,10 +192,22 @@ class CameraManager:
                 self._right.open(right_serial)
             except Exception as exc:
                 logger.error(f"Failed to open right camera {right_serial}: {exc}")
+                error_msg = (
+                    f"Failed to open right camera (serial: {right_serial})\n\n"
+                    f"Error: {exc}\n\n"
+                    f"Note: Left camera opened successfully.\n\n"
+                    f"Possible solutions:\n"
+                    f"  • Check that the right camera is plugged in\n"
+                    f"  • Try a different USB port (preferably USB 3.0)\n"
+                    f"  • Close other applications using the camera\n"
+                    f"  • Verify the camera serial/index is correct\n"
+                    f"  • Check that cameras are on separate USB controllers\n"
+                    f"  • Check Windows Device Manager for camera status"
+                )
                 publish_error(
                     category=ErrorCategory.CAMERA,
                     severity=ErrorSeverity.CRITICAL,
-                    message=f"Failed to open right camera",
+                    message=f"Failed to open right camera: {exc}",
                     source="CameraManager.start_capture",
                     exception=exc,
                     camera_id="right",
@@ -198,9 +218,7 @@ class CameraManager:
                     self._left.close()
                 except Exception:
                     pass
-                raise CameraConnectionError(
-                    f"Failed to open right camera {right_serial}: {exc}"
-                ) from exc
+                raise CameraConnectionError(error_msg) from exc
 
             # Configure cameras
             try:
@@ -210,19 +228,27 @@ class CameraManager:
                 PipelineInitializer.configure_camera(self._right, config, is_left=False)
             except Exception as exc:
                 logger.error(f"Failed to configure cameras: {exc}")
+                error_msg = (
+                    f"Failed to configure cameras: {exc}\n\n"
+                    f"Both cameras opened successfully but configuration failed.\n\n"
+                    f"Possible solutions:\n"
+                    f"  • Check camera settings in default.yaml (FPS, resolution, exposure)\n"
+                    f"  • Verify cameras support requested resolution/FPS\n"
+                    f"  • Try reducing FPS (e.g., from 60 to 30 FPS)\n"
+                    f"  • Reset camera settings to defaults\n"
+                    f"  • Check that USB bandwidth is sufficient for both cameras"
+                )
                 publish_error(
                     category=ErrorCategory.CAMERA,
                     severity=ErrorSeverity.ERROR,
-                    message=f"Failed to configure cameras",
+                    message=f"Failed to configure cameras: {exc}",
                     source="CameraManager.start_capture",
                     exception=exc,
                     left_serial=left_serial,
                     right_serial=right_serial,
                 )
                 self._cleanup_cameras()
-                raise CameraConfigurationError(
-                    f"Failed to configure cameras: {exc}"
-                ) from exc
+                raise CameraConfigurationError(error_msg) from exc
 
             # Start capture threads
             try:
