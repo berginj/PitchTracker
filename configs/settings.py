@@ -33,6 +33,10 @@ class CameraConfig:
     rotation_right: float = 0.0  # Software rotation correction (degrees)
     vertical_offset_px: int = 0  # Vertical alignment offset (pixels)
     alignment_quality: Optional[Dict] = None  # Alignment diagnostics (populated by alignment check)
+    # Camera capability detection (from hybrid calibration plan - optional)
+    type: Optional[str] = None  # "webcam", "industrial", "unknown"
+    has_autofocus: Optional[bool] = None  # Autofocus capability detection
+    focal_stability_score: Optional[float] = None  # Focal drift measurement (0-100)
 
 
 @dataclass(frozen=True)
@@ -66,6 +70,9 @@ class MetricsConfig:
     hb_bounds_in: Tuple[float, float]
     ivb_bounds_in: Tuple[float, float]
     release_height_bounds_ft: Tuple[float, float]
+    # Online calibration refinement (from hybrid calibration plan - optional)
+    online_refinement_enabled: bool = False
+    last_refinement_date: Optional[str] = None
 
 
 @dataclass(frozen=True)
