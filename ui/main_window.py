@@ -1617,13 +1617,19 @@ class MainWindow(QtWidgets.QMainWindow):
         menu_bar = self.menuBar()
         capture_menu = menu_bar.addMenu("Capture")
         start_action = capture_menu.addAction("Start Capture")
+        start_action.setShortcut(QtGui.QKeySequence("F5"))
         stop_action = capture_menu.addAction("Stop Capture")
+        stop_action.setShortcut(QtGui.QKeySequence("F6"))
         restart_action = capture_menu.addAction("Restart Capture")
+        restart_action.setShortcut(QtGui.QKeySequence("Ctrl+Shift+R"))
         capture_menu.addSeparator()
         record_action = capture_menu.addAction("Start Recording")
+        record_action.setShortcut(QtGui.QKeySequence("Ctrl+R"))
         stop_record_action = capture_menu.addAction("Stop Recording")
+        stop_record_action.setShortcut(QtGui.QKeySequence("Ctrl+Shift+S"))
         capture_menu.addSeparator()
         training_action = capture_menu.addAction("Training Capture")
+        training_action.setShortcut(QtGui.QKeySequence("Ctrl+T"))
         start_action.triggered.connect(self._start_capture)
         stop_action.triggered.connect(self._stop_capture)
         restart_action.triggered.connect(self._restart_capture)
@@ -1633,9 +1639,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         calibration_menu = menu_bar.addMenu("Calibration")
         guide_action = calibration_menu.addAction("Calibration Guide")
+        guide_action.setShortcut(QtGui.QKeySequence("Ctrl+G"))
         wizard_action = calibration_menu.addAction("Calibration Wizard")
+        wizard_action.setShortcut(QtGui.QKeySequence("Ctrl+W"))
         quick_action = calibration_menu.addAction("Quick Calibrate")
+        quick_action.setShortcut(QtGui.QKeySequence("Ctrl+Q"))
         plate_action = calibration_menu.addAction("Plate Plane Calibrate")
+        plate_action.setShortcut(QtGui.QKeySequence("Ctrl+Shift+P"))
         guide_action.triggered.connect(self._open_calibration_guide)
         wizard_action.triggered.connect(self._run_calibration_wizard)
         quick_action.triggered.connect(self._open_quick_calibrate)
@@ -1643,14 +1653,19 @@ class MainWindow(QtWidgets.QMainWindow):
 
         roi_menu = menu_bar.addMenu("ROI")
         lane_action = roi_menu.addAction("Edit Lane ROI")
+        lane_action.setShortcut(QtGui.QKeySequence("Ctrl+1"))
         lane_right_action = roi_menu.addAction("Edit Right Lane ROI")
+        lane_right_action.setShortcut(QtGui.QKeySequence("Ctrl+2"))
         plate_roi_action = roi_menu.addAction("Edit Plate ROI")
+        plate_roi_action.setShortcut(QtGui.QKeySequence("Ctrl+3"))
         roi_menu.addSeparator()
         clear_lane_action = roi_menu.addAction("Clear Lane ROI")
         clear_plate_action = roi_menu.addAction("Clear Plate ROI")
         roi_menu.addSeparator()
         save_roi_action = roi_menu.addAction("Save ROIs")
+        save_roi_action.setShortcut(QtGui.QKeySequence("Ctrl+S"))
         load_roi_action = roi_menu.addAction("Load ROIs")
+        load_roi_action.setShortcut(QtGui.QKeySequence("Ctrl+O"))
         lane_action.triggered.connect(lambda: self._set_roi_mode("lane"))
         lane_right_action.triggered.connect(lambda: self._set_roi_mode("lane_right"))
         plate_roi_action.triggered.connect(lambda: self._set_roi_mode("plate"))
@@ -1661,21 +1676,29 @@ class MainWindow(QtWidgets.QMainWindow):
 
         settings_menu = menu_bar.addMenu("Settings")
         record_settings_action = settings_menu.addAction("Recording Settings")
+        record_settings_action.setShortcut(QtGui.QKeySequence("Ctrl+,"))
         strike_settings_action = settings_menu.addAction("Strike Zone Settings")
+        strike_settings_action.setShortcut(QtGui.QKeySequence("Ctrl+Z"))
         detector_settings_action = settings_menu.addAction("Detector Settings")
+        detector_settings_action.setShortcut(QtGui.QKeySequence("Ctrl+D"))
         record_settings_action.triggered.connect(self._open_record_settings)
         strike_settings_action.triggered.connect(self._open_strike_settings)
         detector_settings_action.triggered.connect(self._open_detector_settings)
 
         tools_menu = menu_bar.addMenu("Tools")
         refresh_action = tools_menu.addAction("Refresh Devices")
+        refresh_action.setShortcut(QtGui.QKeySequence("F5"))
         checklist_action = tools_menu.addAction("Checklist")
+        checklist_action.setShortcut(QtGui.QKeySequence("Ctrl+L"))
         low_perf_action = tools_menu.addAction("Low Perf Mode")
+        low_perf_action.setShortcut(QtGui.QKeySequence("Ctrl+Shift+L"))
         cue_card_action = tools_menu.addAction("Cue Card Test")
         reset_game_action = tools_menu.addAction("Reset Game")
+        reset_game_action.setShortcut(QtGui.QKeySequence("Ctrl+Shift+G"))
         target_mode_action = tools_menu.addAction("Target Mode")
         target_mode_action.setCheckable(True)
         target_mode_action.setChecked(False)
+        target_mode_action.setShortcut(QtGui.QKeySequence("Ctrl+Shift+T"))
         refresh_action.triggered.connect(self._refresh_devices)
         checklist_action.triggered.connect(self._open_checklist)
         low_perf_action.triggered.connect(self._apply_low_perf_mode)
@@ -1685,8 +1708,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         review_menu = menu_bar.addMenu("Review")
         replay_action = review_menu.addAction("Replay")
+        replay_action.setShortcut(QtGui.QKeySequence("Ctrl+P"))
         pause_action = review_menu.addAction("Pause/Resume Replay")
+        pause_action.setShortcut(QtGui.QKeySequence("Space"))
         step_action = review_menu.addAction("Step Replay")
+        step_action.setShortcut(QtGui.QKeySequence("Right"))
         replay_action.triggered.connect(self._start_replay)
         pause_action.triggered.connect(self._toggle_replay_pause)
         step_action.triggered.connect(self._step_replay)
@@ -1695,18 +1721,28 @@ class MainWindow(QtWidgets.QMainWindow):
         self._health_toggle_action = QtGui.QAction("Show Health Panel", self)
         self._health_toggle_action.setCheckable(True)
         self._health_toggle_action.setChecked(True)
+        self._health_toggle_action.setShortcut(QtGui.QKeySequence("F2"))
         self._health_toggle_action.toggled.connect(self._health_panel.setVisible)
         view_menu.addAction(self._health_toggle_action)
         self._right_camera_action = QtGui.QAction("Show Right Camera", self)
         self._right_camera_action.setCheckable(True)
         self._right_camera_action.setChecked(False)
+        self._right_camera_action.setShortcut(QtGui.QKeySequence("F3"))
         self._right_camera_action.toggled.connect(self._right_view.setVisible)
         view_menu.addAction(self._right_camera_action)
         self._production_action = QtGui.QAction("Production Mode", self)
         self._production_action.setCheckable(True)
         self._production_action.setChecked(False)
+        self._production_action.setShortcut(QtGui.QKeySequence("F11"))
         self._production_action.toggled.connect(self._set_production_mode)
         view_menu.addAction(self._production_action)
+
+        help_menu = menu_bar.addMenu("Help")
+        shortcuts_action = help_menu.addAction("Keyboard Shortcuts")
+        shortcuts_action.setShortcut(QtGui.QKeySequence("F1"))
+        about_action = help_menu.addAction("About")
+        shortcuts_action.triggered.connect(self._show_keyboard_shortcuts)
+        about_action.triggered.connect(self._show_about)
 
     def _build_health_panel(self) -> QtWidgets.QGroupBox:
         panel = QtWidgets.QGroupBox("Health")
@@ -1898,6 +1934,60 @@ class MainWindow(QtWidgets.QMainWindow):
             self._detector_model_class_id = values["model_class_id"]
             self._detector_model_format = values["model_format"]
             self._apply_detector_config()
+
+    def _show_keyboard_shortcuts(self) -> None:
+        """Open keyboard shortcuts documentation."""
+        shortcuts_path = Path("docs/KEYBOARD_SHORTCUTS.md")
+        if not shortcuts_path.exists():
+            QtWidgets.QMessageBox.information(
+                self,
+                "Keyboard Shortcuts",
+                "Keyboard shortcuts documentation not found.\n\n"
+                "Expected location: docs/KEYBOARD_SHORTCUTS.md",
+            )
+            return
+
+        # Open the file with the system default application
+        import subprocess
+        import sys
+
+        try:
+            if sys.platform == "win32":
+                os.startfile(shortcuts_path)
+            elif sys.platform == "darwin":
+                subprocess.run(["open", shortcuts_path], check=True)
+            else:
+                subprocess.run(["xdg-open", shortcuts_path], check=True)
+        except Exception as exc:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Keyboard Shortcuts",
+                f"Failed to open shortcuts documentation: {exc}\n\n"
+                f"File location: {shortcuts_path.absolute()}",
+            )
+
+    def _show_about(self) -> None:
+        """Show About dialog with version information."""
+        git_commit = self._get_git_commit()
+        version_text = f"PitchTracker v{APP_VERSION}"
+        if git_commit:
+            version_text += f"\nCommit: {git_commit}"
+
+        about_text = (
+            f"{version_text}\n"
+            f"Schema: {SCHEMA_VERSION}\n\n"
+            f"A high-speed stereo vision system for baseball/softball pitch tracking.\n\n"
+            f"Features:\n"
+            f"  • 60 FPS stereo video capture\n"
+            f"  • Real-time ball detection and tracking\n"
+            f"  • Physics-based trajectory fitting\n"
+            f"  • Strike zone analysis\n"
+            f"  • Session recording and replay\n\n"
+            f"Documentation: docs/\n"
+            f"Issues: github.com/berginj/PitchTracker/issues"
+        )
+
+        QtWidgets.QMessageBox.about(self, "About PitchTracker", about_text)
 
     def _set_target_overlay(self, enabled: bool) -> None:
         self._show_target_overlay = enabled
