@@ -79,14 +79,36 @@ def upload_session(
     if config.upload.api_key:
         headers["x-api-key"] = config.upload.api_key
     request = urllib.request.Request(url, data=data, headers=headers, method="POST")
+
+    # Show progress dialog during upload
+    progress = QtWidgets.QProgressDialog(
+        f"Uploading session to {api_base}...",
+        "Cancel",
+        0,
+        0,  # Indeterminate progress
+        parent
+    )
+    progress.setWindowTitle("Upload Progress")
+    progress.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
+    progress.setMinimumDuration(0)  # Show immediately
+    progress.setValue(0)
+    QtWidgets.QApplication.processEvents()
+
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            progress.setLabelText("Upload complete, processing response...")
+            QtWidgets.QApplication.processEvents()
+
             if response.status >= 400:
-                raise RuntimeError(f"Upload failed: {response.status}")
+                raise RuntimeError(f"Upload failed: HTTP {response.status}")
+
+        progress.setValue(1)
+        QtWidgets.QMessageBox.information(parent, "Upload Session", "Upload complete.")
     except (urllib.error.URLError, RuntimeError) as exc:
-        QtWidgets.QMessageBox.warning(parent, "Upload Session", str(exc))
+        QtWidgets.QMessageBox.warning(parent, "Upload Session", f"Upload failed: {exc}")
         return
-    QtWidgets.QMessageBox.information(parent, "Upload Session", "Upload complete.")
+    finally:
+        progress.close()
 
 
 def save_session_export(
@@ -126,6 +148,22 @@ def save_session_export(
         )
         return
 
+    # Create progress dialog for longer exports
+    progress = None
+    if export_type in ("training_report", "manifests_zip"):
+        progress = QtWidgets.QProgressDialog(
+            f"Exporting {export_type.replace('_', ' ')}...",
+            None,  # No cancel button for now
+            0,
+            0,  # Indeterminate
+            parent
+        )
+        progress.setWindowTitle("Export Progress")
+        progress.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(250)  # Show if takes > 250ms
+        progress.setValue(0)
+        QtWidgets.QApplication.processEvents()
+
     try:
         if export_type == "summary_json":
             export_session_summary_json(parent, summary, session_dir)
@@ -150,6 +188,9 @@ def save_session_export(
             )
     except Exception as exc:  # noqa: BLE001 - surface export failures
         QtWidgets.QMessageBox.warning(parent, "Save Session", str(exc))
+    finally:
+        if progress:
+            progress.close()
 
 
 def export_session_summary_json(
@@ -329,6 +370,8 @@ def export_manifests_zip(
     )
     if not path:
         return
+
+    # Collect files to export
     files: list[Path] = []
     manifest = session_dir / "manifest.json"
     summary_json = session_dir / "session_summary.json"
@@ -340,11 +383,39 @@ def export_manifests_zip(
     if summary_csv.exists():
         files.append(summary_csv)
     files.extend(session_dir.rglob("*/manifest.json"))
+
     if not files:
         raise RuntimeError("No manifest files found to export.")
-    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for file_path in files:
-            archive.write(file_path, file_path.relative_to(session_dir))
+
+    # Show progress dialog for larger exports
+    progress = QtWidgets.QProgressDialog(
+        "Exporting manifest files...",
+        "Cancel",
+        0,
+        len(files),
+        parent
+    )
+    progress.setWindowTitle("Export Progress")
+    progress.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
+    progress.setMinimumDuration(500)  # Only show if takes > 500ms
+
+    try:
+        with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for i, file_path in enumerate(files):
+                if progress.wasCanceled():
+                    # Clean up partial zip file
+                    Path(path).unlink(missing_ok=True)
+                    return
+
+                progress.setValue(i)
+                progress.setLabelText(f"Adding {file_path.name}... ({i+1}/{len(files)})")
+                QtWidgets.QApplication.processEvents()
+
+                archive.write(file_path, file_path.relative_to(session_dir))
+
+            progress.setValue(len(files))
+    finally:
+        progress.close()
 
 
 __all__ = [
