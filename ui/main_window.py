@@ -58,6 +58,7 @@ from ui.geometry import (
     roi_overlays,
 )
 from ui.widgets import PlateMapWidget, RoiLabel
+from ui.controllers import ProfileManager
 
 # System hardening imports
 from app.events import get_error_bus, ErrorCategory, ErrorSeverity
@@ -111,8 +112,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._replay_trail: deque[tuple[int, int]] = deque(maxlen=30)
         self._replay_detector: Optional[ClassicalDetector] = None
         self._replay_paused = False
-        self._pitcher_name: Optional[str] = None
-        self._location_profile: Optional[str] = None
+        # Note: _pitcher_name and _location_profile now managed by ProfileManager
         self._detection_threading = "per_camera"
         self._detection_workers = 2
         self._detector_type = "classical"
@@ -404,6 +404,20 @@ class MainWindow(QtWidgets.QMainWindow):
         # Register cleanup tasks after all components are initialized (Phase 3)
         self._register_cleanup_tasks()
 
+        # Initialize controllers (Phase: MainWindow refactoring)
+        self._profile_manager = ProfileManager(
+            profile_combo=self._profile_combo,
+            profile_name_input=self._profile_name,
+            pitcher_combo=self._pitcher_combo,
+            pitcher_name_input=self._pitcher_name_input,
+            left_input=self._left_input,
+            right_input=self._right_input,
+            status_label=self._status_label,
+            roi_path=self._roi_path,
+            on_profile_loaded=lambda name: self._enter_app(),
+            on_rois_changed=lambda: self._load_rois(),
+        )
+
         self._run_startup_dialog()
 
     def _start_capture(self) -> None:
@@ -524,8 +538,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 summary,
                 self._config,
                 session_dir,
-                self._pitcher_name or "Unknown",
-                self._location_profile or "Unknown",
+                self._profile_manager.pitcher_name or "Unknown",
+                self._profile_manager.location_profile or "Unknown",
             ),
             lambda export_type: save_session_export(
                 self,
@@ -534,8 +548,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 export_type,
                 self._config_path(),
                 self._roi_path,
-                self._pitcher_name or "Unknown",
-                self._location_profile or "Unknown",
+                self._profile_manager.pitcher_name or "Unknown",
+                self._profile_manager.location_profile or "Unknown",
             ),
             session_dir=session_dir,
         )
@@ -562,96 +576,25 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _enter_app(self) -> None:
         self._set_setup_mode(False)
-        state = load_state()
-        if self._pitcher_name:
-            state["last_pitcher"] = self._pitcher_name
-        save_state(state)
+        # Note: Pitcher state now saved by ProfileManager.set_pitcher()
 
     def _refresh_profiles(self) -> None:
-        self._profile_combo.clear()
-        self._profile_combo.addItems(list_profiles())
+        self._profile_manager.refresh_profiles()
 
     def _refresh_pitchers(self) -> None:
-        self._pitcher_combo.clear()
-        self._pitcher_combo.addItems(load_pitchers())
-        state = load_state()
-        last = state.get("last_pitcher")
-        if last:
-            self._pitcher_combo.setCurrentText(last)
+        self._profile_manager.refresh_pitchers()
 
     def _load_profile(self) -> None:
-        name = self._profile_combo.currentText().strip()
-        if not name:
-            return
-        try:
-            profile = load_profile(name)
-        except Exception as exc:  # noqa: BLE001 - show profile errors
-            QtWidgets.QMessageBox.warning(self, "Load Profile", str(exc))
-            return
-        left = str(profile.get("left_serial", ""))
-        right = str(profile.get("right_serial", ""))
-        if left:
-            # Find item by data (serial) instead of text label
-            for i in range(self._left_input.count()):
-                if self._left_input.itemData(i) == left:
-                    self._left_input.setCurrentIndex(i)
-                    break
-            else:
-                # Fallback: try setting text directly (might work for old profiles)
-                self._left_input.setCurrentText(left)
-        if right:
-            # Find item by data (serial) instead of text label
-            for i in range(self._right_input.count()):
-                if self._right_input.itemData(i) == right:
-                    self._right_input.setCurrentIndex(i)
-                    break
-            else:
-                # Fallback: try setting text directly (might work for old profiles)
-                self._right_input.setCurrentText(right)
-        apply_profile(profile, self._roi_path)
-        self._load_rois()
-        self._location_profile = name
-        self._status_label.setText(f"Loaded profile '{name}'.")
-        self._enter_app()
+        self._profile_manager.load_profile(self)
 
     def _save_profile(self) -> None:
-        name = self._profile_name.text().strip()
-        if not name:
-            QtWidgets.QMessageBox.information(
-                self,
-                "Save Profile",
-                "Enter a profile name.",
-            )
-            return
-        left = current_serial(self._left_input)
-        right = current_serial(self._right_input)
-        if not left and not right:
-            QtWidgets.QMessageBox.information(
-                self,
-                "Save Profile",
-                "Select at least one device before saving.",
-            )
-            return
-        save_profile(name, left or "", right or "", self._roi_path)
-        self._refresh_profiles()
-        self._profile_name.clear()
-        self._location_profile = name
-        self._status_label.setText(f"Saved profile '{name}'.")
+        self._profile_manager.save_profile(self)
 
     def _add_pitcher(self) -> None:
-        name = self._pitcher_name_input.text().strip()
-        if not name:
-            return
-        pitchers = add_pitcher(name)
-        self._pitcher_combo.clear()
-        self._pitcher_combo.addItems(pitchers)
-        self._pitcher_combo.setCurrentText(name)
-        self._pitcher_name_input.clear()
-        self._set_pitcher(name)
+        self._profile_manager.add_pitcher()
 
     def _set_pitcher(self, name: str) -> None:
-        name = name.strip()
-        self._pitcher_name = name if name else None
+        self._profile_manager.set_pitcher(name)
 
     def _run_startup_dialog(self) -> None:
         dialog = StartupDialog(self)
@@ -659,13 +602,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if result != QtWidgets.QDialog.Accepted:
             return
         profile_name, pitcher = dialog.values()
-        if pitcher:
-            self._pitcher_name = pitcher
-            self._pitcher_combo.setCurrentText(pitcher)
-            add_pitcher(pitcher)
+        self._profile_manager.apply_startup_selection(profile_name, pitcher)
         if profile_name:
-            self._profile_combo.setCurrentText(profile_name)
-            self._location_profile = profile_name
             self._load_profile()
         self._run_calibration_wizard()
 
@@ -720,7 +658,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._status_label.setText("Low performance mode applied.")
 
     def _default_session_name(self) -> Optional[str]:
-        pitcher = self._pitcher_name or "pitcher"
+        pitcher = self._profile_manager.pitcher_name or "pitcher"
         timestamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
         return f"{pitcher}-{timestamp}"
 
@@ -752,8 +690,8 @@ class MainWindow(QtWidgets.QMainWindow):
             "session": asdict(summary),
             "metadata": {
                 "uploaded_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "pitcher": self._pitcher_name,
-                "location_profile": self._location_profile,
+                "pitcher": self._profile_manager.pitcher_name,
+                "location_profile": self._profile_manager.location_profile,
                 "rig_id": None,
                 "source": "PitchTracker",
             },
@@ -900,8 +838,8 @@ class MainWindow(QtWidgets.QMainWindow):
             source={
                 "app": "PitchTracker",
                 "rig_id": None,
-                "pitcher": self._pitcher_name,
-                "location_profile": self._location_profile,
+                "pitcher": self._profile_manager.pitcher_name,
+                "location_profile": self._profile_manager.location_profile,
                 "operator": None,
                 "host": None,
             },
