@@ -2,6 +2,7 @@
 
 from .calibration_manager import CalibrationManager
 from .export_manager import ExportManager
+from .game_visualizer import GameVisualizer
 from .profile_manager import ProfileManager
 from .replay_controller import ReplayController
 from .roi_manager import RoiManager
@@ -9,6 +10,7 @@ from .roi_manager import RoiManager
 __all__ = [
     "CalibrationManager",
     "ExportManager",
+    "GameVisualizer",
     "ProfileManager",
     "ReplayController",
     "RoiManager",

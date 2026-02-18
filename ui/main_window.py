@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import platform
-import random
 import time
 from collections import deque
 from pathlib import Path
@@ -61,6 +60,7 @@ from ui.widgets import PlateMapWidget, RoiLabel
 from ui.controllers import (
     CalibrationManager,
     ExportManager,
+    GameVisualizer,
     ProfileManager,
     ReplayController,
     RoiManager,
@@ -239,16 +239,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._right_view.setScaledContents(True)
         self._right_view.setVisible(False)
         self._plate_map = PlateMapWidget()
-        self._recent_pitch_paths: list[list[StereoObservation]] = []
-        self._last_pitch_id: Optional[str] = None
-        self._tic_tac_toe_board: list[list[str]] = [["", "", ""], ["", "", ""], ["", "", ""]]
-        self._game_score_x = 0
-        self._game_score_o = 0
-        self._game_round = 0
-        self._game_streak = 0
         self._production_mode = False
-        self._target_mode = False
-        self._target_cell: Optional[tuple[int, int]] = None
 
         self._lane_button = QtWidgets.QPushButton("Edit Lane ROI")
         self._lane_right_button = QtWidgets.QPushButton("Edit Right Lane ROI")
@@ -453,6 +444,15 @@ class MainWindow(QtWidgets.QMainWindow):
             get_active_rect=lambda: self._roi_manager.active_rect,
             stop_capture=self._stop_capture,
             start_timer=lambda ms: self._timer.start(ms),
+        )
+        self._game_visualizer = GameVisualizer(
+            plate_map=self._plate_map,
+            status_label=self._game_status,
+            score_label=self._game_score,
+            streak_label=self._game_streak_label,
+            get_config=lambda: self._config,
+            get_pitch_paths=lambda: self._service.get_recent_pitch_paths(),
+            build_strike_zone=build_strike_zone,
         )
 
         self._run_startup_dialog()
@@ -1083,91 +1083,14 @@ class MainWindow(QtWidgets.QMainWindow):
         return fps_ok and drops_ok
 
     def _update_plate_map_zone(self) -> None:
-        zone = build_strike_zone(
-            plate_z_ft=self._config.metrics.plate_plane_z_ft,
-            plate_width_in=self._config.strike_zone.plate_width_in,
-            plate_length_in=self._config.strike_zone.plate_length_in,
-            batter_height_in=self._config.strike_zone.batter_height_in,
-            top_ratio=self._config.strike_zone.top_ratio,
-            bottom_ratio=self._config.strike_zone.bottom_ratio,
-        )
-        self._plate_map.set_zone(zone)
+        self._game_visualizer.update_plate_map_zone()
 
     def _update_plate_map(self) -> None:
-        paths = self._service.get_recent_pitch_paths()
-        self._recent_pitch_paths = paths
-        self._plate_map.set_pitch_paths(paths)
         summary = self._service.get_session_summary()
-        if summary.pitches:
-            last_pitch = summary.pitches[-1]
-            if last_pitch.pitch_id != self._last_pitch_id:
-                self._last_pitch_id = last_pitch.pitch_id
-                if self._target_mode:
-                    self._apply_target_mode(last_pitch)
-                else:
-                    self._apply_pitch_to_tic_tac_toe(last_pitch)
-                self._plate_map.set_board(self._tic_tac_toe_board)
-                self._update_game_labels()
-            crossing = _pitch_crossing_xy(last_pitch)
-            self._plate_map.set_crossing_point(crossing)
-        else:
-            self._plate_map.set_crossing_point(None)
-
-    def _apply_pitch_to_tic_tac_toe(self, pitch) -> None:
-        row = pitch.zone_row
-        col = pitch.zone_col
-        if row is not None and col is not None:
-            r = max(1, min(3, row)) - 1
-            c = max(1, min(3, col)) - 1
-            if self._tic_tac_toe_board[r][c] == "":
-                self._tic_tac_toe_board[r][c] = "X"
-            else:
-                self._mark_tic_tac_toe_ai()
-        else:
-            self._mark_tic_tac_toe_ai()
-        winner = _tic_tac_toe_winner(self._tic_tac_toe_board)
-        if winner:
-            self._game_round += 1
-            if winner == "X":
-                self._game_score_x += 1
-                self._game_streak += 1
-                self._game_status.setText("Win! Keep the streak alive.")
-            elif winner == "O":
-                self._game_score_o += 1
-                self._game_streak = 0
-                self._game_status.setText("AI takes the round.")
-            else:
-                self._game_streak = 0
-                self._game_status.setText("Draw round.")
-            self._tic_tac_toe_board = [["", "", ""], ["", "", ""], ["", "", ""]]
-
-    def _mark_tic_tac_toe_ai(self) -> None:
-        empty = [
-            (r, c)
-            for r in range(3)
-            for c in range(3)
-            if self._tic_tac_toe_board[r][c] == ""
-        ]
-        if not empty:
-            return
-        r, c = random.choice(empty)
-        self._tic_tac_toe_board[r][c] = "O"
+        self._game_visualizer.update_plate_map(summary)
 
     def _reset_tic_tac_toe_game(self) -> None:
-        self._tic_tac_toe_board = [["", "", ""], ["", "", ""], ["", "", ""]]
-        self._game_score_x = 0
-        self._game_score_o = 0
-        self._game_round = 0
-        self._game_streak = 0
-        self._game_status.setText("Ready.")
-        self._plate_map.set_board(self._tic_tac_toe_board)
-        self._target_cell = None
-        self._plate_map.set_target_cell(None)
-        self._update_game_labels()
-
-    def _update_game_labels(self) -> None:
-        self._game_score.setText(f"Score X:{self._game_score_x}  O:{self._game_score_o}  R:{self._game_round}")
-        self._game_streak_label.setText(f"Streak: {self._game_streak}")
+        self._game_visualizer.reset_game()
 
     def _set_production_mode(self, enabled: bool) -> None:
         self._production_mode = enabled
@@ -1193,38 +1116,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._status_label.setText("Production mode.")
 
     def _set_target_mode(self, enabled: bool) -> None:
-        self._target_mode = enabled
-        if enabled:
-            self._target_cell = self._random_target_cell()
-            self._game_status.setText("Hit the highlighted target.")
-            self._plate_map.set_target_cell(self._target_cell)
-        else:
-            self._target_cell = None
-            self._plate_map.set_target_cell(None)
-
-    def _apply_target_mode(self, pitch) -> None:
-        if not self._target_mode or self._target_cell is None:
-            return
-        row = pitch.zone_row
-        col = pitch.zone_col
-        if row is None or col is None:
-            self._game_streak = 0
-            self._game_status.setText("Missed. New target.")
-        else:
-            cell = (max(1, min(3, row)) - 1, max(1, min(3, col)) - 1)
-            if cell == self._target_cell:
-                self._game_score_x += 1
-                self._game_streak += 1
-                self._game_status.setText("Target hit!")
-            else:
-                self._game_streak = 0
-                self._game_status.setText("Missed. New target.")
-        self._game_round += 1
-        self._target_cell = self._random_target_cell()
-        self._plate_map.set_target_cell(self._target_cell)
-
-    def _random_target_cell(self) -> tuple[int, int]:
-        return (random.randint(0, 2), random.randint(0, 2))
+        self._game_visualizer.set_target_mode(enabled)
 
     def _build_menu(self) -> None:
         menu_bar = self.menuBar()
@@ -1834,30 +1726,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 event.accept()
             else:
                 event.ignore()
-
-
-
-def _tic_tac_toe_winner(board: list[list[str]]) -> Optional[str]:
-    lines = []
-    for i in range(3):
-        lines.append(board[i])
-        lines.append([board[0][i], board[1][i], board[2][i]])
-    lines.append([board[0][0], board[1][1], board[2][2]])
-    lines.append([board[0][2], board[1][1], board[2][0]])
-    for line in lines:
-        if line[0] and line[0] == line[1] == line[2]:
-            return line[0]
-    if all(cell for row in board for cell in row):
-        return "Draw"
-    return None
-
-
-def _pitch_crossing_xy(pitch) -> Optional[tuple[float, float]]:
-    x = getattr(pitch, "trajectory_plate_x_ft", None)
-    y = getattr(pitch, "trajectory_plate_y_ft", None)
-    if x is None or y is None:
-        return None
-    return (x, y)
 
 
 __all__ = ["MainWindow"]
