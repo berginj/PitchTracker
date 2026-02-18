@@ -58,7 +58,7 @@ from ui.geometry import (
     roi_overlays,
 )
 from ui.widgets import PlateMapWidget, RoiLabel
-from ui.controllers import ProfileManager
+from ui.controllers import CalibrationManager, ProfileManager
 
 # System hardening imports
 from app.events import get_error_bus, ErrorCategory, ErrorSeverity
@@ -121,7 +121,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self._detector_model_conf_threshold = 0.25
         self._detector_model_class_id = 0
         self._detector_model_format = "yolo_v5"
-        self._calibration_wizard: Optional[CalibrationWizardDialog] = None
         self._show_target_overlay = False
         self._target_found = False
         self._target_corners: Optional[list[tuple[float, float]]] = None
@@ -417,6 +416,14 @@ class MainWindow(QtWidgets.QMainWindow):
             on_profile_loaded=lambda name: self._enter_app(),
             on_rois_changed=lambda: self._load_rois(),
         )
+        self._calibration_manager = CalibrationManager(
+            parent=self,
+            config_path=self._config_path(),
+            status_label=self._status_label,
+            calib_summary=self._calib_summary,
+            get_config=lambda: self._config,
+            set_config=lambda config: setattr(self, "_config", config),
+        )
 
         self._run_startup_dialog()
 
@@ -605,18 +612,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._profile_manager.apply_startup_selection(profile_name, pitcher)
         if profile_name:
             self._load_profile()
-        self._run_calibration_wizard()
+        self._calibration_manager.run_calibration_wizard()
 
     def _run_calibration_wizard(self) -> None:
-        if self._calibration_wizard is not None:
-            self._calibration_wizard.raise_()
-            self._calibration_wizard.activateWindow()
-            return
-        wizard = CalibrationWizardDialog(self)
-        wizard.setModal(False)
-        wizard.finished.connect(lambda: setattr(self, "_calibration_wizard", None))
-        self._calibration_wizard = wizard
-        wizard.show()
+        self._calibration_manager.run_calibration_wizard()
 
     def _cue_card_test(self) -> None:
         try:
@@ -1756,48 +1755,16 @@ class MainWindow(QtWidgets.QMainWindow):
         return panel
 
     def _open_calibration_guide(self) -> None:
-        dialog = CalibrationGuide(self)
-        dialog.exec()
+        self._calibration_manager.open_calibration_guide()
 
     def _open_quick_calibrate(self) -> None:
-        dialog = QuickCalibrateDialog(self, self._config_path())
-        dialog.exec()
-        if dialog.updated:
-            self._config = load_config(self._config_path())
-            self._update_calib_summary()
-            if dialog.updates:
-                baseline = dialog.updates.get("baseline_ft")
-                focal = dialog.updates.get("focal_length_px")
-                if isinstance(baseline, (int, float)) and isinstance(focal, (int, float)):
-                    self._status_label.setText(
-                        f"Calibration updated (baseline_ft={baseline:.3f}, f_px={focal:.1f}). Restart capture."
-                    )
-                else:
-                    self._status_label.setText("Calibration updated. Restart capture to apply.")
-            else:
-                self._status_label.setText("Calibration updated. Restart capture to apply.")
+        self._calibration_manager.open_quick_calibrate()
 
     def _open_plate_calibrate(self) -> None:
-        dialog = PlatePlaneDialog(self, self._config_path())
-        if dialog.exec() != QtWidgets.QDialog.Accepted:
-            return
-        left_path, right_path = dialog.values()
-        try:
-            plate_z = estimate_and_write(Path(left_path), Path(right_path), self._config_path())
-        except Exception as exc:  # noqa: BLE001 - show errors
-            QtWidgets.QMessageBox.critical(self, "Plate Plane Calibrate", str(exc))
-            return
-        self._config = load_config(self._config_path())
-        self._status_label.setText(
-            f"Plate plane updated (Z={plate_z:.3f} ft). Restart capture."
-        )
+        self._calibration_manager.open_plate_calibrate()
 
     def _update_calib_summary(self) -> None:
-        baseline = self._config.stereo.baseline_ft
-        focal = self._config.stereo.focal_length_px
-        self._calib_summary.setText(
-            f"Calib: baseline_ft={baseline:.3f} f_px={focal:.1f}"
-        )
+        self._calibration_manager.update_calib_summary()
 
     def _open_checklist(self) -> None:
         dialog = ChecklistDialog(self)
