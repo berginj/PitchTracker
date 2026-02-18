@@ -58,7 +58,13 @@ from ui.geometry import (
     roi_overlays,
 )
 from ui.widgets import PlateMapWidget, RoiLabel
-from ui.controllers import CalibrationManager, ExportManager, ProfileManager, RoiManager
+from ui.controllers import (
+    CalibrationManager,
+    ExportManager,
+    ProfileManager,
+    ReplayController,
+    RoiManager,
+)
 
 # System hardening imports
 from app.events import get_error_bus, ErrorCategory, ErrorSeverity
@@ -102,12 +108,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._timer.timeout.connect(self._update_preview)
         self._roi_path = Path("rois/shared_rois.json")
         self._lane_path = Path("rois/shared_lane_rois.json")
-        # Note: ROI state (lane_rect, plate_rect, etc.) now managed by RoiManager
-        self._replay_capture: Optional[cv2.VideoCapture] = None
-        self._replay_frame_index = 0
-        self._replay_trail: deque[tuple[int, int]] = deque(maxlen=30)
-        self._replay_detector: Optional[ClassicalDetector] = None
-        self._replay_paused = False
+        # Note: ROI state now managed by RoiManager
+        # Note: Replay state now managed by ReplayController
         # Note: _pitcher_name and _location_profile now managed by ProfileManager
         self._detection_threading = "per_camera"
         self._detection_workers = 2
@@ -440,6 +442,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 current_serial(self._right_input),
             ),
         )
+        self._replay_controller = ReplayController(
+            parent=self,
+            left_view=self._left_view,
+            right_view=self._right_view,
+            status_label=self._status_label,
+            get_config=lambda: self._config,
+            get_lane_rect=lambda: self._roi_manager.lane_rect,
+            get_plate_rect=lambda: self._roi_manager.plate_rect,
+            get_active_rect=lambda: self._roi_manager.active_rect,
+            stop_capture=self._stop_capture,
+            start_timer=lambda ms: self._timer.start(ms),
+        )
 
         self._run_startup_dialog()
 
@@ -710,7 +724,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._status_label.setText("Training capture...")
 
     def _update_preview(self) -> None:
-        if self._replay_capture is not None:
+        if self._replay_controller.is_active:
             self._update_replay()
             return
         try:
@@ -869,124 +883,19 @@ class MainWindow(QtWidgets.QMainWindow):
             )
 
     def _start_replay(self) -> None:
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self,
-            "Select left camera video",
-            str(Path("recordings")),
-            "Video Files (*.avi *.mp4)",
-        )
-        if not path:
-            return
-        self._stop_capture()
-        capture = cv2.VideoCapture(path)
-        if not capture.isOpened():
-            self._status_label.setText("Failed to open replay video.")
-            return
-        self._replay_capture = capture
-        self._replay_frame_index = 0
-        self._replay_trail.clear()
-        self._init_replay_detector()
-        self._replay_paused = False
-        self._status_label.setText("Replay mode.")
-        self._timer.start(int(1000 / max(self._config.ui.refresh_hz, 1)))
+        self._replay_controller.start_replay()
 
     def _stop_replay(self) -> None:
-        if self._replay_capture is not None:
-            self._replay_capture.release()
-            self._replay_capture = None
-        self._replay_frame_index = 0
-        self._replay_trail.clear()
-
-    def _init_replay_detector(self) -> None:
-        cfg = self._config.detector
-        filter_cfg = FilterConfig(
-            min_area=cfg.filters.min_area,
-            max_area=cfg.filters.max_area,
-            min_circularity=cfg.filters.min_circularity,
-            max_circularity=cfg.filters.max_circularity,
-            min_velocity=cfg.filters.min_velocity,
-            max_velocity=cfg.filters.max_velocity,
-        )
-        detector_cfg = CvDetectorConfig(
-            frame_diff_threshold=cfg.frame_diff_threshold,
-            bg_diff_threshold=cfg.bg_diff_threshold,
-            bg_alpha=cfg.bg_alpha,
-            edge_threshold=cfg.edge_threshold,
-            blob_threshold=cfg.blob_threshold,
-            runtime_budget_ms=cfg.runtime_budget_ms,
-            crop_padding_px=cfg.crop_padding_px,
-            min_consecutive=cfg.min_consecutive,
-            filters=filter_cfg,
-        )
-        roi_by_camera = None
-        if self._roi_manager.lane_rect:
-            roi_by_camera = {"replay_left": rect_to_polygon(self._roi_manager.lane_rect)}
-        self._replay_detector = ClassicalDetector(
-            config=detector_cfg,
-            mode=Mode(cfg.mode),
-            roi_by_camera=roi_by_camera,
-        )
+        self._replay_controller.stop_replay()
 
     def _update_replay(self) -> None:
-        if self._replay_capture is None:
-            return
-        if self._replay_paused:
-            return
-        ok, frame = self._replay_capture.read()
-        if not ok:
-            self._status_label.setText("Replay finished.")
-            self._stop_replay()
-            return
-        self._replay_frame_index += 1
-        height, width = frame.shape[:2]
-        if self._config.camera.pixfmt == "GRAY8":
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        else:
-            gray = frame
-        frame_obj = Frame(
-            camera_id="replay_left",
-            frame_index=self._replay_frame_index,
-            t_capture_monotonic_ns=0,
-            image=gray,
-            width=width,
-            height=height,
-            pixfmt=self._config.camera.pixfmt,
-        )
-        detections = []
-        if self._replay_detector is not None:
-            detections = self._replay_detector.detect(frame_obj)
-        if detections:
-            best = max(detections, key=lambda det: det.confidence)
-            self._replay_trail.append((int(best.u), int(best.v)))
-        overlays = roi_overlays(
-            self._roi_manager.lane_rect,
-            self._roi_manager.plate_rect,
-            self._roi_manager.active_rect,
-        )
-        pixmap = frame_to_pixmap(
-            gray,
-            overlays,
-            detections,
-            lane_detections=[],
-            plate_detections=[],
-            plate_rect=self._roi_manager.plate_rect,
-            zone=None,
-            trail=list(self._replay_trail),
-        )
-        self._left_view.setPixmap(pixmap)
-        self._right_view.setPixmap(QtGui.QPixmap())
+        self._replay_controller.update_replay()
 
     def _toggle_replay_pause(self) -> None:
-        if self._replay_capture is None:
-            return
-        self._replay_paused = not self._replay_paused
-        self._status_label.setText("Replay paused." if self._replay_paused else "Replay mode.")
+        self._replay_controller.toggle_pause()
 
     def _step_replay(self) -> None:
-        if self._replay_capture is None:
-            return
-        self._replay_paused = True
-        self._update_replay()
+        self._replay_controller.step_frame()
 
     def _refresh_devices(self) -> None:
         from ui.device_utils import is_arducam_device
