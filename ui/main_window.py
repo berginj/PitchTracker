@@ -58,7 +58,7 @@ from ui.geometry import (
     roi_overlays,
 )
 from ui.widgets import PlateMapWidget, RoiLabel
-from ui.controllers import CalibrationManager, ExportManager, ProfileManager
+from ui.controllers import CalibrationManager, ExportManager, ProfileManager, RoiManager
 
 # System hardening imports
 from app.events import get_error_bus, ErrorCategory, ErrorSeverity
@@ -102,11 +102,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._timer.timeout.connect(self._update_preview)
         self._roi_path = Path("rois/shared_rois.json")
         self._lane_path = Path("rois/shared_lane_rois.json")
-        self._lane_rect: Optional[Rect] = None
-        self._lane_rect_right: Optional[Rect] = None
-        self._plate_rect: Optional[Rect] = None
-        self._active_rect: Optional[Rect] = None
-        self._roi_mode: Optional[str] = None
+        # Note: ROI state (lane_rect, plate_rect, etc.) now managed by RoiManager
         self._replay_capture: Optional[cv2.VideoCapture] = None
         self._replay_frame_index = 0
         self._replay_trail: deque[tuple[int, int]] = deque(maxlen=30)
@@ -433,6 +429,17 @@ class MainWindow(QtWidgets.QMainWindow):
             get_pitcher_name=lambda: self._profile_manager.pitcher_name,
             get_location_profile=lambda: self._profile_manager.location_profile,
         )
+        self._roi_manager = RoiManager(
+            roi_path=self._roi_path,
+            lane_path=self._lane_path,
+            left_view=self._left_view,
+            right_view=self._right_view,
+            status_label=self._status_label,
+            get_camera_serials=lambda: (
+                current_serial(self._left_input),
+                current_serial(self._right_input),
+            ),
+        )
 
         self._run_startup_dialog()
 
@@ -712,9 +719,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self._status_label.setText(str(exc))
             return
         self._left_view.set_image_size(left_frame.width, left_frame.height)
-        overlays_left = roi_overlays(self._lane_rect, self._plate_rect, self._active_rect)
-        lane_right = self._lane_rect_right or self._lane_rect
-        overlays_right = roi_overlays(lane_right, self._plate_rect, self._active_rect)
+        lane_rect = self._roi_manager.lane_rect
+        plate_rect = self._roi_manager.plate_rect
+        active_rect = self._roi_manager.active_rect
+        overlays_left = roi_overlays(lane_rect, plate_rect, active_rect)
+        lane_right = self._roi_manager.lane_rect_right or lane_rect
+        overlays_right = roi_overlays(lane_right, plate_rect, active_rect)
         detections = self._service.get_latest_detections()
         gated = self._service.get_latest_gated_detections()
         left_dets = detections.get(left_frame.camera_id, [])
@@ -772,7 +782,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 left_dets,
                 left_gated.get("lane", []),
                 left_gated.get("plate", []),
-                plate_rect=self._plate_rect,
+                plate_rect=plate_rect,
                 zone=zone,
                 checkerboard=checkerboard,
                 fiducials=fiducials,
@@ -787,7 +797,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     right_dets,
                     right_gated.get("lane", []),
                     right_gated.get("plate", []),
-                    plate_rect=self._plate_rect,
+                    plate_rect=plate_rect,
                     zone=zone,
                     focus_score=focus_overlay_right,
                 )
@@ -909,8 +919,8 @@ class MainWindow(QtWidgets.QMainWindow):
             filters=filter_cfg,
         )
         roi_by_camera = None
-        if self._lane_rect:
-            roi_by_camera = {"replay_left": rect_to_polygon(self._lane_rect)}
+        if self._roi_manager.lane_rect:
+            roi_by_camera = {"replay_left": rect_to_polygon(self._roi_manager.lane_rect)}
         self._replay_detector = ClassicalDetector(
             config=detector_cfg,
             mode=Mode(cfg.mode),
@@ -948,14 +958,18 @@ class MainWindow(QtWidgets.QMainWindow):
         if detections:
             best = max(detections, key=lambda det: det.confidence)
             self._replay_trail.append((int(best.u), int(best.v)))
-        overlays = roi_overlays(self._lane_rect, self._plate_rect, self._active_rect)
+        overlays = roi_overlays(
+            self._roi_manager.lane_rect,
+            self._roi_manager.plate_rect,
+            self._roi_manager.active_rect,
+        )
         pixmap = frame_to_pixmap(
             gray,
             overlays,
             detections,
             lane_detections=[],
             plate_detections=[],
-            plate_rect=self._plate_rect,
+            plate_rect=self._roi_manager.plate_rect,
             zone=None,
             trail=list(self._replay_trail),
         )
@@ -1030,48 +1044,19 @@ class MainWindow(QtWidgets.QMainWindow):
             self._status_label.setText("No OpenCV camera indices available.")
 
     def _set_roi_mode(self, mode: str) -> None:
-        self._roi_mode = mode
-        if mode == "lane_right":
-            self._left_view.set_mode(None)
-            self._right_view.set_mode(mode)
-            self._status_label.setText("ROI mode: lane_right (drag rectangle on right view)")
-        else:
-            self._left_view.set_mode(mode)
-            self._right_view.set_mode(None)
-            self._status_label.setText(f"ROI mode: {mode} (drag rectangle on left view)")
+        self._roi_manager.set_roi_mode(mode)
 
     def _on_rect_update(self, rect: Rect, final: bool) -> None:
-        rect = normalize_rect(rect, self._left_view.image_size())
-        if rect is None:
-            return
-        if final:
-            if self._roi_mode == "lane":
-                self._lane_rect = rect
-            elif self._roi_mode == "plate":
-                self._plate_rect = rect
-            self._active_rect = None
-        else:
-            self._active_rect = rect
+        self._roi_manager.on_rect_update(rect, final)
 
     def _on_right_rect_update(self, rect: Rect, final: bool) -> None:
-        rect = normalize_rect(rect, self._right_view.image_size())
-        if rect is None:
-            return
-        if final:
-            if self._roi_mode == "lane_right":
-                self._lane_rect_right = rect
-            self._active_rect = None
-        else:
-            self._active_rect = rect
+        self._roi_manager.on_right_rect_update(rect, final)
 
     def _clear_lane(self) -> None:
-        self._lane_rect = None
-        self._lane_rect_right = None
-        self._status_label.setText("Lane ROI cleared.")
+        self._roi_manager.clear_lane()
 
     def _clear_plate(self) -> None:
-        self._plate_rect = None
-        self._status_label.setText("Plate ROI cleared.")
+        self._roi_manager.clear_plate()
 
     def _reset_focus_peaks(self) -> None:
         """Reset focus quality peak tracking.
@@ -1083,37 +1068,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._status_label.setText("Focus peak values reset. Adjust lenses and watch for green.")
 
     def _save_rois(self) -> None:
-        lane_poly = rect_to_polygon(self._lane_rect)
-        lane_right_poly = rect_to_polygon(self._lane_rect_right) if self._lane_rect_right else None
-        plate_poly = rect_to_polygon(self._plate_rect)
-        save_rois(self._roi_path, lane_poly, plate_poly)
-        if lane_poly is not None:
-            left_id = current_serial(self._left_input) or "left"
-            right_id = current_serial(self._right_input) or "right"
-            lane_rois = {
-                left_id: LaneRoi(polygon=lane_poly),
-                right_id: LaneRoi(polygon=lane_right_poly or lane_poly),
-            }
-            save_lane_rois(self._lane_path, lane_rois)
-        self._status_label.setText("ROIs saved.")
+        self._roi_manager.save_rois()
 
     def _load_rois(self) -> None:
-        rois = load_rois(self._roi_path)
-        self._lane_rect = polygon_to_rect(rois.get("lane"))
-        self._plate_rect = polygon_to_rect(rois.get("plate"))
-        self._lane_rect_right = None
-        lane_rois = load_lane_rois(self._lane_path)
-        left_id = current_serial(self._left_input) or "left"
-        right_id = current_serial(self._right_input) or "right"
-        if lane_rois:
-            left_lane = lane_rois.get(left_id) or lane_rois.get("left")
-            right_lane = lane_rois.get(right_id) or lane_rois.get("right")
-            if left_lane:
-                self._lane_rect = polygon_to_rect(left_lane.polygon)
-            if right_lane:
-                self._lane_rect_right = polygon_to_rect(right_lane.polygon)
-        if self._lane_rect or self._plate_rect:
-            self._status_label.setText("ROIs loaded.")
+        self._roi_manager.load_rois()
 
     def _load_detector_defaults(self) -> None:
         cfg = self._config.detector
@@ -1714,7 +1672,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._fiducial_error = None
 
     def _propose_right_lane(self) -> None:
-        if self._lane_rect is None:
+        lane_rect = self._roi_manager.lane_rect
+        if lane_rect is None:
             QtWidgets.QMessageBox.information(
                 self,
                 "Propose Right Lane",
@@ -1733,7 +1692,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         left_w, left_h = left_frame.width, left_frame.height
         right_w, right_h = right_frame.width, right_frame.height
-        x1, y1, x2, y2 = self._lane_rect
+        x1, y1, x2, y2 = lane_rect
         nx1 = x1 / max(left_w, 1)
         ny1 = y1 / max(left_h, 1)
         nx2 = x2 / max(left_w, 1)
@@ -1759,7 +1718,7 @@ class MainWindow(QtWidgets.QMainWindow):
         rx2 = int(rx2 + shift)
         rx1 = max(0, min(rx1, right_w - 1))
         rx2 = max(0, min(rx2, right_w - 1))
-        self._lane_rect_right = (rx1, ry1, rx2, ry2)
+        self._roi_manager.lane_rect_right = (rx1, ry1, rx2, ry2)
         self._status_label.setText("Proposed right lane ROI.")
 
     def _maybe_show_guide(self) -> None:
