@@ -58,7 +58,7 @@ from ui.geometry import (
     roi_overlays,
 )
 from ui.widgets import PlateMapWidget, RoiLabel
-from ui.controllers import CalibrationManager, ProfileManager
+from ui.controllers import CalibrationManager, ExportManager, ProfileManager
 
 # System hardening imports
 from app.events import get_error_bus, ErrorCategory, ErrorSeverity
@@ -424,6 +424,15 @@ class MainWindow(QtWidgets.QMainWindow):
             get_config=lambda: self._config,
             set_config=lambda config: setattr(self, "_config", config),
         )
+        self._export_manager = ExportManager(
+            parent=self,
+            config_path=self._config_path(),
+            roi_path=self._roi_path,
+            get_config=lambda: self._config,
+            get_session_dir=lambda: self._service.get_session_dir(),
+            get_pitcher_name=lambda: self._profile_manager.pitcher_name,
+            get_location_profile=lambda: self._profile_manager.location_profile,
+        )
 
         self._run_startup_dialog()
 
@@ -662,54 +671,7 @@ class MainWindow(QtWidgets.QMainWindow):
         return f"{pitcher}-{timestamp}"
 
     def _upload_session(self, summary) -> None:
-        if not self._config.upload.enabled:
-            QtWidgets.QMessageBox.information(
-                self,
-                "Upload Session",
-                "Uploads are disabled. Enable upload in configs/default.yaml.",
-            )
-            return
-        api_base = self._config.upload.swa_api_base.rstrip("/")
-        if not api_base:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Upload Session",
-                "Upload URL is not configured.",
-            )
-            return
-        session_dir = self._service.get_session_dir()
-        marker_spec = None
-        if session_dir:
-            marker_path = Path(session_dir) / "marker_spec.json"
-            if marker_path.exists():
-                marker_spec = json.loads(marker_path.read_text())
-        payload = {
-            "schema_version": SCHEMA_VERSION,
-            "app_version": APP_VERSION,
-            "session": asdict(summary),
-            "metadata": {
-                "uploaded_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "pitcher": self._profile_manager.pitcher_name,
-                "location_profile": self._profile_manager.location_profile,
-                "rig_id": None,
-                "source": "PitchTracker",
-            },
-            "marker_spec": marker_spec,
-        }
-        data = json.dumps(payload).encode("utf-8")
-        url = f"{api_base}/sessions"
-        headers = {"Content-Type": "application/json"}
-        if self._config.upload.api_key:
-            headers["x-api-key"] = self._config.upload.api_key
-        request = urllib.request.Request(url, data=data, headers=headers, method="POST")
-        try:
-            with urllib.request.urlopen(request, timeout=10) as response:
-                if response.status >= 400:
-                    raise RuntimeError(f"Upload failed: {response.status}")
-        except (urllib.error.URLError, RuntimeError) as exc:
-            QtWidgets.QMessageBox.warning(self, "Upload Session", str(exc))
-            return
-        QtWidgets.QMessageBox.information(self, "Upload Session", "Upload complete.")
+        self._export_manager.upload_session(summary)
 
     def _save_session_export(
         self,
@@ -717,160 +679,7 @@ class MainWindow(QtWidgets.QMainWindow):
         session_dir: Optional[Path],
         export_type: Optional[str],
     ) -> None:
-        if session_dir is None:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Save Session",
-                "No session directory available for export.",
-            )
-            return
-        if not export_type:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Save Session",
-                "Select an export type before saving.",
-            )
-            return
-
-        try:
-            if export_type == "summary_json":
-                self._export_session_summary_json(summary, session_dir)
-            elif export_type == "summary_csv":
-                self._export_session_summary_csv(summary, session_dir)
-            elif export_type == "training_report":
-                self._export_training_report(session_dir)
-            elif export_type == "manifests_zip":
-                self._export_manifests_zip(session_dir)
-            else:
-                QtWidgets.QMessageBox.warning(
-                    self,
-                    "Save Session",
-                    f"Unknown export type: {export_type}",
-                )
-        except Exception as exc:  # noqa: BLE001 - surface export failures
-            QtWidgets.QMessageBox.warning(self, "Save Session", str(exc))
-
-    def _export_session_summary_json(self, summary, session_dir: Path) -> None:
-        default_name = "session_summary.json"
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self,
-            "Save Session Summary (JSON)",
-            default_name,
-            "JSON files (*.json)",
-        )
-        if not path:
-            return
-        src = session_dir / "session_summary.json"
-        if src.exists():
-            shutil.copyfile(src, path)
-            return
-        payload = asdict(summary)
-        payload["schema_version"] = SCHEMA_VERSION
-        payload["app_version"] = APP_VERSION
-        Path(path).write_text(json.dumps(payload, indent=2))
-
-    def _export_session_summary_csv(self, summary, session_dir: Path) -> None:
-        default_name = "session_summary.csv"
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self,
-            "Save Session Summary (CSV)",
-            default_name,
-            "CSV files (*.csv)",
-        )
-        if not path:
-            return
-        src = session_dir / "session_summary.csv"
-        if src.exists():
-            shutil.copyfile(src, path)
-            return
-        self._write_session_summary_csv(Path(path), summary)
-
-    def _write_session_summary_csv(self, path: Path, summary) -> None:
-        with path.open("w", newline="") as handle:
-            writer = csv.writer(handle)
-            writer.writerow(
-                [
-                    "pitch_id",
-                    "t_start_ns",
-                    "t_end_ns",
-                    "is_strike",
-                    "zone_row",
-                    "zone_col",
-                    "run_in",
-                    "rise_in",
-                    "speed_mph",
-                    "rotation_rpm",
-                    "sample_count",
-                ]
-            )
-            for pitch in summary.pitches:
-                writer.writerow(
-                    [
-                        pitch.pitch_id,
-                        pitch.t_start_ns,
-                        pitch.t_end_ns,
-                        int(pitch.is_strike),
-                        pitch.zone_row if pitch.zone_row is not None else "",
-                        pitch.zone_col if pitch.zone_col is not None else "",
-                        f"{pitch.run_in:.3f}",
-                        f"{pitch.rise_in:.3f}",
-                        f"{pitch.speed_mph:.3f}" if pitch.speed_mph is not None else "",
-                        f"{pitch.rotation_rpm:.3f}" if pitch.rotation_rpm is not None else "",
-                        pitch.sample_count,
-                    ]
-                )
-
-    def _export_training_report(self, session_dir: Path) -> None:
-        default_name = "training_report.json"
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self,
-            "Save Training Report",
-            default_name,
-            "JSON files (*.json)",
-        )
-        if not path:
-            return
-        payload = build_training_report(
-            session_dir=session_dir,
-            config_path=self._config_path(),
-            roi_path=self._roi_path,
-            source={
-                "app": "PitchTracker",
-                "rig_id": None,
-                "pitcher": self._profile_manager.pitcher_name,
-                "location_profile": self._profile_manager.location_profile,
-                "operator": None,
-                "host": None,
-            },
-        )
-        Path(path).write_text(json.dumps(payload, indent=2))
-
-    def _export_manifests_zip(self, session_dir: Path) -> None:
-        default_name = "session_manifests.zip"
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self,
-            "Save Session Manifests",
-            default_name,
-            "Zip files (*.zip)",
-        )
-        if not path:
-            return
-        files: List[Path] = []
-        manifest = session_dir / "manifest.json"
-        summary_json = session_dir / "session_summary.json"
-        summary_csv = session_dir / "session_summary.csv"
-        if manifest.exists():
-            files.append(manifest)
-        if summary_json.exists():
-            files.append(summary_json)
-        if summary_csv.exists():
-            files.append(summary_csv)
-        files.extend(session_dir.rglob("*/manifest.json"))
-        if not files:
-            raise RuntimeError("No manifest files found to export.")
-        with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            for file_path in files:
-                archive.write(file_path, file_path.relative_to(session_dir))
+        self._export_manager.save_export(summary, export_type)
 
     def _start_training_capture(self) -> None:
         if not self._health_ok():
