@@ -41,12 +41,10 @@ from ui.dialogs import (
     PlatePlaneDialog,
     QuickCalibrateDialog,
     RecordingSettingsDialog,
-    SessionSummaryDialog,
     StartupDialog,
     StrikeZoneSettingsDialog,
 )
 from ui.drawing import frame_to_pixmap
-from ui.export import save_session_export, upload_session
 from ui.geometry import (
     Overlay,
     Rect,
@@ -62,6 +60,7 @@ from ui.controllers import (
     ExportManager,
     GameVisualizer,
     ProfileManager,
+    RecordingController,
     ReplayController,
     RoiManager,
     SettingsManager,
@@ -502,6 +501,26 @@ class MainWindow(QtWidgets.QMainWindow):
             start_capture_service=lambda cfg, left, right, path: self._service.start_capture(cfg, left, right, config_path=path),
             stop_capture_service=lambda: self._service.stop_capture(),
         )
+        self._recording_controller = RecordingController(
+            parent=self,
+            status_label=self._status_label,
+            get_config=lambda: self._config,
+            get_config_path=self._config_path,
+            get_session_name=lambda: self._session_name.text(),
+            set_session_name=lambda v: self._session_name.setText(v),
+            get_output_dir=lambda: self._output_dir.text(),
+            set_output_dir_widget=lambda v: self._output_dir.setText(v),
+            get_roi_path=lambda: self._roi_path,
+            get_pitcher_name=lambda: self._profile_manager.pitcher_name,
+            get_location_profile=lambda: self._profile_manager.location_profile,
+            health_check=self._health_ok,
+            start_recording_service=lambda name, mode: self._service.start_recording(session_name=name, mode=mode),
+            stop_recording_service=lambda: self._service.stop_recording(),
+            set_record_directory=lambda p: self._service.set_record_directory(p),
+            set_manual_speed_mph=lambda s: self._service.set_manual_speed_mph(s),
+            get_session_summary=lambda: self._service.get_session_summary(),
+            get_session_dir=lambda: self._service.get_session_dir(),
+        )
 
         self._run_startup_dialog()
 
@@ -515,68 +534,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self._capture_controller.restart_capture()
 
     def _start_recording(self) -> None:
-        if not self._health_ok():
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Health Check",
-                "Health check failed. Verify FPS and drops before recording.",
-            )
-            return
-        session = self._session_name.text().strip() or self._default_session_name()
-        if session:
-            self._session_name.setText(session)
-        self._service.start_recording(session_name=session, mode="review")
-        self._status_label.setText("Recording...")
+        self._recording_controller.start_recording()
 
     def _browse_output(self) -> None:
-        path = QtWidgets.QFileDialog.getExistingDirectory(self, "Select output folder")
-        if path:
-            self._set_output_dir(path)
+        self._recording_controller.browse_output()
 
     def _set_output_dir(self, path: str) -> None:
-        if not path:
-            return
-        self._output_dir.setText(path)
-        self._service.set_record_directory(Path(path))
-        config_path = self._config_path()
-        data = yaml.safe_load(config_path.read_text())
-        data.setdefault("recording", {})
-        data["recording"]["output_dir"] = path
-        config_path.write_text(yaml.safe_dump(data, sort_keys=False))
+        self._recording_controller.set_output_dir(path)
 
     def _set_manual_speed(self, value: float) -> None:
-        speed = value if value > 0 else None
-        self._service.set_manual_speed_mph(speed)
+        self._recording_controller.set_manual_speed(value)
 
     def _stop_recording(self) -> None:
-        bundle = self._service.stop_recording()
-        summary = self._service.get_session_summary()
-        self._status_label.setText(f"Recorded pitches: {summary.pitch_count}")
-        session_dir = self._service.get_session_dir()
-        dialog = SessionSummaryDialog(
-            self,
-            summary,
-            lambda: upload_session(
-                self,
-                summary,
-                self._config,
-                session_dir,
-                self._profile_manager.pitcher_name or "Unknown",
-                self._profile_manager.location_profile or "Unknown",
-            ),
-            lambda export_type: save_session_export(
-                self,
-                summary,
-                session_dir,
-                export_type,
-                self._config_path(),
-                self._roi_path,
-                self._profile_manager.pitcher_name or "Unknown",
-                self._profile_manager.location_profile or "Unknown",
-            ),
-            session_dir=session_dir,
-        )
-        dialog.exec()
+        self._recording_controller.stop_recording()
 
     def _set_setup_mode(self, active: bool) -> None:
         for widget in (
@@ -673,9 +643,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._status_label.setText("Low performance mode applied.")
 
     def _default_session_name(self) -> Optional[str]:
-        pitcher = self._profile_manager.pitcher_name or "pitcher"
-        timestamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
-        return f"{pitcher}-{timestamp}"
+        return self._recording_controller.default_session_name()
 
     def _upload_session(self, summary) -> None:
         self._export_manager.upload_session(summary)
@@ -689,25 +657,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._export_manager.save_export(summary, export_type)
 
     def _start_training_capture(self) -> None:
-        if not self._health_ok():
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Health Check",
-                "Health check failed. Verify FPS and drops before recording.",
-            )
-            return
-        session = self._session_name.text().strip() or self._default_session_name()
-        if session:
-            self._session_name.setText(session)
-        if not session:
-            QtWidgets.QMessageBox.information(
-                self,
-                "Training Capture",
-                "Set a session name before starting training capture.",
-            )
-            return
-        self._service.start_recording(session_name=session, mode="training")
-        self._status_label.setText("Training capture...")
+        self._recording_controller.start_training_capture()
 
     def _update_preview(self) -> None:
         if self._replay_controller.is_active:
