@@ -23,7 +23,6 @@ from configs.location_profiles import apply_profile, list_profiles, load_profile
 from configs.pitchers import add_pitcher, load_pitchers
 from configs.roi_io import load_rois, save_rois
 from configs.settings import load_config
-from configs.validator import validate_config_file
 from contracts import Frame, StereoObservation
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 from detect.classical_detector import ClassicalDetector
@@ -59,6 +58,7 @@ from ui.geometry import (
 from ui.widgets import PlateMapWidget, RoiLabel
 from ui.controllers import (
     CalibrationManager,
+    CaptureController,
     ExportManager,
     GameVisualizer,
     ProfileManager,
@@ -487,79 +487,32 @@ class MainWindow(QtWidgets.QMainWindow):
             apply_strike_ratios_to_service=lambda t, b: self._service.set_strike_zone_ratios(t, b),
             update_plate_map_zone=self._update_plate_map_zone,
         )
+        self._capture_controller = CaptureController(
+            parent=self,
+            status_label=self._status_label,
+            get_config=lambda: self._config,
+            get_config_path=self._config_path,
+            get_left_serial=lambda: current_serial(self._left_input),
+            get_right_serial=lambda: current_serial(self._right_input),
+            get_roi_path=lambda: self._roi_path,
+            get_lane_path=lambda: self._lane_path,
+            start_timer=lambda ms: self._timer.start(ms),
+            stop_timer=lambda: self._timer.stop(),
+            stop_replay=self._stop_replay,
+            start_capture_service=lambda cfg, left, right, path: self._service.start_capture(cfg, left, right, config_path=path),
+            stop_capture_service=lambda: self._service.stop_capture(),
+        )
 
         self._run_startup_dialog()
 
     def _start_capture(self) -> None:
-        left = current_serial(self._left_input)
-        right = current_serial(self._right_input)
-        if not left or not right:
-            self._status_label.setText("Enter both serials.")
-            return
-        if not self._pre_capture_check():
-            return
-        self._stop_replay()
-        self._service.start_capture(self._config, left, right, config_path=self._config_path())
-        self._status_label.setText("Capturing.")
-        self._timer.start(int(1000 / max(self._config.ui.refresh_hz, 1)))
+        self._capture_controller.start_capture()
 
     def _stop_capture(self) -> None:
-        self._timer.stop()
-        self._service.stop_capture()
-        self._status_label.setText("Stopped.")
+        self._capture_controller.stop_capture()
 
     def _restart_capture(self) -> None:
-        self._stop_capture()
-        self._start_capture()
-
-    def _pre_capture_check(self) -> bool:
-        errors: list[str] = []
-        warnings: list[str] = []
-        config_path = self._config_path()
-        try:
-            validate_config_file(str(config_path))
-        except ConfigValidationError as exc:
-            errors.append(str(exc))
-            for detail in exc.validation_errors:
-                errors.append(f"- {detail}")
-        if self._config.detector.type == "ml":
-            model_path = self._config.detector.model_path
-            if not model_path:
-                errors.append("ML detector enabled but model_path is empty.")
-            else:
-                resolved = Path(model_path)
-                if not resolved.exists():
-                    errors.append(f"ML model not found at {resolved}.")
-        output_dir = Path(self._config.recording.output_dir)
-        try:
-            output_dir.mkdir(parents=True, exist_ok=True)
-        except OSError as exc:
-            errors.append(f"Output dir not writable: {output_dir} ({exc})")
-        else:
-            if not os.access(output_dir, os.W_OK):
-                errors.append(f"Output dir not writable: {output_dir}")
-        if not self._roi_path.exists():
-            warnings.append(f"ROI file {self._roi_path} not found; lane/plate gating will be disabled.")
-        if not self._lane_path.exists():
-            warnings.append(f"Lane ROI overrides not found at {self._lane_path}; using shared lane ROI for both cameras.")
-
-        if errors:
-            QtWidgets.QMessageBox.critical(
-                self,
-                "Pre-Capture Check Failed",
-                "Fix the following before capturing:\n" + "\n".join(errors),
-            )
-            return False
-        if warnings:
-            result = QtWidgets.QMessageBox.warning(
-                self,
-                "Pre-Capture Warnings",
-                "Continue with the following warnings?\n" + "\n".join(warnings),
-                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-                QtWidgets.QMessageBox.No,
-            )
-            return result == QtWidgets.QMessageBox.Yes
-        return True
+        self._capture_controller.restart_capture()
 
     def _start_recording(self) -> None:
         if not self._health_ok():
