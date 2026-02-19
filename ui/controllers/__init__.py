@@ -6,6 +6,7 @@ from .game_visualizer import GameVisualizer
 from .profile_manager import ProfileManager
 from .replay_controller import ReplayController
 from .roi_manager import RoiManager
+from .settings_manager import SettingsManager
 
 __all__ = [
     "CalibrationManager",
@@ -14,4 +15,5 @@ __all__ = [
     "ProfileManager",
     "ReplayController",
     "RoiManager",
+    "SettingsManager",
 ]

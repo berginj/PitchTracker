@@ -64,6 +64,7 @@ from ui.controllers import (
     ProfileManager,
     ReplayController,
     RoiManager,
+    SettingsManager,
 )
 
 # System hardening imports
@@ -111,14 +112,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # Note: ROI state now managed by RoiManager
         # Note: Replay state now managed by ReplayController
         # Note: _pitcher_name and _location_profile now managed by ProfileManager
-        self._detection_threading = "per_camera"
-        self._detection_workers = 2
-        self._detector_type = "classical"
-        self._detector_model_path = ""
-        self._detector_model_input_size = (640, 640)
-        self._detector_model_conf_threshold = 0.25
-        self._detector_model_class_id = 0
-        self._detector_model_format = "yolo_v5"
         self._show_target_overlay = False
         self._target_found = False
         self._target_corners: Optional[list[tuple[float, float]]] = None
@@ -453,6 +446,46 @@ class MainWindow(QtWidgets.QMainWindow):
             get_config=lambda: self._config,
             get_pitch_paths=lambda: self._service.get_recent_pitch_paths(),
             build_strike_zone=build_strike_zone,
+        )
+        self._settings_manager = SettingsManager(
+            parent=self,
+            status_label=self._status_label,
+            get_config=lambda: self._config,
+            get_config_path=self._config_path,
+            # Detector getters
+            get_detector_mode=lambda: self._mode_combo.currentText(),
+            get_frame_diff=lambda: self._frame_diff.value(),
+            get_bg_diff=lambda: self._bg_diff.value(),
+            get_bg_alpha=lambda: self._bg_alpha.value(),
+            get_edge_thresh=lambda: self._edge_thresh.value(),
+            get_blob_thresh=lambda: self._blob_thresh.value(),
+            get_min_area=lambda: self._min_area.value(),
+            get_min_circ=lambda: self._min_circ.value(),
+            # Detector setters
+            set_detector_mode=lambda v: self._mode_combo.setCurrentText(v),
+            set_frame_diff=lambda v: self._frame_diff.setValue(v),
+            set_bg_diff=lambda v: self._bg_diff.setValue(v),
+            set_bg_alpha=lambda v: self._bg_alpha.setValue(v),
+            set_edge_thresh=lambda v: self._edge_thresh.setValue(v),
+            set_blob_thresh=lambda v: self._blob_thresh.setValue(v),
+            set_min_area=lambda v: self._min_area.setValue(v),
+            set_min_circ=lambda v: self._min_circ.setValue(v),
+            # Strike zone getters
+            get_ball_type=lambda: self._ball_combo.currentText(),
+            get_batter_height=lambda: self._batter_height.value(),
+            get_top_ratio=lambda: self._top_ratio.value(),
+            get_bottom_ratio=lambda: self._bottom_ratio.value(),
+            # Strike zone setters
+            set_ball_type=lambda v: self._ball_combo.setCurrentText(v),
+            set_batter_height=lambda v: self._batter_height.setValue(v),
+            set_top_ratio=lambda v: self._top_ratio.setValue(v),
+            set_bottom_ratio=lambda v: self._bottom_ratio.setValue(v),
+            # Service callbacks
+            apply_detector_to_service=self._apply_detector_to_service,
+            apply_ball_type_to_service=lambda v: self._service.set_ball_type(v),
+            apply_batter_height_to_service=lambda v: self._service.set_batter_height_in(v),
+            apply_strike_ratios_to_service=lambda t, b: self._service.set_strike_zone_ratios(t, b),
+            update_plate_map_zone=self._update_plate_map_zone,
         )
 
         self._run_startup_dialog()
@@ -983,91 +1016,40 @@ class MainWindow(QtWidgets.QMainWindow):
         self._roi_manager.load_rois()
 
     def _load_detector_defaults(self) -> None:
-        cfg = self._config.detector
-        self._detector_type = cfg.type
-        self._detector_model_path = cfg.model_path or ""
-        self._detector_model_input_size = tuple(cfg.model_input_size)
-        self._detector_model_conf_threshold = float(cfg.model_conf_threshold)
-        self._detector_model_class_id = int(cfg.model_class_id)
-        self._detector_model_format = cfg.model_format
-        self._mode_combo.setCurrentText(cfg.mode)
-        self._frame_diff.setValue(cfg.frame_diff_threshold)
-        self._bg_diff.setValue(cfg.bg_diff_threshold)
-        self._bg_alpha.setValue(cfg.bg_alpha)
-        self._edge_thresh.setValue(cfg.edge_threshold)
-        self._blob_thresh.setValue(cfg.blob_threshold)
-        self._min_area.setValue(cfg.filters.min_area)
-        self._min_circ.setValue(cfg.filters.min_circularity)
+        self._settings_manager.load_detector_defaults()
 
     def _apply_detector_config(self) -> None:
-        cfg = self._config.detector
-        if self._detector_type == "ml" and not self._detector_model_path:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Detector Settings",
-                "Select an ONNX model path before enabling ML detection.",
-            )
-            return
-        filter_cfg = FilterConfig(
-            min_area=self._min_area.value(),
-            max_area=cfg.filters.max_area,
-            min_circularity=self._min_circ.value(),
-            max_circularity=cfg.filters.max_circularity,
-            min_velocity=cfg.filters.min_velocity,
-            max_velocity=cfg.filters.max_velocity,
-        )
-        detector_cfg = CvDetectorConfig(
-            frame_diff_threshold=self._frame_diff.value(),
-            bg_diff_threshold=self._bg_diff.value(),
-            bg_alpha=self._bg_alpha.value(),
-            edge_threshold=self._edge_thresh.value(),
-            blob_threshold=self._blob_thresh.value(),
-            runtime_budget_ms=cfg.runtime_budget_ms,
-            min_consecutive=cfg.min_consecutive,
-            filters=filter_cfg,
-        )
-        mode = Mode(self._mode_combo.currentText())
+        self._settings_manager.apply_detector_config()
+
+    def _apply_detector_to_service(
+        self, detector_cfg: CvDetectorConfig, mode: Mode, ml_settings: dict
+    ) -> None:
+        """Apply detector config to service (helper for SettingsManager)."""
         self._service.set_detector_config(
             detector_cfg,
             mode,
-            detector_type=self._detector_type,
-            model_path=self._detector_model_path or None,
-            model_input_size=self._detector_model_input_size,
-            model_conf_threshold=self._detector_model_conf_threshold,
-            model_class_id=self._detector_model_class_id,
-            model_format=self._detector_model_format,
+            detector_type=ml_settings["detector_type"],
+            model_path=ml_settings["model_path"],
+            model_input_size=ml_settings["model_input_size"],
+            model_conf_threshold=ml_settings["model_conf_threshold"],
+            model_class_id=ml_settings["model_class_id"],
+            model_format=ml_settings["model_format"],
         )
         self._service.set_detection_threading(
-            self._detection_threading, self._detection_workers
+            ml_settings["threading_mode"], ml_settings["worker_count"]
         )
-        self._status_label.setText("Detector settings applied.")
 
     def _set_ball_type(self, ball_type: str) -> None:
-        self._service.set_ball_type(ball_type)
+        self._settings_manager.set_ball_type(ball_type)
 
     def _set_batter_height(self, value: float) -> None:
-        self._service.set_batter_height_in(value)
-        self._update_plate_map_zone()
+        self._settings_manager.set_batter_height(value)
 
     def _set_strike_ratios(self) -> None:
-        self._service.set_strike_zone_ratios(
-            self._top_ratio.value(),
-            self._bottom_ratio.value(),
-        )
-        self._update_plate_map_zone()
+        self._settings_manager.set_strike_ratios()
 
     def _save_strike_zone(self) -> None:
-        config_path = self._config_path()
-        data = yaml.safe_load(config_path.read_text())
-        data.setdefault("strike_zone", {})
-        data["strike_zone"]["batter_height_in"] = float(self._batter_height.value())
-        data["strike_zone"]["top_ratio"] = float(self._top_ratio.value())
-        data["strike_zone"]["bottom_ratio"] = float(self._bottom_ratio.value())
-        data.setdefault("ball", {})
-        data["ball"]["type"] = self._ball_combo.currentText()
-        config_path.write_text(yaml.safe_dump(data, sort_keys=False))
-        self._status_label.setText("Strike zone saved.")
-        self._update_plate_map_zone()
+        self._settings_manager.save_strike_zone()
 
     def _health_ok(self) -> bool:
         stats = self._service.get_stats()
@@ -1353,59 +1335,45 @@ class MainWindow(QtWidgets.QMainWindow):
             self._set_manual_speed(speed)
 
     def _open_strike_settings(self) -> None:
+        values = self._settings_manager.get_strike_dialog_values()
         dialog = StrikeZoneSettingsDialog(
             self,
-            ball_type=self._ball_combo.currentText(),
-            batter_height=self._batter_height.value(),
-            top_ratio=self._top_ratio.value(),
-            bottom_ratio=self._bottom_ratio.value(),
+            ball_type=values["ball_type"],
+            batter_height=values["batter_height"],
+            top_ratio=values["top_ratio"],
+            bottom_ratio=values["bottom_ratio"],
         )
         if dialog.exec() == QtWidgets.QDialog.Accepted:
             ball_type, height, top_ratio, bottom_ratio = dialog.values()
-            self._ball_combo.setCurrentText(ball_type)
-            self._batter_height.setValue(height)
-            self._top_ratio.setValue(top_ratio)
-            self._bottom_ratio.setValue(bottom_ratio)
+            self._settings_manager.update_strike_settings(
+                ball_type, height, top_ratio, bottom_ratio
+            )
             self._save_strike_zone()
 
     def _open_detector_settings(self) -> None:
+        values = self._settings_manager.get_detector_dialog_values()
         dialog = DetectorSettingsDialog(
             self,
-            mode=self._mode_combo.currentText(),
-            frame_diff=self._frame_diff.value(),
-            bg_diff=self._bg_diff.value(),
-            bg_alpha=self._bg_alpha.value(),
-            edge_thresh=self._edge_thresh.value(),
-            blob_thresh=self._blob_thresh.value(),
-            min_area=self._min_area.value(),
-            min_circ=self._min_circ.value(),
-            threading_mode=self._detection_threading,
-            worker_count=self._detection_workers,
-            detector_type=self._detector_type,
-            model_path=self._detector_model_path,
-            model_input_size=self._detector_model_input_size,
-            model_conf_threshold=self._detector_model_conf_threshold,
-            model_class_id=self._detector_model_class_id,
-            model_format=self._detector_model_format,
+            mode=values["mode"],
+            frame_diff=values["frame_diff"],
+            bg_diff=values["bg_diff"],
+            bg_alpha=values["bg_alpha"],
+            edge_thresh=values["edge_thresh"],
+            blob_thresh=values["blob_thresh"],
+            min_area=values["min_area"],
+            min_circ=values["min_circ"],
+            threading_mode=values["threading_mode"],
+            worker_count=values["worker_count"],
+            detector_type=values["detector_type"],
+            model_path=values["model_path"],
+            model_input_size=values["model_input_size"],
+            model_conf_threshold=values["model_conf_threshold"],
+            model_class_id=values["model_class_id"],
+            model_format=values["model_format"],
         )
         if dialog.exec() == QtWidgets.QDialog.Accepted:
             values = dialog.values()
-            self._mode_combo.setCurrentText(values["mode"])
-            self._frame_diff.setValue(values["frame_diff"])
-            self._bg_diff.setValue(values["bg_diff"])
-            self._bg_alpha.setValue(values["bg_alpha"])
-            self._edge_thresh.setValue(values["edge_thresh"])
-            self._blob_thresh.setValue(values["blob_thresh"])
-            self._min_area.setValue(values["min_area"])
-            self._min_circ.setValue(values["min_circ"])
-            self._detection_threading = values["threading_mode"]
-            self._detection_workers = values["worker_count"]
-            self._detector_type = values["detector_type"]
-            self._detector_model_path = values["model_path"]
-            self._detector_model_input_size = values["model_input_size"]
-            self._detector_model_conf_threshold = values["model_conf_threshold"]
-            self._detector_model_class_id = values["model_class_id"]
-            self._detector_model_format = values["model_format"]
+            self._settings_manager.update_detector_settings(values)
             self._apply_detector_config()
 
     def _show_keyboard_shortcuts(self) -> None:
