@@ -27,9 +27,7 @@ from contracts import Frame, StereoObservation
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 from detect.classical_detector import ClassicalDetector
 from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig, Mode
-from detect.fiducials import FiducialDetection, detect_apriltags
 from detect.lane import LaneRoi
-from detect.utils import compute_focus_score
 from metrics.strike_zone import build_strike_zone
 from exceptions import ConfigValidationError
 from ui.device_utils import current_serial, probe_opencv_indices, probe_uvc_devices
@@ -56,8 +54,10 @@ from ui.geometry import (
 from ui.widgets import PlateMapWidget, RoiLabel
 from ui.controllers import (
     CalibrationManager,
+    CalibrationOverlayController,
     CaptureController,
     ExportManager,
+    FocusMonitorController,
     GameVisualizer,
     ProfileManager,
     RecordingController,
@@ -111,18 +111,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # Note: ROI state now managed by RoiManager
         # Note: Replay state now managed by ReplayController
         # Note: _pitcher_name and _location_profile now managed by ProfileManager
-        self._show_target_overlay = False
-        self._target_found = False
-        self._target_corners: Optional[list[tuple[float, float]]] = None
-        self._target_stride = 5
-        self._target_frame_index = 0
-        self._target_pattern = (9, 6)
-        self._show_fiducials = False
-        self._fiducial_detections: list[FiducialDetection] = []
-        self._fiducial_error: Optional[str] = None
-        self._fiducial_stride = 5
-        self._fiducial_frame_index = 0
-        self._fiducial_ids = {"plate": 0, "rubber": 1}
+        # Note: Target/fiducial overlay state now managed by CalibrationOverlayController
+        # Note: Focus peak tracking now managed by FocusMonitorController
 
         self._left_input = QtWidgets.QComboBox()
         self._right_input = QtWidgets.QComboBox()
@@ -218,8 +208,18 @@ class MainWindow(QtWidgets.QMainWindow):
             "QLabel { background-color: white; color: black; padding: 4px; "
             "border: 1px solid #ccc; font-weight: bold; }"
         )
-        self._focus_peak_left = 0.0
-        self._focus_peak_right = 0.0
+
+        # Initialize focus monitor and calibration overlay controllers
+        self._focus_monitor = FocusMonitorController(
+            focus_left_label=self._focus_left,
+            focus_right_label=self._focus_right,
+        )
+        self._calibration_overlay = CalibrationOverlayController(
+            target_pattern=(9, 6),
+            target_stride=5,
+            fiducial_stride=5,
+            fiducial_ids={"plate": 0, "rubber": 1},
+        )
 
         self._left_view = RoiLabel(self._on_rect_update)
         self._right_view = RoiLabel(self._on_right_rect_update)
@@ -663,68 +663,50 @@ class MainWindow(QtWidgets.QMainWindow):
         if self._replay_controller.is_active:
             self._update_replay()
             return
+
+        # Get frames from service
         try:
             left_frame, right_frame = self._service.get_preview_frames()
         except RuntimeError as exc:
             self._status_label.setText(str(exc))
             return
+
         self._left_view.set_image_size(left_frame.width, left_frame.height)
+
+        # Get ROI overlays
         lane_rect = self._roi_manager.lane_rect
         plate_rect = self._roi_manager.plate_rect
         active_rect = self._roi_manager.active_rect
         overlays_left = roi_overlays(lane_rect, plate_rect, active_rect)
         lane_right = self._roi_manager.lane_rect_right or lane_rect
         overlays_right = roi_overlays(lane_right, plate_rect, active_rect)
+
+        # Get detections
         detections = self._service.get_latest_detections()
         gated = self._service.get_latest_gated_detections()
         left_dets = detections.get(left_frame.camera_id, [])
         right_dets = detections.get(right_frame.camera_id, [])
         left_gated = gated.get(left_frame.camera_id, {})
         right_gated = gated.get(right_frame.camera_id, {})
+
+        # Get strike zone result
         strike = self._service.get_strike_result()
         zone = None
         if strike.zone_row is not None and strike.zone_col is not None:
             zone = (strike.zone_row, strike.zone_col)
-        checkerboard = None
-        if self._show_target_overlay:
-            self._target_frame_index += 1
-            if self._target_frame_index % self._target_stride == 0:
-                gray = (
-                    left_frame.image
-                    if left_frame.image.ndim == 2
-                    else cv2.cvtColor(left_frame.image, cv2.COLOR_BGR2GRAY)
-                )
-                found, corners = cv2.findChessboardCorners(gray, self._target_pattern)
-                self._target_found = bool(found)
-                if found and corners is not None:
-                    self._target_corners = [
-                        (float(pt[0][0]), float(pt[0][1])) for pt in corners
-                    ]
-                else:
-                    self._target_corners = None
-            checkerboard = self._target_corners
-        fiducials = None
-        if self._show_fiducials:
-            self._fiducial_frame_index += 1
-            if self._fiducial_frame_index % self._fiducial_stride == 0:
-                gray = (
-                    left_frame.image
-                    if left_frame.image.ndim == 2
-                    else cv2.cvtColor(left_frame.image, cv2.COLOR_BGR2GRAY)
-                )
-                detections, error = detect_apriltags(gray)
-                self._fiducial_detections = detections
-                self._fiducial_error = error
-            fiducials = self._fiducial_detections
 
-        # Compute focus scores for both cameras (will be used in health panel and overlay)
-        focus_left = compute_focus_score(left_frame.image)
-        focus_right = compute_focus_score(right_frame.image)
+        # Process calibration overlays (checkerboard and fiducials)
+        checkerboard, fiducials = self._calibration_overlay.process_frame(left_frame.image)
 
-        # Show focus overlay when target overlay is active (during calibration)
-        focus_overlay_left = focus_left if self._show_target_overlay else None
-        focus_overlay_right = focus_right if self._show_target_overlay else None
+        # Compute focus scores and get overlay values
+        focus_left, focus_right = self._focus_monitor.compute_scores(
+            left_frame.image, right_frame.image
+        )
+        focus_overlay_left, focus_overlay_right = self._focus_monitor.get_overlay_scores(
+            self._calibration_overlay.show_target
+        )
 
+        # Render left view
         self._left_view.setPixmap(
             frame_to_pixmap(
                 left_frame.image,
@@ -739,6 +721,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 focus_score=focus_overlay_left,
             )
         )
+
+        # Render right view if visible
         if self._right_view.isVisible():
             self._right_view.setPixmap(
                 frame_to_pixmap(
@@ -752,12 +736,18 @@ class MainWindow(QtWidgets.QMainWindow):
                     focus_score=focus_overlay_right,
                 )
             )
+
+        # Update plate map
         self._update_plate_map()
+
+        # Update health stats
         stats = self._service.get_stats()
         plate_metrics = self._service.get_plate_metrics()
         if stats:
             left_stats = stats.get("left", {})
             right_stats = stats.get("right", {})
+
+            # Update health labels
             self._health_left.setText(
                 "L: fps={:.1f} jitter={:.1f}ms drops={}".format(
                     left_stats.get("fps_avg", 0.0),
@@ -773,35 +763,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
             )
 
-            # Update focus quality tracking (scores already computed above)
-            # Track peak values
-            if focus_left > self._focus_peak_left:
-                self._focus_peak_left = focus_left
-            if focus_right > self._focus_peak_right:
-                self._focus_peak_right = focus_right
+            # Update focus display via controller
+            self._focus_monitor.update_display(focus_left, focus_right)
 
-            # Color code based on focus quality (empirical thresholds)
-            # Good: >200 (green), Fair: 100-200 (yellow), Poor: <100 (red)
-            def focus_color(score: float) -> str:
-                if score >= 200:
-                    return "#2ecc71"  # Green
-                elif score >= 100:
-                    return "#f39c12"  # Yellow/Orange
-                else:
-                    return "#e74c3c"  # Red
-
-            self._focus_left.setText(f"L Focus: {focus_left:.0f} (peak: {self._focus_peak_left:.0f})")
-            self._focus_left.setStyleSheet(
-                f"QLabel {{ background-color: {focus_color(focus_left)}; color: white; "
-                f"padding: 4px; border: 1px solid #ccc; font-weight: bold; }}"
-            )
-
-            self._focus_right.setText(f"R Focus: {focus_right:.0f} (peak: {self._focus_peak_right:.0f})")
-            self._focus_right.setStyleSheet(
-                f"QLabel {{ background-color: {focus_color(focus_right)}; color: white; "
-                f"padding: 4px; border: 1px solid #ccc; font-weight: bold; }}"
-            )
-
+            # Update status label
             zone_label = "-"
             if strike.zone_row is not None and strike.zone_col is not None:
                 zone_label = f"{strike.zone_row},{strike.zone_col}"
@@ -904,12 +869,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._roi_manager.clear_plate()
 
     def _reset_focus_peaks(self) -> None:
-        """Reset focus quality peak tracking.
-
-        Useful when adjusting lens focus - reset to start tracking from scratch.
-        """
-        self._focus_peak_left = 0.0
-        self._focus_peak_right = 0.0
+        """Reset focus quality peak tracking."""
+        self._focus_monitor.reset_peaks()
         self._status_label.setText("Focus peak values reset. Adjust lenses and watch for green.")
 
     def _save_rois(self) -> None:
@@ -1334,14 +1295,10 @@ class MainWindow(QtWidgets.QMainWindow):
         QtWidgets.QMessageBox.about(self, "About PitchTracker", about_text)
 
     def _set_target_overlay(self, enabled: bool) -> None:
-        self._show_target_overlay = enabled
-        self._target_found = False
-        self._target_corners = None
+        self._calibration_overlay.set_target_overlay(enabled)
 
     def _set_fiducial_overlay(self, enabled: bool) -> None:
-        self._show_fiducials = enabled
-        self._fiducial_detections = []
-        self._fiducial_error = None
+        self._calibration_overlay.set_fiducial_overlay(enabled)
 
     def _propose_right_lane(self) -> None:
         lane_rect = self._roi_manager.lane_rect
