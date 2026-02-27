@@ -30,7 +30,6 @@ from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig, Mode
 from detect.lane import LaneRoi
 from metrics.strike_zone import build_strike_zone
 from exceptions import ConfigValidationError
-from ui.device_utils import current_serial, probe_opencv_indices, probe_uvc_devices
 from ui.dialogs import (
     CalibrationGuide,
     CalibrationWizardDialog,
@@ -56,6 +55,7 @@ from ui.controllers import (
     CalibrationManager,
     CalibrationOverlayController,
     CaptureController,
+    DeviceManager,
     ExportManager,
     FocusMonitorController,
     GameVisualizer,
@@ -397,6 +397,12 @@ class MainWindow(QtWidgets.QMainWindow):
             on_profile_loaded=lambda name: self._enter_app(),
             on_rois_changed=lambda: self._load_rois(),
         )
+        self._device_manager = DeviceManager(
+            left_input=self._left_input,
+            right_input=self._right_input,
+            status_label=self._status_label,
+            get_backend=lambda: self._service._backend,
+        )
         self._calibration_manager = CalibrationManager(
             parent=self,
             config_path=self._config_path(),
@@ -421,8 +427,8 @@ class MainWindow(QtWidgets.QMainWindow):
             right_view=self._right_view,
             status_label=self._status_label,
             get_camera_serials=lambda: (
-                current_serial(self._left_input),
-                current_serial(self._right_input),
+                self._device_manager.get_left_serial(),
+                self._device_manager.get_right_serial(),
             ),
         )
         self._replay_controller = ReplayController(
@@ -491,8 +497,8 @@ class MainWindow(QtWidgets.QMainWindow):
             status_label=self._status_label,
             get_config=lambda: self._config,
             get_config_path=self._config_path,
-            get_left_serial=lambda: current_serial(self._left_input),
-            get_right_serial=lambda: current_serial(self._right_input),
+            get_left_serial=lambda: self._device_manager.get_left_serial(),
+            get_right_serial=lambda: self._device_manager.get_right_serial(),
             get_roi_path=lambda: self._roi_path,
             get_lane_path=lambda: self._lane_path,
             start_timer=lambda ms: self._timer.start(ms),
@@ -799,59 +805,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._replay_controller.step_frame()
 
     def _refresh_devices(self) -> None:
-        from ui.device_utils import is_arducam_device
-
-        self._left_input.clear()
-        self._right_input.clear()
-
-        if self._service._backend == "uvc":
-            devices = probe_uvc_devices()  # Already sorted with ArduCam first
-            arducam_count = sum(1 for d in devices if is_arducam_device(d.get('friendly_name', '')))
-
-            for device in devices:
-                label = f"{device['serial']} - {device['friendly_name']}"
-                self._left_input.addItem(label, device["serial"])
-                self._right_input.addItem(label, device["serial"])
-            if devices:
-                status = f"Found {len(devices)} usable device(s)"
-                if arducam_count > 0:
-                    status += f" ({arducam_count} ArduCam)"
-                self._status_label.setText(status + ".")
-                if len(devices) >= 2:
-                    self._left_input.setCurrentIndex(0)
-                    self._right_input.setCurrentIndex(1)
-            else:
-                self._status_label.setText("No UVC devices found.")
-            return
-
-        # OpenCV backend - get friendly names to identify ArduCam devices
-        uvc_devices = probe_uvc_devices()
-        uvc_by_index = {i: dev for i, dev in enumerate(uvc_devices)}
-        indices = probe_opencv_indices()
-        arducam_count = 0
-
-        for index in indices:
-            # Get friendly name if available
-            friendly_name = ""
-            if index in uvc_by_index:
-                friendly_name = uvc_by_index[index].get('friendly_name', '')
-                if is_arducam_device(friendly_name):
-                    arducam_count += 1
-
-            label = f"{friendly_name}" if friendly_name else f"Index {index}"
-            self._left_input.addItem(label, str(index))
-            self._right_input.addItem(label, str(index))
-
-        if indices:
-            status = f"Found {len(indices)} camera index(es)"
-            if arducam_count > 0:
-                status += f" ({arducam_count} ArduCam)"
-            self._status_label.setText(status + ".")
-            if len(indices) >= 2:
-                self._left_input.setCurrentIndex(0)
-                self._right_input.setCurrentIndex(1)
-        else:
-            self._status_label.setText("No OpenCV camera indices available.")
+        self._device_manager.refresh_devices()
 
     def _set_roi_mode(self, mode: str) -> None:
         self._roi_manager.set_roi_mode(mode)
@@ -1333,8 +1287,8 @@ class MainWindow(QtWidgets.QMainWindow):
         shift = 0.0
         try:
             detections = self._service.get_latest_detections()
-            left_id = current_serial(self._left_input)
-            right_id = current_serial(self._right_input)
+            left_id = self._device_manager.get_left_serial()
+            right_id = self._device_manager.get_right_serial()
             left_dets = detections.get(left_id, [])
             right_dets = detections.get(right_id, [])
             if left_dets and right_dets:

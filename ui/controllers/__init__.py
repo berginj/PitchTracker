@@ -3,6 +3,7 @@
 from .calibration_manager import CalibrationManager
 from .calibration_overlay import CalibrationOverlayController
 from .capture_controller import CaptureController
+from .device_manager import DeviceManager
 from .export_manager import ExportManager
 from .focus_monitor import FocusMonitorController
 from .game_visualizer import GameVisualizer
@@ -16,6 +17,7 @@ __all__ = [
     "CalibrationManager",
     "CalibrationOverlayController",
     "CaptureController",
+    "DeviceManager",
     "ExportManager",
     "FocusMonitorController",
     "GameVisualizer",
