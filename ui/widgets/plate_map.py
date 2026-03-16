@@ -10,6 +10,11 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from contracts import StereoObservation
 from metrics.strike_zone import StrikeZone
 
+# Theme-compatible colors (dark glass theme)
+_BG_COLOR = QtGui.QColor(10, 14, 20)  # Matches theme background_dark
+_ZONE_BORDER_COLOR = QtGui.QColor(100, 200, 255, 200)  # Accent primary
+_GRID_COLOR = QtGui.QColor(100, 200, 255, 80)  # Accent primary, muted
+
 
 @dataclass(frozen=True)
 class PitchTrail:
@@ -67,7 +72,7 @@ class PlateMapWidget(QtWidgets.QWidget):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
         rect = self.rect()
-        painter.fillRect(rect, QtGui.QColor(12, 15, 18))
+        painter.fillRect(rect, _BG_COLOR)
 
         if self._zone is None:
             painter.end()
@@ -124,12 +129,12 @@ def _zone_width_ft(zone: StrikeZone) -> float:
 
 
 def _draw_zone(painter: QtGui.QPainter, zone_rect: QtCore.QRectF) -> None:
-    painter.setPen(QtGui.QPen(QtGui.QColor(220, 230, 240), 2))
+    painter.setPen(QtGui.QPen(_ZONE_BORDER_COLOR, 2))
     painter.drawRoundedRect(zone_rect, 6, 6)
 
 
 def _draw_grid(painter: QtGui.QPainter, zone_rect: QtCore.QRectF) -> None:
-    pen = QtGui.QPen(QtGui.QColor(110, 130, 150), 1, QtCore.Qt.DashLine)
+    pen = QtGui.QPen(_GRID_COLOR, 1, QtCore.Qt.DashLine)
     painter.setPen(pen)
     third_w = zone_rect.width() / 3.0
     third_h = zone_rect.height() / 3.0

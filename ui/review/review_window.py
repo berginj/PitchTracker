@@ -46,6 +46,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._playback_timer = QtCore.QTimer()
         self._playback_timer.timeout.connect(self._on_playback_tick)
         self._is_playing = False
+        self._loop_enabled = False
 
         # Session navigation
         self._session_list: list[Path] = []
@@ -247,6 +248,9 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._controls.seek_start_clicked.connect(self._seek_to_start)
         self._controls.seek_end_clicked.connect(self._seek_to_end)
         self._controls.speed_changed.connect(self._on_speed_changed)
+        self._controls.loop_toggled.connect(self._on_loop_toggled)
+        self._controls.prev_pitch_clicked.connect(self._prev_pitch)
+        self._controls.next_pitch_clicked.connect(self._next_pitch)
 
         # Layout
         layout = QtWidgets.QVBoxLayout()
@@ -584,9 +588,16 @@ class ReviewWindow(QtWidgets.QMainWindow):
         # Advance to next frame
         if not self._service.step_forward():
             # Reached end of video
-            self._toggle_playback()  # Stop
-            self._status_bar.showMessage("Reached end of video")
-            return
+            if self._loop_enabled:
+                # Loop back to start
+                self._service.seek_to_start()
+                self._update_video_displays()
+                self._timeline.set_current_frame(0)
+                return
+            else:
+                self._toggle_playback()  # Stop
+                self._status_bar.showMessage("Reached end of video")
+                return
 
         # Update displays
         self._update_video_displays()
@@ -667,6 +678,71 @@ class ReviewWindow(QtWidgets.QMainWindow):
             self._playback_timer.start(interval_ms)
 
         self._status_bar.showMessage(f"Playback speed: {speed:.1f}x")
+
+    def _on_loop_toggled(self, enabled: bool) -> None:
+        """Handle loop mode toggle.
+
+        Args:
+            enabled: True if loop mode is enabled
+        """
+        self._loop_enabled = enabled
+        mode_str = "ON" if enabled else "OFF"
+        self._status_bar.showMessage(f"Loop mode: {mode_str}")
+        logger.info(f"Loop mode: {mode_str}")
+
+    def _prev_pitch(self) -> None:
+        """Navigate to previous pitch in session."""
+        if not self._service.session:
+            return
+
+        pitches = self._service.session.pitches
+        if not pitches:
+            return
+
+        # Find current pitch based on frame index
+        current_frame = self._service.current_frame_index
+        current_pitch_idx = -1
+
+        for i, pitch in enumerate(pitches):
+            # Get pitch start frame from timestamp
+            pitch_start_frame = self._service.get_frame_for_timestamp(pitch.t_start_ns)
+            if pitch_start_frame is not None and pitch_start_frame <= current_frame:
+                current_pitch_idx = i
+
+        # Go to previous pitch
+        target_idx = max(0, current_pitch_idx - 1)
+        if target_idx < len(pitches):
+            self._service.seek_to_pitch(target_idx)
+            self._update_video_displays()
+            self._timeline.set_current_frame(self._service.current_frame_index)
+            self._status_bar.showMessage(f"Jumped to pitch {target_idx + 1}/{len(pitches)}")
+
+    def _next_pitch(self) -> None:
+        """Navigate to next pitch in session."""
+        if not self._service.session:
+            return
+
+        pitches = self._service.session.pitches
+        if not pitches:
+            return
+
+        # Find current pitch based on frame index
+        current_frame = self._service.current_frame_index
+        current_pitch_idx = -1
+
+        for i, pitch in enumerate(pitches):
+            # Get pitch start frame from timestamp
+            pitch_start_frame = self._service.get_frame_for_timestamp(pitch.t_start_ns)
+            if pitch_start_frame is not None and pitch_start_frame <= current_frame:
+                current_pitch_idx = i
+
+        # Go to next pitch
+        target_idx = min(len(pitches) - 1, current_pitch_idx + 1)
+        if target_idx >= 0:
+            self._service.seek_to_pitch(target_idx)
+            self._update_video_displays()
+            self._timeline.set_current_frame(self._service.current_frame_index)
+            self._status_bar.showMessage(f"Jumped to pitch {target_idx + 1}/{len(pitches)}")
 
     def _on_pitch_selected(self, pitch_index: int) -> None:
         """Handle pitch selection from list.

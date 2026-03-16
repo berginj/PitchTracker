@@ -14,7 +14,9 @@ class PlaybackControls(QtWidgets.QWidget):
     - Play/Pause
     - Step forward/backward
     - Seek to start/end
-    - Playback speed adjustment
+    - Playback speed adjustment (0.1x to 2.0x)
+    - Loop mode for continuous playback
+    - Previous/Next pitch navigation
 
     Signals:
         play_pause_clicked: Emitted when play/pause button clicked
@@ -23,6 +25,9 @@ class PlaybackControls(QtWidgets.QWidget):
         seek_start_clicked: Emitted when seek to start clicked
         seek_end_clicked: Emitted when seek to end clicked
         speed_changed: Emitted when playback speed changes (float)
+        loop_toggled: Emitted when loop mode is toggled (bool)
+        prev_pitch_clicked: Emitted when previous pitch button clicked
+        next_pitch_clicked: Emitted when next pitch button clicked
     """
 
     # Signals
@@ -32,6 +37,9 @@ class PlaybackControls(QtWidgets.QWidget):
     seek_start_clicked = QtCore.Signal()
     seek_end_clicked = QtCore.Signal()
     speed_changed = QtCore.Signal(float)
+    loop_toggled = QtCore.Signal(bool)
+    prev_pitch_clicked = QtCore.Signal()
+    next_pitch_clicked = QtCore.Signal()
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
         """Initialize playback controls.
@@ -42,6 +50,7 @@ class PlaybackControls(QtWidgets.QWidget):
         super().__init__(parent)
 
         self._is_playing = False
+        self._is_looping = False
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -91,16 +100,45 @@ class PlaybackControls(QtWidgets.QWidget):
         self._speed_combo.setCurrentIndex(3)  # Default to 1.0x
         self._speed_combo.currentIndexChanged.connect(self._on_speed_changed)
 
-        # Layout
-        layout = QtWidgets.QHBoxLayout()
-        layout.addWidget(self._seek_start_btn)
-        layout.addWidget(self._step_back_btn)
-        layout.addWidget(self._play_pause_btn, 1)  # Play button takes more space
-        layout.addWidget(self._step_forward_btn)
-        layout.addWidget(self._seek_end_btn)
-        layout.addStretch()
-        layout.addWidget(speed_label)
-        layout.addWidget(self._speed_combo)
+        # Loop mode toggle
+        self._loop_btn = QtWidgets.QPushButton("Loop")
+        self._loop_btn.setToolTip("Toggle loop mode (L)")
+        self._loop_btn.setCheckable(True)
+        self._loop_btn.clicked.connect(self._on_loop_toggled)
+        self._loop_btn.setMinimumHeight(32)
+
+        # Pitch navigation
+        self._prev_pitch_btn = QtWidgets.QPushButton("◀ Prev Pitch")
+        self._prev_pitch_btn.setToolTip("Jump to previous pitch (PgUp)")
+        self._prev_pitch_btn.clicked.connect(self.prev_pitch_clicked.emit)
+        self._prev_pitch_btn.setMinimumHeight(32)
+
+        self._next_pitch_btn = QtWidgets.QPushButton("Next Pitch ▶")
+        self._next_pitch_btn.setToolTip("Jump to next pitch (PgDown)")
+        self._next_pitch_btn.clicked.connect(self.next_pitch_clicked.emit)
+        self._next_pitch_btn.setMinimumHeight(32)
+
+        # Top row: Frame controls
+        frame_layout = QtWidgets.QHBoxLayout()
+        frame_layout.addWidget(self._seek_start_btn)
+        frame_layout.addWidget(self._step_back_btn)
+        frame_layout.addWidget(self._play_pause_btn, 1)  # Play button takes more space
+        frame_layout.addWidget(self._step_forward_btn)
+        frame_layout.addWidget(self._seek_end_btn)
+
+        # Bottom row: Speed, loop, and pitch navigation
+        options_layout = QtWidgets.QHBoxLayout()
+        options_layout.addWidget(self._prev_pitch_btn)
+        options_layout.addWidget(self._next_pitch_btn)
+        options_layout.addStretch()
+        options_layout.addWidget(self._loop_btn)
+        options_layout.addWidget(speed_label)
+        options_layout.addWidget(self._speed_combo)
+
+        # Main layout
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(frame_layout)
+        layout.addLayout(options_layout)
 
         self.setLayout(layout)
 
@@ -131,3 +169,46 @@ class PlaybackControls(QtWidgets.QWidget):
         """
         speed = self._speed_combo.itemData(index)
         self.speed_changed.emit(speed)
+
+    def _on_loop_toggled(self, checked: bool) -> None:
+        """Handle loop mode toggle.
+
+        Args:
+            checked: True if loop mode is enabled
+        """
+        self._is_looping = checked
+        if checked:
+            self._loop_btn.setStyleSheet(
+                "background-color: #2196F3; color: white; font-weight: bold;"
+            )
+        else:
+            self._loop_btn.setStyleSheet("")
+        self.loop_toggled.emit(checked)
+
+    def is_looping(self) -> bool:
+        """Check if loop mode is enabled.
+
+        Returns:
+            True if loop mode is on
+        """
+        return self._is_looping
+
+    def set_looping(self, looping: bool) -> None:
+        """Set loop mode state.
+
+        Args:
+            looping: True to enable loop mode
+        """
+        self._loop_btn.setChecked(looping)
+        self._on_loop_toggled(looping)
+
+    def set_speed(self, speed: float) -> None:
+        """Set playback speed.
+
+        Args:
+            speed: Speed multiplier (0.1-2.0)
+        """
+        for i in range(self._speed_combo.count()):
+            if self._speed_combo.itemData(i) == speed:
+                self._speed_combo.setCurrentIndex(i)
+                return

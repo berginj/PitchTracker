@@ -18,6 +18,7 @@ os.environ['NUMEXPR_NUM_THREADS'] = str(os.cpu_count() or 4)  # NumExpr threads
 from PySide6 import QtWidgets
 
 from ui.main_window import MainWindow
+from ui.themes import get_style_manager
 
 
 def parse_args() -> argparse.Namespace:
@@ -56,6 +57,11 @@ def main() -> None:
     """Main entry point for PitchTracker Qt application."""
     args = parse_args()
     app = QtWidgets.QApplication([])
+
+    # Apply glass theme to entire application
+    style_manager = get_style_manager()
+    style_manager.apply_to_app(app)
+
     config_path = _select_config_path(args.config)
     window = MainWindow(backend=args.backend, config_path=config_path)
     window.resize(1280, 720)

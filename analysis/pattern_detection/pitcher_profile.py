@@ -27,7 +27,14 @@ class ProfileMetrics:
 
 @dataclass
 class PitcherProfile:
-    """Pitcher baseline profile for comparison."""
+    """Pitcher baseline profile for comparison.
+
+    Extended fields support multi-pitcher management with:
+    - Personal info (photo, handedness, position, age, team)
+    - Per-pitch-type velocity baselines
+    - Release point tracking
+    - Session history linking
+    """
 
     pitcher_id: str
     created_utc: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
@@ -35,9 +42,29 @@ class PitcherProfile:
     sessions_analyzed: int = 0
     total_pitches: int = 0
 
+    # Personal info
+    display_name: Optional[str] = None  # Friendly display name
+    photo_path: Optional[str] = None  # Path to profile photo
+    handedness: str = "R"  # "R" or "L"
+    position: str = "SP"  # "SP" (starter), "RP" (reliever), "CP" (closer)
+    age: Optional[int] = None
+    team: Optional[str] = None
+    jersey_number: Optional[str] = None
+
+    # Baseline metrics
     baseline_metrics: Optional[ProfileMetrics] = None
     pitch_repertoire: Dict[str, float] = field(default_factory=dict)  # pitch_type -> percentage
     known_anomalies: List[Dict] = field(default_factory=list)
+
+    # Extended velocity tracking (per pitch type)
+    velocity_by_pitch_type: Dict[str, Dict[str, float]] = field(default_factory=dict)
+
+    # Release point tracking
+    typical_release_point_ft: Optional[List[float]] = None  # [x, y, z] in feet
+
+    # Session history
+    session_ids: List[str] = field(default_factory=list)
+    last_session_date: Optional[str] = None
 
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON serialization."""

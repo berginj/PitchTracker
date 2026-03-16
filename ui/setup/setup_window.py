@@ -16,6 +16,7 @@ from ui.setup.steps import (
     RoiStep,
     ValidationStep,
 )
+from ui.themes import get_style_manager, GlassButton
 
 
 class SetupWindow(QtWidgets.QMainWindow):
@@ -34,6 +35,10 @@ class SetupWindow(QtWidgets.QMainWindow):
         super().__init__(parent)
         self.setWindowTitle("PitchTracker Setup & Calibration")
         self.resize(1200, 800)
+
+        # Switch to setup mode for bolder glass styling
+        self._style_manager = get_style_manager()
+        self._style_manager.set_mode("setup")
 
         self._backend = backend
         self._current_step_index = 0
@@ -103,19 +108,16 @@ class SetupWindow(QtWidgets.QMainWindow):
         ]
 
         indicator_layout = QtWidgets.QHBoxLayout()
+        indicator_layout.setSpacing(8)
 
         self._step_labels: List[QtWidgets.QLabel] = []
         for i, name in enumerate(step_names):
             label = QtWidgets.QLabel(name)
             label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-            label.setFrameStyle(QtWidgets.QFrame.Shape.Box | QtWidgets.QFrame.Shadow.Plain)
             label.setMinimumHeight(40)
 
-            # Style current step
-            if i == 0:
-                label.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
-            else:
-                label.setStyleSheet("background-color: #f0f0f0; color: #666;")
+            # Apply glass theme styles
+            self._apply_step_style(label, i, i == 0)
 
             self._step_labels.append(label)
             indicator_layout.addWidget(label)
@@ -124,22 +126,56 @@ class SetupWindow(QtWidgets.QMainWindow):
         indicator_widget.setLayout(indicator_layout)
         return indicator_widget
 
+    def _apply_step_style(self, label: QtWidgets.QLabel, index: int, is_current: bool, is_complete: bool = False) -> None:
+        """Apply glass-themed style to step indicator label."""
+        theme = self._style_manager.theme
+
+        if is_current:
+            # Current step - accent color
+            label.setStyleSheet(f"""
+                background-color: {theme.accent_success_dim};
+                border: 1px solid {theme.accent_success};
+                border-radius: {theme.border_radius_small}px;
+                color: {theme.accent_success};
+                font-weight: bold;
+                padding: 8px;
+            """)
+        elif is_complete:
+            # Completed step - primary accent
+            label.setStyleSheet(f"""
+                background-color: {theme.accent_primary_dim};
+                border: 1px solid {theme.accent_primary};
+                border-radius: {theme.border_radius_small}px;
+                color: {theme.accent_primary};
+                font-weight: bold;
+                padding: 8px;
+            """)
+        else:
+            # Future step - muted
+            label.setStyleSheet(f"""
+                background-color: {theme.surface_glass};
+                border: 1px solid {theme.border_glass};
+                border-radius: {theme.border_radius_small}px;
+                color: {theme.text_muted};
+                padding: 8px;
+            """)
+
     def _build_navigation(self) -> QtWidgets.QHBoxLayout:
         """Build navigation buttons."""
-        self._back_button = QtWidgets.QPushButton("< Back")
+        self._back_button = GlassButton("< Back", variant="ghost")
         self._back_button.setMinimumWidth(100)
         self._back_button.clicked.connect(self._go_back)
 
-        self._skip_button = QtWidgets.QPushButton("Skip Step")
+        self._skip_button = GlassButton("Skip Step", variant="ghost")
         self._skip_button.setMinimumWidth(100)
         self._skip_button.clicked.connect(self._skip_step)
 
-        self._next_button = QtWidgets.QPushButton("Next >")
+        self._next_button = GlassButton("Next >", variant="primary")
         self._next_button.setMinimumWidth(100)
         self._next_button.clicked.connect(self._go_next)
         self._next_button.setDefault(True)
 
-        self._finish_button = QtWidgets.QPushButton("Finish")
+        self._finish_button = GlassButton("Finish", variant="success")
         self._finish_button.setMinimumWidth(100)
         self._finish_button.clicked.connect(self._finish_wizard)
         self._finish_button.hide()
@@ -156,15 +192,9 @@ class SetupWindow(QtWidgets.QMainWindow):
     def _update_step_indicator(self) -> None:
         """Update step indicator to show current step."""
         for i, label in enumerate(self._step_labels):
-            if i == self._current_step_index:
-                # Current step - green
-                label.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
-            elif i < len(self._steps) and self._steps[i].is_complete():
-                # Completed step - blue
-                label.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
-            else:
-                # Future step - gray
-                label.setStyleSheet("background-color: #f0f0f0; color: #666;")
+            is_current = i == self._current_step_index
+            is_complete = i < len(self._steps) and self._steps[i].is_complete()
+            self._apply_step_style(label, i, is_current, is_complete)
 
     def _update_navigation_buttons(self) -> None:
         """Update button states based on current step."""
@@ -315,3 +345,9 @@ class SetupWindow(QtWidgets.QMainWindow):
 
         # Close window
         self.close()
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        """Handle window close - switch back to production mode."""
+        # Reset to production mode for main application
+        self._style_manager.set_mode("production")
+        super().closeEvent(event)

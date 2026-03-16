@@ -65,6 +65,7 @@ from ui.controllers import (
     RoiManager,
     SettingsManager,
 )
+from ui.themes import get_style_manager, GlassButton
 
 # System hardening imports
 from app.events import get_error_bus, ErrorCategory, ErrorSeverity
@@ -159,17 +160,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._manual_speed.setMaximum(130.0)
         self._manual_speed.setSuffix(" mph")
         self._status_label = QtWidgets.QLabel("Idle")
-        self._status_label.setStyleSheet(
-            "QLabel { "
-            "background-color: white; "
-            "color: black; "
-            "padding: 8px; "
-            "border: 2px solid #2196F3; "
-            "border-radius: 4px; "
-            "font-size: 12pt; "
-            "font-weight: bold; "
-            "}"
-        )
+        sm = get_style_manager()
+        sm.style_status_indicator(self._status_label, "info")
         self._ball_combo = QtWidgets.QComboBox()
         self._ball_combo.addItems(["baseball", "softball"])
         self._batter_height = QtWidgets.QDoubleSpinBox()
@@ -184,30 +176,15 @@ class MainWindow(QtWidgets.QMainWindow):
             ratio.setSingleStep(0.01)
         self._save_strike_button = QtWidgets.QPushButton("Save Strike Zone")
         self._health_left = QtWidgets.QLabel("L: fps=0.0 jitter=0.0ms drops=0")
-        self._health_left.setStyleSheet(
-            "QLabel { background-color: white; color: black; padding: 4px; "
-            "border: 1px solid #ccc; font-weight: bold; }"
-        )
+        sm.style_label(self._health_left, "status")
         self._health_right = QtWidgets.QLabel("R: fps=0.0 jitter=0.0ms drops=0")
-        self._health_right.setStyleSheet(
-            "QLabel { background-color: white; color: black; padding: 4px; "
-            "border: 1px solid #ccc; font-weight: bold; }"
-        )
+        sm.style_label(self._health_right, "status")
         self._calib_summary = QtWidgets.QLabel("Calib: baseline_ft=? f_px=?")
-        self._calib_summary.setStyleSheet(
-            "QLabel { background-color: white; color: black; padding: 4px; "
-            "border: 1px solid #ccc; font-weight: bold; }"
-        )
+        sm.style_label(self._calib_summary, "status")
         self._focus_left = QtWidgets.QLabel("L Focus: --- (peak: ---)")
-        self._focus_left.setStyleSheet(
-            "QLabel { background-color: white; color: black; padding: 4px; "
-            "border: 1px solid #ccc; font-weight: bold; }"
-        )
+        sm.style_label(self._focus_left, "status")
         self._focus_right = QtWidgets.QLabel("R Focus: --- (peak: ---)")
-        self._focus_right.setStyleSheet(
-            "QLabel { background-color: white; color: black; padding: 4px; "
-            "border: 1px solid #ccc; font-weight: bold; }"
-        )
+        sm.style_label(self._focus_right, "status")
 
         # Initialize focus monitor and calibration overlay controllers
         self._focus_monitor = FocusMonitorController(
@@ -1058,9 +1035,8 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(self._focus_right)
 
         # Add button to reset focus peak tracking
-        reset_focus_btn = QtWidgets.QPushButton("Reset Focus Peaks")
+        reset_focus_btn = GlassButton("Reset Focus Peaks", variant="ghost")
         reset_focus_btn.clicked.connect(self._reset_focus_peaks)
-        reset_focus_btn.setStyleSheet("QPushButton { font-size: 9pt; padding: 2px; }")
         layout.addWidget(reset_focus_btn)
 
         layout.addWidget(self._calib_summary)
@@ -1070,22 +1046,14 @@ class MainWindow(QtWidgets.QMainWindow):
     def _build_game_panel(self) -> QtWidgets.QGroupBox:
         panel = QtWidgets.QGroupBox("Game")
         layout = QtWidgets.QVBoxLayout()
+        sm = get_style_manager()
         self._game_status = QtWidgets.QLabel("Ready.")
-        self._game_status.setStyleSheet(
-            "QLabel { background-color: white; color: black; padding: 6px; "
-            "border: 1px solid #ccc; font-weight: bold; font-size: 11pt; }"
-        )
+        sm.style_label(self._game_status, "status")
         self._game_score = QtWidgets.QLabel("Score X:0  O:0  R:0")
-        self._game_score.setStyleSheet(
-            "QLabel { background-color: white; color: black; padding: 6px; "
-            "border: 1px solid #ccc; font-weight: bold; font-size: 11pt; }"
-        )
+        sm.style_label(self._game_score, "status")
         self._game_streak_label = QtWidgets.QLabel("Streak: 0")
-        self._game_streak_label.setStyleSheet(
-            "QLabel { background-color: white; color: black; padding: 6px; "
-            "border: 1px solid #ccc; font-weight: bold; font-size: 11pt; }"
-        )
-        reset = QtWidgets.QPushButton("Reset Game")
+        sm.style_label(self._game_streak_label, "status")
+        reset = GlassButton("Reset Game", variant="ghost")
         reset.clicked.connect(self._reset_tic_tac_toe_game)
         layout.addWidget(self._game_status)
         layout.addWidget(self._game_score)

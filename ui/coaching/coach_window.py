@@ -15,7 +15,12 @@ from configs.settings import load_config
 from ui.coaching.dialogs import SessionStartDialog
 from ui.coaching.game_state_manager import GameStateManager
 from ui.coaching.session_history_tracker import SessionHistoryTracker
-from ui.coaching.widgets import HeatMapWidget, StrikeZoneOverlay, TrajectoryWidget
+from ui.coaching.widgets import (
+    HeatMapWidget,
+    StrikeZoneOverlay,
+    TrajectoryWidget,
+    CompactFatigueIndicator,
+)
 from ui.coaching.widgets.mode_widgets import (
     BroadcastViewWidget,
     GameModeWidget,
@@ -132,6 +137,10 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._pitch_count_label = QtWidgets.QLabel("Pitches: 0")
         self._pitch_count_label.setStyleSheet("font-size: 14pt; font-weight: bold; color: #2196F3;")
 
+        # Fatigue indicator (compact version for header)
+        self._fatigue_indicator = CompactFatigueIndicator()
+        self._fatigue_indicator.setToolTip("Fatigue Monitor - Score and status")
+
         # Recording indicator
         self._recording_indicator = QtWidgets.QLabel("● Recording")
         self._recording_indicator.setStyleSheet("font-size: 12pt; color: red; font-weight: bold;")
@@ -142,6 +151,8 @@ class CoachWindow(QtWidgets.QMainWindow):
         sep1.setStyleSheet("color: #666666;")
         sep2 = QtWidgets.QLabel("|")
         sep2.setStyleSheet("color: #666666;")
+        sep3 = QtWidgets.QLabel("|")
+        sep3.setStyleSheet("color: #666666;")
 
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(self._session_label)
@@ -149,6 +160,8 @@ class CoachWindow(QtWidgets.QMainWindow):
         layout.addWidget(self._pitcher_label)
         layout.addWidget(sep2)
         layout.addWidget(self._pitch_count_label)
+        layout.addWidget(sep3)
+        layout.addWidget(self._fatigue_indicator)
         layout.addStretch()
         layout.addWidget(self._recording_indicator)
 
@@ -844,6 +857,9 @@ class CoachWindow(QtWidgets.QMainWindow):
             if recent_pitches:
                 current_mode = self._mode_stack.currentWidget()
                 current_mode.update_pitch_data(recent_pitches)
+
+                # Update fatigue indicator
+                self._fatigue_indicator.update_pitches(recent_pitches)
 
         except Exception as e:
             # Log metrics errors for debugging
