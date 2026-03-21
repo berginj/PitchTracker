@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PitchTracker Marker Spec",
+  "description": "Marked-ball geometry contract used by advanced setup and vision workflows when generating or consuming ball-marking expectations.",
+  "$comment": "See contracts-shared/PERSONAS.md for producer and consumer context.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "ball", "pattern", "marking", "markers", "index"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "ball": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "diameter_mm"],
+      "properties": {
+        "type": { "type": "string", "enum": ["baseball", "softball12"] },
+        "diameter_mm": { "type": "number", "minimum": 50.0 }
+      }
+    },
+    "pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "holes_total", "seam_exclusion_deg"],
+      "properties": {
+        "type": { "type": "string", "enum": ["fibonacci"] },
+        "holes_total": { "type": "integer", "minimum": 1 },
+        "seam_exclusion_deg": { "type": "number", "minimum": 0.0 }
+      }
+    },
+    "marking": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["access_window_d_mm", "stencil_dot_d_mm", "index_type", "index_sep_mm"],
+      "properties": {
+        "access_window_d_mm": { "type": "number", "minimum": 1.0 },
+        "stencil_dot_d_mm": { "type": "number", "minimum": 1.0 },
+        "index_type": { "type": "string", "enum": ["double_dot"] },
+        "index_sep_mm": { "type": "number", "minimum": 1.0 }
+      }
+    },
+    "markers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "type", "v"],
+        "properties": {
+          "id": { "type": "integer", "minimum": 0 },
+          "type": { "type": "string", "enum": ["dot"] },
+          "v": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": { "type": "number" }
+          }
+        }
+      }
+    },
+    "index": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "ids", "v1", "v2"],
+      "properties": {
+        "type": { "type": "string", "enum": ["double_dot"] },
+        "ids": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "v1": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "number" }
+        },
+        "v2": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "number" }
+        }
+      }
+    }
+  }
+}

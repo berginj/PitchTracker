@@ -1,3 +1,0 @@
-[submodule "contracts-shared"]
-	path = contracts-shared
-	url = .\\contracts-shared

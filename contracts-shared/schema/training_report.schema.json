@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PitchTracker Training Report",
+  "description": "Diagnostic and telemetry report produced during setup validation, troubleshooting, or advanced training analysis workflows.",
+  "$comment": "See contracts-shared/PERSONAS.md for producer and consumer context.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "app_version",
+    "report_id",
+    "created_utc",
+    "session",
+    "capture_stats"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "app_version": { "type": "string" },
+    "report_id": { "type": "string" },
+    "created_utc": { "type": "string" },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id",
+        "pitch_count",
+        "strikes",
+        "balls",
+        "heatmap",
+        "pitches"
+      ],
+      "properties": {
+        "session_id": { "type": "string" },
+        "session_name": { "type": ["string", "null"] },
+        "started_utc": { "type": ["string", "null"] },
+        "ended_utc": { "type": ["string", "null"] },
+        "pitch_count": { "type": "integer", "minimum": 0 },
+        "strikes": { "type": "integer", "minimum": 0 },
+        "balls": { "type": "integer", "minimum": 0 },
+        "heatmap": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "pitches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "pitch_id",
+              "t_start_ns",
+              "t_end_ns",
+              "is_strike",
+              "zone_row",
+              "zone_col",
+              "run_in",
+              "rise_in",
+              "speed_mph",
+              "rotation_rpm",
+              "sample_count"
+            ],
+            "properties": {
+              "pitch_id": { "type": "string" },
+              "t_start_ns": { "type": "integer" },
+              "t_end_ns": { "type": "integer" },
+              "is_strike": { "type": "boolean" },
+              "zone_row": { "type": ["integer", "null"] },
+              "zone_col": { "type": ["integer", "null"] },
+              "run_in": { "type": "number" },
+              "rise_in": { "type": "number" },
+              "speed_mph": { "type": ["number", "null"] },
+              "rotation_rpm": { "type": ["number", "null"] },
+              "sample_count": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "capture_stats": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fps_avg",
+          "fps_inst",
+          "jitter_p95_ms",
+          "dropped_frames",
+          "queue_depth",
+          "capture_latency_ms"
+        ],
+        "properties": {
+          "fps_avg": { "type": "number" },
+          "fps_inst": { "type": "number" },
+          "jitter_p95_ms": { "type": "number" },
+          "dropped_frames": { "type": "number" },
+          "queue_depth": { "type": "number" },
+          "capture_latency_ms": { "type": "number" }
+        }
+      }
+    },
+    "latency_stats": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["p50_ms", "p95_ms", "max_ms"],
+      "properties": {
+        "p50_ms": { "type": "number" },
+        "p95_ms": { "type": "number" },
+        "max_ms": { "type": "number" }
+      }
+    },
+    "brightness_stats": {
+      "type": ["object", "null"],
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "frame_count",
+          "mean_gray_avg",
+          "mean_gray_p95",
+          "std_gray_avg",
+          "std_gray_p95"
+        ],
+        "properties": {
+          "frame_count": { "type": "integer", "minimum": 0 },
+          "mean_gray_avg": { "type": "number" },
+          "mean_gray_p95": { "type": "number" },
+          "std_gray_avg": { "type": "number" },
+          "std_gray_p95": { "type": "number" }
+        }
+      }
+    },
+    "detection_stats": {
+      "type": ["object", "null"],
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "frame_count",
+          "detections_total",
+          "detections_per_frame_avg",
+          "best_confidence_p95",
+          "radius_px_avg"
+        ],
+        "properties": {
+          "frame_count": { "type": "integer", "minimum": 0 },
+          "detections_total": { "type": "integer", "minimum": 0 },
+          "detections_per_frame_avg": { "type": "number" },
+          "best_confidence_p95": { "type": "number" },
+          "radius_px_avg": { "type": "number" }
+        }
+      }
+    },
+    "noise_metrics": {
+      "type": ["object", "null"],
+      "additionalProperties": { "type": "number" }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["level", "message"],
+        "properties": {
+          "t_utc": { "type": ["string", "null"] },
+          "level": { "type": "string" },
+          "message": { "type": "string" },
+          "code": { "type": ["string", "null"] },
+          "context": { "type": ["object", "null"] }
+        }
+      }
+    },
+    "logs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["level", "message"],
+        "properties": {
+          "t_utc": { "type": ["string", "null"] },
+          "level": { "type": "string" },
+          "message": { "type": "string" },
+          "context": { "type": ["object", "null"] }
+        }
+      }
+    },
+    "recording": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "type": ["string", "null"] },
+        "output_dir": { "type": ["string", "null"] },
+        "pre_roll_ms": { "type": ["integer", "null"] },
+        "post_roll_ms": { "type": ["integer", "null"] }
+      }
+    },
+    "files": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "session_dir": { "type": ["string", "null"] },
+        "manifest": { "type": ["string", "null"] },
+        "session_summary": { "type": ["string", "null"] },
+        "session_summary_csv": { "type": ["string", "null"] }
+      }
+    },
+    "source": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "app": { "type": ["string", "null"] },
+        "rig_id": { "type": ["string", "null"] },
+        "pitcher": { "type": ["string", "null"] },
+        "location_profile": { "type": ["string", "null"] },
+        "operator": { "type": ["string", "null"] },
+        "host": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
