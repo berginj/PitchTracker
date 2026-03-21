@@ -5,11 +5,47 @@ Checks system requirements and configuration before launching the application.
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
 from typing import Optional
 
 from loguru import logger
+
+
+def _load_dependency_checker():
+    """Load scripts/check_dependencies.py without namespace-package imports."""
+    checker_path = Path(__file__).resolve().parent / "scripts" / "check_dependencies.py"
+    spec = importlib.util.spec_from_file_location("_pitchtracker_check_dependencies", checker_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load dependency checker from {checker_path}")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _find_missing_dependency_packages() -> list[str]:
+    """Return missing packages using import spec lookup without importing them."""
+    required_packages = {
+        "cv2": "opencv-contrib-python",
+        "numpy": "numpy",
+        "scipy": "scipy",
+        "yaml": "PyYAML",
+        "PySide6": "PySide6",
+        "sklearn": "scikit-learn",
+        "matplotlib": "matplotlib",
+        "loguru": "loguru",
+        "jsonschema": "jsonschema",
+        "psutil": "psutil",
+    }
+
+    missing_packages: list[str] = []
+    for module_name, package_name in required_packages.items():
+        if importlib.util.find_spec(module_name) is None:
+            missing_packages.append(package_name)
+
+    return missing_packages
 
 
 def validate_python_version() -> tuple[bool, Optional[str]]:
@@ -43,19 +79,17 @@ def validate_dependencies() -> tuple[bool, Optional[str]]:
         Tuple of (is_valid, error_message)
     """
     try:
-        # Use the comprehensive dependency checker
-        from scripts.check_dependencies import check_dependencies
-
-        all_installed, missing, installed = check_dependencies(verbose=False)
-
-        if all_installed:
+        # Use a lightweight probe during startup. Importing the full dependency
+        # stack here can trigger expensive or fragile import side effects before
+        # the GUI is even visible.
+        missing_packages = _find_missing_dependency_packages()
+        if not missing_packages:
             return True, None
 
         # Build helpful error message
-        missing_names = [pkg for pkg, _ in missing]
-        packages_str = ', '.join(missing_names[:5])
-        if len(missing_names) > 5:
-            packages_str += f" (and {len(missing_names) - 5} more)"
+        packages_str = ", ".join(missing_packages[:5])
+        if len(missing_packages) > 5:
+            packages_str += f" (and {len(missing_packages) - 5} more)"
 
         error_msg = (
             f"Missing required packages: {packages_str}\n\n"
@@ -63,7 +97,7 @@ def validate_dependencies() -> tuple[bool, Optional[str]]:
             "  pip install -r requirements.txt\n\n"
             "Or install individually:\n"
         )
-        for pkg, _ in missing[:3]:
+        for pkg in missing_packages[:3]:
             error_msg += f"  pip install {pkg}\n"
 
         error_msg += "\nFor detailed setup instructions, see: docs/INSTALLATION.md"
@@ -71,26 +105,9 @@ def validate_dependencies() -> tuple[bool, Optional[str]]:
         return False, error_msg
 
     except Exception as e:
-        # Fallback to basic check if comprehensive checker fails
-        logger.warning(f"Could not use comprehensive dependency checker: {e}")
-
-        missing_packages = []
-
-        # Core dependencies
-        required_packages = {
-            'cv2': 'opencv-contrib-python',
-            'numpy': 'numpy',
-            'PySide6': 'PySide6',
-            'yaml': 'PyYAML',
-            'loguru': 'loguru',
-            'jsonschema': 'jsonschema',
-        }
-
-        for module_name, package_name in required_packages.items():
-            try:
-                __import__(module_name)
-            except ImportError:
-                missing_packages.append(package_name)
+        # Fallback to the same lightweight probe if something unexpected occurs.
+        logger.warning(f"Could not complete dependency probe cleanly: {e}")
+        missing_packages = _find_missing_dependency_packages()
 
         if missing_packages:
             packages_str = ', '.join(missing_packages)

@@ -13,11 +13,13 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
-from PySide6 import QtWidgets
+from PySide6 import QtCore, QtWidgets
 
+from app.services.tooling import get_tooling_service
 from configs.settings import AppConfig
+from contracts.tooling import TrainingReportRequest
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
-from record.training_report import build_training_report
+from ui.themes import show_message_dialog
 
 
 def upload_session(
@@ -39,18 +41,20 @@ def upload_session(
         location_profile: Current location profile name
     """
     if not config.upload.enabled:
-        QtWidgets.QMessageBox.information(
+        show_message_dialog(
             parent,
             "Upload Session",
             "Uploads are disabled. Enable upload in configs/default.yaml.",
+            tone="info",
         )
         return
     api_base = config.upload.swa_api_base.rstrip("/")
     if not api_base:
-        QtWidgets.QMessageBox.warning(
+        show_message_dialog(
             parent,
             "Upload Session",
             "Upload URL is not configured.",
+            tone="warning",
         )
         return
 
@@ -103,9 +107,9 @@ def upload_session(
                 raise RuntimeError(f"Upload failed: HTTP {response.status}")
 
         progress.setValue(1)
-        QtWidgets.QMessageBox.information(parent, "Upload Session", "Upload complete.")
+        show_message_dialog(parent, "Upload Session", "Upload complete.", tone="success")
     except (urllib.error.URLError, RuntimeError) as exc:
-        QtWidgets.QMessageBox.warning(parent, "Upload Session", f"Upload failed: {exc}")
+        show_message_dialog(parent, "Upload Session", f"Upload failed: {exc}", tone="warning")
         return
     finally:
         progress.close()
@@ -134,17 +138,19 @@ def save_session_export(
         location_profile: Current location profile name
     """
     if session_dir is None:
-        QtWidgets.QMessageBox.warning(
+        show_message_dialog(
             parent,
             "Save Session",
             "No session directory available for export.",
+            tone="warning",
         )
         return
     if not export_type:
-        QtWidgets.QMessageBox.warning(
+        show_message_dialog(
             parent,
             "Save Session",
             "Select an export type before saving.",
+            tone="warning",
         )
         return
 
@@ -181,13 +187,14 @@ def save_session_export(
         elif export_type == "manifests_zip":
             export_manifests_zip(parent, session_dir)
         else:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 parent,
                 "Save Session",
                 f"Unknown export type: {export_type}",
+                tone="warning",
             )
     except Exception as exc:  # noqa: BLE001 - surface export failures
-        QtWidgets.QMessageBox.warning(parent, "Save Session", str(exc))
+        show_message_dialog(parent, "Save Session", str(exc), tone="warning")
     finally:
         if progress:
             progress.close()
@@ -335,7 +342,8 @@ def export_training_report(
     )
     if not path:
         return
-    payload = build_training_report(
+    tooling = get_tooling_service()
+    request = TrainingReportRequest(
         session_dir=session_dir,
         config_path=config_path,
         roi_path=roi_path,
@@ -348,7 +356,8 @@ def export_training_report(
             "host": None,
         },
     )
-    Path(path).write_text(json.dumps(payload, indent=2))
+    result = tooling.build_training_report(request)
+    Path(path).write_text(json.dumps(result.payload, indent=2))
 
 
 def export_manifests_zip(

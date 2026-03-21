@@ -16,6 +16,7 @@ from PySide6 import QtWidgets
 from log_config.logger import get_logger
 from ui.dialogs.session_summary_dialog import SessionSummaryDialog
 from ui.export import upload_session, save_session_export
+from ui.themes import show_message_dialog
 
 if TYPE_CHECKING:
     from configs.settings import AppConfig
@@ -114,10 +115,11 @@ class RecordingController:
             True if recording started successfully, False otherwise
         """
         if not self._health_check():
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self._parent,
                 "Health Check",
                 "Health check failed. Verify FPS and drops before recording.",
+                tone="warning",
             )
             return False
 
@@ -176,10 +178,11 @@ class RecordingController:
             True if training capture started successfully, False otherwise
         """
         if not self._health_check():
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self._parent,
                 "Health Check",
                 "Health check failed. Verify FPS and drops before recording.",
+                tone="warning",
             )
             return False
 
@@ -188,10 +191,11 @@ class RecordingController:
             self._set_session_name(session)
 
         if not session:
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self._parent,
                 "Training Capture",
                 "Set a session name before starting training capture.",
+                tone="info",
             )
             return False
 

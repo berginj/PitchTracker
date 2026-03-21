@@ -10,20 +10,21 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ui.device_utils import current_serial, probe_opencv_indices, probe_uvc_devices
 from ui.setup.steps.base_step import BaseStep
+from ui.themes import (
+    apply_standard_layout,
+    build_notice,
+    get_style_manager,
+    style_preview_surface,
+    style_status_label,
+)
 
 
 class CameraStep(BaseStep):
-    """Camera discovery, selection, and preview step.
-
-    Allows user to:
-    - Discover available cameras (UVC or OpenCV)
-    - Select left and right cameras
-    - Preview both camera feeds
-    - Verify cameras are operational
-    """
+    """Camera discovery, selection, and preview step."""
 
     def __init__(self, backend: str = "uvc"):
         super().__init__()
+        self._style_manager = get_style_manager()
         self._backend = backend
         self._left_serial: Optional[str] = None
         self._right_serial: Optional[str] = None
@@ -40,19 +41,20 @@ class CameraStep(BaseStep):
     def get_description(self) -> str:
         return "Discover and select left and right cameras for stereo tracking."
 
+    def _set_status_message(self, message: str, tone: str = "info") -> None:
+        """Update the step status label."""
+        style_status_label(self._status_label, tone, message)
+
     def _build_ui(self) -> None:
         """Build camera selection UI."""
-        # Instructions
-        instructions = QtWidgets.QLabel(
-            "<h2>Camera Setup</h2>"
-            "<p>Connect both cameras and click 'Refresh Devices' to discover them.</p>"
-            "<p>Select which camera should be 'Left' and which should be 'Right' based on your physical setup.</p>"
+        instructions, _ = build_notice(
+            "Connect both cameras, refresh the device list, and choose distinct left and right assignments before continuing.",
+            tone="info",
         )
-        instructions.setWordWrap(True)
 
-        # Backend selection
         backend_group = QtWidgets.QGroupBox("Camera Backend")
         backend_layout = QtWidgets.QHBoxLayout()
+        backend_layout.setSpacing(10)
 
         self._uvc_radio = QtWidgets.QRadioButton("UVC (USB Video Class)")
         self._opencv_radio = QtWidgets.QRadioButton("OpenCV (Simple Indices)")
@@ -70,18 +72,19 @@ class CameraStep(BaseStep):
         backend_layout.addStretch()
 
         backend_help = QtWidgets.QLabel(
-            "If cameras fail with UVC, try OpenCV backend which uses simple camera indices (0, 1, 2...)"
+            "If UVC fails, switch to OpenCV backend which uses simple camera indices."
         )
-        backend_help.setStyleSheet("color: #666; font-size: 9pt; font-style: italic;")
+        self._style_manager.style_label(backend_help, "muted")
 
         backend_vlayout = QtWidgets.QVBoxLayout()
+        apply_standard_layout(backend_vlayout, margins=(8, 8, 8, 8), spacing=8)
         backend_vlayout.addLayout(backend_layout)
         backend_vlayout.addWidget(backend_help)
         backend_group.setLayout(backend_vlayout)
 
-        # Device selection
         device_group = QtWidgets.QGroupBox("Camera Selection")
         device_layout = QtWidgets.QFormLayout()
+        apply_standard_layout(device_layout, margins=(8, 8, 8, 8), spacing=10)
 
         self._left_combo = QtWidgets.QComboBox()
         self._left_combo.setMinimumWidth(300)
@@ -93,106 +96,92 @@ class CameraStep(BaseStep):
 
         self._refresh_button = QtWidgets.QPushButton("Refresh Devices")
         self._refresh_button.clicked.connect(self._refresh_devices)
+        self._style_manager.style_button(self._refresh_button, "primary")
 
-        device_layout.addRow("Left Camera:", self._left_combo)
-        device_layout.addRow("Right Camera:", self._right_combo)
+        device_layout.addRow("Left Camera", self._left_combo)
+        device_layout.addRow("Right Camera", self._right_combo)
         device_layout.addRow("", self._refresh_button)
-
         device_group.setLayout(device_layout)
 
-        # Preview section with live camera feeds
-        preview_group = QtWidgets.QGroupBox("Camera Preview (with Focus Quality)")
+        preview_group = QtWidgets.QGroupBox("Camera Preview")
         preview_layout = QtWidgets.QHBoxLayout()
+        apply_standard_layout(preview_layout, margins=(8, 8, 8, 8), spacing=12)
 
         self._left_preview = QtWidgets.QLabel("Left Camera Preview\n\nSelect a camera to see live preview")
         self._left_preview.setMinimumSize(400, 300)
         self._left_preview.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._left_preview.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._left_preview.setStyleSheet("background-color: #2c3e50; color: white; font-size: 10pt;")
+        style_preview_surface(self._left_preview)
         self._left_preview.setScaledContents(False)
 
         self._right_preview = QtWidgets.QLabel("Right Camera Preview\n\nSelect a camera to see live preview")
         self._right_preview.setMinimumSize(400, 300)
         self._right_preview.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._right_preview.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._right_preview.setStyleSheet("background-color: #2c3e50; color: white; font-size: 10pt;")
+        style_preview_surface(self._right_preview)
         self._right_preview.setScaledContents(False)
 
         preview_layout.addWidget(self._left_preview)
         preview_layout.addWidget(self._right_preview)
-
         preview_group.setLayout(preview_layout)
 
-        # Status
-        self._status_label = QtWidgets.QLabel("Click 'Refresh Devices' to begin.")
-        self._status_label.setStyleSheet("color: #666; font-style: italic;")
+        self._status_label = QtWidgets.QLabel("Click Refresh Devices to begin.")
+        style_status_label(self._status_label, "info")
 
-        # Main layout
         layout = QtWidgets.QVBoxLayout()
+        apply_standard_layout(layout)
         layout.addWidget(instructions)
         layout.addWidget(backend_group)
         layout.addWidget(device_group)
-        layout.addWidget(preview_group, 1)  # Preview takes most space
+        layout.addWidget(preview_group, 1)
         layout.addWidget(self._status_label)
-
         self.setLayout(layout)
 
     def _switch_backend(self, backend: str) -> None:
         """Switch camera backend."""
         self._backend = backend
-        # Clear current selections
         self._left_combo.clear()
         self._right_combo.clear()
         self._left_serial = None
         self._right_serial = None
-        self._status_label.setText(f"Backend changed to {backend.upper()}. Click 'Refresh Devices' to discover cameras.")
-        self._status_label.setStyleSheet("color: #666; font-style: italic;")
+        self._set_status_message(
+            f"Backend changed to {backend.upper()}. Refresh devices to discover cameras.",
+            "info",
+        )
 
     def _refresh_devices(self) -> None:
         """Discover available cameras."""
-        self._status_label.setText("Searching for cameras...")
+        self._set_status_message("Searching for cameras...", "info")
         QtWidgets.QApplication.processEvents()
-
-        # Clear current selections
         self._left_combo.clear()
         self._right_combo.clear()
 
         try:
             if self._backend == "opencv":
-                # OpenCV backend - find indices
                 indices = probe_opencv_indices(max_index=5)
-
                 if not indices:
-                    self._status_label.setText("⚠️ No cameras found. Check connections and try again.")
-                    self._status_label.setStyleSheet("color: red; font-weight: bold;")
+                    self._set_status_message("No cameras found. Check connections and try again.", "error")
                     return
 
-                # Add placeholder
                 self._left_combo.addItem("(Select Camera)", None)
                 self._right_combo.addItem("(Select Camera)", None)
+                for index in indices:
+                    label = f"Camera {index}"
+                    self._left_combo.addItem(label, str(index))
+                    self._right_combo.addItem(label, str(index))
 
-                # Add camera indices with proper data
-                for i in indices:
-                    label = f"Camera {i}"
-                    self._left_combo.addItem(label, str(i))
-                    self._right_combo.addItem(label, str(i))
-
-                self._status_label.setText(f"✓ Found {len(indices)} camera(s). Select left and right cameras above.")
-                self._status_label.setStyleSheet("color: green;")
+                self._set_status_message(
+                    f"Found {len(indices)} camera(s). Select left and right cameras above.",
+                    "success",
+                )
             else:
-                # UVC backend - find devices with serial numbers
                 devices = probe_uvc_devices()
-
                 if not devices:
-                    self._status_label.setText("⚠️ No cameras found. Check connections and try again.")
-                    self._status_label.setStyleSheet("color: red; font-weight: bold;")
+                    self._set_status_message("No cameras found. Check connections and try again.", "error")
                     return
 
-                # Add placeholder
                 self._left_combo.addItem("(Select Camera)", None)
                 self._right_combo.addItem("(Select Camera)", None)
-
-                # Add UVC devices with proper data
                 for device in devices:
                     serial = device.get("serial", "")
                     friendly_name = device.get("friendly_name", "")
@@ -200,17 +189,16 @@ class CameraStep(BaseStep):
                     self._left_combo.addItem(label, serial)
                     self._right_combo.addItem(label, serial)
 
-                self._status_label.setText(f"✓ Found {len(devices)} camera(s). Select left and right cameras above.")
-                self._status_label.setStyleSheet("color: green;")
-
-        except Exception as e:
-            self._status_label.setText(f"⚠️ Error discovering cameras: {e}")
-            self._status_label.setStyleSheet("color: red; font-weight: bold;")
+                self._set_status_message(
+                    f"Found {len(devices)} camera(s). Select left and right cameras above.",
+                    "success",
+                )
+        except Exception as exc:
+            self._set_status_message(f"Error discovering cameras: {exc}", "error")
 
     def _on_left_changed(self, text: str) -> None:
         """Handle left camera selection change."""
         if text and text != "(Select Camera)":
-            # Get the actual serial/identifier from combo data
             self._left_serial = current_serial(self._left_combo)
             self._open_left_camera()
             self._update_status()
@@ -221,7 +209,6 @@ class CameraStep(BaseStep):
     def _on_right_changed(self, text: str) -> None:
         """Handle right camera selection change."""
         if text and text != "(Select Camera)":
-            # Get the actual serial/identifier from combo data
             self._right_serial = current_serial(self._right_combo)
             self._open_right_camera()
             self._update_status()
@@ -233,131 +220,119 @@ class CameraStep(BaseStep):
         """Update status based on selections."""
         if self._left_serial and self._right_serial:
             if self._left_serial == self._right_serial:
-                self._status_label.setText("⚠️ Warning: Left and right cameras must be different!")
-                self._status_label.setStyleSheet("color: orange; font-weight: bold;")
+                self._set_status_message("Left and right cameras must be different.", "warning")
             else:
-                self._status_label.setText("✓ Both cameras selected. Click 'Next' to continue.")
-                self._status_label.setStyleSheet("color: green;")
+                self._set_status_message("Both cameras selected. Click Next to continue.", "success")
 
     def validate(self) -> tuple[bool, str]:
         """Validate camera selections."""
         if not self._left_serial or self._left_serial == "(Select Camera)":
             return False, "Please select a left camera."
-
         if not self._right_serial or self._right_serial == "(Select Camera)":
             return False, "Please select a right camera."
-
         if self._left_serial == self._right_serial:
             return False, "Left and right cameras must be different."
-
         return True, ""
 
     def get_left_serial(self) -> Optional[str]:
-        """Get selected left camera serial/identifier."""
         return self._left_serial
 
     def get_right_serial(self) -> Optional[str]:
-        """Get selected right camera serial/identifier."""
         return self._right_serial
 
     def get_backend(self) -> str:
-        """Get camera backend type."""
         return self._backend
 
     def on_enter(self) -> None:
-        """Called when step becomes active."""
-        # Auto-refresh on first entry if no devices yet
         if self._left_combo.count() == 0:
             self._refresh_devices()
 
     def on_exit(self) -> None:
-        """Called when leaving step."""
-        # Stop camera previews and close cameras
         self._close_left_camera()
         self._close_right_camera()
 
     def get_left_camera(self) -> Optional[str]:
-        """Get selected left camera identifier."""
         return self._left_serial
 
     def get_right_camera(self) -> Optional[str]:
-        """Get selected right camera identifier."""
         return self._right_serial
 
     def _setup_preview_timer(self) -> None:
         """Setup timer for camera preview updates."""
         self._preview_timer = QtCore.QTimer()
         self._preview_timer.timeout.connect(self._update_preview)
-        self._preview_timer.start(33)  # ~30 fps
+        self._preview_timer.start(33)
 
     def _open_left_camera(self) -> None:
         """Open and start previewing left camera."""
-        self._close_left_camera()  # Close existing if any
-
+        self._close_left_camera()
         if not self._left_serial:
             return
 
         try:
-            # Load config to get camera resolution and flip/rotation settings
             from configs.settings import load_config
             from pathlib import Path
+
             config = load_config(Path("configs/default.yaml"))
             width = config.camera.width
             height = config.camera.height
-            fps = 30  # Use lower fps for preview to reduce load
+            fps = 30
             flip_left = config.camera.flip_left
-            rotation_left = getattr(config.camera, 'rotation_left', 0.0)
+            rotation_left = getattr(config.camera, "rotation_left", 0.0)
 
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
+
                 camera = OpenCVCamera()
                 camera.open(self._left_serial)
                 camera.set_mode(width, height, fps, "YUYV", flip_180=flip_left, rotation_correction=rotation_left)
             else:
                 from capture.uvc_backend import UvcCamera
+
                 camera = UvcCamera()
                 camera.open(self._left_serial)
                 camera.set_mode(width, height, fps, "YUYV", flip_180=flip_left, rotation_correction=rotation_left)
 
             self._left_camera = camera
             self._left_preview.setText("Opening camera...")
-        except Exception as e:
-            self._left_preview.setText(f"Error opening camera:\n{str(e)}")
+        except Exception as exc:
+            self._left_preview.setText(f"Error opening camera:\n{exc}")
             self._left_camera = None
 
     def _open_right_camera(self) -> None:
         """Open and start previewing right camera."""
-        self._close_right_camera()  # Close existing if any
-
+        self._close_right_camera()
         if not self._right_serial:
             return
 
         try:
-            # Load config to get camera resolution and flip/rotation settings
             from configs.settings import load_config
             from pathlib import Path
+
             config = load_config(Path("configs/default.yaml"))
             width = config.camera.width
             height = config.camera.height
-            fps = 30  # Use lower fps for preview to reduce load
+            fps = 30
             flip_right = config.camera.flip_right
-            rotation_right = getattr(config.camera, 'rotation_right', 0.0)
+            rotation_right = getattr(config.camera, "rotation_right", 0.0)
 
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
+
                 camera = OpenCVCamera()
                 camera.open(self._right_serial)
                 camera.set_mode(width, height, fps, "YUYV", flip_180=flip_right, rotation_correction=rotation_right)
             else:
                 from capture.uvc_backend import UvcCamera
+
                 camera = UvcCamera()
                 camera.open(self._right_serial)
                 camera.set_mode(width, height, fps, "YUYV", flip_180=flip_right, rotation_correction=rotation_right)
 
             self._right_camera = camera
             self._right_preview.setText("Opening camera...")
-        except Exception as e:
-            self._right_preview.setText(f"Error opening camera:\n{str(e)}")
+        except Exception as exc:
+            self._right_preview.setText(f"Error opening camera:\n{exc}")
             self._right_camera = None
 
     def _close_left_camera(self) -> None:
@@ -382,58 +357,42 @@ class CameraStep(BaseStep):
 
     def _update_preview(self) -> None:
         """Update camera preview displays."""
-        # Update left camera preview
         if self._left_camera is not None:
             try:
                 frame = self._left_camera.read_frame(timeout_ms=100)
                 pixmap = self._frame_to_pixmap(frame.image)
                 self._left_preview.setPixmap(pixmap)
-            except Exception as e:
-                # Don't show errors on every frame - just skip
+            except Exception:
                 pass
 
-        # Update right camera preview
         if self._right_camera is not None:
             try:
                 frame = self._right_camera.read_frame(timeout_ms=100)
                 pixmap = self._frame_to_pixmap(frame.image)
                 self._right_preview.setPixmap(pixmap)
-            except Exception as e:
-                # Don't show errors on every frame - just skip
+            except Exception:
                 pass
 
     def _frame_to_pixmap(self, image: np.ndarray) -> QtGui.QPixmap:
-        """Convert frame to QPixmap with focus quality overlay.
-
-        Args:
-            image: Camera frame (grayscale or BGR color)
-
-        Returns:
-            QPixmap ready for display with focus score overlay
-        """
+        """Convert frame to QPixmap with focus quality overlay."""
         from detect.utils import compute_focus_score
 
-        # Compute focus score
         focus_score = compute_focus_score(image)
-
-        # Determine color based on focus quality
         if focus_score >= 200:
-            color = (46, 204, 113)  # Green
+            color = (46, 204, 113)
             status = "GOOD"
         elif focus_score >= 100:
-            color = (243, 156, 18)  # Orange
+            color = (243, 156, 18)
             status = "FAIR"
         else:
-            color = (231, 76, 60)  # Red
+            color = (231, 76, 60)
             status = "POOR"
 
-        # Convert to BGR if grayscale
         if image.ndim == 2:
             display_img = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
         else:
             display_img = image.copy()
 
-        # Add focus score overlay
         text = f"Focus: {focus_score:.0f} ({status})"
         cv2.putText(
             display_img,
@@ -446,7 +405,6 @@ class CameraStep(BaseStep):
             cv2.LINE_AA,
         )
 
-        # Convert to QPixmap
         height, width, channels = display_img.shape
         bytes_per_line = channels * width
         rgb_image = cv2.cvtColor(display_img, cv2.COLOR_BGR2RGB)
@@ -458,7 +416,6 @@ class CameraStep(BaseStep):
             QtGui.QImage.Format_RGB888,
         )
 
-        # Scale to fit preview label
         pixmap = QtGui.QPixmap.fromImage(qimage)
         return pixmap.scaled(
             self._left_preview.size(),

@@ -17,6 +17,7 @@ from configs.location_profiles import apply_profile, list_profiles, load_profile
 from configs.pitchers import add_pitcher, load_pitchers
 from ui.device_utils import current_serial
 from log_config.logger import get_logger
+from ui.themes import show_message_dialog
 
 logger = get_logger(__name__)
 
@@ -176,7 +177,7 @@ class ProfileManager:
             logger.debug(f"Profile data loaded: {profile.keys() if isinstance(profile, dict) else 'unknown format'}")
         except FileNotFoundError as exc:
             logger.warning(f"Profile '{name}' not found: {exc}")
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 parent,
                 "Load Profile",
                 f"Profile '{name}' not found.\n\n"
@@ -185,12 +186,13 @@ class ProfileManager:
             return False
         except Exception as exc:
             logger.exception(f"Unexpected error loading profile '{name}'")
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 parent,
                 "Load Profile",
                 f"Failed to load profile '{name}'.\n\n"
                 f"Error: {exc}\n\n"
-                f"Check logs for details."
+                f"Check logs for details.",
+                tone="error",
             )
             return False
 
@@ -209,10 +211,11 @@ class ProfileManager:
             logger.debug(f"Applied profile settings to ROI path: {self._roi_path}")
         except Exception as exc:
             logger.error(f"Failed to apply profile settings: {exc}", exc_info=True)
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 parent,
                 "Load Profile",
-                f"Profile loaded but failed to apply ROI settings.\n\nError: {exc}"
+                f"Profile loaded but failed to apply ROI settings.\n\nError: {exc}",
+                tone="warning",
             )
             # Continue anyway - cameras are set
 
@@ -247,7 +250,7 @@ class ProfileManager:
         is_valid, error_msg = validate_name(name, list_profiles())
         if not is_valid:
             logger.warning(f"Profile name validation failed: {error_msg}")
-            QtWidgets.QMessageBox.warning(parent, "Save Profile", error_msg)
+            show_message_dialog(parent, "Save Profile", error_msg, tone="warning")
             return False
 
         # Check camera selection
@@ -256,10 +259,11 @@ class ProfileManager:
 
         if not left and not right:
             logger.warning("Save profile aborted: no cameras selected")
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 parent,
                 "Save Profile",
                 "Select at least one camera before saving.",
+                tone="info",
             )
             return False
 
@@ -269,10 +273,11 @@ class ProfileManager:
             logger.info(f"Saved profile '{name}' (left={left or 'none'}, right={right or 'none'})")
         except Exception as exc:
             logger.exception(f"Failed to save profile '{name}'")
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 parent,
                 "Save Profile",
-                f"Failed to save profile.\n\nError: {exc}\n\nCheck logs for details."
+                f"Failed to save profile.\n\nError: {exc}\n\nCheck logs for details.",
+                tone="error",
             )
             return False
 

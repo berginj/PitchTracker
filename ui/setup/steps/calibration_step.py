@@ -10,9 +10,26 @@ import cv2
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from calib.quick_calibrate import calibrate_and_write
+from app.services.tooling import get_tooling_service
 from capture import CameraDevice
+from contracts.tooling import CalibrationRequest
+from log_config.logger import get_logger
 from ui.setup.steps.base_step import BaseStep
+from ui.themes import (
+    apply_standard_layout,
+    ask_confirmation,
+    build_notice,
+    get_style_manager,
+    polish_form_controls,
+    show_choice_dialog,
+    show_message_dialog,
+    style_message_panel,
+    style_preview_surface,
+    style_progress_bar,
+    style_status_label,
+)
+
+logger = get_logger(__name__)
 
 
 class CalibrationWorker(QtCore.QThread):
@@ -41,31 +58,18 @@ class CalibrationWorker(QtCore.QThread):
     def run(self):
         """Run calibration in background thread."""
         try:
-            if self.quick_mode:
-                # Use quick calibration
-                from calib.quick_calibrate import quick_calibrate, _parse_pattern, _write_config, _save_calibration_file
-
-                pattern_size = _parse_pattern(self.pattern)
-                result = quick_calibrate(
-                    self.left_paths,
-                    self.right_paths,
-                    pattern_size,
-                    self.square_mm,
+            result = get_tooling_service().run_calibration(
+                CalibrationRequest(
+                    left_paths=tuple(self.left_paths),
+                    right_paths=tuple(self.right_paths),
+                    pattern=self.pattern,
+                    square_mm=self.square_mm,
+                    config_path=self.config_path,
+                    mode="quick" if self.quick_mode else "full",
+                    write_updates=True,
                 )
-                # Save to config
-                _write_config(self.config_path, result)
-                _save_calibration_file(result)
-            else:
-                # Use full calibration
-                result = calibrate_and_write(
-                    self.left_paths,
-                    self.right_paths,
-                    self.pattern,
-                    self.square_mm,
-                    self.config_path,
-                )
-
-            self.finished.emit(result)
+            )
+            self.finished.emit(result.to_payload())
         except Exception as e:
             self.error.emit(str(e))
 
@@ -87,6 +91,7 @@ class CalibrationStep(BaseStep):
         parent: Optional[QtWidgets.QWidget] = None,
     ):
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self._backend = backend
         self._left_camera: Optional[CameraDevice] = None
         self._right_camera: Optional[CameraDevice] = None
@@ -132,6 +137,7 @@ class CalibrationStep(BaseStep):
         self._camera_capabilities: Optional = None  # CameraCapabilities from detection
         self._calibration_mode: str = "FULL"  # "QUICK" or "FULL"
         self._camera_detection_complete: bool = False  # Track if detection ran
+        self._focus_warning_state: str = "ok"  # Avoid repeated focus warnings every preview frame
 
         self._build_ui()
 
@@ -139,16 +145,105 @@ class CalibrationStep(BaseStep):
         self._preview_timer = QtCore.QTimer()
         self._preview_timer.timeout.connect(self._update_preview)
 
+    def _set_capture_progress_state(self, count: int, *, ready: bool) -> None:
+        """Update capture progress label styling."""
+        text = f"Progress: {count}/{self._min_captures} poses captured"
+        if ready:
+            text += " Ready"
+        tone = "success" if ready else "warning"
+        style_status_label(self._capture_count_label, tone, text)
+        if hasattr(self, "_capture_progress_bar"):
+            style_progress_bar(self._capture_progress_bar, tone)
+
+    def _set_detection_status(
+        self,
+        label: QtWidgets.QLabel,
+        *,
+        detected: bool,
+        waiting_text: str = "Waiting for board...",
+    ) -> None:
+        """Update left/right board detection status chips."""
+        if detected:
+            style_status_label(label, "success", "Ready")
+        else:
+            style_status_label(label, "info", waiting_text)
+        label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
+    def _set_focus_status(self, label: QtWidgets.QLabel, text: str, tone: str) -> None:
+        """Update focus indicator styling."""
+        style_status_label(label, tone, text)
+        label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
+    def _set_camera_type_state(self, text: str, tone: str) -> None:
+        style_status_label(self._camera_type_label, tone, text)
+
+    def _set_camera_stability_state(self, text: str, tone: str) -> None:
+        style_status_label(self._camera_stability_label, tone, text)
+
+    def _set_pattern_info_state(self, text: str, tone: str) -> None:
+        style_status_label(self._pattern_info_label, tone, text)
+
+    def _set_baseline_state(self, text: str, tone: str, tooltip: str) -> None:
+        style_status_label(self._baseline_inches_label, tone, text)
+        self._baseline_inches_label.setToolTip(tooltip)
+
+    def _set_alignment_state(self, text: str, tone: str = "info") -> None:
+        style_message_panel(self._alignment_status_label, tone, text)
+
+    def _set_quality_gauge_state(self, text: str, tone: str = "info") -> None:
+        style_message_panel(self._quality_gauge, tone, text)
+        self._quality_gauge.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
+    def _set_results_state(self, text: str, tone: str) -> None:
+        style_message_panel(self._results_text, tone, text)
+
+    def _set_webcam_warning(self, text: str | None) -> None:
+        """Show or hide the shared webcam warning banner."""
+        if text:
+            self._webcam_warning_label.setText(text)
+            self._webcam_warning.show()
+        else:
+            self._webcam_warning.hide()
+
+    def _tone_for_alignment_quality(self, quality: str) -> str:
+        """Map alignment quality labels to shared semantic tones."""
+        return {
+            "EXCELLENT": "success",
+            "GOOD": "success",
+            "ACCEPTABLE": "warning",
+            "POOR": "warning",
+            "CRITICAL": "error",
+        }.get(quality, "info")
+
+    def _tone_for_quality_score(self, score: float) -> str:
+        """Map numeric quality score to shared semantic tones."""
+        if score >= 75:
+            return "success"
+        if score >= 40:
+            return "warning"
+        return "error"
+
+    def _tone_for_calibration_rating(self, rating: str) -> str:
+        """Map calibration rating labels to shared semantic tones."""
+        return {
+            "EXCELLENT": "success",
+            "GOOD": "success",
+            "ACCEPTABLE": "warning",
+            "POOR": "error",
+        }.get(rating, "info")
+
     def _build_ui(self) -> None:
         """Build simplified calibration step UI."""
         layout = QtWidgets.QVBoxLayout()
+        apply_standard_layout(layout)
 
         # Simple instruction at top
         self._instruction_label = QtWidgets.QLabel(
             "<b style='font-size: 14pt;'>📷 Capture 10+ ChArUco Board Poses</b>"
         )
         self._instruction_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._instruction_label.setStyleSheet("padding: 10px; background-color: #E3F2FD; border-radius: 5px; color: #000000;")
+        self._instruction_label.setText("Capture 10+ ChArUco Board Poses")
+        style_message_panel(self._instruction_label, "info")
         layout.addWidget(self._instruction_label)
 
         # Camera type and calibration mode section
@@ -158,9 +253,9 @@ class CalibrationStep(BaseStep):
         camera_type_group = QtWidgets.QGroupBox("Camera Type")
         camera_type_layout = QtWidgets.QVBoxLayout()
         self._camera_type_label = QtWidgets.QLabel("Detecting...")
-        self._camera_type_label.setStyleSheet("font-size: 11pt; padding: 5px;")
         self._camera_stability_label = QtWidgets.QLabel("Stability: --/100")
-        self._camera_stability_label.setStyleSheet("font-size: 10pt; color: #666;")
+        self._set_camera_type_state("Detecting...", "info")
+        self._set_camera_stability_state("Stability: --/100", "info")
         camera_type_layout.addWidget(self._camera_type_label)
         camera_type_layout.addWidget(self._camera_stability_label)
         camera_type_group.setLayout(camera_type_layout)
@@ -185,38 +280,22 @@ class CalibrationStep(BaseStep):
         layout.addLayout(mode_layout)
 
         # Webcam warning banner (hidden by default)
-        self._webcam_warning = QtWidgets.QLabel()
-        self._webcam_warning.setWordWrap(True)
-        self._webcam_warning.setStyleSheet(
-            "background-color: #FFA726; color: #000000; padding: 10px; "
-            "border-radius: 5px; font-weight: bold;"
-        )
+        self._webcam_warning, self._webcam_warning_label = build_notice("", tone="warning")
         self._webcam_warning.hide()  # Hidden until webcam detected
         layout.addWidget(self._webcam_warning)
 
         # Progress bar showing captures
         progress_layout = QtWidgets.QHBoxLayout()
         self._capture_count_label = QtWidgets.QLabel("Progress: 0/10 poses captured")
-        self._capture_count_label.setStyleSheet("font-size: 12pt; font-weight: bold; color: #000000;")
+        self._set_capture_progress_state(0, ready=False)
 
         self._capture_progress_bar = QtWidgets.QProgressBar()
         self._capture_progress_bar.setMinimum(0)
         self._capture_progress_bar.setMaximum(10)
         self._capture_progress_bar.setValue(0)
         self._capture_progress_bar.setFormat("%v/%m")
-        self._capture_progress_bar.setStyleSheet("""
-            QProgressBar {
-                border: 2px solid #4CAF50;
-                border-radius: 5px;
-                text-align: center;
-                font-weight: bold;
-                font-size: 11pt;
-                min-height: 30px;
-            }
-            QProgressBar::chunk {
-                background-color: #4CAF50;
-            }
-        """)
+        self._capture_progress_bar.setMinimumHeight(30)
+        style_progress_bar(self._capture_progress_bar, "success")
 
         progress_layout.addWidget(self._capture_count_label, 1)
         progress_layout.addWidget(self._capture_progress_bar, 3)
@@ -233,23 +312,17 @@ class CalibrationStep(BaseStep):
         self._left_view.setScaledContents(True)
         self._left_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._left_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._left_view.setStyleSheet("background-color: #2c3e50; color: white; border: 2px solid #34495e;")
+        style_preview_surface(self._left_view)
 
         # Simple status - just READY or NOT READY
         self._left_status = QtWidgets.QLabel("⏳ Waiting for board...")
         self._left_status.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._left_status.setStyleSheet(
-            "font-size: 14pt; font-weight: bold; padding: 8px; "
-            "background-color: #95a5a6; color: #000000; border-radius: 5px;"
-        )
+        self._set_detection_status(self._left_status, detected=False)
 
         # Focus quality indicator
         self._left_focus = QtWidgets.QLabel("Focus: Unknown")
         self._left_focus.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._left_focus.setStyleSheet(
-            "font-size: 12pt; font-weight: bold; padding: 6px; "
-            "background-color: #34495e; color: #FFFFFF; border-radius: 3px;"
-        )
+        self._set_focus_status(self._left_focus, "Focus: Unknown", "info")
 
         left_layout = QtWidgets.QVBoxLayout()
         left_layout.addWidget(QtWidgets.QLabel("<b>LEFT CAMERA</b>"), alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
@@ -266,23 +339,17 @@ class CalibrationStep(BaseStep):
         self._right_view.setScaledContents(True)
         self._right_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._right_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._right_view.setStyleSheet("background-color: #2c3e50; color: white; border: 2px solid #34495e;")
+        style_preview_surface(self._right_view)
 
         # Simple status - just READY or NOT READY
         self._right_status = QtWidgets.QLabel("⏳ Waiting for board...")
         self._right_status.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._right_status.setStyleSheet(
-            "font-size: 14pt; font-weight: bold; padding: 8px; "
-            "background-color: #95a5a6; color: #000000; border-radius: 5px;"
-        )
+        self._set_detection_status(self._right_status, detected=False)
 
         # Focus quality indicator
         self._right_focus = QtWidgets.QLabel("Focus: Unknown")
         self._right_focus.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._right_focus.setStyleSheet(
-            "font-size: 12pt; font-weight: bold; padding: 6px; "
-            "background-color: #34495e; color: #FFFFFF; border-radius: 3px;"
-        )
+        self._set_focus_status(self._right_focus, "Focus: Unknown", "info")
 
         right_layout = QtWidgets.QVBoxLayout()
         right_layout.addWidget(QtWidgets.QLabel("<b>RIGHT CAMERA</b>"), alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
@@ -302,50 +369,16 @@ class CalibrationStep(BaseStep):
         self._capture_button.setMinimumHeight(50)
         self._capture_button.setMinimumWidth(200)
         self._capture_button.setEnabled(False)
-        self._capture_button.setStyleSheet("""
-            QPushButton {
-                font-size: 14pt;
-                font-weight: bold;
-                background-color: #95a5a6;
-                color: white;
-                border-radius: 8px;
-                padding: 10px;
-            }
-            QPushButton:enabled {
-                background-color: #4CAF50;
-            }
-            QPushButton:enabled:hover {
-                background-color: #45a049;
-            }
-            QPushButton:pressed {
-                background-color: #3d8b40;
-            }
-        """)
+        self._capture_button.setText("Capture Pose")
+        self._style_manager.style_button(self._capture_button, "success")
         self._capture_button.clicked.connect(self._capture_image_pair)
 
         self._calibrate_button = QtWidgets.QPushButton("🔧 Run Calibration")
         self._calibrate_button.setMinimumHeight(50)
         self._calibrate_button.setMinimumWidth(200)
         self._calibrate_button.setEnabled(False)
-        self._calibrate_button.setStyleSheet("""
-            QPushButton {
-                font-size: 14pt;
-                font-weight: bold;
-                background-color: #95a5a6;
-                color: white;
-                border-radius: 8px;
-                padding: 10px;
-            }
-            QPushButton:enabled {
-                background-color: #2196F3;
-            }
-            QPushButton:enabled:hover {
-                background-color: #1976D2;
-            }
-            QPushButton:pressed {
-                background-color: #1565C0;
-            }
-        """)
+        self._calibrate_button.setText("Run Calibration")
+        self._style_manager.style_button(self._calibrate_button, "primary")
         self._calibrate_button.clicked.connect(self._run_calibration)
 
         controls_layout.addStretch()
@@ -358,21 +391,7 @@ class CalibrationStep(BaseStep):
         advanced_group = QtWidgets.QGroupBox("⚙️ Advanced Settings")
         advanced_group.setCheckable(True)
         advanced_group.setChecked(False)  # Collapsed by default
-        advanced_group.setStyleSheet("""
-            QGroupBox {
-                font-size: 11pt;
-                font-weight: bold;
-                border: 2px solid #9E9E9E;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
-            }
-        """)
+        advanced_group.setTitle("Advanced Settings")
         advanced_layout = QtWidgets.QVBoxLayout()
 
         # Add settings group (pattern, camera flips, baseline, etc.)
@@ -389,19 +408,8 @@ class CalibrationStep(BaseStep):
         # Release cameras button (for emergencies) - Small and tucked away
         self._release_button = QtWidgets.QPushButton("🔓 Force Release Cameras")
         self._release_button.setMaximumWidth(200)
-        self._release_button.setStyleSheet("""
-            QPushButton {
-                background-color: #ff9800;
-                color: white;
-                font-weight: bold;
-                font-size: 9pt;
-                padding: 5px;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #f57c00;
-            }
-        """)
+        self._release_button.setText("Force Release Cameras")
+        self._style_manager.style_button(self._release_button, "danger")
         self._release_button.clicked.connect(self._force_release_cameras)
         release_layout = QtWidgets.QHBoxLayout()
         release_layout.addStretch()
@@ -414,19 +422,7 @@ class CalibrationStep(BaseStep):
         self._progress_bar.setMaximum(0)  # Indeterminate mode
         self._progress_bar.setTextVisible(True)
         self._progress_bar.setFormat("Calibrating stereo cameras...")
-        self._progress_bar.setStyleSheet(
-            "QProgressBar {"
-            "    border: 2px solid #2196F3;"
-            "    border-radius: 5px;"
-            "    text-align: center;"
-            "    font-weight: bold;"
-            "    font-size: 11pt;"
-            "}"
-            "QProgressBar::chunk {"
-            "    background-color: #2196F3;"
-            "    width: 20px;"
-            "}"
-        )
+        style_progress_bar(self._progress_bar, "default")
         self._progress_bar.hide()
         layout.addWidget(self._progress_bar)
 
@@ -434,6 +430,7 @@ class CalibrationStep(BaseStep):
         self._results_text = QtWidgets.QTextEdit()
         self._results_text.setReadOnly(True)
         self._results_text.setMaximumHeight(100)
+        style_message_panel(self._results_text, "info")
         self._results_text.hide()
         layout.addWidget(self._results_text)
 
@@ -451,6 +448,7 @@ class CalibrationStep(BaseStep):
         main_layout.addWidget(scroll_area)
 
         self.setLayout(main_layout)
+        polish_form_controls(self)
 
     def _build_settings_group(self) -> QtWidgets.QWidget:
         """Build calibration settings groups."""
@@ -492,13 +490,12 @@ class CalibrationStep(BaseStep):
             "Disable this if you want to force a specific board size\n"
             "or if auto-detection is causing issues."
         )
-        self._auto_detect_pattern_checkbox.setStyleSheet("font-weight: bold; color: #2196F3;")
         self._auto_detect_pattern_checkbox.stateChanged.connect(self._on_auto_detect_toggled)
 
         # Pattern detection info label
         self._pattern_info_label = QtWidgets.QLabel("No pattern detected")
-        self._pattern_info_label.setStyleSheet("font-size: 9pt; color: #666;")
         self._pattern_info_label.setToolTip("Shows currently detected ChArUco pattern and dictionary")
+        self._set_pattern_info_state("No pattern detected", "info")
 
         board_layout.addWidget(pattern_label)
         board_layout.addWidget(self._pattern_cols_spin)
@@ -536,6 +533,10 @@ class CalibrationStep(BaseStep):
 
         self._flip_left_btn.clicked.connect(lambda checked: self._toggle_flip("left", checked))
         self._flip_right_btn.clicked.connect(lambda checked: self._toggle_flip("right", checked))
+        self._flip_left_btn.setText("Flip Left 180")
+        self._flip_right_btn.setText("Flip Right 180")
+        self._style_manager.style_button(self._flip_left_btn, "ghost")
+        self._style_manager.style_button(self._flip_right_btn, "ghost")
 
         # Manual rotation controls
         rotate_left_label = QtWidgets.QLabel("Rotate L:")
@@ -572,7 +573,8 @@ class CalibrationStep(BaseStep):
         self._reset_corrections_btn = QtWidgets.QPushButton("🔄 Reset All")
         self._reset_corrections_btn.setToolTip("Reset all rotation and offset corrections to zero")
         self._reset_corrections_btn.clicked.connect(self._reset_all_corrections)
-        self._reset_corrections_btn.setStyleSheet("background-color: #607D8B; color: white; font-weight: bold;")
+        self._reset_corrections_btn.setText("Reset All")
+        self._style_manager.style_button(self._reset_corrections_btn, "ghost")
 
         # Auto-correction checkbox
         self._auto_correct_checkbox = QtWidgets.QCheckBox("Auto-apply alignment corrections")
@@ -583,16 +585,12 @@ class CalibrationStep(BaseStep):
             "You can manually apply corrections using the alignment widget buttons.\n\n"
             "Recommendation: Keep OFF unless you understand the alignment diagnostics."
         )
-        self._auto_correct_checkbox.setStyleSheet("font-weight: bold; color: #D32F2F;")  # Red to emphasize OFF default
-
         # Swap L/R button (manual)
         self._swap_lr_btn = QtWidgets.QPushButton("🔄 Swap L/R")
         self._swap_lr_btn.setToolTip("Manually swap left and right camera assignments")
         self._swap_lr_btn.clicked.connect(self._swap_left_right)
-        self._swap_lr_btn.setStyleSheet(
-            "QPushButton { background-color: #FF9800; color: white; font-weight: bold; padding: 5px 10px; }"
-            "QPushButton:hover { background-color: #F57C00; }"
-        )
+        self._swap_lr_btn.setText("Swap Left / Right")
+        self._style_manager.style_button(self._swap_lr_btn, "ghost")
 
         # Auto-swap button (intelligent swap based on marker positions)
         self._auto_swap_btn = QtWidgets.QPushButton("🔍 Auto-Swap")
@@ -603,10 +601,8 @@ class CalibrationStep(BaseStep):
             "System will analyze marker positions and swap if needed."
         )
         self._auto_swap_btn.clicked.connect(self._auto_swap_cameras)
-        self._auto_swap_btn.setStyleSheet(
-            "QPushButton { background-color: #4CAF50; color: white; font-weight: bold; padding: 5px 10px; }"
-            "QPushButton:hover { background-color: #45a049; }"
-        )
+        self._auto_swap_btn.setText("Auto-Swap")
+        self._style_manager.style_button(self._auto_swap_btn, "success")
 
         # Baseline setting
         baseline_label = QtWidgets.QLabel("Baseline:")
@@ -638,16 +634,18 @@ class CalibrationStep(BaseStep):
 
         if is_calibrated:
             status_text = f"({baseline_inches:.1f} in) 📐 Calibrated"
-            status_color = "#2196F3"  # Blue
             status_tip = "This value was calculated by stereo calibration (more accurate than manual measurement)"
         else:
             status_text = f"({baseline_inches:.1f} in) ✏️ Manual"
-            status_color = "#FF9800"  # Orange
             status_tip = "This is a manually entered value. Run calibration to get a precise measurement."
 
         self._baseline_inches_label = QtWidgets.QLabel(status_text)
-        self._baseline_inches_label.setStyleSheet(f"color: {status_color}; font-style: italic; font-weight: bold;")
         self._baseline_inches_label.setToolTip(status_tip)
+        self._set_baseline_state(
+            f"{baseline_inches:.1f} in · {'Calibrated' if is_calibrated else 'Manual'}",
+            "info" if is_calibrated else "warning",
+            status_tip,
+        )
 
         camera_layout.addWidget(flip_label)
         camera_layout.addWidget(self._flip_left_btn)
@@ -694,13 +692,7 @@ class CalibrationStep(BaseStep):
         # Status label (updated automatically) - wrapped in scroll area
         self._alignment_status_label = QtWidgets.QLabel("⏳ Checking alignment...")
         self._alignment_status_label.setWordWrap(True)
-        self._alignment_status_label.setStyleSheet(
-            "font-size: 10pt; padding: 8px; "
-            "color: #000000; "  # Dark text for readability
-            "background-color: #E3F2FD; "
-            "border: 1px solid #2196F3; "
-            "border-radius: 4px;"
-        )
+        self._set_alignment_state("Checking alignment...", "info")
 
         # Wrap in scroll area to limit height
         status_scroll = QtWidgets.QScrollArea()
@@ -709,58 +701,33 @@ class CalibrationStep(BaseStep):
         status_scroll.setMinimumHeight(100)  # Minimum height to show content
         status_scroll.setMaximumHeight(200)  # Increased from 150px to show more issues
         status_scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
-        status_scroll.setStyleSheet("background-color: transparent;")
         layout.addWidget(status_scroll)
 
         # NEW: Quality gauge (visual score indicator)
         self._quality_gauge = QtWidgets.QLabel()
         self._quality_gauge.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._quality_gauge.setStyleSheet(
-            "font-size: 11pt; font-weight: bold; padding: 12px; "
-            "color: #000000; "  # Dark text for readability
-            "background-color: #F5F5F5; "
-            "border: 2px solid #E0E0E0; "
-            "border-radius: 8px;"
-        )
+        self._set_quality_gauge_state("", "info")
         self._quality_gauge.hide()
         layout.addWidget(self._quality_gauge)
 
         # Details (hidden by default, shown after check)
         self._alignment_details = QtWidgets.QLabel()
         self._alignment_details.setWordWrap(True)
-        self._alignment_details.setStyleSheet(
-            "font-size: 10pt; padding: 6px; "
-            "color: #000000; "  # Black text for readability
-            "background-color: #F5F5F5; "
-            "border: 1px solid #E0E0E0; "
-            "border-radius: 4px;"
-        )
+        style_message_panel(self._alignment_details, "info")
         self._alignment_details.hide()
         layout.addWidget(self._alignment_details)
 
         # NEW: Directional Guidance (hidden by default)
         self._guidance_label = QtWidgets.QLabel()
         self._guidance_label.setWordWrap(True)
-        self._guidance_label.setStyleSheet(
-            "font-size: 10pt; padding: 8px; "
-            "color: #000000; "  # Black text for readability
-            "background-color: #FFF9C4; "
-            "border: 2px solid #FBC02D; "
-            "border-radius: 4px;"
-        )
+        style_message_panel(self._guidance_label, "warning")
         self._guidance_label.hide()
         layout.addWidget(self._guidance_label)
 
         # NEW: Predicted Calibration Quality (hidden by default)
         self._prediction_label = QtWidgets.QLabel()
         self._prediction_label.setWordWrap(True)
-        self._prediction_label.setStyleSheet(
-            "font-size: 10pt; padding: 8px; "
-            "color: #000000; "  # Black text for readability
-            "background-color: #E8F5E9; "
-            "border: 2px solid #4CAF50; "
-            "border-radius: 4px;"
-        )
+        style_message_panel(self._prediction_label, "success")
         self._prediction_label.hide()
         layout.addWidget(self._prediction_label)
 
@@ -773,7 +740,7 @@ class CalibrationStep(BaseStep):
         self._history_list = QtWidgets.QTextEdit()
         self._history_list.setReadOnly(True)
         self._history_list.setMaximumHeight(150)
-        self._history_list.setStyleSheet("font-family: monospace; font-size: 9pt;")
+        style_message_panel(self._history_list, "info")
         history_layout.addWidget(self._history_list)
 
         self._history_group.setLayout(history_layout)
@@ -786,26 +753,36 @@ class CalibrationStep(BaseStep):
         self._recheck_alignment_btn = QtWidgets.QPushButton("🔄 Full Check")
         self._recheck_alignment_btn.setToolTip("Run full alignment check (averaged over 10 frames, ~1 second)")
         self._recheck_alignment_btn.clicked.connect(self._run_automatic_alignment_check)
+        self._recheck_alignment_btn.setText("Full Check")
+        self._style_manager.style_button(self._recheck_alignment_btn, "primary")
         self._recheck_alignment_btn.hide()
 
         self._quick_check_btn = QtWidgets.QPushButton("⚡ Quick Check")
         self._quick_check_btn.setToolTip("Run quick alignment check (1 frame, <100ms)")
         self._quick_check_btn.clicked.connect(self._run_quick_alignment_check)
+        self._quick_check_btn.setText("Quick Check")
+        self._style_manager.style_button(self._quick_check_btn, "ghost")
         self._quick_check_btn.hide()
 
         self._alignment_details_btn = QtWidgets.QPushButton("📊 Details")
         self._alignment_details_btn.setToolTip("Show detailed alignment report")
         self._alignment_details_btn.clicked.connect(self._show_alignment_details)
+        self._alignment_details_btn.setText("Details")
+        self._style_manager.style_button(self._alignment_details_btn, "ghost")
         self._alignment_details_btn.hide()
 
         self._show_features_btn = QtWidgets.QPushButton("👁 Show Features")
         self._show_features_btn.setToolTip("Visualize matched features on camera previews")
         self._show_features_btn.clicked.connect(self._show_feature_overlay)
+        self._show_features_btn.setText("Show Features")
+        self._style_manager.style_button(self._show_features_btn, "ghost")
         self._show_features_btn.hide()
 
         self._export_report_btn = QtWidgets.QPushButton("📄 Export Report")
         self._export_report_btn.setToolTip("Export alignment report as HTML")
         self._export_report_btn.clicked.connect(self._export_alignment_report)
+        self._export_report_btn.setText("Export Report")
+        self._style_manager.style_button(self._export_report_btn, "ghost")
         self._export_report_btn.hide()
 
         buttons_layout.addWidget(self._recheck_alignment_btn)
@@ -822,16 +799,22 @@ class CalibrationStep(BaseStep):
         self._save_preset_btn = QtWidgets.QPushButton("💾 Save Preset")
         self._save_preset_btn.setToolTip("Save current alignment as a preset")
         self._save_preset_btn.clicked.connect(self._save_alignment_preset)
+        self._save_preset_btn.setText("Save Preset")
+        self._style_manager.style_button(self._save_preset_btn, "ghost")
         self._save_preset_btn.hide()
 
         self._load_preset_btn = QtWidgets.QPushButton("📂 Load Preset")
         self._load_preset_btn.setToolTip("Load a saved alignment preset")
         self._load_preset_btn.clicked.connect(self._load_alignment_preset)
+        self._load_preset_btn.setText("Load Preset")
+        self._style_manager.style_button(self._load_preset_btn, "ghost")
         self._load_preset_btn.hide()
 
         self._compare_preset_btn = QtWidgets.QPushButton("⚖️ Compare")
         self._compare_preset_btn.setToolTip("Compare current alignment with saved preset")
         self._compare_preset_btn.clicked.connect(self._compare_with_preset)
+        self._compare_preset_btn.setText("Compare")
+        self._style_manager.style_button(self._compare_preset_btn, "ghost")
         self._compare_preset_btn.hide()
 
         preset_layout.addWidget(self._save_preset_btn)
@@ -860,9 +843,11 @@ class CalibrationStep(BaseStep):
 
     def on_enter(self) -> None:
         """Called when step becomes active."""
-        print(f"[CalibrationStep] on_enter() called")
-        print(f"  Current left serial: '{self._left_serial}'")
-        print(f"  Current right serial: '{self._right_serial}'")
+        logger.debug(
+            "Entering calibration step with left_serial={!r}, right_serial={!r}",
+            self._left_serial,
+            self._right_serial,
+        )
 
         # Clear any old calibration images from temp directory
         self._clear_temp_images()
@@ -873,9 +858,7 @@ class CalibrationStep(BaseStep):
         self._alignment_history.clear()  # Reset alignment history for moving average
         self._warmup_attempts = 0  # Reset warmup counter
         self._capture_count_label.setText(f"Progress: 0/{self._min_captures} poses captured")
-        self._capture_count_label.setStyleSheet(
-            "font-size: 12pt; font-weight: bold; color: #d32f2f;"
-        )
+        self._set_capture_progress_state(0, ready=False)
         self._capture_progress_bar.setValue(0)
         self._calibrate_button.setEnabled(False)
 
@@ -887,12 +870,16 @@ class CalibrationStep(BaseStep):
 
         # Open cameras if serials are set
         if self._left_serial and self._right_serial:
-            print(f"[CalibrationStep] Both serials set, calling _open_cameras()")
+            logger.debug("Both camera serials are available; opening calibration cameras")
             self._open_cameras()
         else:
-            print(f"[CalibrationStep] ERROR: Cannot open cameras - serials not set!")
-            print(f"  Left: '{self._left_serial}' (set: {bool(self._left_serial)})")
-            print(f"  Right: '{self._right_serial}' (set: {bool(self._right_serial)})")
+            logger.warning(
+                "Cannot open calibration cameras because serials are missing. left_serial={!r} (set={}), right_serial={!r} (set={})",
+                self._left_serial,
+                bool(self._left_serial),
+                self._right_serial,
+                bool(self._right_serial),
+            )
 
         # Load previous alignment history
         self._load_alignment_history()
@@ -900,24 +887,26 @@ class CalibrationStep(BaseStep):
         # Auto-swap cameras based on history (if enabled)
         if self._auto_swap_on_startup and self._left_camera and self._right_camera:
             if self._check_camera_history():
-                print("[Auto-Swap] Camera history indicates swap needed, performing automatic swap...")
+                logger.info("Camera history indicates left/right assignments should be swapped")
                 self._swap_left_right(save_to_history=False)  # Don't save yet, just swap
-                print("[Auto-Swap] Cameras swapped based on historical data")
+                logger.info("Applied startup camera swap from saved history")
 
         # Detect camera capabilities (Phase 3)
         if self._left_camera and not self._camera_detection_complete:
-            print("[CalibrationStep] Running camera capability detection...")
+            logger.debug("Scheduling camera capability detection after preview warmup")
             # Run in background to avoid blocking UI
             QtCore.QTimer.singleShot(1000, self._detect_camera_capabilities)  # Delay 1s for camera warmup
 
         # Start preview timer
         if self._left_camera and self._right_camera:
-            print(f"[CalibrationStep] Starting preview timer (both cameras present)")
+            logger.debug("Starting calibration preview timer")
             self._preview_timer.start(33)  # ~30 FPS
         else:
-            print(f"[CalibrationStep] WARNING: Not starting preview timer!")
-            print(f"  Left camera: {self._left_camera}")
-            print(f"  Right camera: {self._right_camera}")
+            logger.warning(
+                "Calibration preview timer not started because cameras are unavailable. left_camera={!r}, right_camera={!r}",
+                self._left_camera,
+                self._right_camera,
+            )
 
     def on_exit(self) -> None:
         """Called when leaving step."""
@@ -936,6 +925,8 @@ class CalibrationStep(BaseStep):
                 "<b style='font-size: 14pt;'>📷 Capture 3-5 ChArUco Board Poses (Quick Mode)</b>"
             )
             self._capture_progress_bar.setMaximum(5)
+            self._instruction_label.setText("Capture 3-5 ChArUco Board Poses (Quick Mode)")
+            style_message_panel(self._instruction_label, "info")
         else:
             self._calibration_mode = "FULL"
             self._min_captures = 10
@@ -943,19 +934,22 @@ class CalibrationStep(BaseStep):
                 "<b style='font-size: 14pt;'>📷 Capture 10+ ChArUco Board Poses</b>"
             )
             self._capture_progress_bar.setMaximum(10)
+            self._instruction_label.setText("Capture 10+ ChArUco Board Poses")
+            style_message_panel(self._instruction_label, "info")
 
         # Update progress label
         count = len(self._captures)
         self._capture_count_label.setText(f"Progress: {count}/{self._min_captures} poses captured")
+        self._set_capture_progress_state(count, ready=count >= self._min_captures)
 
-        print(f"[CalibrationStep] Calibration mode changed to: {self._calibration_mode}")
+        logger.debug("Calibration mode changed to {}", self._calibration_mode)
 
     def _detect_camera_capabilities(self) -> None:
         """Detect camera capabilities (type, autofocus, stability)."""
         if self._camera_detection_complete or not self._left_camera:
             return
 
-        print("[CalibrationStep] Detecting camera capabilities...")
+        logger.debug("Detecting camera capabilities")
         self._camera_type_label.setText("Detecting camera type...")
 
         try:
@@ -973,13 +967,15 @@ class CalibrationStep(BaseStep):
             self._camera_detection_complete = True
             self._update_camera_type_display()
 
-            print(f"[CalibrationStep] Camera detection complete:")
-            print(f"  Type: {self._camera_capabilities.camera_type}")
-            print(f"  Autofocus: {self._camera_capabilities.has_autofocus}")
-            print(f"  Stability: {self._camera_capabilities.focal_stability_score:.1f}/100")
+            logger.info(
+                "Camera capability detection complete: type={}, autofocus={}, stability={:.1f}/100",
+                self._camera_capabilities.camera_type,
+                self._camera_capabilities.has_autofocus,
+                self._camera_capabilities.focal_stability_score,
+            )
 
         except Exception as e:
-            print(f"[CalibrationStep] Camera detection failed: {e}")
+            logger.warning("Camera capability detection failed: {}", e)
             self._camera_type_label.setText("Detection failed")
             self._camera_stability_label.setText("See console for details")
 
@@ -993,34 +989,28 @@ class CalibrationStep(BaseStep):
         # Update camera type label with emoji
         if caps.camera_type == "industrial":
             type_emoji = "✓"
-            type_color = "#4CAF50"  # Green
             type_text = f"{type_emoji} Industrial (Fixed Focus)"
         elif caps.camera_type == "webcam":
             type_emoji = "⚠️"
-            type_color = "#FF9800"  # Orange
             type_text = f"{type_emoji} Webcam (Autofocus)"
         else:
             type_emoji = "?"
-            type_color = "#666666"  # Gray
             type_text = f"{type_emoji} Unknown"
 
         self._camera_type_label.setText(type_text)
-        self._camera_type_label.setStyleSheet(
-            f"font-size: 11pt; font-weight: bold; padding: 5px; color: {type_color};"
+        self._set_camera_type_state(
+            "Industrial (Fixed Focus)" if caps.camera_type == "industrial" else (
+                "Webcam (Autofocus)" if caps.camera_type == "webcam" else "Unknown Camera Type"
+            ),
+            "success" if caps.camera_type == "industrial" else ("warning" if caps.camera_type == "webcam" else "info"),
         )
 
         # Update stability score
         score = caps.focal_stability_score
-        if score >= 90:
-            score_color = "#4CAF50"  # Green
-        elif score >= 70:
-            score_color = "#FF9800"  # Orange
-        else:
-            score_color = "#F44336"  # Red
-
         self._camera_stability_label.setText(f"Stability: {score:.0f}/100")
-        self._camera_stability_label.setStyleSheet(
-            f"font-size: 10pt; padding: 3px; color: {score_color};"
+        self._set_camera_stability_state(
+            f"Stability: {score:.0f}/100",
+            "success" if score >= 90 else ("warning" if score >= 70 else "error"),
         )
 
         # Show webcam warning if detected
@@ -1033,35 +1023,32 @@ class CalibrationStep(BaseStep):
                 # Show first 2 recommendations
                 warning_text += "\n" + "\n".join(f"• {r}" for r in caps.recommendations[:2])
 
-            self._webcam_warning.setText(warning_text)
-            self._webcam_warning.show()
+            self._set_webcam_warning(warning_text)
 
             # Suggest quick mode for webcams
-            if self._calibration_mode == "FULL":
-                reply = QtWidgets.QMessageBox.question(
+            if self._calibration_mode == "FULL" and ask_confirmation(
                     self,
                     "Quick Calibration Recommended",
                     "Webcam detected with autofocus.\n\n"
                     "Quick calibration mode is recommended for cameras with autofocus "
                     "as it's less sensitive to focal drift.\n\n"
                     "Switch to Quick mode?",
-                    QtWidgets.QMessageBox.StandardButton.Yes |
-                    QtWidgets.QMessageBox.StandardButton.No
-                )
-
-                if reply == QtWidgets.QMessageBox.StandardButton.Yes:
-                    self._quick_radio.setChecked(True)
+                    tone="warning",
+                ):
+                self._quick_radio.setChecked(True)
         else:
-            self._webcam_warning.hide()
+            self._set_webcam_warning(None)
 
     def set_camera_serials(self, left_serial: str, right_serial: str) -> None:
         """Set camera serials from Step 1."""
-        print(f"[CalibrationStep] set_camera_serials() called:")
-        print(f"  Left serial: '{left_serial}'")
-        print(f"  Right serial: '{right_serial}'")
+        logger.debug(
+            "Received camera serials for calibration step: left_serial={!r}, right_serial={!r}",
+            left_serial,
+            right_serial,
+        )
         self._left_serial = left_serial
         self._right_serial = right_serial
-        print(f"[CalibrationStep] Serials stored successfully")
+        logger.debug("Stored calibration camera serials")
 
     def _on_pattern_changed(self, value: int) -> None:
         """Handle pattern size change."""
@@ -1070,7 +1057,7 @@ class CalibrationStep(BaseStep):
         self._update_pattern_info()
         self._user_changed_pattern = True  # User manually changed, allow re-detection
         self._pattern_locked = False  # Unlock to allow new auto-detection
-        print(f"[ChArUco Settings] Pattern manually changed to {self._pattern_cols}x{self._pattern_rows}")
+        logger.debug("User changed ChArUco pattern to {}x{}", self._pattern_cols, self._pattern_rows)
 
     def _on_square_size_changed(self, value: float) -> None:
         """Handle square size change."""
@@ -1078,7 +1065,7 @@ class CalibrationStep(BaseStep):
         self._update_pattern_info()
         self._user_changed_pattern = True  # User manually changed, allow re-detection
         self._pattern_locked = False  # Unlock to allow new auto-detection
-        print(f"[ChArUco Settings] Square size manually changed to {self._square_mm}mm")
+        logger.debug("User changed ChArUco square size to {:.1f}mm", self._square_mm)
 
     def _update_pattern_info(self) -> None:
         """Update the pattern info label."""
@@ -1095,14 +1082,14 @@ class CalibrationStep(BaseStep):
             self._pattern_info_label.setText(
                 f"Detected: {self._pattern_cols}×{self._pattern_rows} ({dict_display})"
             )
-            self._pattern_info_label.setStyleSheet("font-size: 9pt; color: #4CAF50; font-weight: bold;")
+            self._set_pattern_info_state(self._pattern_info_label.text(), "success")
         elif self._cached_dict_name:
             dict_display = self._cached_dict_name.replace('DICT_', '').replace('_', ' ')
             self._pattern_info_label.setText(f"Scanning... ({dict_display})")
-            self._pattern_info_label.setStyleSheet("font-size: 9pt; color: #FF9800;")
+            self._set_pattern_info_state(self._pattern_info_label.text(), "warning")
         else:
             self._pattern_info_label.setText("No pattern detected")
-            self._pattern_info_label.setStyleSheet("font-size: 9pt; color: #666;")
+            self._set_pattern_info_state(self._pattern_info_label.text(), "info")
 
     def _toggle_flip(self, camera: str, checked: bool) -> None:
         """Toggle camera flip and restart cameras.
@@ -1133,7 +1120,7 @@ class CalibrationStep(BaseStep):
 
         # Show feedback message
         orientation = "flipped 180°" if checked else "normal"
-        print(f"INFO: {camera.capitalize()} camera {orientation} - restarting cameras...")
+        logger.info("{} camera set to {}; restarting cameras", camera.capitalize(), orientation)
 
         # Restart cameras if open to apply flip
         if self._left_camera is not None or self._right_camera is not None:
@@ -1195,7 +1182,7 @@ class CalibrationStep(BaseStep):
         self._rotate_left_spin.setValue(0.0)
         self._rotate_right_spin.setValue(0.0)
 
-        print("INFO: All rotation and offset corrections reset to zero")
+        logger.info("Reset all manual camera rotation and offset corrections")
 
         # Restart cameras if open to apply reset
         if self._left_camera is not None or self._right_camera is not None:
@@ -1211,9 +1198,9 @@ class CalibrationStep(BaseStep):
             # Restart preview if cameras opened successfully
             if self._left_camera and self._right_camera:
                 self._preview_timer.start(33)  # ~30 FPS
-                print("INFO: Cameras restarted with new flip setting")
-        except Exception as e:
-            print(f"ERROR: Failed to restart cameras: {e}")
+                logger.info("Restarted cameras after flip or rotation change")
+        except Exception:
+            logger.exception("Failed to restart cameras after flip or rotation change")
 
     def _on_auto_detect_toggled(self, state: int) -> None:
         """Handle auto-detection checkbox toggle."""
@@ -1222,11 +1209,16 @@ class CalibrationStep(BaseStep):
         if enabled:
             # Re-enable auto-detection
             self._pattern_locked = False
-            print("[ChArUco] Auto-detection ENABLED - will detect board size automatically")
+            logger.info("ChArUco pattern auto-detection enabled")
         else:
             # Disable auto-detection, use manual settings
             self._pattern_locked = True  # Lock prevents auto-detection
-            print(f"[ChArUco] Auto-detection DISABLED - using manual settings: {self._pattern_cols}x{self._pattern_rows}, {self._square_mm}mm")
+            logger.info(
+                "ChArUco pattern auto-detection disabled; using manual settings {}x{} at {:.1f}mm",
+                self._pattern_cols,
+                self._pattern_rows,
+                self._square_mm,
+            )
 
     def _auto_swap_cameras(self) -> None:
         """Intelligently swap cameras based on ChArUco marker positions.
@@ -1236,11 +1228,12 @@ class CalibrationStep(BaseStep):
         sees markers more on the left side, they should be swapped.
         """
         if not self._left_camera or not self._right_camera:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Cameras Not Ready",
                 "Both cameras must be open to perform auto-swap.\n\n"
-                "Please ensure both cameras are connected and showing previews."
+                "Please ensure both cameras are connected and showing previews.",
+                tone="warning",
             )
             return
 
@@ -1250,11 +1243,12 @@ class CalibrationStep(BaseStep):
             right_frame = self._right_camera.read_frame(timeout_ms=1000)
 
             if not left_frame or not right_frame:
-                QtWidgets.QMessageBox.warning(
+                show_message_dialog(
                     self,
                     "Frame Capture Failed",
                     "Could not capture frames from cameras.\n\n"
-                    "Please ensure both cameras are working properly."
+                    "Please ensure both cameras are working properly.",
+                    tone="warning",
                 )
                 return
 
@@ -1263,7 +1257,7 @@ class CalibrationStep(BaseStep):
             right_marker_pos = self._get_marker_horizontal_position(right_frame.image)
 
             if left_marker_pos is None or right_marker_pos is None:
-                QtWidgets.QMessageBox.warning(
+                show_message_dialog(
                     self,
                     "Board Not Detected",
                     "Could not detect ChArUco board in both cameras.\n\n"
@@ -1271,7 +1265,8 @@ class CalibrationStep(BaseStep):
                     "1. Hold board in view of BOTH cameras\n"
                     "2. Ensure board is well-lit and in focus\n"
                     "3. Wait for 'READY' status on both cameras\n"
-                    "4. Try again"
+                    "4. Try again",
+                    tone="warning",
                 )
                 return
 
@@ -1327,34 +1322,34 @@ class CalibrationStep(BaseStep):
 
             # Show results
             if should_swap:
-                reply = QtWidgets.QMessageBox.question(
+                if ask_confirmation(
                     self,
                     "Swap Cameras?",
                     explanation + "\n\nSwap cameras now?",
-                    QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
-                )
-
-                if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+                ):
                     self._swap_left_right()
-                    QtWidgets.QMessageBox.information(
+                    show_message_dialog(
                         self,
                         "Cameras Swapped",
                         "Left and right cameras have been swapped.\n\n"
-                        "The system will restart the cameras with the new assignment."
+                        "The system will restart the cameras with the new assignment.",
+                        tone="success",
                     )
             else:
-                QtWidgets.QMessageBox.information(
+                show_message_dialog(
                     self,
                     "Camera Orientation",
-                    explanation
+                    explanation,
+                    tone="info",
                 )
 
         except Exception as e:
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self,
                 "Auto-Swap Error",
                 f"Error during auto-swap detection:\n{str(e)}\n\n"
-                "Please try manual swap if needed."
+                "Please try manual swap if needed.",
+                tone="error",
             )
 
     def _get_marker_horizontal_position(self, image: np.ndarray, return_details: bool = False) -> Optional[float | tuple]:
@@ -1506,47 +1501,58 @@ class CalibrationStep(BaseStep):
         GOOD_THRESHOLD = 150       # 150-300 is good
         POOR_THRESHOLD = 100       # 100-150 is acceptable, <100 is poor
 
-        def get_focus_status(blur_score: float) -> tuple[str, str, str]:
-            """Get focus status text, color, and background color.
-
-            Returns:
-                (status_text, text_color, background_color)
-            """
+        def get_focus_status(blur_score: float) -> tuple[str, str]:
+            """Get focus status text and semantic tone."""
             if blur_score >= EXCELLENT_THRESHOLD:
-                return (f"Focus: Excellent ({blur_score:.0f})", "#FFFFFF", "#4CAF50")  # Green
+                return (f"Focus: Excellent ({blur_score:.0f})", "success")
             elif blur_score >= GOOD_THRESHOLD:
-                return (f"Focus: Good ({blur_score:.0f})", "#000000", "#8BC34A")  # Light green
+                return (f"Focus: Good ({blur_score:.0f})", "success")
             elif blur_score >= POOR_THRESHOLD:
-                return (f"Focus: Acceptable ({blur_score:.0f})", "#000000", "#FFC107")  # Yellow
+                return (f"Focus: Acceptable ({blur_score:.0f})", "warning")
             else:
                 return (f"⚠ ADJUST FOCUS ⚠ ({blur_score:.0f})", "#FFFFFF", "#F44336")  # Red
 
         # Update left camera focus indicator
-        left_text, left_color, left_bg = get_focus_status(left_blur)
-        self._left_focus.setText(left_text)
-        self._left_focus.setStyleSheet(
-            f"font-size: 12pt; font-weight: bold; padding: 6px; "
-            f"background-color: {left_bg}; color: {left_color}; border-radius: 3px;"
+        left_text, *_ = get_focus_status(left_blur)
+        self._set_focus_status(
+            self._left_focus,
+            left_text,
+            "success" if left_blur >= GOOD_THRESHOLD else ("warning" if left_blur >= POOR_THRESHOLD else "error"),
         )
 
         # Update right camera focus indicator
-        right_text, right_color, right_bg = get_focus_status(right_blur)
-        self._right_focus.setText(right_text)
-        self._right_focus.setStyleSheet(
-            f"font-size: 12pt; font-weight: bold; padding: 6px; "
-            f"background-color: {right_bg}; color: {right_color}; border-radius: 3px;"
+        right_text, *_ = get_focus_status(right_blur)
+        self._set_focus_status(
+            self._right_focus,
+            right_text,
+            "success" if right_blur >= GOOD_THRESHOLD else ("warning" if right_blur >= POOR_THRESHOLD else "error"),
         )
 
-        # Determine which camera needs adjustment (if any)
+        # Determine which camera needs adjustment (if any) and only log when that
+        # state changes so the preview loop does not spam diagnostics.
         if left_blur < POOR_THRESHOLD and right_blur < POOR_THRESHOLD:
-            # Both cameras need adjustment
-            print(f"[Focus] ⚠ BOTH CAMERAS need focus adjustment! Left: {left_blur:.0f}, Right: {right_blur:.0f}")
+            focus_state = "both"
+            log_message = "Both cameras need focus adjustment (left={:.0f}, right={:.0f})"
+            log_args = (left_blur, right_blur)
         elif left_blur < POOR_THRESHOLD:
-            # Only left camera needs adjustment
-            print(f"[Focus] ⚠ LEFT CAMERA needs focus adjustment! Score: {left_blur:.0f} (Right: {right_blur:.0f})")
+            focus_state = "left"
+            log_message = "Left camera needs focus adjustment (left={:.0f}, right={:.0f})"
+            log_args = (left_blur, right_blur)
         elif right_blur < POOR_THRESHOLD:
-            # Only right camera needs adjustment
-            print(f"[Focus] ⚠ RIGHT CAMERA needs focus adjustment! Score: {right_blur:.0f} (Left: {left_blur:.0f})")
+            focus_state = "right"
+            log_message = "Right camera needs focus adjustment (left={:.0f}, right={:.0f})"
+            log_args = (left_blur, right_blur)
+        else:
+            focus_state = "ok"
+            log_message = "Camera focus returned to acceptable range (left={:.0f}, right={:.0f})"
+            log_args = (left_blur, right_blur)
+
+        if focus_state != self._focus_warning_state:
+            if focus_state == "ok" and self._focus_warning_state != "ok":
+                logger.info(log_message, *log_args)
+            elif focus_state != "ok":
+                logger.warning(log_message, *log_args)
+            self._focus_warning_state = focus_state
 
     def _load_camera_history(self) -> dict:
         """Load historical camera position assignments.
@@ -1582,9 +1588,13 @@ class CalibrationStep(BaseStep):
             self._camera_history_file.parent.mkdir(parents=True, exist_ok=True)
             with open(self._camera_history_file, 'w') as f:
                 json.dump(history, f, indent=2)
-            print(f"[Camera History] Saved: {self._left_serial}=left, {self._right_serial}=right")
+            logger.debug(
+                "Saved camera history with left_serial={!r} and right_serial={!r}",
+                self._left_serial,
+                self._right_serial,
+            )
         except Exception as e:
-            print(f"[Camera History] Failed to save: {e}")
+            logger.warning("Failed to save camera history: {}", e)
 
     def _check_camera_history(self) -> bool:
         """Check if current cameras match historical assignments.
@@ -1604,9 +1614,11 @@ class CalibrationStep(BaseStep):
         # If both cameras have history, check if they're swapped
         if left_history and right_history:
             if left_history == 'right' and right_history == 'left':
-                print(f"[Camera History] Cameras appear SWAPPED based on history:")
-                print(f"  {self._left_serial} was previously 'right' (now in left position)")
-                print(f"  {self._right_serial} was previously 'left' (now in right position)")
+                logger.info(
+                    "Camera history indicates swapped positions: left_serial={!r} was previously right, right_serial={!r} was previously left",
+                    self._left_serial,
+                    self._right_serial,
+                )
                 return True
 
         return False
@@ -1622,7 +1634,11 @@ class CalibrationStep(BaseStep):
         # Swap the serial numbers
         self._left_serial, self._right_serial = self._right_serial, self._left_serial
 
-        print(f"INFO: Swapped cameras - Left: {self._left_serial}, Right: {self._right_serial}")
+        logger.info(
+            "Swapped camera assignments: left_serial={!r}, right_serial={!r}",
+            self._left_serial,
+            self._right_serial,
+        )
 
         # Save to history
         if save_to_history:
@@ -1663,9 +1679,9 @@ class CalibrationStep(BaseStep):
             # Restart preview if cameras opened successfully
             if self._left_camera and self._right_camera:
                 self._preview_timer.start(33)  # ~30 FPS
-                print("INFO: Cameras restarted with swapped L/R assignment")
-        except Exception as e:
-            print(f"ERROR: Failed to restart cameras after swap: {e}")
+                logger.info("Restarted cameras after swapping left/right assignments")
+        except Exception:
+            logger.exception("Failed to restart cameras after swapping assignments")
 
     def _update_baseline(self, value_ft: float) -> None:
         """Update baseline distance in config.
@@ -1686,9 +1702,10 @@ class CalibrationStep(BaseStep):
         if hasattr(self, "_baseline_inches_label"):
             # User is manually entering, so mark as manual (orange)
             self._baseline_inches_label.setText(f"({baseline_inches:.1f} in) ✏️ Manual")
-            self._baseline_inches_label.setStyleSheet("color: #FF9800; font-style: italic; font-weight: bold;")
-            self._baseline_inches_label.setToolTip(
-                "This is a manually entered value. Run calibration to get a precise measurement."
+            self._set_baseline_state(
+                f"{baseline_inches:.1f} in · Manual",
+                "warning",
+                "This is a manually entered value. Run calibration to get a precise measurement.",
             )
 
     def _clear_temp_images(self) -> None:
@@ -1709,10 +1726,12 @@ class CalibrationStep(BaseStep):
     def _open_cameras(self) -> None:
         """Open camera devices."""
         try:
-            print(f"[_open_cameras] Starting camera initialization")
-            print(f"  Backend: '{self._backend}'")
-            print(f"  Left serial: '{self._left_serial}'")
-            print(f"  Right serial: '{self._right_serial}'")
+            logger.debug(
+                "Opening calibration cameras with backend={!r}, left_serial={!r}, right_serial={!r}",
+                self._backend,
+                self._left_serial,
+                self._right_serial,
+            )
 
             if not self._left_serial or not self._right_serial:
                 raise ValueError("Camera serials not set. Please select cameras in Step 1.")
@@ -1737,9 +1756,13 @@ class CalibrationStep(BaseStep):
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
 
-                print(f"[OpenCV Backend] Extracting camera indices:")
-                print(f"  Left serial: '{self._left_serial}' (type: {type(self._left_serial)})")
-                print(f"  Right serial: '{self._right_serial}' (type: {type(self._right_serial)})")
+                logger.debug(
+                    "Extracting OpenCV camera indices from left_serial={!r} ({}), right_serial={!r} ({})",
+                    self._left_serial,
+                    type(self._left_serial).__name__,
+                    self._right_serial,
+                    type(self._right_serial).__name__,
+                )
 
                 # Ensure serials are strings (they might be ints from some code paths)
                 left_serial_str = str(self._left_serial)
@@ -1757,53 +1780,62 @@ class CalibrationStep(BaseStep):
                 else:
                     right_index = int(right_serial_str.split()[-1])
 
-                print(f"  Extracted left index: {left_index} (type: {type(left_index)})")
-                print(f"  Extracted right index: {right_index} (type: {type(right_index)})")
+                logger.debug(
+                    "Resolved OpenCV camera indices: left_index={} ({}), right_index={} ({})",
+                    left_index,
+                    type(left_index).__name__,
+                    right_index,
+                    type(right_index).__name__,
+                )
 
                 self._left_camera = OpenCVCamera()
                 self._right_camera = OpenCVCamera()
 
                 # Open left camera
                 try:
-                    print(f"DEBUG: Opening left camera with index: {left_index} (flip={flip_left})")
+                    logger.debug("Opening left OpenCV camera index={} flip={}", left_index, flip_left)
                     self._left_camera.open(left_index)
-                    print(f"DEBUG: Left camera opened successfully")
+                    logger.debug("Opened left OpenCV camera successfully")
                 except Exception as e:
-                    print(f"ERROR: Failed to open left camera (index {left_index}): {e}")
-                    import traceback
-                    traceback.print_exc()
+                    logger.exception("Failed to open left OpenCV camera at index {}", left_index)
                     raise RuntimeError(f"Failed to open left camera at index {left_index}: {e}")
 
                 # Open right camera
                 try:
-                    print(f"DEBUG: Opening right camera with index: {right_index} (flip={flip_right})")
+                    logger.debug("Opening right OpenCV camera index={} flip={}", right_index, flip_right)
                     self._right_camera.open(right_index)
-                    print(f"DEBUG: Right camera opened successfully")
+                    logger.debug("Opened right OpenCV camera successfully")
                 except Exception as e:
-                    print(f"ERROR: Failed to open right camera (index {right_index}): {e}")
-                    import traceback
-                    traceback.print_exc()
+                    logger.exception("Failed to open right OpenCV camera at index {}", right_index)
                     raise RuntimeError(f"Failed to open right camera at index {right_index}: {e}")
 
                 # Configure cameras with settings from config including flip and rotation correction
                 try:
-                    print(f"DEBUG: Configuring left camera (width={width}, height={height}, fps={fps})")
+                    logger.debug(
+                        "Configuring left OpenCV camera width={} height={} fps={} pixfmt={!r}",
+                        width,
+                        height,
+                        fps,
+                        pixfmt,
+                    )
                     self._left_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_left, rotation_correction=rotation_left)
-                    print(f"DEBUG: Left camera configured successfully")
+                    logger.debug("Configured left OpenCV camera successfully")
                 except Exception as e:
-                    print(f"ERROR: Failed to configure left camera: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    logger.exception("Failed to configure left OpenCV camera")
                     raise RuntimeError(f"Failed to configure left camera: {e}")
 
                 try:
-                    print(f"DEBUG: Configuring right camera (width={width}, height={height}, fps={fps})")
+                    logger.debug(
+                        "Configuring right OpenCV camera width={} height={} fps={} pixfmt={!r}",
+                        width,
+                        height,
+                        fps,
+                        pixfmt,
+                    )
                     self._right_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_right, rotation_correction=rotation_right)
-                    print(f"DEBUG: Right camera configured successfully")
+                    logger.debug("Configured right OpenCV camera successfully")
                 except Exception as e:
-                    print(f"ERROR: Failed to configure right camera: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    logger.exception("Failed to configure right OpenCV camera")
                     raise RuntimeError(f"Failed to configure right camera: {e}")
 
             else:  # uvc
@@ -1813,26 +1845,32 @@ class CalibrationStep(BaseStep):
                 self._right_camera = UvcCamera()
 
                 # Open cameras with their serials - retry with delays if needed
-                print(f"DEBUG: Opening left camera with serial: {self._left_serial} (flip={flip_left})")
+                logger.debug("Opening left UVC camera serial={!r} flip={}", self._left_serial, flip_left)
                 for attempt in range(3):
                     try:
                         self._left_camera.open(self._left_serial)
                         break
-                    except Exception as e:
+                    except Exception:
                         if attempt < 2:
-                            print(f"DEBUG: Left camera open attempt {attempt + 1} failed, retrying...")
+                            logger.warning(
+                                "Left UVC camera open attempt {} failed; retrying",
+                                attempt + 1,
+                            )
                             time.sleep(1.0)
                         else:
                             raise
 
-                print(f"DEBUG: Opening right camera with serial: {self._right_serial} (flip={flip_right})")
+                logger.debug("Opening right UVC camera serial={!r} flip={}", self._right_serial, flip_right)
                 for attempt in range(3):
                     try:
                         self._right_camera.open(self._right_serial)
                         break
-                    except Exception as e:
+                    except Exception:
                         if attempt < 2:
-                            print(f"DEBUG: Right camera open attempt {attempt + 1} failed, retrying...")
+                            logger.warning(
+                                "Right UVC camera open attempt {} failed; retrying",
+                                attempt + 1,
+                            )
                             time.sleep(1.0)
                         else:
                             raise
@@ -1843,13 +1881,15 @@ class CalibrationStep(BaseStep):
 
             # Update status labels to show which camera is assigned to which position
             self._left_status.setText(f"● {self._left_serial}")
-            self._left_status.setStyleSheet("color: green; font-weight: bold;")
+            self._set_detection_status(self._left_status, detected=True)
             self._right_status.setText(f"● {self._right_serial}")
-            self._right_status.setStyleSheet("color: green; font-weight: bold;")
+            self._set_detection_status(self._right_status, detected=True)
 
-            print(f"[CalibrationStep] Cameras opened successfully!")
-            print(f"  Left camera object: {self._left_camera} (serial: {self._left_serial})")
-            print(f"  Right camera object: {self._right_camera} (serial: {self._right_serial})")
+            logger.info(
+                "Opened calibration cameras successfully: left_serial={!r}, right_serial={!r}",
+                self._left_serial,
+                self._right_serial,
+            )
 
             # NEW: Wait for cameras to warm up, then run alignment check
             QtCore.QTimer.singleShot(1000, self._wait_for_camera_warmup)
@@ -1869,10 +1909,11 @@ class CalibrationStep(BaseStep):
                 "• Cameras disconnected"
             )
 
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self,
                 "Camera Error",
                 error_msg,
+                tone="error",
             )
 
     def _close_cameras(self) -> None:
@@ -1897,9 +1938,9 @@ class CalibrationStep(BaseStep):
 
         # Reset status labels
         self._left_status.setText("● Waiting...")
-        self._left_status.setStyleSheet("color: gray; font-weight: bold;")
+        self._set_detection_status(self._left_status, detected=False)
         self._right_status.setText("● Waiting...")
-        self._right_status.setStyleSheet("color: gray; font-weight: bold;")
+        self._set_detection_status(self._right_status, detected=False)
 
         # Force garbage collection to release any lingering handles
         import gc
@@ -1954,12 +1995,13 @@ class CalibrationStep(BaseStep):
         time.sleep(1.0)
         gc.collect()
 
-        QtWidgets.QMessageBox.information(
+        show_message_dialog(
             self,
             "Cameras Released",
             "Camera resources have been forcibly released.\n\n"
             "You can now try opening the cameras again by going back to Step 1 "
             "and then returning to Step 2.",
+            tone="success",
         )
 
     def _update_preview(self) -> None:
@@ -1967,9 +2009,11 @@ class CalibrationStep(BaseStep):
         if not self._left_camera or not self._right_camera:
             # Only log once to avoid spam
             if not hasattr(self, '_logged_missing_cameras'):
-                print(f"[CalibrationStep] _update_preview() - missing cameras!")
-                print(f"  Left camera: {self._left_camera}")
-                print(f"  Right camera: {self._right_camera}")
+                logger.debug(
+                    "Skipping preview update because calibration cameras are missing. left_camera={!r}, right_camera={!r}",
+                    self._left_camera,
+                    self._right_camera,
+                )
                 self._logged_missing_cameras = True
             return
 
@@ -1997,29 +2041,17 @@ class CalibrationStep(BaseStep):
             # Update status indicators - Simplified READY/NOT READY
             if left_detected:
                 self._left_status.setText("✅ READY")
-                self._left_status.setStyleSheet(
-                    "font-size: 14pt; font-weight: bold; padding: 8px; "
-                    "background-color: #4CAF50; color: #FFFFFF; border-radius: 5px;"
-                )
+                self._set_detection_status(self._left_status, detected=True)
             else:
                 self._left_status.setText("⏳ Waiting for board...")
-                self._left_status.setStyleSheet(
-                    "font-size: 14pt; font-weight: bold; padding: 8px; "
-                    "background-color: #95a5a6; color: #FFFFFF; border-radius: 5px;"
-                )
+                self._set_detection_status(self._left_status, detected=False)
 
             if right_detected:
                 self._right_status.setText("✅ READY")
-                self._right_status.setStyleSheet(
-                    "font-size: 14pt; font-weight: bold; padding: 8px; "
-                    "background-color: #4CAF50; color: #FFFFFF; border-radius: 5px;"
-                )
+                self._set_detection_status(self._right_status, detected=True)
             else:
                 self._right_status.setText("⏳ Waiting for board...")
-                self._right_status.setStyleSheet(
-                    "font-size: 14pt; font-weight: bold; padding: 8px; "
-                    "background-color: #95a5a6; color: #FFFFFF; border-radius: 5px;"
-                )
+                self._set_detection_status(self._right_status, detected=False)
 
             # Update focus quality indicators
             self._update_focus_indicators(left_blur, right_blur)
@@ -2102,9 +2134,14 @@ class CalibrationStep(BaseStep):
         # Round to nearest 0.5mm for cleaner values
         square_mm = round(square_mm * 2) / 2
 
-        print(f"  Detected {len(marker_ids)} markers (max_id={max_id})")
-        print(f"  Inferred pattern: {cols}x{rows}")
-        print(f"  Calculated square size: {square_mm:.1f}mm (assuming letter paper vertical)")
+        logger.debug(
+            "Auto-detected ChArUco candidate from markers: count={}, max_id={}, pattern={}x{}, square_mm={:.1f}",
+            len(marker_ids),
+            max_id,
+            cols,
+            rows,
+            square_mm,
+        )
 
         return (cols, rows, square_mm)
 
@@ -2155,7 +2192,7 @@ class CalibrationStep(BaseStep):
 
             # Log only on full scan
             if self._detection_log_counter % 10 == 0:
-                print(f"[ChArUco Detection] Scanning {len(DICTIONARIES_TO_TRY)} dictionaries...")
+                logger.debug("Scanning {} ChArUco dictionaries", len(DICTIONARIES_TO_TRY))
 
             for dict_name, dict_id in DICTIONARIES_TO_TRY:
                 aruco_dict = cv2.aruco.getPredefinedDictionary(dict_id)
@@ -2214,8 +2251,12 @@ class CalibrationStep(BaseStep):
             # Log if dictionary changed
             dict_changed = (self._cached_dict_name != best_dict_name)
             if dict_changed and best_marker_count > 0:
-                print(f"[ChArUco Detection] *** DICTIONARY CHANGED: {self._cached_dict_name or 'None'} -> {best_dict_name} ***")
-                print(f"[ChArUco Detection] Detected {best_marker_count} markers with {best_dict_name}")
+                logger.info(
+                    "ChArUco dictionary changed from {} to {} after detecting {} markers",
+                    self._cached_dict_name or "None",
+                    best_dict_name,
+                    best_marker_count,
+                )
 
             self._cached_dict_name = best_dict_name
             marker_corners = best_marker_corners
@@ -2226,7 +2267,12 @@ class CalibrationStep(BaseStep):
             if self._detection_log_counter % 10 == 0:
                 num_detected = len(marker_ids) if marker_ids is not None else 0
                 num_rejected = len(rejected) if rejected is not None and len(rejected) > 0 else 0
-                print(f"[ChArUco Detection] Using {best_dict_name}: {num_detected} markers detected, {num_rejected} rejected")
+                logger.debug(
+                    "Using ChArUco dictionary {}: detected={} rejected={}",
+                    best_dict_name,
+                    num_detected,
+                    num_rejected,
+                )
         else:
             # Use cached dictionary for fast detection
             dict_id = next(d[1] for d in DICTIONARIES_TO_TRY if d[0] == self._cached_dict_name)
@@ -2329,20 +2375,21 @@ class CalibrationStep(BaseStep):
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
 
             # FALLBACK: Try plain checkerboard detection if ChArUco markers failed
-            print("[Calibration] ChArUco markers not detected, trying plain checkerboard fallback...")
+            if self._detection_log_counter % 30 == 0:
+                logger.debug("No ChArUco markers detected; trying checkerboard fallback")
             try:
                 fallback_result = self._try_checkerboard_fallback(gray, annotated, blur_score, is_blurry)
                 if fallback_result is not None:
                     return fallback_result  # Returns (True, annotated_image, blur_score)
             except Exception as e:
-                print(f"[Calibration] Checkerboard fallback threw exception: {e}")
+                logger.warning("Checkerboard fallback raised an exception after ChArUco miss: {}", e)
 
             return False, annotated, blur_score
 
         # Log which markers were found (reduced frequency)
         if self._detection_log_counter % 30 == 0:
             marker_id_list = marker_ids.flatten().tolist() if marker_ids is not None else []
-            print(f"[ChArUco Detection] Marker IDs found: {marker_id_list}")
+            logger.debug("Detected ChArUco marker IDs: {}", marker_id_list)
 
         # AUTO-DETECT: Try to infer pattern size from detected markers
         # Only run if pattern not locked (user can unlock by manually changing settings)
@@ -2359,7 +2406,12 @@ class CalibrationStep(BaseStep):
                 # Update if different from current settings
                 if (auto_cols != self._pattern_cols or auto_rows != self._pattern_rows or
                     abs(auto_square_mm - self._square_mm) > 0.5):
-                    print(f"[ChArUco Detection] AUTO-DETECTED: Pattern {auto_cols}x{auto_rows}, square={auto_square_mm:.1f}mm - LOCKING")
+                    logger.info(
+                        "Auto-detected ChArUco pattern {}x{} at {:.1f}mm; locking settings",
+                        auto_cols,
+                        auto_rows,
+                        auto_square_mm,
+                    )
                     self._pattern_cols = auto_cols
                     self._pattern_rows = auto_rows
                     self._square_mm = auto_square_mm
@@ -2377,7 +2429,7 @@ class CalibrationStep(BaseStep):
                     self._last_auto_detect_time = current_time
                     # LOCK THE PATTERN - stop scanning
                     self._pattern_locked = True
-                    print(f"[ChArUco Detection] Pattern LOCKED at {auto_cols}x{auto_rows}. Change settings to unlock.")
+                    logger.info("Locked ChArUco pattern at {}x{}", auto_cols, auto_rows)
 
                     # Store detected pattern for multi-pattern support
                     pattern_info = {
@@ -2389,7 +2441,7 @@ class CalibrationStep(BaseStep):
                     # Add to list if not already present
                     if pattern_info not in self._detected_patterns:
                         self._detected_patterns.append(pattern_info)
-                        print(f"[Multi-Pattern] Stored pattern: {pattern_info}")
+                        logger.debug("Stored detected ChArUco pattern variant {}", pattern_info)
 
         # Draw detected markers in green
         cv2.aruco.drawDetectedMarkers(annotated, marker_corners, marker_ids)
@@ -2416,7 +2468,13 @@ class CalibrationStep(BaseStep):
         # Interpolate ChArUco corners
         # Log only occasionally to avoid spam
         if self._detection_log_counter % 30 == 0:
-            print(f"[ChArUco Detection] Creating board {self._pattern_cols}x{self._pattern_rows}, square={self._square_mm}mm, marker={self._square_mm*0.75}mm")
+            logger.debug(
+                "Creating ChArUco board {}x{} square_mm={:.1f} marker_mm={:.1f}",
+                self._pattern_cols,
+                self._pattern_rows,
+                self._square_mm,
+                self._square_mm * 0.75,
+            )
         try:
             # Try newer API first (OpenCV 4.7+)
             num_corners, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
@@ -2498,13 +2556,21 @@ class CalibrationStep(BaseStep):
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
 
             # FALLBACK: Try plain checkerboard detection if ChArUco corner interpolation failed
-            print(f"[Calibration] ChArUco found {num_markers} markers but only {corner_count} corners, trying checkerboard fallback...")
+            if self._detection_log_counter % 30 == 0:
+                logger.debug(
+                    "ChArUco detection found {} markers but only {} corners; trying checkerboard fallback",
+                    num_markers,
+                    corner_count,
+                )
             try:
                 fallback_result = self._try_checkerboard_fallback(gray, annotated, blur_score, is_blurry)
                 if fallback_result is not None:
                     return fallback_result  # Returns (True, annotated_image, blur_score)
             except Exception as e:
-                print(f"[Calibration] Checkerboard fallback threw exception: {e}")
+                logger.warning(
+                    "Checkerboard fallback raised an exception after insufficient ChArUco corners: {}",
+                    e,
+                )
 
             return False, annotated, blur_score
 
@@ -2529,7 +2595,7 @@ class CalibrationStep(BaseStep):
         try:
             # Validate inputs
             if gray is None or annotated is None or gray.size == 0 or annotated.size == 0:
-                print("[Checkerboard Fallback] Invalid input images")
+                logger.warning("Checkerboard fallback received invalid input images")
                 return None
 
             # Checkerboard has (cols-1, rows-1) internal corners
@@ -2542,7 +2608,7 @@ class CalibrationStep(BaseStep):
             ret, corners = cv2.findChessboardCorners(gray, board_size, flags)
 
             if not ret or corners is None:
-                print(f"[Checkerboard Fallback] Failed to detect {board_size} checkerboard pattern")
+                logger.debug("Checkerboard fallback could not detect pattern {}", board_size)
                 return None
 
             # Refine corner locations to sub-pixel accuracy
@@ -2553,7 +2619,11 @@ class CalibrationStep(BaseStep):
             cv2.drawChessboardCorners(annotated, board_size, corners_refined, ret)
 
             num_corners = len(corners_refined)
-            print(f"[Checkerboard Fallback] SUCCESS! Detected {num_corners} corners using plain checkerboard mode")
+            logger.debug(
+                "Checkerboard fallback succeeded with {} corners for pattern {}",
+                num_corners,
+                board_size,
+            )
 
             # Add success indicator with "CHECKERBOARD MODE" label
             success_text = f"READY - {num_corners} corners (CHECKERBOARD MODE)"
@@ -2586,9 +2656,7 @@ class CalibrationStep(BaseStep):
             return (True, annotated, blur_score)
 
         except Exception as e:
-            print(f"[Checkerboard Fallback] ERROR: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.warning("Checkerboard fallback failed unexpectedly: {}", e)
             return None
 
     def _update_view(self, label: QtWidgets.QLabel, image: np.ndarray) -> None:
@@ -2639,10 +2707,11 @@ class CalibrationStep(BaseStep):
             right_frame = self._right_camera.read_frame(timeout_ms=1000)
 
             if left_frame is None or right_frame is None:
-                QtWidgets.QMessageBox.warning(
+                show_message_dialog(
                     self,
                     "Capture Failed",
                     "Failed to read from cameras.",
+                    tone="warning",
                 )
                 return
 
@@ -2669,22 +2738,20 @@ class CalibrationStep(BaseStep):
 
             if count < self._min_captures:
                 self._capture_count_label.setText(f"Progress: {count}/{self._min_captures} poses captured")
-                self._capture_count_label.setStyleSheet(
-                    "font-size: 12pt; font-weight: bold; color: #d32f2f;"
-                )
             else:
                 self._capture_count_label.setText(f"Progress: {count}/{self._min_captures} poses ✓ Ready!")
-                self._capture_count_label.setStyleSheet(
-                    "font-size: 12pt; font-weight: bold; color: #388e3c;"
-                )
+            self._set_capture_progress_state(count, ready=count >= self._min_captures)
 
             # Enable calibrate button if enough captures
             if count >= self._min_captures:
                 self._calibrate_button.setEnabled(True)
 
             # Visual feedback
-            self._capture_button.setStyleSheet("background-color: #4CAF50; color: white;")
-            QtCore.QTimer.singleShot(200, lambda: self._capture_button.setStyleSheet(""))
+            self._style_manager.style_button(self._capture_button, "primary")
+            QtCore.QTimer.singleShot(
+                200,
+                lambda: self._style_manager.style_button(self._capture_button, "success"),
+            )
 
             # Store baseline alignment from first capture and track alignment history
             try:
@@ -2698,10 +2765,11 @@ class CalibrationStep(BaseStep):
                 pass  # Don't fail capture if alignment analysis fails
 
         except Exception as e:
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self,
                 "Capture Error",
                 f"Failed to capture image pair:\n{str(e)}",
+                tone="error",
             )
 
     def _check_alignment_drift(self, left_img: np.ndarray, right_img: np.ndarray) -> bool:
@@ -2814,63 +2882,61 @@ class CalibrationStep(BaseStep):
                 f"• Click 'Cancel' to skip this capture and reposition cameras"
             )
 
-            # Show warning dialog with options
-            msg_box = QtWidgets.QMessageBox(self)
-            msg_box.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-            msg_box.setWindowTitle("Alignment Drift Detected")
-            msg_box.setText(warning_msg)
+            choice = show_choice_dialog(
+                self,
+                "Alignment Drift Detected",
+                warning_msg,
+                tone="warning",
+                choices=(
+                    ("restart", "Restart Calibration", "danger", QtWidgets.QMessageBox.ButtonRole.DestructiveRole),
+                    ("continue", "Continue Anyway", "primary", QtWidgets.QMessageBox.ButtonRole.AcceptRole),
+                    ("cancel", "Cancel Capture", "ghost", QtWidgets.QMessageBox.ButtonRole.RejectRole),
+                ),
+                default_choice="restart",
+            )
 
-            restart_btn = msg_box.addButton("Restart Calibration", QtWidgets.QMessageBox.ButtonRole.DestructiveRole)
-            continue_btn = msg_box.addButton("Continue Anyway", QtWidgets.QMessageBox.ButtonRole.AcceptRole)
-            cancel_btn = msg_box.addButton("Cancel Capture", QtWidgets.QMessageBox.ButtonRole.RejectRole)
-
-            msg_box.setDefaultButton(restart_btn)
-            msg_box.exec()
-
-            clicked = msg_box.clickedButton()
-
-            if clicked == restart_btn:
+            if choice == "restart":
                 # Restart calibration - clear all captures and alignment history
                 self._captures.clear()
                 self._baseline_alignment = None
                 self._alignment_history.clear()
                 self._capture_count_label.setText(f"Progress: 0/{self._min_captures} poses captured")
-                self._capture_count_label.setStyleSheet(
-                    "font-size: 12pt; font-weight: bold; color: #d32f2f;"
-                )
+                self._set_capture_progress_state(0, ready=False)
                 self._capture_progress_bar.setValue(0)
                 self._calibrate_button.setEnabled(False)
 
                 # Clear temp directory
                 self._clear_temp_images()
 
-                QtWidgets.QMessageBox.information(
+                show_message_dialog(
                     self,
                     "Calibration Restarted",
-                    "All captures cleared. Please start capturing again with stable camera positions."
+                    "All captures cleared. Please start capturing again with stable camera positions.",
+                    tone="success",
                 )
                 return True  # Abort this capture
 
-            elif clicked == cancel_btn:
+            elif choice == "cancel":
                 # Just skip this capture
                 return True  # Abort this capture
 
-            else:  # continue_btn
+            else:  # continue
                 # User chose to continue despite drift
                 return False  # Allow capture to proceed
 
         except Exception as e:
             # Don't block captures if drift detection fails
-            print(f"Warning: Alignment drift check failed: {e}")
+            logger.warning("Alignment drift check failed; allowing capture to proceed: {}", e)
             return False
 
     def _run_calibration(self) -> None:
         """Run stereo calibration on captured images."""
         if len(self._captures) < self._min_captures:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Insufficient Captures",
                 f"Need at least {self._min_captures} captures. Currently have {len(self._captures)}.",
+                tone="warning",
             )
             return
 
@@ -2888,7 +2954,7 @@ class CalibrationStep(BaseStep):
         pattern = f"{self._pattern_cols}x{self._pattern_rows}"
         quick_mode = (self._calibration_mode == "QUICK")
 
-        print(f"[CalibrationStep] Running calibration in {self._calibration_mode} mode")
+        logger.info("Running stereo calibration in {} mode", self._calibration_mode)
 
         self._calibration_worker = CalibrationWorker(
             left_paths,
@@ -2943,22 +3009,8 @@ class CalibrationStep(BaseStep):
 
         results_text += f"\nCalibration saved to {self._config_path}"
 
-        # Color code based on quality
-        if rating in ['EXCELLENT', 'GOOD']:
-            bg_color = "#c8e6c9"  # Green
-            text_color = "#2e7d32"
-        elif rating == 'ACCEPTABLE':
-            bg_color = "#fff9c4"  # Yellow
-            text_color = "#f57f17"
-        else:  # POOR
-            bg_color = "#ffcdd2"  # Red
-            text_color = "#c62828"
-
         self._results_text.setText(results_text)
-        self._results_text.setStyleSheet(
-            f"background-color: {bg_color}; color: {text_color}; "
-            f"padding: 12px; border-radius: 4px; font-family: monospace;"
-        )
+        self._set_results_state(results_text, self._tone_for_calibration_rating(rating))
         self._results_text.show()
 
         # Update baseline spinner with calibrated value
@@ -2970,9 +3022,10 @@ class CalibrationStep(BaseStep):
         # Update baseline status to show it's now calibrated (blue)
         baseline_inches = calibrated_baseline * 12
         self._baseline_inches_label.setText(f"({baseline_inches:.1f} in) 📐 Calibrated")
-        self._baseline_inches_label.setStyleSheet("color: #2196F3; font-style: italic; font-weight: bold;")
-        self._baseline_inches_label.setToolTip(
-            "This value was calculated by stereo calibration (more accurate than manual measurement)"
+        self._set_baseline_state(
+            f"{baseline_inches:.1f} in · Calibrated",
+            "info",
+            "This value was calculated by stereo calibration (more accurate than manual measurement)",
         )
 
         # Re-enable buttons
@@ -2981,29 +3034,31 @@ class CalibrationStep(BaseStep):
 
         # Show appropriate message dialog based on quality
         if rating == 'POOR':
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Poor Calibration Quality",
                 f"Calibration quality is poor (RMS error: {rms_error:.2f} px).\n\n"
                 f"We strongly recommend recalibrating:\n\n"
                 + "\n".join(recommendations),
-                QtWidgets.QMessageBox.Ok
+                tone="warning",
             )
         elif rating in ['EXCELLENT', 'GOOD']:
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self,
                 "Calibration Complete",
                 f"Stereo calibration completed with {rating} quality!\n\n"
                 f"Reprojection error: {rms_error:.3f} px\n\n"
                 "You can now proceed to the next step.",
+                tone="success",
             )
         else:  # ACCEPTABLE
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self,
                 "Calibration Complete",
                 f"Stereo calibration completed with acceptable quality.\n\n"
                 f"Reprojection error: {rms_error:.3f} px\n\n"
                 "You can proceed, but consider recalibrating with more images for better accuracy.",
+                tone="info",
             )
 
     def _on_calibration_error(self, error_msg: str) -> None:
@@ -3012,18 +3067,18 @@ class CalibrationStep(BaseStep):
         self._progress_bar.hide()
 
         # Show error
-        self._results_text.setText(f"❌ Calibration Failed:\n{error_msg}")
-        self._results_text.setStyleSheet("background-color: #ffcdd2; color: #c62828;")
+        self._set_results_state(f"Calibration Failed:\n{error_msg}", "error")
         self._results_text.show()
 
         # Re-enable buttons
         self._capture_button.setEnabled(True)
         self._calibrate_button.setEnabled(True)
 
-        QtWidgets.QMessageBox.critical(
+        show_message_dialog(
             self,
             "Calibration Error",
             f"Calibration failed:\n{error_msg}",
+            tone="error",
         )
 
     # ========================================================================
@@ -3044,12 +3099,7 @@ class CalibrationStep(BaseStep):
 
             # Update alignment widget
             self._alignment_status_label.setText("⏳ Waiting for cameras to stabilize...")
-            self._alignment_status_label.setStyleSheet(
-                "font-size: 10pt; padding: 8px; "
-                "background-color: #FFF9C4; "
-                "border: 1px solid #FBC02D; "
-                "border-radius: 4px;"
-            )
+            self._set_alignment_state("Waiting for cameras to stabilize...", "warning")
 
             # Check both cameras
             left_stable, left_variance = check_camera_warmup(self._left_camera, num_frames=15)
@@ -3061,6 +3111,10 @@ class CalibrationStep(BaseStep):
                 # Cameras are stable - proceed with alignment check
                 self._alignment_status_label.setText(
                     f"✓ Cameras stable (variance: L={left_variance:.3f}, R={right_variance:.3f})"
+                )
+                self._set_alignment_state(
+                    f"Cameras stable (variance: L={left_variance:.3f}, R={right_variance:.3f})",
+                    "success",
                 )
                 # Schedule alignment check
                 QtCore.QTimer.singleShot(500, self._run_automatic_alignment_check)
@@ -3077,6 +3131,10 @@ class CalibrationStep(BaseStep):
                     f"Waiting 2 more seconds..."
                 )
 
+                self._set_alignment_state(
+                    f"Cameras still warming up: {', '.join(unstable_cameras)}\nWaiting 2 more seconds...",
+                    "warning",
+                )
                 # Wait another 2 seconds and check again (max 3 attempts)
                 if not hasattr(self, '_warmup_attempts'):
                     self._warmup_attempts = 0
@@ -3091,12 +3149,16 @@ class CalibrationStep(BaseStep):
                     self._alignment_status_label.setText(
                         "⚠️ Cameras may not be fully stable, but proceeding with check..."
                     )
+                    self._set_alignment_state(
+                        "Cameras may not be fully stable, but proceeding with check...",
+                        "warning",
+                    )
                     self._warmup_attempts = 0
                     QtCore.QTimer.singleShot(500, self._run_automatic_alignment_check)
 
         except Exception as e:
             # If warmup check fails, just proceed with alignment check
-            print(f"Warning: Camera warmup check failed: {e}")
+            logger.warning("Camera warmup check failed; proceeding with alignment anyway: {}", e)
             self._warmup_attempts = 0
             QtCore.QTimer.singleShot(500, self._run_automatic_alignment_check)
 
@@ -3114,13 +3176,7 @@ class CalibrationStep(BaseStep):
         try:
             # Update UI to show checking
             self._alignment_status_label.setText("⏳ Analyzing alignment (averaging 10 frames)...")
-            self._alignment_status_label.setStyleSheet(
-                "font-size: 10pt; padding: 8px; "
-                "color: #000000; "  # Dark text for readability
-                "background-color: #E3F2FD; "
-                "border: 1px solid #2196F3; "
-                "border-radius: 4px;"
-            )
+            self._set_alignment_state("Analyzing alignment (averaging 10 frames)...", "info")
 
             # Run alignment analysis with multi-frame averaging
             from analysis.camera_alignment import (
@@ -3161,7 +3217,7 @@ class CalibrationStep(BaseStep):
             else:
                 # Show message that auto-corrections are disabled
                 if results.rotation_correction_needed or abs(results.vertical_offset_px) > 5:
-                    print("INFO: Alignment corrections detected but NOT applied (auto-correct is disabled)")
+                    logger.info("Alignment corrections were detected but auto-correct is disabled")
 
             # Enable buttons
             self._recheck_alignment_btn.show()
@@ -3184,12 +3240,7 @@ class CalibrationStep(BaseStep):
         except Exception as e:
             # Show error in alignment widget
             self._alignment_status_label.setText(f"❌ Alignment check failed: {str(e)}")
-            self._alignment_status_label.setStyleSheet(
-                "font-size: 10pt; padding: 8px; "
-                "background-color: #FFEBEE; "
-                "border: 1px solid #F44336; "
-                "border-radius: 4px; color: #C62828;"
-            )
+            self._set_alignment_state(f"Alignment check failed: {str(e)}", "error")
             self._alignment_results = None
 
     def _run_quick_alignment_check(self) -> None:
@@ -3204,13 +3255,7 @@ class CalibrationStep(BaseStep):
         try:
             # Update UI to show checking
             self._alignment_status_label.setText("⚡ Quick check (1 frame)...")
-            self._alignment_status_label.setStyleSheet(
-                "font-size: 10pt; padding: 8px; "
-                "color: #000000; "  # Dark text for readability
-                "background-color: #E3F2FD; "
-                "border: 1px solid #2196F3; "
-                "border-radius: 4px;"
-            )
+            self._set_alignment_state("Quick check (1 frame)...", "info")
 
             # Run single-frame alignment analysis
             from analysis.camera_alignment import analyze_alignment, apply_corrections
@@ -3239,7 +3284,7 @@ class CalibrationStep(BaseStep):
             else:
                 # Show message that auto-corrections are disabled
                 if results.rotation_correction_needed or abs(results.vertical_offset_px) > 5:
-                    print("INFO: Alignment corrections detected but NOT applied (auto-correct is disabled)")
+                    logger.info("Alignment corrections were detected but auto-correct is disabled")
 
             # Enable buttons
             self._recheck_alignment_btn.show()
@@ -3262,12 +3307,7 @@ class CalibrationStep(BaseStep):
         except Exception as e:
             # Show error in alignment widget
             self._alignment_status_label.setText(f"❌ Quick check failed: {str(e)}")
-            self._alignment_status_label.setStyleSheet(
-                "font-size: 10pt; padding: 8px; "
-                "background-color: #FFEBEE; "
-                "border: 1px solid #F44336; "
-                "border-radius: 4px; color: #C62828;"
-            )
+            self._set_alignment_state(f"Quick check failed: {str(e)}", "error")
             self._alignment_results = None
 
     def _display_alignment_results(self, results, quick_check: bool = False) -> None:
@@ -3325,13 +3365,7 @@ class CalibrationStep(BaseStep):
 
         # Update widget
         self._alignment_status_label.setText(status_html)
-        self._alignment_status_label.setStyleSheet(
-            f"font-size: 10pt; padding: 8px; "
-            f"background-color: {bg_color}; "
-            f"border: 2px solid {border_color}; "
-            f"border-radius: 4px; "
-            f"color: {text_color};"
-        )
+        self._set_alignment_state(status_html, self._tone_for_alignment_quality(results.quality))
 
         # Show quick metrics in details label
         details_text = (
@@ -3380,12 +3414,7 @@ class CalibrationStep(BaseStep):
         </div>
         """
         self._quality_gauge.setText(gauge_html)
-        self._quality_gauge.setStyleSheet(
-            f"font-size: 11pt; font-weight: bold; padding: 12px; "
-            f"background-color: {gauge_color}20; "  # 20 = 12% opacity
-            f"border: 2px solid {gauge_color}; "
-            f"border-radius: 8px;"
-        )
+        self._set_quality_gauge_state(gauge_html, self._tone_for_quality_score(quality_score))
         self._quality_gauge.show()
 
         # NEW: Show directional guidance if alignment needs adjustment
@@ -3502,7 +3531,7 @@ class CalibrationStep(BaseStep):
 
         except Exception as e:
             # Don't fail alignment check if saving history fails
-            print(f"Warning: Could not save alignment history: {e}")
+            logger.warning("Could not save alignment history: {}", e)
 
     def _load_alignment_history(self) -> None:
         """Load previous alignment history from file (for current session display)."""
@@ -3543,15 +3572,16 @@ class CalibrationStep(BaseStep):
                 self._history_group.show()
 
         except Exception as e:
-            print(f"Warning: Could not load alignment history: {e}")
+            logger.warning("Could not load saved alignment history: {}", e)
 
     def _show_feature_overlay(self) -> None:
         """Show visual overlay of matched features on camera previews."""
         if not self._left_camera or not self._right_camera:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Cameras Not Ready",
-                "Cameras must be active to visualize features."
+                "Cameras must be active to visualize features.",
+                tone="warning",
             )
             return
 
@@ -3612,10 +3642,11 @@ class CalibrationStep(BaseStep):
             dialog.exec()
 
         except Exception as e:
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self,
                 "Feature Visualization Error",
-                f"Failed to visualize features:\n{str(e)}"
+                f"Failed to visualize features:\n{str(e)}",
+                tone="error",
             )
 
     def _show_alignment_details(self) -> None:
@@ -3688,10 +3719,11 @@ class CalibrationStep(BaseStep):
     def _export_alignment_report(self) -> None:
         """Export alignment report as HTML file."""
         if not hasattr(self, '_alignment_results') or self._alignment_results is None:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "No Report Available",
-                "Run an alignment check first before exporting a report."
+                "Run an alignment check first before exporting a report.",
+                tone="warning",
             )
             return
 
@@ -3723,34 +3755,33 @@ class CalibrationStep(BaseStep):
                 Path(filename).write_text(html, encoding='utf-8')
 
                 # Ask if user wants to open the report
-                reply = QtWidgets.QMessageBox.question(
+                if ask_confirmation(
                     self,
                     "Report Exported",
                     f"Alignment report exported successfully to:\n{filename}\n\n"
                     f"Would you like to open it now?",
-                    QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
-                    QtWidgets.QMessageBox.StandardButton.Yes
-                )
-
-                if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+                    default_button=QtWidgets.QMessageBox.StandardButton.Yes,
+                ):
                     # Open in default browser
                     import webbrowser
                     webbrowser.open(f"file:///{Path(filename).absolute()}")
 
         except Exception as e:
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self,
                 "Export Failed",
-                f"Failed to export alignment report:\n{str(e)}"
+                f"Failed to export alignment report:\n{str(e)}",
+                tone="error",
             )
 
     def _save_alignment_preset(self) -> None:
         """Save current alignment as a preset."""
         if not hasattr(self, '_alignment_results') or self._alignment_results is None:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "No Alignment Available",
-                "Run an alignment check first before saving a preset."
+                "Run an alignment check first before saving a preset.",
+                tone="warning",
             )
             return
 
@@ -3777,19 +3808,21 @@ class CalibrationStep(BaseStep):
                     self._right_serial or "Unknown"
                 )
 
-                QtWidgets.QMessageBox.information(
+                show_message_dialog(
                     self,
                     "Preset Saved",
                     f"Alignment preset '{preset_name}' saved successfully!\n\n"
                     f"Quality Score: {self._alignment_results.get_quality_score()}%\n"
-                    f"You can load this preset later for comparison."
+                    f"You can load this preset later for comparison.",
+                    tone="success",
                 )
 
         except Exception as e:
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self,
                 "Save Failed",
-                f"Failed to save alignment preset:\n{str(e)}"
+                f"Failed to save alignment preset:\n{str(e)}",
+                tone="error",
             )
 
     def _load_alignment_preset(self) -> None:
@@ -3801,12 +3834,13 @@ class CalibrationStep(BaseStep):
             presets = list_alignment_presets()
 
             if not presets:
-                QtWidgets.QMessageBox.information(
+                show_message_dialog(
                     self,
                     "No Presets Found",
                     "No saved alignment presets found.\n\n"
                     "Save a preset first by running an alignment check "
-                    "and clicking 'Save Preset'."
+                    "and clicking 'Save Preset'.",
+                    tone="info",
                 )
                 return
 
@@ -3830,10 +3864,11 @@ class CalibrationStep(BaseStep):
                 # Load preset data
                 preset_data = load_alignment_preset(preset_name)
                 if not preset_data:
-                    QtWidgets.QMessageBox.warning(
+                    show_message_dialog(
                         self,
                         "Load Failed",
-                        f"Could not load preset '{preset_name}'"
+                        f"Could not load preset '{preset_name}'",
+                        tone="warning",
                     )
                     return
 
@@ -3875,19 +3910,21 @@ class CalibrationStep(BaseStep):
                 dialog.exec()
 
         except Exception as e:
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self,
                 "Load Failed",
-                f"Failed to load preset:\n{str(e)}"
+                f"Failed to load preset:\n{str(e)}",
+                tone="error",
             )
 
     def _compare_with_preset(self) -> None:
         """Compare current alignment with a saved preset (side-by-side)."""
         if not hasattr(self, '_alignment_results') or self._alignment_results is None:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "No Current Alignment",
-                "Run an alignment check first before comparing."
+                "Run an alignment check first before comparing.",
+                tone="warning",
             )
             return
 
@@ -3902,11 +3939,12 @@ class CalibrationStep(BaseStep):
             presets = list_alignment_presets()
 
             if not presets:
-                QtWidgets.QMessageBox.information(
+                show_message_dialog(
                     self,
                     "No Presets Found",
                     "No saved alignment presets found.\n\n"
-                    "Save a preset first to enable comparison."
+                    "Save a preset first to enable comparison.",
+                    tone="info",
                 )
                 return
 
@@ -3930,10 +3968,11 @@ class CalibrationStep(BaseStep):
                 # Load preset
                 preset_data = load_alignment_preset(preset_name)
                 if not preset_data:
-                    QtWidgets.QMessageBox.warning(
+                    show_message_dialog(
                         self,
                         "Load Failed",
-                        f"Could not load preset '{preset_name}'"
+                        f"Could not load preset '{preset_name}'",
+                        tone="warning",
                     )
                     return
 
@@ -4013,10 +4052,11 @@ class CalibrationStep(BaseStep):
                 dialog.exec()
 
         except Exception as e:
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self,
                 "Comparison Failed",
-                f"Failed to compare with preset:\n{str(e)}"
+                f"Failed to compare with preset:\n{str(e)}",
+                tone="error",
             )
 
     def _restart_cameras_after_correction(self) -> None:
@@ -4031,8 +4071,8 @@ class CalibrationStep(BaseStep):
             # Wait briefly
             QtCore.QTimer.singleShot(500, self._reopen_cameras_after_correction)
 
-        except Exception as e:
-            print(f"Error restarting cameras: {e}")
+        except Exception:
+            logger.exception("Failed to restart cameras after applying alignment corrections")
 
     def _reopen_cameras_after_correction(self) -> None:
         """Reopen cameras after applying corrections."""
@@ -4052,8 +4092,9 @@ class CalibrationStep(BaseStep):
             )
 
         except Exception as e:
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self,
                 "Camera Error",
-                f"Failed to restart cameras after applying corrections:\n{str(e)}"
+                f"Failed to restart cameras after applying corrections:\n{str(e)}",
+                tone="error",
             )

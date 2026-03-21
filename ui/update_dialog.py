@@ -7,7 +7,21 @@ from typing import Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from log_config.logger import get_logger
 from updater import download_update, get_current_version, install_update
+from ui.themes import (
+    apply_standard_layout,
+    ask_confirmation,
+    build_dialog_header,
+    get_style_manager,
+    polish_form_controls,
+    show_message_dialog,
+    style_message_panel,
+    style_progress_bar,
+    style_status_label,
+)
+
+logger = get_logger(__name__)
 
 
 class UpdateDialog(QtWidgets.QDialog):
@@ -19,6 +33,7 @@ class UpdateDialog(QtWidgets.QDialog):
         parent: Optional[QtWidgets.QWidget] = None
     ):
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self.setWindowTitle("Update Available")
         self.resize(600, 500)
 
@@ -31,9 +46,13 @@ class UpdateDialog(QtWidgets.QDialog):
     def _build_ui(self) -> None:
         """Build update dialog UI."""
         layout = QtWidgets.QVBoxLayout()
+        apply_standard_layout(layout)
 
-        # Header with icon and title
-        header = self._build_header()
+        header = build_dialog_header(
+            "Update Available",
+            "A new version of PitchTracker is ready to download.",
+            eyebrow="Updater",
+        )
         layout.addWidget(header)
 
         # Version information
@@ -42,23 +61,25 @@ class UpdateDialog(QtWidgets.QDialog):
 
         # Release notes
         notes_label = QtWidgets.QLabel("Release Notes:")
-        notes_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        self._style_manager.style_label(notes_label, "sectionTitle")
         layout.addWidget(notes_label)
 
         self._release_notes = QtWidgets.QTextEdit()
         self._release_notes.setReadOnly(True)
         self._release_notes.setMarkdown(self._update_info['release_notes'])
         self._release_notes.setMaximumHeight(200)
+        style_message_panel(self._release_notes, "info")
         layout.addWidget(self._release_notes)
 
         # Progress bar (hidden initially)
         self._progress_bar = QtWidgets.QProgressBar()
         self._progress_bar.setVisible(False)
+        style_progress_bar(self._progress_bar, "success")
         layout.addWidget(self._progress_bar)
 
         # Status label
         self._status_label = QtWidgets.QLabel("")
-        self._status_label.setStyleSheet("color: #666; font-size: 9pt;")
+        style_status_label(self._status_label, "info", "Ready to download the latest release.")
         layout.addWidget(self._status_label)
 
         # Buttons
@@ -66,63 +87,34 @@ class UpdateDialog(QtWidgets.QDialog):
         layout.addWidget(buttons)
 
         self.setLayout(layout)
-
-    def _build_header(self) -> QtWidgets.QWidget:
-        """Build header section with icon and title."""
-        widget = QtWidgets.QWidget()
-        layout = QtWidgets.QHBoxLayout()
-
-        # Icon (using standard info icon)
-        icon_label = QtWidgets.QLabel()
-        icon = self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_MessageBoxInformation)
-        pixmap = icon.pixmap(64, 64)
-        icon_label.setPixmap(pixmap)
-        layout.addWidget(icon_label)
-
-        # Title and message
-        text_layout = QtWidgets.QVBoxLayout()
-
-        title = QtWidgets.QLabel("Update Available")
-        title.setStyleSheet("font-size: 16pt; font-weight: bold;")
-        text_layout.addWidget(title)
-
-        message = QtWidgets.QLabel(
-            "A new version of PitchTracker is available.\n"
-            "Click 'Download and Install' to update now."
-        )
-        text_layout.addWidget(message)
-
-        text_layout.addStretch()
-
-        layout.addLayout(text_layout, 1)
-        widget.setLayout(layout)
-
-        return widget
+        polish_form_controls(self)
 
     def _build_version_info(self) -> QtWidgets.QWidget:
         """Build version comparison section."""
         widget = QtWidgets.QWidget()
+        self._style_manager.style_panel(widget, "normal")
         layout = QtWidgets.QGridLayout()
 
         # Current version
         current_label = QtWidgets.QLabel("Current Version:")
-        current_label.setStyleSheet("font-weight: bold;")
+        self._style_manager.style_label(current_label, "muted")
         current_version = QtWidgets.QLabel(f"v{get_current_version()}")
+        self._style_manager.style_label(current_version, "default")
         layout.addWidget(current_label, 0, 0)
         layout.addWidget(current_version, 0, 1)
 
         # Latest version
         latest_label = QtWidgets.QLabel("Latest Version:")
-        latest_label.setStyleSheet("font-weight: bold;")
+        self._style_manager.style_label(latest_label, "muted")
         latest_version = QtWidgets.QLabel(f"v{self._update_info['version']}")
-        latest_version.setStyleSheet("color: #4CAF50; font-weight: bold;")
+        self._style_manager.style_label(latest_version, "accent")
         layout.addWidget(latest_label, 1, 0)
         layout.addWidget(latest_version, 1, 1)
 
         # Release date
         if self._update_info['release_date']:
             date_label = QtWidgets.QLabel("Released:")
-            date_label.setStyleSheet("font-weight: bold;")
+            self._style_manager.style_label(date_label, "muted")
             # Parse ISO 8601 date
             try:
                 from datetime import datetime
@@ -143,23 +135,22 @@ class UpdateDialog(QtWidgets.QDialog):
         """Build button bar."""
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QHBoxLayout()
+        layout.setContentsMargins(0, 4, 0, 0)
 
         # Download and Install button
         self._download_button = QtWidgets.QPushButton("Download and Install")
-        self._download_button.setStyleSheet(
-            "font-size: 11pt; padding: 10px 20px; "
-            "background-color: #4CAF50; color: white; font-weight: bold;"
-        )
+        self._style_manager.style_button(self._download_button, "primary")
         self._download_button.clicked.connect(self._download_and_install)
 
         # Remind Me Later button
         remind_button = QtWidgets.QPushButton("Remind Me Later")
+        self._style_manager.style_button(remind_button, "ghost")
         remind_button.clicked.connect(self.reject)
 
         # Skip This Version button
         skip_button = QtWidgets.QPushButton("Skip This Version")
         skip_button.clicked.connect(self._skip_version)
-        skip_button.setStyleSheet("color: #999;")
+        self._style_manager.style_button(skip_button, "ghost")
 
         layout.addWidget(self._download_button)
         layout.addWidget(remind_button)
@@ -178,7 +169,7 @@ class UpdateDialog(QtWidgets.QDialog):
         self._downloading = True
         self._download_button.setEnabled(False)
         self._progress_bar.setVisible(True)
-        self._status_label.setText("Downloading update...")
+        style_status_label(self._status_label, "warning", "Downloading update...")
 
         # Download in background thread
         self._download_thread = DownloadThread(
@@ -201,41 +192,47 @@ class UpdateDialog(QtWidgets.QDialog):
             self._status_label.setText(
                 f"Downloading... {mb_downloaded:.1f} MB / {mb_total:.1f} MB"
             )
+            style_status_label(
+                self._status_label,
+                "warning",
+                f"Downloading... {mb_downloaded:.1f} MB / {mb_total:.1f} MB",
+            )
 
     def _on_download_finished(self, installer_path: Path) -> None:
         """Download completed successfully."""
         self._download_path = installer_path
-        self._status_label.setText("Download complete!")
+        style_status_label(self._status_label, "success", "Download complete!")
 
         # Ask user to install now
-        reply = QtWidgets.QMessageBox.question(
+        install_now = ask_confirmation(
             self,
             "Install Update",
-            "Download complete. Install update now?\n\n"
-            "The application will close and the installer will launch.",
-            QtWidgets.QMessageBox.StandardButton.Yes |
-            QtWidgets.QMessageBox.StandardButton.No
+            "Download complete. Install update now?",
+            informative_text="The application will close and the installer will launch.",
         )
 
-        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+        if install_now:
             # Launch installer
             if install_update(installer_path):
                 # Close application to allow installer to replace files
                 self.accept()
                 QtWidgets.QApplication.quit()
             else:
-                QtWidgets.QMessageBox.critical(
+                show_message_dialog(
                     self,
                     "Install Error",
-                    "Failed to launch installer. Please run it manually:\n" +
-                    str(installer_path)
+                    "Failed to launch installer.",
+                    tone="error",
+                    informative_text=f"Please run it manually:\n{installer_path}",
                 )
         else:
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self,
                 "Install Later",
                 f"Installer saved to:\n{installer_path}\n\n"
                 "Run it when you're ready to update."
+                ,
+                tone="info",
             )
             self.accept()
 
@@ -244,27 +241,26 @@ class UpdateDialog(QtWidgets.QDialog):
         self._downloading = False
         self._download_button.setEnabled(True)
         self._progress_bar.setVisible(False)
-        self._status_label.setText("")
+        style_status_label(self._status_label, "error", "Download failed.")
 
-        QtWidgets.QMessageBox.critical(
+        show_message_dialog(
             self,
             "Download Error",
-            f"Failed to download update:\n{error_msg}\n\n"
-            "Please download manually from GitHub releases."
+            f"Failed to download update:\n{error_msg}",
+            tone="error",
+            informative_text="Please download manually from GitHub releases.",
         )
 
     def _skip_version(self) -> None:
         """Skip this version."""
-        reply = QtWidgets.QMessageBox.question(
+        should_skip = ask_confirmation(
             self,
             "Skip Version",
-            f"Skip version v{self._update_info['version']}?\n\n"
-            "You won't be notified about this version again.",
-            QtWidgets.QMessageBox.StandardButton.Yes |
-            QtWidgets.QMessageBox.StandardButton.No
+            f"Skip version v{self._update_info['version']}?",
+            informative_text="You won't be notified about this version again.",
         )
 
-        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+        if should_skip:
             # Save skipped version to settings
             self._save_skipped_version()
             self.reject()
@@ -288,8 +284,8 @@ class UpdateDialog(QtWidgets.QDialog):
             with open(settings_file, 'w') as f:
                 json.dump(settings, f, indent=2)
 
-        except Exception as e:
-            print(f"Failed to save skipped version: {e}")
+        except Exception:
+            logger.exception("Failed to save skipped updater version")
 
 
 class DownloadThread(QtCore.QThread):

@@ -7,6 +7,7 @@ from typing import Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.review import PitchScore
+from ui.themes import get_style_manager
 
 
 class PitchListWidget(QtWidgets.QWidget):
@@ -34,7 +35,7 @@ class PitchListWidget(QtWidgets.QWidget):
             parent: Optional parent widget
         """
         super().__init__(parent)
-
+        self._style_manager = get_style_manager()
         self._pitches = []
         self._pitch_scores = {}
         self._build_ui()
@@ -42,10 +43,12 @@ class PitchListWidget(QtWidgets.QWidget):
     def _build_ui(self) -> None:
         """Build pitch list UI."""
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
 
         # Title
         title = QtWidgets.QLabel("Pitch List")
-        title.setStyleSheet("font-size: 14pt; font-weight: bold; padding: 5px;")
+        self._style_manager.style_label(title, "sectionTitle")
         layout.addWidget(title)
 
         # Pitch list (scrollable)
@@ -64,12 +67,14 @@ class PitchListWidget(QtWidgets.QWidget):
 
         # Navigation button
         nav_btn = QtWidgets.QPushButton("Go to Selected Pitch")
-        nav_btn.setStyleSheet("font-weight: bold; background-color: #2196F3; color: white;")
+        self._style_manager.style_button(nav_btn, "primary")
         nav_btn.clicked.connect(self._on_go_to_pitch)
         layout.addWidget(nav_btn)
 
         self.setLayout(layout)
         self.setMaximumWidth(350)
+        self.setProperty("surface", "card")
+        self._style_manager.polish(self)
 
     def _build_scoring_controls(self) -> QtWidgets.QGroupBox:
         """Build scoring button controls.
@@ -80,17 +85,20 @@ class PitchListWidget(QtWidgets.QWidget):
         group = QtWidgets.QGroupBox("Score Selected Pitch")
 
         self._good_btn = QtWidgets.QPushButton("✓ Good")
-        self._good_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        self._good_btn.setText("Good")
+        self._style_manager.style_button(self._good_btn, "success")
         self._good_btn.clicked.connect(lambda: self._score_current_pitch(PitchScore.GOOD))
         self._good_btn.setToolTip("Detection worked perfectly")
 
         self._partial_btn = QtWidgets.QPushButton("⚠ Partial")
-        self._partial_btn.setStyleSheet("background-color: #FF9800; color: white; font-weight: bold;")
+        self._partial_btn.setText("Partial")
+        self._style_manager.style_button(self._partial_btn, "default")
         self._partial_btn.clicked.connect(lambda: self._score_current_pitch(PitchScore.PARTIAL))
         self._partial_btn.setToolTip("Some frames detected, some missed")
 
         self._missed_btn = QtWidgets.QPushButton("✗ Missed")
-        self._missed_btn.setStyleSheet("background-color: #f44336; color: white; font-weight: bold;")
+        self._missed_btn.setText("Missed")
+        self._style_manager.style_button(self._missed_btn, "danger")
         self._missed_btn.clicked.connect(lambda: self._score_current_pitch(PitchScore.MISSED))
         self._missed_btn.setToolTip("Detection completely failed")
 
@@ -111,16 +119,16 @@ class PitchListWidget(QtWidgets.QWidget):
         group = QtWidgets.QGroupBox("Statistics")
 
         self._good_count_label = QtWidgets.QLabel("Good: 0 (0%)")
-        self._good_count_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+        self._style_manager.style_status_indicator(self._good_count_label, "success")
 
         self._partial_count_label = QtWidgets.QLabel("Partial: 0 (0%)")
-        self._partial_count_label.setStyleSheet("color: #FF9800; font-weight: bold;")
+        self._style_manager.style_status_indicator(self._partial_count_label, "warning")
 
         self._missed_count_label = QtWidgets.QLabel("Missed: 0 (0%)")
-        self._missed_count_label.setStyleSheet("color: #f44336; font-weight: bold;")
+        self._style_manager.style_status_indicator(self._missed_count_label, "error")
 
         self._unscored_count_label = QtWidgets.QLabel("Unscored: 0")
-        self._unscored_count_label.setStyleSheet("color: #888;")
+        self._style_manager.style_label(self._unscored_count_label, "muted")
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self._good_count_label)

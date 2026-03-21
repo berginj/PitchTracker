@@ -6,21 +6,24 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtWidgets
 
 from configs.app_state import load_state
 from configs.settings import AppConfig
+from ui.themes import (
+    apply_standard_layout,
+    ask_confirmation,
+    build_dialog_header,
+    build_notice,
+    get_style_manager,
+    polish_form_controls,
+    show_message_dialog,
+    style_dialog_button_box,
+)
 
 
 class SessionStartDialog(QtWidgets.QDialog):
-    """Dialog for starting a new coaching session.
-
-    Allows user to:
-    - Select pitcher from saved list
-    - Set session name (auto-generated with timestamp)
-    - Quick settings (batter height, ball type)
-    - Verify calibration is loaded
-    """
+    """Dialog for starting a new coaching session."""
 
     def __init__(
         self,
@@ -29,8 +32,9 @@ class SessionStartDialog(QtWidgets.QDialog):
     ):
         super().__init__(parent)
         self.setWindowTitle("Start New Session")
-        self.resize(500, 400)
+        self.resize(540, 560)
 
+        self._style_manager = get_style_manager()
         self._config = config
         self._pitcher_name = ""
         self._session_name = ""
@@ -51,70 +55,58 @@ class SessionStartDialog(QtWidgets.QDialog):
     def _build_ui(self) -> None:
         """Build dialog UI."""
         layout = QtWidgets.QVBoxLayout()
-
-        # Title
-        title = QtWidgets.QLabel("Start New Coaching Session")
-        title.setStyleSheet("font-size: 16pt; font-weight: bold; padding: 10px;")
-        layout.addWidget(title)
-
-        # Pitcher selection
-        pitcher_group = self._build_pitcher_group()
-        layout.addWidget(pitcher_group)
-
-        # Session name
-        session_group = self._build_session_group()
-        layout.addWidget(session_group)
-
-        # Camera selection
-        camera_group = self._build_camera_group()
-        layout.addWidget(camera_group)
-
-        # Quick settings
-        settings_group = self._build_settings_group()
-        layout.addWidget(settings_group)
-
-        # Calibration status
-        calibration_status = self._build_calibration_status()
-        layout.addWidget(calibration_status)
-
+        apply_standard_layout(layout)
+        layout.addWidget(
+            build_dialog_header(
+                "Start New Coaching Session",
+                "Choose a pitcher, confirm both cameras, and set quick session defaults before recording.",
+            )
+        )
+        layout.addWidget(self._build_pitcher_group())
+        layout.addWidget(self._build_session_group())
+        layout.addWidget(self._build_camera_group())
+        layout.addWidget(self._build_settings_group())
+        layout.addWidget(self._build_calibration_status())
         layout.addStretch()
 
-        # Buttons
         button_box = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.StandardButton.Ok
             | QtWidgets.QDialogButtonBox.StandardButton.Cancel
         )
         button_box.accepted.connect(self._accept)
         button_box.rejected.connect(self.reject)
+        style_dialog_button_box(
+            button_box,
+            primary=QtWidgets.QDialogButtonBox.StandardButton.Ok,
+            ghost=(QtWidgets.QDialogButtonBox.StandardButton.Cancel,),
+        )
         layout.addWidget(button_box)
 
         self.setLayout(layout)
+        polish_form_controls(self)
 
     def _build_pitcher_group(self) -> QtWidgets.QGroupBox:
         """Build pitcher selection group."""
         group = QtWidgets.QGroupBox("Pitcher")
 
-        # Load saved pitchers
         saved_pitchers = self._load_saved_pitchers()
 
-        # Pitcher dropdown
         self._pitcher_combo = QtWidgets.QComboBox()
         self._pitcher_combo.addItem("(Select Pitcher)")
         self._pitcher_combo.addItems(saved_pitchers)
         self._pitcher_combo.addItem("+ Add New Pitcher")
         self._pitcher_combo.currentTextChanged.connect(self._on_pitcher_changed)
 
-        # New pitcher name input (hidden by default)
         self._new_pitcher_input = QtWidgets.QLineEdit()
         self._new_pitcher_input.setPlaceholderText("Enter pitcher name")
         self._new_pitcher_input.hide()
         self._new_pitcher_input.textChanged.connect(self._on_new_pitcher_changed)
 
         layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(QtWidgets.QLabel("Select Pitcher:"))
+        apply_standard_layout(layout, margins=(8, 8, 8, 8), spacing=10)
+        layout.addWidget(QtWidgets.QLabel("Select Pitcher"))
         layout.addWidget(self._pitcher_combo)
         layout.addWidget(self._new_pitcher_input)
-
         group.setLayout(layout)
         return group
 
@@ -125,14 +117,16 @@ class SessionStartDialog(QtWidgets.QDialog):
         self._session_name_input = QtWidgets.QLineEdit()
         self._session_name_input.textChanged.connect(self._on_session_name_changed)
 
-        # Auto-generate button
         auto_button = QtWidgets.QPushButton("Auto-Generate")
         auto_button.clicked.connect(self._generate_session_name)
+        self._style_manager.style_button(auto_button, "ghost")
 
         layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(QtWidgets.QLabel("Session Name:"))
+        apply_standard_layout(layout, margins=(8, 8, 8, 8), spacing=10)
+        layout.addWidget(QtWidgets.QLabel("Session Name"))
 
         name_layout = QtWidgets.QHBoxLayout()
+        name_layout.setSpacing(10)
         name_layout.addWidget(self._session_name_input, 3)
         name_layout.addWidget(auto_button, 1)
         layout.addLayout(name_layout)
@@ -143,57 +137,38 @@ class SessionStartDialog(QtWidgets.QDialog):
     def _build_camera_group(self) -> QtWidgets.QGroupBox:
         """Build camera selection group with saved camera defaults."""
         from ui.device_utils import (
-            probe_uvc_devices,
-            probe_opencv_indices,
             is_arducam_device,
+            probe_opencv_indices,
+            probe_uvc_devices,
         )
 
         group = QtWidgets.QGroupBox("Cameras")
 
-        # Left camera
-        left_label = QtWidgets.QLabel("Left Camera:")
+        left_label = QtWidgets.QLabel("Left Camera")
         self._left_camera_combo = QtWidgets.QComboBox()
 
-        # Right camera
-        right_label = QtWidgets.QLabel("Right Camera:")
+        right_label = QtWidgets.QLabel("Right Camera")
         self._right_camera_combo = QtWidgets.QComboBox()
 
-        # Load last used cameras from app state first
         state = load_state()
         last_left = state.get("last_left_camera")
         last_right = state.get("last_right_camera")
 
-        # Get UVC devices to map indices to friendly names
-        # USE CACHE for faster dialog opening (2-4s cached vs 8-12s uncached)
-        # Refresh button will clear cache if user needs fresh list
         uvc_devices = probe_uvc_devices(use_cache=True)
         uvc_by_index = {i: dev for i, dev in enumerate(uvc_devices)}
-
-        # Always use OpenCV indices for coaching app (UVC serial numbers can fail)
-        # This matches calibration workflow behavior
-        # Use max_index=10 to check more camera indices (0-9)
-        # USE CACHE for faster dialog opening
         indices = probe_opencv_indices(max_index=10, use_cache=True)
-
-        # Track ArduCam indices for smart defaults
-        arducam_indices = []
+        arducam_indices: list[int] = []
 
         if indices:
             for index in indices:
-                # Get friendly name if available from UVC
                 friendly_name = None
-                is_arducam = False
                 if index in uvc_by_index:
-                    friendly_name = uvc_by_index[index].get('friendly_name', '')
-                    is_arducam = is_arducam_device(friendly_name)
-                    if is_arducam:
+                    friendly_name = uvc_by_index[index].get("friendly_name", "")
+                    if is_arducam_device(friendly_name):
                         arducam_indices.append(index)
 
-                # Mark last used cameras with (Last Used)
                 suffix_left = " (Last Used)" if str(index) == last_left else ""
                 suffix_right = " (Last Used)" if str(index) == last_right else ""
-
-                # Build display label
                 if friendly_name:
                     left_label_text = f"{friendly_name}{suffix_left}"
                     right_label_text = f"{friendly_name}{suffix_right}"
@@ -204,58 +179,49 @@ class SessionStartDialog(QtWidgets.QDialog):
                 self._left_camera_combo.addItem(left_label_text, str(index))
                 self._right_camera_combo.addItem(right_label_text, str(index))
         else:
-            # No cameras found
             self._left_camera_combo.addItem("No cameras found", "")
             self._right_camera_combo.addItem("No cameras found", "")
 
-        # Pre-select cameras with smart defaults
-        # Priority: 1) Last used, 2) First two ArduCam devices, 3) First two cameras
         if last_left:
-            # Find and select the last left camera
             for i in range(self._left_camera_combo.count()):
                 if self._left_camera_combo.itemData(i) == last_left:
                     self._left_camera_combo.setCurrentIndex(i)
                     break
         elif arducam_indices:
-            # Prefer first ArduCam device
             first_arducam = str(arducam_indices[0])
             for i in range(self._left_camera_combo.count()):
                 if self._left_camera_combo.itemData(i) == first_arducam:
                     self._left_camera_combo.setCurrentIndex(i)
                     break
         elif self._left_camera_combo.count() >= 2:
-            # Fallback: select first camera
             self._left_camera_combo.setCurrentIndex(0)
 
         if last_right:
-            # Find and select the last right camera
             for i in range(self._right_camera_combo.count()):
                 if self._right_camera_combo.itemData(i) == last_right:
                     self._right_camera_combo.setCurrentIndex(i)
                     break
         elif len(arducam_indices) >= 2:
-            # Prefer second ArduCam device
             second_arducam = str(arducam_indices[1])
             for i in range(self._right_camera_combo.count()):
                 if self._right_camera_combo.itemData(i) == second_arducam:
                     self._right_camera_combo.setCurrentIndex(i)
                     break
         elif self._right_camera_combo.count() >= 2:
-            # Fallback: select second camera
             self._right_camera_combo.setCurrentIndex(1)
 
-        # Add refresh button
-        refresh_button = QtWidgets.QPushButton("🔄 Refresh Cameras")
+        refresh_button = QtWidgets.QPushButton("Refresh Cameras")
         refresh_button.clicked.connect(self._refresh_cameras)
-        refresh_button.setToolTip("Refresh camera list if cameras not showing correctly")
+        refresh_button.setToolTip("Refresh camera list if cameras are not showing correctly.")
+        self._style_manager.style_button(refresh_button, "ghost")
 
         layout = QtWidgets.QGridLayout()
+        apply_standard_layout(layout, margins=(8, 8, 8, 8), spacing=10)
         layout.addWidget(left_label, 0, 0)
         layout.addWidget(self._left_camera_combo, 0, 1)
         layout.addWidget(right_label, 1, 0)
         layout.addWidget(self._right_camera_combo, 1, 1)
         layout.addWidget(refresh_button, 2, 0, 1, 2)
-
         group.setLayout(layout)
         return group
 
@@ -263,39 +229,37 @@ class SessionStartDialog(QtWidgets.QDialog):
         """Refresh camera list."""
         from ui.device_utils import clear_device_cache
 
-        # Clear cache and rebuild camera group
         clear_device_cache()
-        QtWidgets.QMessageBox.information(
+        show_message_dialog(
             self,
             "Refresh Cameras",
-            "Camera cache cleared. Close and reopen this dialog to see updated camera list."
+            "Camera cache cleared. Close and reopen this dialog to see the updated list.",
+            tone="info",
         )
 
     def _build_settings_group(self) -> QtWidgets.QGroupBox:
         """Build quick settings group."""
         group = QtWidgets.QGroupBox("Quick Settings")
 
-        # Batter height
-        batter_label = QtWidgets.QLabel("Batter Height (inches):")
+        batter_label = QtWidgets.QLabel("Batter Height (inches)")
         self._batter_height_spin = QtWidgets.QDoubleSpinBox()
         self._batter_height_spin.setRange(48.0, 84.0)
         self._batter_height_spin.setValue(self._batter_height_in)
-        self._batter_height_spin.setSuffix(' in')
+        self._batter_height_spin.setSuffix(" in")
         self._batter_height_spin.valueChanged.connect(self._on_batter_height_changed)
 
-        # Ball type
-        ball_label = QtWidgets.QLabel("Ball Type:")
+        ball_label = QtWidgets.QLabel("Ball Type")
         self._ball_type_combo = QtWidgets.QComboBox()
         self._ball_type_combo.addItems(["baseball", "softball"])
         self._ball_type_combo.setCurrentText(self._ball_type)
         self._ball_type_combo.currentTextChanged.connect(self._on_ball_type_changed)
 
         layout = QtWidgets.QGridLayout()
+        apply_standard_layout(layout, margins=(8, 8, 8, 8), spacing=10)
         layout.addWidget(batter_label, 0, 0)
         layout.addWidget(self._batter_height_spin, 0, 1)
         layout.addWidget(ball_label, 1, 0)
         layout.addWidget(self._ball_type_combo, 1, 1)
-
         group.setLayout(layout)
         return group
 
@@ -304,66 +268,42 @@ class SessionStartDialog(QtWidgets.QDialog):
         from calib.quick_calibrate import load_calibration_quality
 
         widget = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout()
+        apply_standard_layout(layout, margins=(0, 0, 0, 0), spacing=8)
 
-        # Check if calibration exists and load quality
         calibration_file = Path("calibration/stereo_calibration.npz")
         has_calibration = calibration_file.exists()
         quality = load_calibration_quality() if has_calibration else None
 
         if not has_calibration:
-            icon = "⚠"
-            color = "#FF9800"
-            message = "No calibration found"
-            label = QtWidgets.QLabel(f"{icon} {message}")
-            label.setStyleSheet(f"color: {color}; font-weight: bold; padding: 5px;")
-            help_label = QtWidgets.QLabel("Run Setup Wizard first to calibrate the system.")
-            help_label.setStyleSheet("color: #666; font-style: italic;")
-
-            layout = QtWidgets.QVBoxLayout()
-            layout.addWidget(label)
-            layout.addWidget(help_label)
+            notice, _ = build_notice(
+                "No calibration found. Run the setup wizard before starting a production session.",
+                tone="warning",
+            )
+            detail_label = QtWidgets.QLabel("You can continue, but measurements may be inaccurate.")
+            self._style_manager.style_label(detail_label, "muted")
+            layout.addWidget(notice)
+            layout.addWidget(detail_label)
         elif quality:
-            # Show quality rating with appropriate color
             rating = quality["rating"]
             rms = quality["rms_error_px"]
             description = quality["description"]
+            tone = "success" if rating in {"EXCELLENT", "GOOD"} else ("warning" if rating == "ACCEPTABLE" else "error")
 
-            if rating == "EXCELLENT":
-                icon = "🟢"
-                color = "#4CAF50"
-            elif rating == "GOOD":
-                icon = "🟢"
-                color = "#4CAF50"
-            elif rating == "ACCEPTABLE":
-                icon = "🟡"
-                color = "#FF9800"
-            else:  # POOR
-                icon = "🔴"
-                color = "#F44336"
-
-            label = QtWidgets.QLabel(f"{icon} Calibration: {rating}")
-            label.setStyleSheet(f"color: {color}; font-weight: bold; padding: 5px;")
-
-            detail_label = QtWidgets.QLabel(f"RMS Error: {rms:.3f} px - {description}")
-            detail_label.setStyleSheet("color: #666; font-size: 10pt;")
-
-            layout = QtWidgets.QVBoxLayout()
-            layout.addWidget(label)
+            notice, _ = build_notice(f"Calibration quality: {rating}", tone=tone)
+            detail_label = QtWidgets.QLabel(f"RMS error: {rms:.3f} px. {description}")
+            self._style_manager.style_label(detail_label, "muted")
+            layout.addWidget(notice)
             layout.addWidget(detail_label)
         else:
-            # Old calibration without quality metrics
-            icon = "✓"
-            color = "#4CAF50"
-            message = "Calibration loaded (quality unknown)"
-            label = QtWidgets.QLabel(f"{icon} {message}")
-            label.setStyleSheet(f"color: {color}; font-weight: bold; padding: 5px;")
-
-            help_label = QtWidgets.QLabel("Re-calibrate to get quality metrics.")
-            help_label.setStyleSheet("color: #666; font-style: italic;")
-
-            layout = QtWidgets.QVBoxLayout()
-            layout.addWidget(label)
-            layout.addWidget(help_label)
+            notice, _ = build_notice(
+                "Calibration loaded. Quality metrics are not available for this file.",
+                tone="info",
+            )
+            detail_label = QtWidgets.QLabel("Run a new calibration to capture quality diagnostics.")
+            self._style_manager.style_label(detail_label, "muted")
+            layout.addWidget(notice)
+            layout.addWidget(detail_label)
 
         widget.setLayout(layout)
         return widget
@@ -373,28 +313,13 @@ class SessionStartDialog(QtWidgets.QDialog):
         try:
             from analysis.pattern_detection.pitcher_profile import PitcherProfileManager
 
-            # Load pitcher profiles
             profile_manager = PitcherProfileManager()
             saved_pitchers = profile_manager.list_profiles()
-
-            # If no profiles exist, return sample list
             if not saved_pitchers:
-                return [
-                    "John Doe",
-                    "Jane Smith",
-                    "Mike Johnson",
-                ]
-
-            # Sort alphabetically for better UX
+                return ["John Doe", "Jane Smith", "Mike Johnson"]
             return sorted(saved_pitchers)
-
         except Exception:
-            # Fallback to sample list if profile loading fails
-            return [
-                "John Doe",
-                "Jane Smith",
-                "Mike Johnson",
-            ]
+            return ["John Doe", "Jane Smith", "Mike Johnson"]
 
     def _generate_session_name(self) -> None:
         """Auto-generate session name with timestamp."""
@@ -433,44 +358,39 @@ class SessionStartDialog(QtWidgets.QDialog):
 
     def _accept(self) -> None:
         """Validate and accept dialog."""
-        # Validate pitcher
         if not self._pitcher_name:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Missing Pitcher",
                 "Please select or enter a pitcher name.",
+                tone="warning",
             )
             return
 
-        # Validate session name
         if not self._session_name:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Missing Session Name",
                 "Please enter a session name.",
+                tone="warning",
             )
             return
 
-        # Check calibration quality
         from calib.quick_calibrate import load_calibration_quality
 
         calibration_file = Path("calibration/stereo_calibration.npz")
         if not calibration_file.exists():
-            reply = QtWidgets.QMessageBox.question(
+            if not ask_confirmation(
                 self,
                 "No Calibration",
-                "No calibration found. Session may not work correctly.\n\n"
-                "Continue anyway?",
-                QtWidgets.QMessageBox.StandardButton.Yes
-                | QtWidgets.QMessageBox.StandardButton.No,
-            )
-            if reply == QtWidgets.QMessageBox.StandardButton.No:
+                "No calibration was found. Session measurements may not work correctly.\n\nContinue anyway?",
+                tone="warning",
+            ):
                 return
         else:
-            # Check calibration quality
             quality = load_calibration_quality()
             if quality and quality["rating"] == "POOR":
-                reply = QtWidgets.QMessageBox.warning(
+                if not ask_confirmation(
                     self,
                     "Poor Calibration Quality",
                     f"Calibration quality is POOR (RMS: {quality['rms_error_px']:.3f} px)\n\n"
@@ -478,30 +398,25 @@ class SessionStartDialog(QtWidgets.QDialog):
                     "This may result in inaccurate measurements.\n"
                     "Re-calibrate for better results?\n\n"
                     "Continue anyway?",
-                    QtWidgets.QMessageBox.StandardButton.Yes
-                    | QtWidgets.QMessageBox.StandardButton.No,
-                )
-                if reply == QtWidgets.QMessageBox.StandardButton.No:
+                    tone="warning",
+                ):
                     return
 
-        # Get camera serials
         left_serial = self._left_camera_combo.currentData()
         right_serial = self._right_camera_combo.currentData()
-
         if not left_serial or not right_serial:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Missing Cameras",
                 "Please select both left and right cameras.",
+                tone="warning",
             )
             return
 
-        # Set result values
         self.pitcher_name = self._pitcher_name
         self.session_name = self._session_name
         self.batter_height_in = self._batter_height_in
         self.ball_type = self._ball_type
         self.left_serial = left_serial
         self.right_serial = right_serial
-
         self.accept()

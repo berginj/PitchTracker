@@ -18,6 +18,8 @@ Welcome to the PitchTracker documentation! This directory contains all guides fo
 
 **Project Status & Roadmap:**
 - [CURRENT_STATUS.md](CURRENT_STATUS.md) - **START HERE** - Current status, action contract, priorities
+- [NEXT_STEPS.md](NEXT_STEPS.md) - Active execution backlog for contract, discovery, and workflow work
+- [PRODUCT_DISCOVERY_BASELINE.md](PRODUCT_DISCOVERY_BASELINE.md) - Persona baseline, user-need questions, and improvement areas
 - [SESSION_SUMMARY_2026-01-19.md](SESSION_SUMMARY_2026-01-19.md) - Latest development session log
 
 ---

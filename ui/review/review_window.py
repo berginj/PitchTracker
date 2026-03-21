@@ -10,6 +10,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.review import PitchScore, ReviewService
 from ui.review.widgets import ParameterPanel, PitchListWidget, PlaybackControls, TimelineWidget, VideoDisplayWidget
+from ui.themes import ask_confirmation, get_style_manager, show_message_dialog
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         super().__init__(parent)
         self.setWindowTitle("PitchTracker - Review Mode")
         self.resize(1600, 1000)
+        self._style_manager = get_style_manager()
 
         # Review service backend
         self._service = ReviewService()
@@ -196,10 +198,13 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         # Main horizontal layout
         main_layout = QtWidgets.QHBoxLayout()
+        main_layout.setContentsMargins(24, 24, 24, 24)
+        main_layout.setSpacing(16)
         main_layout.addWidget(left_section, 1)  # Video section takes most space
         main_layout.addWidget(right_section)  # Right panel
 
         container = QtWidgets.QWidget()
+        container.setObjectName("ReviewShell")
         container.setLayout(main_layout)
         return container
 
@@ -220,6 +225,8 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         # Vertical layout
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(16)
         layout.addWidget(self._parameter_panel)
         layout.addWidget(self._pitch_list)
 
@@ -254,6 +261,8 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         # Layout
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(14)
         layout.addWidget(video_section, 1)  # Takes most space
         layout.addWidget(self._timeline)
         layout.addWidget(self._controls)
@@ -286,6 +295,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         # Horizontal layout for side-by-side
         layout = QtWidgets.QHBoxLayout()
+        layout.setSpacing(16)
         layout.addWidget(left_group)
         layout.addWidget(right_group)
 
@@ -298,11 +308,12 @@ class ReviewWindow(QtWidgets.QMainWindow):
         # Browse for session directory
         recordings_dir = Path("recordings")
         if not recordings_dir.exists():
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Recordings Not Found",
                 f"Recordings directory not found: {recordings_dir}\n\n"
                 "Please record at least one session before using Review Mode.",
+                tone="warning",
             )
             return
 
@@ -372,10 +383,11 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         except Exception as e:
             logger.exception(f"Failed to load session: {e}")
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self,
                 "Load Error",
                 f"Failed to load session:\n{str(e)}",
+                tone="error",
             )
             self._status_bar.showMessage("Failed to load session")
 
@@ -400,11 +412,12 @@ class ReviewWindow(QtWidgets.QMainWindow):
         """Load all sessions in recordings directory for sequential review."""
         recordings_dir = Path("recordings")
         if not recordings_dir.exists():
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Recordings Not Found",
                 f"Recordings directory not found: {recordings_dir}\n\n"
                 "Please record at least one session before using Review Mode.",
+                tone="warning",
             )
             return
 
@@ -413,10 +426,11 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._session_list = SessionLoader.get_available_sessions()
 
         if not self._session_list:
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self,
                 "No Sessions Found",
                 "No recorded sessions found in the recordings directory.",
+                tone="info",
             )
             return
 
@@ -430,15 +444,11 @@ class ReviewWindow(QtWidgets.QMainWindow):
     def _next_session(self) -> None:
         """Load next session in the list."""
         if not self._session_list or self._current_session_index < 0:
-            QtWidgets.QMessageBox.information(
-                self, "No Sessions", "Use 'Review All Sessions' first."
-            )
+            show_message_dialog(self, "No Sessions", "Use 'Review All Sessions' first.", tone="info")
             return
 
         if self._current_session_index >= len(self._session_list) - 1:
-            QtWidgets.QMessageBox.information(
-                self, "Last Session", "This is the last session in the list."
-            )
+            show_message_dialog(self, "Last Session", "This is the last session in the list.", tone="info")
             return
 
         self._current_session_index += 1
@@ -448,15 +458,11 @@ class ReviewWindow(QtWidgets.QMainWindow):
     def _previous_session(self) -> None:
         """Load previous session in the list."""
         if not self._session_list or self._current_session_index < 0:
-            QtWidgets.QMessageBox.information(
-                self, "No Sessions", "Use 'Review All Sessions' first."
-            )
+            show_message_dialog(self, "No Sessions", "Use 'Review All Sessions' first.", tone="info")
             return
 
         if self._current_session_index <= 0:
-            QtWidgets.QMessageBox.information(
-                self, "First Session", "This is the first session in the list."
-            )
+            show_message_dialog(self, "First Session", "This is the first session in the list.", tone="info")
             return
 
         self._current_session_index -= 1
@@ -466,28 +472,23 @@ class ReviewWindow(QtWidgets.QMainWindow):
     def _delete_current_session(self) -> None:
         """Delete the currently loaded session from disk."""
         if not self._service.session:
-            QtWidgets.QMessageBox.warning(
-                self, "No Session", "No session is currently loaded."
-            )
+            show_message_dialog(self, "No Session", "No session is currently loaded.", tone="warning")
             return
 
         session = self._service.session
         session_dir = session.session_dir
 
         # Confirm deletion
-        reply = QtWidgets.QMessageBox.question(
+        if not ask_confirmation(
             self,
             "Delete Session",
             f"Are you sure you want to delete this session?\n\n"
             f"Session: {session.session_id}\n"
             f"Path: {session_dir}\n\n"
-            f"This will permanently delete all files in this session directory.\n"
-            f"This action cannot be undone!",
-            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
-            QtWidgets.QMessageBox.StandardButton.No,
-        )
-
-        if reply != QtWidgets.QMessageBox.StandardButton.Yes:
+            "This will permanently delete all files in this session directory.\n"
+            "This action cannot be undone!",
+            confirm_variant="danger",
+        ):
             return
 
         try:
@@ -499,10 +500,11 @@ class ReviewWindow(QtWidgets.QMainWindow):
             shutil.rmtree(session_dir)
 
             logger.info(f"Deleted session: {session_dir}")
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self,
                 "Session Deleted",
                 f"Session {session.session_id} has been deleted.",
+                tone="success",
             )
 
             # If we're in "review all" mode, update the list and load next session
@@ -526,10 +528,11 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         except Exception as e:
             logger.exception(f"Failed to delete session: {e}")
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self,
                 "Delete Error",
                 f"Failed to delete session:\n{str(e)}",
+                tone="error",
             )
 
     def _update_session_navigation_ui(self) -> None:
@@ -824,9 +827,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
     def _export_config(self) -> None:
         """Export tuned detector configuration."""
         if not self._service.session:
-            QtWidgets.QMessageBox.warning(
-                self, "No Session", "Please load a session first."
-            )
+            show_message_dialog(self, "No Session", "Please load a session first.", tone="warning")
             return
 
         # Get save file path
@@ -842,24 +843,21 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         try:
             self._service.export_config(Path(file_path))
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self,
                 "Export Successful",
                 f"Detector configuration exported to:\n{file_path}",
+                tone="success",
             )
             logger.info(f"Exported config to {file_path}")
         except Exception as e:
             logger.exception(f"Failed to export config: {e}")
-            QtWidgets.QMessageBox.critical(
-                self, "Export Error", f"Failed to export config:\n{str(e)}"
-            )
+            show_message_dialog(self, "Export Error", f"Failed to export config:\n{str(e)}", tone="error")
 
     def _export_annotations(self) -> None:
         """Export annotations to JSON file."""
         if not self._service.session:
-            QtWidgets.QMessageBox.warning(
-                self, "No Session", "Please load a session first."
-            )
+            show_message_dialog(self, "No Session", "Please load a session first.", tone="warning")
             return
 
         # Sync pitch scores from pitch list to service
@@ -892,17 +890,16 @@ class ReviewWindow(QtWidgets.QMainWindow):
                 f"Unscored: {summary['unscored']}"
             )
 
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self,
                 "Export Successful",
                 stats_text,
+                tone="success",
             )
             logger.info(f"Exported annotations to {file_path}")
         except Exception as e:
             logger.exception(f"Failed to export annotations: {e}")
-            QtWidgets.QMessageBox.critical(
-                self, "Export Error", f"Failed to export annotations:\n{str(e)}"
-            )
+            show_message_dialog(self, "Export Error", f"Failed to export annotations:\n{str(e)}", tone="error")
 
     def _update_ui_state(self) -> None:
         """Update UI element enabled/disabled state based on session loaded."""

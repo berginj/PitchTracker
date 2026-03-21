@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ui.coaching.widgets.games.base_game import BaseGame
+from ui.themes import show_message_dialog
 
 if TYPE_CHECKING:
     from app.pipeline_service import PitchSummary
@@ -135,7 +136,12 @@ class AroundWorldGame(BaseGame):
 
             if self._current_index >= len(self.SEQUENCE):
                 self.save_score(self._pitch_count)
-                QtWidgets.QMessageBox.information(self, "Complete!", f"Finished in {self._pitch_count} pitches!")
+                show_message_dialog(
+                    self,
+                    "Complete!",
+                    f"Finished in {self._pitch_count} pitches!",
+                    tone="success",
+                )
                 self.reset_game()
 
     def reset_game(self) -> None:

@@ -1,4 +1,4 @@
-"""Trajectory fitting contracts."""
+"""Trajectory fitting contracts used by live tracking and post-session analysis."""
 
 from __future__ import annotations
 

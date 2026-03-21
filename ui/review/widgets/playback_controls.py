@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6 import QtCore, QtWidgets
+from ui.themes import get_style_manager
 
 
 class PlaybackControls(QtWidgets.QWidget):
@@ -48,7 +49,7 @@ class PlaybackControls(QtWidgets.QWidget):
             parent: Optional parent widget
         """
         super().__init__(parent)
-
+        self._style_manager = get_style_manager()
         self._is_playing = False
         self._is_looping = False
         self._build_ui()
@@ -60,36 +61,44 @@ class PlaybackControls(QtWidgets.QWidget):
         self._seek_start_btn.setToolTip("Seek to start (Home)")
         self._seek_start_btn.clicked.connect(self.seek_start_clicked.emit)
         self._seek_start_btn.setMinimumHeight(40)
+        self._seek_start_btn.setText("Start")
+        self._style_manager.style_button(self._seek_start_btn, "default")
 
         # Step backward button
         self._step_back_btn = QtWidgets.QPushButton("◀ Step Back")
         self._step_back_btn.setToolTip("Step backward one frame (Left Arrow)")
         self._step_back_btn.clicked.connect(self.step_backward_clicked.emit)
         self._step_back_btn.setMinimumHeight(40)
+        self._step_back_btn.setText("Step Back")
+        self._style_manager.style_button(self._step_back_btn, "default")
 
         # Play/Pause button
         self._play_pause_btn = QtWidgets.QPushButton("▶ Play")
         self._play_pause_btn.setToolTip("Play/Pause (Space)")
         self._play_pause_btn.clicked.connect(self.play_pause_clicked.emit)
         self._play_pause_btn.setMinimumHeight(40)
-        self._play_pause_btn.setStyleSheet(
-            "font-size: 14pt; font-weight: bold; background-color: #4CAF50; color: white;"
-        )
+        self._play_pause_btn.setText("Play")
+        self._style_manager.style_button(self._play_pause_btn, "success")
 
         # Step forward button
         self._step_forward_btn = QtWidgets.QPushButton("Step Forward ▶")
         self._step_forward_btn.setToolTip("Step forward one frame (Right Arrow)")
         self._step_forward_btn.clicked.connect(self.step_forward_clicked.emit)
         self._step_forward_btn.setMinimumHeight(40)
+        self._step_forward_btn.setText("Step Forward")
+        self._style_manager.style_button(self._step_forward_btn, "default")
 
         # Seek to end button
         self._seek_end_btn = QtWidgets.QPushButton("End ⏭")
         self._seek_end_btn.setToolTip("Seek to end (End)")
         self._seek_end_btn.clicked.connect(self.seek_end_clicked.emit)
         self._seek_end_btn.setMinimumHeight(40)
+        self._seek_end_btn.setText("End")
+        self._style_manager.style_button(self._seek_end_btn, "default")
 
         # Speed control
         speed_label = QtWidgets.QLabel("Speed:")
+        self._style_manager.style_label(speed_label, "eyebrow")
         self._speed_combo = QtWidgets.QComboBox()
         self._speed_combo.addItem("0.1x", 0.1)
         self._speed_combo.addItem("0.25x", 0.25)
@@ -99,6 +108,7 @@ class PlaybackControls(QtWidgets.QWidget):
         self._speed_combo.addItem("2.0x", 2.0)
         self._speed_combo.setCurrentIndex(3)  # Default to 1.0x
         self._speed_combo.currentIndexChanged.connect(self._on_speed_changed)
+        self._style_manager.style_input(self._speed_combo)
 
         # Loop mode toggle
         self._loop_btn = QtWidgets.QPushButton("Loop")
@@ -106,20 +116,26 @@ class PlaybackControls(QtWidgets.QWidget):
         self._loop_btn.setCheckable(True)
         self._loop_btn.clicked.connect(self._on_loop_toggled)
         self._loop_btn.setMinimumHeight(32)
+        self._style_manager.style_button(self._loop_btn, "ghost")
 
         # Pitch navigation
         self._prev_pitch_btn = QtWidgets.QPushButton("◀ Prev Pitch")
         self._prev_pitch_btn.setToolTip("Jump to previous pitch (PgUp)")
         self._prev_pitch_btn.clicked.connect(self.prev_pitch_clicked.emit)
         self._prev_pitch_btn.setMinimumHeight(32)
+        self._prev_pitch_btn.setText("Prev Pitch")
+        self._style_manager.style_button(self._prev_pitch_btn, "default")
 
         self._next_pitch_btn = QtWidgets.QPushButton("Next Pitch ▶")
         self._next_pitch_btn.setToolTip("Jump to next pitch (PgDown)")
         self._next_pitch_btn.clicked.connect(self.next_pitch_clicked.emit)
         self._next_pitch_btn.setMinimumHeight(32)
+        self._next_pitch_btn.setText("Next Pitch")
+        self._style_manager.style_button(self._next_pitch_btn, "default")
 
         # Top row: Frame controls
         frame_layout = QtWidgets.QHBoxLayout()
+        frame_layout.setSpacing(10)
         frame_layout.addWidget(self._seek_start_btn)
         frame_layout.addWidget(self._step_back_btn)
         frame_layout.addWidget(self._play_pause_btn, 1)  # Play button takes more space
@@ -128,6 +144,7 @@ class PlaybackControls(QtWidgets.QWidget):
 
         # Bottom row: Speed, loop, and pitch navigation
         options_layout = QtWidgets.QHBoxLayout()
+        options_layout.setSpacing(10)
         options_layout.addWidget(self._prev_pitch_btn)
         options_layout.addWidget(self._next_pitch_btn)
         options_layout.addStretch()
@@ -137,10 +154,14 @@ class PlaybackControls(QtWidgets.QWidget):
 
         # Main layout
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(12)
         layout.addLayout(frame_layout)
         layout.addLayout(options_layout)
 
         self.setLayout(layout)
+        self.setProperty("surface", "card")
+        self._style_manager.polish(self)
 
     def set_playing(self, is_playing: bool) -> None:
         """Update button state for playing/paused.
@@ -152,14 +173,10 @@ class PlaybackControls(QtWidgets.QWidget):
 
         if is_playing:
             self._play_pause_btn.setText("⏸ Pause")
-            self._play_pause_btn.setStyleSheet(
-                "font-size: 14pt; font-weight: bold; background-color: #FF9800; color: white;"
-            )
+            self._style_manager.style_button(self._play_pause_btn, "primary")
         else:
             self._play_pause_btn.setText("▶ Play")
-            self._play_pause_btn.setStyleSheet(
-                "font-size: 14pt; font-weight: bold; background-color: #4CAF50; color: white;"
-            )
+            self._style_manager.style_button(self._play_pause_btn, "success")
 
     def _on_speed_changed(self, index: int) -> None:
         """Handle speed combo box change.
@@ -178,11 +195,9 @@ class PlaybackControls(QtWidgets.QWidget):
         """
         self._is_looping = checked
         if checked:
-            self._loop_btn.setStyleSheet(
-                "background-color: #2196F3; color: white; font-weight: bold;"
-            )
+            self._style_manager.style_button(self._loop_btn, "primary")
         else:
-            self._loop_btn.setStyleSheet("")
+            self._style_manager.style_button(self._loop_btn, "ghost")
         self.loop_toggled.emit(checked)
 
     def is_looping(self) -> bool:

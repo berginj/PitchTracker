@@ -12,6 +12,13 @@ from PySide6 import QtCore, QtWidgets
 
 from configs.settings import load_config
 from ui.device_utils import current_serial
+from ui.themes import (
+    apply_standard_layout,
+    get_style_manager,
+    polish_form_controls,
+    show_message_dialog,
+    style_status_label,
+)
 
 if TYPE_CHECKING:
     from ui.qt_app import MainWindow
@@ -29,6 +36,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.setWindowTitle("Calibration & Training Wizard")
         self.resize(900, 700)  # Larger dialog to accommodate camera previews
+        self._style_manager = get_style_manager()
         self._parent = parent
         self._index = 0
         self._skipped_steps: list[str] = []
@@ -113,13 +121,15 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         ]
 
         self._title = QtWidgets.QLabel()
-        self._title.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self._style_manager.style_label(self._title, "pageTitle")
         self._detail = QtWidgets.QLabel()
         self._detail.setWordWrap(True)
+        self._style_manager.style_label(self._detail, "muted")
         self._status = QtWidgets.QLabel("")
+        style_status_label(self._status, "info", "Validation pending")
         self._step_area = QtWidgets.QWidget()
         self._step_layout = QtWidgets.QVBoxLayout()
-        self._step_layout.setContentsMargins(0, 0, 0, 0)
+        apply_standard_layout(self._step_layout, margins=(0, 0, 0, 0), spacing=16)
         self._step_area.setLayout(self._step_layout)
         self._status_timer = QtCore.QTimer(self)
         self._status_timer.timeout.connect(self._update_live_status)
@@ -127,6 +137,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
 
         self._action_button = QtWidgets.QPushButton()
         self._action_button.clicked.connect(self._run_action)
+        self._style_manager.style_button(self._action_button, "primary")
 
         self._back_button = QtWidgets.QPushButton("Back")
         self._skip_button = QtWidgets.QPushButton("Skip Step")
@@ -134,8 +145,12 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._back_button.clicked.connect(self._go_back)
         self._skip_button.clicked.connect(self._skip_step)
         self._next_button.clicked.connect(self._go_next)
+        self._style_manager.style_button(self._back_button, "ghost")
+        self._style_manager.style_button(self._skip_button, "ghost")
+        self._style_manager.style_button(self._next_button, "primary")
 
         header = QtWidgets.QVBoxLayout()
+        apply_standard_layout(header, margins=(0, 0, 0, 0), spacing=8)
         header.addWidget(self._title)
         header.addWidget(self._detail)
         header.addWidget(self._status)
@@ -143,6 +158,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         # Wrap header and step area in a scrollable container
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout()
+        apply_standard_layout(scroll_layout)
         scroll_layout.addLayout(header)
         scroll_layout.addWidget(self._step_area)
         scroll_layout.addStretch(1)
@@ -154,6 +170,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         scroll_area.setFrameShape(QtWidgets.QFrame.NoFrame)
 
         button_row = QtWidgets.QHBoxLayout()
+        button_row.setSpacing(10)
         button_row.addWidget(self._action_button)
         button_row.addStretch(1)
         button_row.addWidget(self._back_button)
@@ -161,9 +178,11 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         button_row.addWidget(self._next_button)
 
         layout = QtWidgets.QVBoxLayout()
+        apply_standard_layout(layout)
         layout.addWidget(scroll_area, 1)  # Stretch to fill
         layout.addLayout(button_row)
         self.setLayout(layout)
+        polish_form_controls(self)
 
         self._refresh_step()
 
@@ -172,7 +191,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         step = self._steps[self._index]
         self._title.setText(f"Step {self._index + 1} of {len(self._steps)}: {step['title']}")
         self._detail.setText(step["detail"])
-        self._status.setText(self._validation_text(step))
+        self._update_validation_status(step)
         action_label = step.get("action_label")
         if action_label:
             self._action_button.setText(action_label)
@@ -223,6 +242,15 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         ok = validator()
         return "Validation: passed" if ok else "Validation: not passed"
 
+    def _update_validation_status(self, step: dict) -> None:
+        """Update the status chip for the current step."""
+        validator = step.get("validate")
+        if validator is None:
+            style_status_label(self._status, "info", "Validation: not required")
+            return
+        tone = "success" if validator() else "warning"
+        style_status_label(self._status, tone, self._validation_text(step))
+
     def _run_action(self) -> None:
         """Run action for current step."""
         step = self._steps[self._index]
@@ -230,7 +258,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         if action is None:
             return
         action()
-        self._status.setText(self._validation_text(step))
+        self._update_validation_status(step)
 
     def _go_back(self) -> None:
         """Go to previous step."""
@@ -255,12 +283,13 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         step = self._steps[self._index]
         validator = step.get("validate")
         if validator is not None and not validator():
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Validation",
                 "Validation failed for this step. Fix the issue or use Skip Step.",
+                tone="warning",
             )
-            self._status.setText(self._validation_text(step))
+            self._update_validation_status(step)
             return
         if self._index >= len(self._steps) - 1:
             self._finalize()
@@ -357,6 +386,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         # Target detection status
         detection_group = QtWidgets.QGroupBox("Target Detection")
         self._target_label = QtWidgets.QLabel("Target detected: no")
+        style_status_label(self._target_label, "warning", "Target detected: no")
         detection_layout = QtWidgets.QFormLayout()
         detection_layout.addRow(self._target_label)
         detection_group.setLayout(detection_layout)
@@ -397,7 +427,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         # Helper label showing inches
         baseline_inches = self._parent._config.stereo.baseline_ft * 12
         self._baseline_inches_label = QtWidgets.QLabel(f"({baseline_inches:.1f} inches)")
-        self._baseline_inches_label.setStyleSheet("color: #666; font-size: 9pt; font-style: italic;")
+        self._style_manager.style_label(self._baseline_inches_label, "muted")
 
         baseline_layout.addRow("Camera Baseline:", self._baseline_spin)
         baseline_layout.addRow("", self._baseline_inches_label)
@@ -421,11 +451,12 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         plate_id = self._parent._fiducial_ids["plate"]
         rubber_id = self._parent._fiducial_ids["rubber"]
         self._fiducial_label = QtWidgets.QLabel("Tags detected: 0")
+        style_status_label(self._fiducial_label, "warning", "Tags detected: 0")
 
         # Make error message collapsible
         self._fiducial_error_label = QtWidgets.QLabel("")
         self._fiducial_error_label.setWordWrap(True)
-        self._fiducial_error_label.setStyleSheet("color: #d32f2f; padding: 5px;")
+        style_status_label(self._fiducial_error_label, "error", "")
         self._fiducial_error_label.setMaximumHeight(100)  # Limit height
 
         # Add scroll area for long error messages
@@ -528,14 +559,22 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
             pass
         found = self._parent._target_found
         if self._target_label is not None:
-            self._target_label.setText("Target detected: yes" if found else "Target detected: no")
+            style_status_label(
+                self._target_label,
+                "success" if found else "warning",
+                "Target detected: yes" if found else "Target detected: no",
+            )
         if self._fiducial_label is not None:
             ids = [det.tag_id for det in self._parent._fiducial_detections]
-            self._fiducial_label.setText(f"Tags detected: {len(ids)} ({ids})")
+            style_status_label(
+                self._fiducial_label,
+                "success" if ids else "warning",
+                f"Tags detected: {len(ids)} ({ids})",
+            )
         if self._fiducial_error_label is not None and self._fiducial_error_scroll is not None:
             error = self._parent._fiducial_error
             if error:
-                self._fiducial_error_label.setText(error)
+                style_status_label(self._fiducial_error_label, "error", error)
                 self._fiducial_error_scroll.setVisible(True)
             else:
                 self._fiducial_error_label.setText("")

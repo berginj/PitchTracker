@@ -7,6 +7,7 @@ from typing import Optional
 import cv2
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
+from ui.themes import get_style_manager
 
 
 class VideoDisplayWidget(QtWidgets.QLabel):
@@ -34,12 +35,14 @@ class VideoDisplayWidget(QtWidgets.QLabel):
             parent: Optional parent widget
         """
         super().__init__(parent)
+        self._style_manager = get_style_manager()
 
         # Configure label
         self.setMinimumSize(640, 480)
         self.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.setStyleSheet("background-color: #2b2b2b; color: #888;")
+        self.setProperty("surface", "preview")
+        self._style_manager.polish(self)
         self.setText("No Video Loaded")
 
         # Store current frame

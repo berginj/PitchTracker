@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Optional
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from ui.themes import get_style_manager
 from ui.coaching.widgets.heat_map import StrikeZoneOverlay
 
 if TYPE_CHECKING:
@@ -40,6 +41,7 @@ class CameraViewWidget(QtWidgets.QWidget):
             min_height: Minimum height for camera display
         """
         super().__init__(parent)
+        self._style_manager = get_style_manager()
 
         self._active_camera = "left"
         self._left_frame: Optional[Frame] = None
@@ -60,7 +62,8 @@ class CameraViewWidget(QtWidgets.QWidget):
         self._camera_label.setMinimumSize(min_width, min_height)
         self._camera_label.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._camera_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._camera_label.setStyleSheet("background-color: #f5f5f5;")
+        self._camera_label.setProperty("surface", "preview")
+        self._style_manager.polish(self._camera_label)
         self._camera_label.setScaledContents(False)  # Maintain aspect ratio
 
         # Strike zone overlay

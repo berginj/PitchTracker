@@ -15,6 +15,7 @@ from PySide6 import QtWidgets
 from app.validation import ConfigValidator
 from exceptions import ConfigValidationError
 from log_config.logger import get_logger
+from ui.themes import ask_confirmation, show_message_dialog
 
 if TYPE_CHECKING:
     from configs.settings import AppConfig
@@ -191,24 +192,23 @@ class CaptureController:
 
         # Show errors
         if errors:
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self._parent,
                 "Pre-Capture Check Failed",
                 "Fix the following before capturing:\n" + "\n".join(errors),
+                tone="error",
             )
             logger.warning(f"Pre-capture check failed: {errors}")
             return False
 
         # Show warnings
         if warnings:
-            result = QtWidgets.QMessageBox.warning(
+            if not ask_confirmation(
                 self._parent,
                 "Pre-Capture Warnings",
                 "Continue with the following warnings?\n" + "\n".join(warnings),
-                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-                QtWidgets.QMessageBox.No,
-            )
-            if result != QtWidgets.QMessageBox.Yes:
+                tone="warning",
+            ):
                 logger.info("User cancelled capture due to warnings")
                 return False
 

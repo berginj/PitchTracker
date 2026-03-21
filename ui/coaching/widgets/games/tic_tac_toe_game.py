@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ui.coaching.widgets.games.base_game import BaseGame
+from ui.themes import show_message_dialog
 
 if TYPE_CHECKING:
     from app.pipeline_service import PitchSummary
@@ -126,10 +127,10 @@ class TicTacToeGame(BaseGame):
                 self._wins += 1
                 self.save_score(self._wins)
                 self._update_score()
-                QtWidgets.QMessageBox.information(self, "Winner!", "You win!")
+                show_message_dialog(self, "Winner!", "You win!", tone="success")
                 self.reset_game()
             elif self._is_full():
-                QtWidgets.QMessageBox.information(self, "Tie", "Game tied!")
+                show_message_dialog(self, "Tie", "Game tied!", tone="info")
                 self.reset_game()
             else:
                 # AI move
@@ -146,10 +147,10 @@ class TicTacToeGame(BaseGame):
             if self._check_win('O'):
                 self._losses += 1
                 self._update_score()
-                QtWidgets.QMessageBox.information(self, "Loss", "AI wins!")
+                show_message_dialog(self, "Loss", "AI wins!", tone="warning")
                 self.reset_game()
             elif self._is_full():
-                QtWidgets.QMessageBox.information(self, "Tie", "Game tied!")
+                show_message_dialog(self, "Tie", "Game tied!", tone="info")
                 self.reset_game()
 
     def _check_win(self, mark: str) -> bool:

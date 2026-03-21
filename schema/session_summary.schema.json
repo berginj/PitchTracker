@@ -1,6 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "PitchTracker Session Summary",
+  "description": "Compact end-of-session summary produced by the coach or session-operator workflow and consumed by coaching review, player review, and downstream exports.",
+  "$comment": "See contracts-shared/PERSONAS.md for producer and consumer context.",
   "type": "object",
   "additionalProperties": false,
   "required": [

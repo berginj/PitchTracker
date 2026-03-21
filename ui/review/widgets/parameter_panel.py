@@ -7,6 +7,7 @@ from typing import Optional
 from PySide6 import QtCore, QtWidgets
 
 from detect.config import Mode
+from ui.themes import get_style_manager
 
 
 class ParameterPanel(QtWidgets.QWidget):
@@ -33,6 +34,7 @@ class ParameterPanel(QtWidgets.QWidget):
             parent: Optional parent widget
         """
         super().__init__(parent)
+        self._style_manager = get_style_manager()
 
         # Current parameter values
         self._mode = Mode.MODE_A
@@ -47,10 +49,12 @@ class ParameterPanel(QtWidgets.QWidget):
     def _build_ui(self) -> None:
         """Build parameter controls UI."""
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
 
         # Title
         title = QtWidgets.QLabel("Detection Parameters")
-        title.setStyleSheet("font-size: 14pt; font-weight: bold; padding: 5px;")
+        self._style_manager.style_label(title, "sectionTitle")
         layout.addWidget(title)
 
         # Mode selector
@@ -67,13 +71,14 @@ class ParameterPanel(QtWidgets.QWidget):
 
         # Reset button
         reset_btn = QtWidgets.QPushButton("Reset to Original")
+        self._style_manager.style_button(reset_btn, "default")
         reset_btn.clicked.connect(self._reset_parameters)
         reset_btn.setToolTip("Reset all parameters to original session values")
         layout.addWidget(reset_btn)
 
         # Apply button
         apply_btn = QtWidgets.QPushButton("Apply Changes")
-        apply_btn.setStyleSheet("font-weight: bold; background-color: #4CAF50; color: white;")
+        self._style_manager.style_button(apply_btn, "primary")
         apply_btn.clicked.connect(self.parameter_changed.emit)
         layout.addWidget(apply_btn)
 
@@ -81,6 +86,8 @@ class ParameterPanel(QtWidgets.QWidget):
 
         self.setLayout(layout)
         self.setMaximumWidth(350)
+        self.setProperty("surface", "card")
+        self._style_manager.polish(self)
 
     def _build_mode_selector(self) -> QtWidgets.QGroupBox:
         """Build detection mode selector.
