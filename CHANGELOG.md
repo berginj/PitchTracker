@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.5.0-pilot (2026-03-26) - PILOT BUILD LOCK
+
+**This version is locked as the canonical pilot build for structured facility deployments.**
+
+### Product Strategy Alignment
+- **Version Freeze**: No new features without capability contract approval
+- **Pilot Duration**: 90-day minimum stability commitment
+- **Allowed Updates**: Bug fixes (v1.5.1+), documentation, performance optimizations
+- **Strategic Focus**: Validation, setup simplification, pilot success
+
+### Version Alignment Actions
+- Unified version strings across all documentation and code (updater.py, README.md, CURRENT_STATUS.md)
+- Established `contracts/versioning.py` as single source of truth (APP_VERSION = "1.5.0")
+- Created VERSION_ALIGNMENT.md with governance process
+- Created PRODUCT_STRATEGY.md with capability contract and roadmap philosophy
+
+### Documentation Updates
+- Added strategic planning framework (PRODUCT_STRATEGY.md)
+- Updated README.md with v1.5.0-pilot installer references
+- Updated CURRENT_STATUS.md to reflect pilot readiness focus
+- Created VERSION_ALIGNMENT.md for version governance
+
+### Known Limitations (v1.5.0-pilot)
+- Setup requires 30-60 minutes (ChArUco board printing, ROI calibration)
+- Accuracy not yet validated against reference equipment (TrackMan, Rapsodo)
+- Requires technical operator (not self-service)
+- Best for fixed installations with trained operators
+- Windows 10/11 only
+
+### Pilot Program Next Steps
+1. Design velocity validation test protocol
+2. Recruit 2-3 pilot partners (facilities/academies)
+3. Create pilot onboarding kit and success metrics
+4. Execute structured pilot deployments
+5. Collect usage data and accuracy validation
+
+---
+
 ## 1.5.0 (2026-01-19)
 
 ### Pattern Detection System - Complete UI Integration

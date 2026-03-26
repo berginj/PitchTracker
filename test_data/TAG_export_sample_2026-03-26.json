@@ -1,0 +1,231 @@
+{
+  "schema_version": "1.0",
+  "export_metadata": {
+    "export_date": "2026-03-26T18:30:00Z",
+    "export_source": "TAG_Sports_iOS",
+    "app_version": "2.3.1"
+  },
+  "athlete": {
+    "tag_user_id": "tag_sample_user_001",
+    "name": "Sample Athlete",
+    "birth_year": 2008,
+    "throws": "right",
+    "position": "pitcher",
+    "email": "sample@example.com"
+  },
+  "sessions": [
+    {
+      "session_id": "tag_session_20260320_001",
+      "date": "2026-03-20T15:00:00Z",
+      "location": "Backyard practice",
+      "session_type": "practice",
+      "notes": "Working on changeup grip and velocity",
+      "pitches": [
+        {
+          "pitch_number": 1,
+          "timestamp": "2026-03-20T15:05:23Z",
+          "speed_mph": 72.3,
+          "pitch_type": "Fastball",
+          "notes": ""
+        },
+        {
+          "pitch_number": 2,
+          "timestamp": "2026-03-20T15:06:10Z",
+          "speed_mph": 68.5,
+          "pitch_type": "Changeup",
+          "notes": "New grip"
+        },
+        {
+          "pitch_number": 3,
+          "timestamp": "2026-03-20T15:07:02Z",
+          "speed_mph": 73.1,
+          "pitch_type": "Fastball",
+          "notes": ""
+        },
+        {
+          "pitch_number": 4,
+          "timestamp": "2026-03-20T15:08:15Z",
+          "speed_mph": 69.2,
+          "pitch_type": "Changeup",
+          "notes": ""
+        },
+        {
+          "pitch_number": 5,
+          "timestamp": "2026-03-20T15:09:30Z",
+          "speed_mph": 72.8,
+          "pitch_type": "Fastball",
+          "notes": ""
+        },
+        {
+          "pitch_number": 6,
+          "timestamp": "2026-03-20T15:10:45Z",
+          "speed_mph": 74.2,
+          "pitch_type": "Fastball",
+          "notes": "Felt strong"
+        },
+        {
+          "pitch_number": 7,
+          "timestamp": "2026-03-20T15:12:00Z",
+          "speed_mph": 67.8,
+          "pitch_type": "Changeup",
+          "notes": ""
+        },
+        {
+          "pitch_number": 8,
+          "timestamp": "2026-03-20T15:13:20Z",
+          "speed_mph": 73.5,
+          "pitch_type": "Fastball",
+          "notes": ""
+        },
+        {
+          "pitch_number": 9,
+          "timestamp": "2026-03-20T15:14:35Z",
+          "speed_mph": 71.9,
+          "pitch_type": "Fastball",
+          "notes": ""
+        },
+        {
+          "pitch_number": 10,
+          "timestamp": "2026-03-20T15:15:50Z",
+          "speed_mph": 68.1,
+          "pitch_type": "Changeup",
+          "notes": ""
+        }
+      ],
+      "summary": {
+        "total_pitches": 45,
+        "avg_speed_mph": 71.2,
+        "max_speed_mph": 74.8,
+        "min_speed_mph": 65.1
+      }
+    },
+    {
+      "session_id": "tag_session_20260322_001",
+      "date": "2026-03-22T16:30:00Z",
+      "location": "Local batting cage",
+      "session_type": "practice",
+      "notes": "Focus on location and control",
+      "pitches": [
+        {
+          "pitch_number": 1,
+          "timestamp": "2026-03-22T16:35:12Z",
+          "speed_mph": 70.8,
+          "pitch_type": "Fastball",
+          "notes": ""
+        },
+        {
+          "pitch_number": 2,
+          "timestamp": "2026-03-22T16:36:45Z",
+          "speed_mph": 69.2,
+          "pitch_type": "Changeup",
+          "notes": ""
+        },
+        {
+          "pitch_number": 3,
+          "timestamp": "2026-03-22T16:38:10Z",
+          "speed_mph": 71.5,
+          "pitch_type": "Fastball",
+          "notes": ""
+        },
+        {
+          "pitch_number": 4,
+          "timestamp": "2026-03-22T16:39:35Z",
+          "speed_mph": 72.9,
+          "pitch_type": "Fastball",
+          "notes": ""
+        },
+        {
+          "pitch_number": 5,
+          "timestamp": "2026-03-22T16:40:50Z",
+          "speed_mph": 67.5,
+          "pitch_type": "Changeup",
+          "notes": ""
+        },
+        {
+          "pitch_number": 6,
+          "timestamp": "2026-03-22T16:42:15Z",
+          "speed_mph": 73.4,
+          "pitch_type": "Fastball",
+          "notes": "Good location"
+        },
+        {
+          "pitch_number": 7,
+          "timestamp": "2026-03-22T16:43:40Z",
+          "speed_mph": 68.9,
+          "pitch_type": "Changeup",
+          "notes": ""
+        },
+        {
+          "pitch_number": 8,
+          "timestamp": "2026-03-22T16:45:05Z",
+          "speed_mph": 72.1,
+          "pitch_type": "Fastball",
+          "notes": ""
+        }
+      ],
+      "summary": {
+        "total_pitches": 52,
+        "avg_speed_mph": 70.8,
+        "max_speed_mph": 73.9,
+        "min_speed_mph": 65.2
+      }
+    },
+    {
+      "session_id": "tag_session_20260325_001",
+      "date": "2026-03-25T14:00:00Z",
+      "location": "High school field",
+      "session_type": "bullpen",
+      "notes": "Pre-game warmup session",
+      "pitches": [
+        {
+          "pitch_number": 1,
+          "timestamp": "2026-03-25T14:05:00Z",
+          "speed_mph": 71.2,
+          "pitch_type": "Fastball",
+          "notes": ""
+        },
+        {
+          "pitch_number": 2,
+          "timestamp": "2026-03-25T14:06:30Z",
+          "speed_mph": 73.8,
+          "pitch_type": "Fastball",
+          "notes": ""
+        },
+        {
+          "pitch_number": 3,
+          "timestamp": "2026-03-25T14:07:50Z",
+          "speed_mph": 69.5,
+          "pitch_type": "Changeup",
+          "notes": ""
+        },
+        {
+          "pitch_number": 4,
+          "timestamp": "2026-03-25T14:09:10Z",
+          "speed_mph": 74.5,
+          "pitch_type": "Fastball",
+          "notes": "Best velocity"
+        },
+        {
+          "pitch_number": 5,
+          "timestamp": "2026-03-25T14:10:30Z",
+          "speed_mph": 72.6,
+          "pitch_type": "Fastball",
+          "notes": ""
+        },
+        {
+          "pitch_number": 6,
+          "timestamp": "2026-03-25T14:11:45Z",
+          "speed_mph": 68.3,
+          "pitch_type": "Changeup",
+          "notes": ""
+        }
+      ],
+      "summary": {
+        "total_pitches": 38,
+        "avg_speed_mph": 71.9,
+        "max_speed_mph": 76.2,
+        "min_speed_mph": 66.8
+      }
+    }
+  ]
+}

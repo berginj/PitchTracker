@@ -1,8 +1,8 @@
 # PitchTracker - Current Status & Action Contract
 
-**Date:** 2026-01-27
-**Version:** 1.2.1+calibration-ux
-**Status:** 🚀 **PRODUCTION READY** with Simplified Calibration UX
+**Date:** 2026-03-26
+**Version:** 1.5.0-pilot (LOCKED FOR PILOT PROGRAM)
+**Status:** 🚀 **PILOT READY** - Canonical build for structured pilot deployments
 
 ---
 

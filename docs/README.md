@@ -14,13 +14,30 @@ Welcome to the PitchTracker documentation! This directory contains all guides fo
 
 ---
 
-## 📊 Current Status
+## 📊 Current Status & Strategy
 
-**Project Status & Roadmap:**
-- [CURRENT_STATUS.md](CURRENT_STATUS.md) - **START HERE** - Current status, action contract, priorities
-- [NEXT_STEPS.md](NEXT_STEPS.md) - Active execution backlog for contract, discovery, and workflow work
-- [PRODUCT_DISCOVERY_BASELINE.md](PRODUCT_DISCOVERY_BASELINE.md) - Persona baseline, user-need questions, and improvement areas
-- [SESSION_SUMMARY_2026-01-19.md](SESSION_SUMMARY_2026-01-19.md) - Latest development session log
+**Strategic Framework (March 2026):**
+- [PRODUCT_STRATEGY.md](PRODUCT_STRATEGY.md) - **⭐ START HERE** - Capability contract, roadmap philosophy, decision filter
+- [EXECUTION_SUMMARY_2026-03-26.md](EXECUTION_SUMMARY_2026-03-26.md) - Session summary (5/5 priorities complete + TAG partnership)
+- [CURRENT_STATUS.md](CURRENT_STATUS.md) - Current build status (v1.5.0-pilot)
+
+**TAG Sports Partnership (NEW - March 2026):**
+- [GTM_STRATEGY_TAG_PARTNERSHIP.md](GTM_STRATEGY_TAG_PARTNERSHIP.md) - **⭐ PARTNERSHIP GTM** - Consumer-to-facility ecosystem strategy
+- [TAG_SPORTS_PARTNERSHIP_STRATEGY.md](TAG_SPORTS_PARTNERSHIP_STRATEGY.md) - Full partnership plan (40 pages)
+- [TAG_INTEGRATION_TECHNICAL_SPEC.md](TAG_INTEGRATION_TECHNICAL_SPEC.md) - Technical implementation (35 pages)
+- [TAG_PARTNERSHIP_PROPOSAL_ONE_PAGER.md](TAG_PARTNERSHIP_PROPOSAL_ONE_PAGER.md) - Executive summary for outreach
+- [COMPETITIVE_ANALYSIS_TAG_SPORTS.md](COMPETITIVE_ANALYSIS_TAG_SPORTS.md) - Competitive intelligence
+
+**Pilot Program & Validation:**
+- [PILOT_PROGRAM.md](PILOT_PROGRAM.md) - Partner recruitment and execution plan (ready to launch)
+- [VELOCITY_VALIDATION_PROTOCOL.md](VELOCITY_VALIDATION_PROTOCOL.md) - Accuracy validation methodology (ready to execute)
+- [HARDWARE_PROFILE.md](HARDWARE_PROFILE.md) - Known-good hardware specifications
+
+**Governance & Process:**
+- [VERSION_ALIGNMENT.md](VERSION_ALIGNMENT.md) - Version governance (v1.5.0-pilot locked)
+- [CAPABILITY_CONTRACT_ENFORCEMENT.md](CAPABILITY_CONTRACT_ENFORCEMENT.md) - Feature approval process
+- [NEXT_STEPS.md](NEXT_STEPS.md) - Active execution backlog
+- [PRODUCT_DISCOVERY_BASELINE.md](PRODUCT_DISCOVERY_BASELINE.md) - Persona baseline, user-need questions
 
 ---
 
@@ -74,8 +91,14 @@ Welcome to the PitchTracker documentation! This directory contains all guides fo
 - **Camera Setup**: user/CALIBRATION_TIPS.md
 - **Pattern Analysis**: PATTERN_DETECTION_GUIDE.md
 
-### For Developers
+### For Developers & Product Team
 - **Current Status**: CURRENT_STATUS.md
+- **Product Strategy**: PRODUCT_STRATEGY.md ⭐ **START HERE** for strategic framework
+- **Capability Contract**: CAPABILITY_CONTRACT_ENFORCEMENT.md (templates, workflows, approval process)
+- **Hardware Profile**: HARDWARE_PROFILE.md (validated camera models, computer specs, setup guide)
+- **Pilot Program**: PILOT_PROGRAM.md (partner recruitment, success metrics, onboarding)
+- **Validation Protocol**: VELOCITY_VALIDATION_PROTOCOL.md (accuracy testing methodology)
+- **Version Governance**: VERSION_ALIGNMENT.md (version freeze policy, single source of truth)
 - **Review Mode**: REVIEW_TRAINING_MODE_DESIGN.md
 - **Error Handling**: BLOCKERS_RESOLVED.md, STATE_CORRUPTION_RECOVERY.md
 - **Testing**: INTEGRATION_TESTS.md, MEMORY_LEAK_TESTING.md
@@ -121,7 +144,7 @@ For questions or issues:
 
 ---
 
-**Documentation Version:** 1.0
-**Last Updated:** 2026-01-19
-**Total Documents:** 20+ files (1,600+ pages)
-**Status:** ✅ Comprehensive and up-to-date
+**Documentation Version:** 2.0 (Strategic Framework + TAG Partnership Edition)
+**Last Updated:** 2026-03-26
+**Total Documents:** 33+ files (2,240+ pages)
+**Status:** ✅ Comprehensive with strategic planning framework and partnership GTM strategy

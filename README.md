@@ -5,10 +5,14 @@
 If you received the installer, see [README_INSTALL.md](README_INSTALL.md) for installation instructions.
 
 **Quick Install:**
-1. Download `PitchTracker-Setup-v1.0.0.exe`
+1. Download `PitchTracker-Setup-v1.5.0-pilot.exe`
 2. Run installer (requires Windows 10+)
 3. Launch from Start Menu
 4. Complete 6-step Setup Wizard
+
+**Current Version:** v1.5.0-pilot (Locked for pilot program - March 2026)
+
+**Strategic Update:** TAG Sports partnership strategy complete. Deep integration architecture designed (Bluetooth PC ingest + Cloud API). Ready for partnership execution. See `NEXT_ACTIONS_TAG_PARTNERSHIP.md` for execution plan.
 
 The application includes automatic updates - you'll be notified when new versions are available.
 
@@ -244,11 +248,11 @@ pip install pyinstaller
 # Download and install Inno Setup 6 from:
 # https://jrsoftware.org/isdl.php
 
-# Build installer (creates PitchTracker-Setup-v1.0.0.exe)
+# Build installer (creates PitchTracker-Setup-v1.5.0-pilot.exe)
 .\build_installer.ps1 -Clean
 ```
 
-**Output:** `installer_output\PitchTracker-Setup-v1.0.0.exe` (~100-150 MB)
+**Output:** `installer_output\PitchTracker-Setup-v1.5.0-pilot.exe` (~100-150 MB)
 
 See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for detailed build documentation including:
 - Prerequisites and dependencies
