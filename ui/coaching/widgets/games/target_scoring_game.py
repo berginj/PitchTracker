@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ui.coaching.widgets.games.base_game import BaseGame
+from ui.themes import get_style_manager
 
 if TYPE_CHECKING:
     from app.pipeline_service import PitchSummary
@@ -30,6 +31,7 @@ class TargetScoringGame(BaseGame):
     ):
         """Initialize target scoring game."""
         super().__init__(game_state_manager, parent)
+        self._style_manager = get_style_manager()
         self._total_score = 0
         self._streak = 0
         self._build_ui()
@@ -54,7 +56,7 @@ class TargetScoringGame(BaseGame):
         font.setBold(True)
         self._score_label.setFont(font)
         self._score_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._score_label.setStyleSheet("color: #2196F3;")
+        self._style_manager.style_label(self._score_label, "metricAccent")
         layout.addWidget(self._score_label)
 
         # Streak display
@@ -63,6 +65,7 @@ class TargetScoringGame(BaseGame):
         font.setPointSize(14)
         self._streak_label.setFont(font)
         self._streak_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._style_manager.style_label(self._streak_label, "muted")
         layout.addWidget(self._streak_label)
 
         # Zone grid display
@@ -74,11 +77,13 @@ class TargetScoringGame(BaseGame):
         instructions = QtWidgets.QLabel("Corners = 5pts, Edges = 3pts, Middle = 1pt\nStreak bonus: +1pt per consecutive strike")
         instructions.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         instructions.setWordWrap(True)
+        self._style_manager.style_label(instructions, "muted")
         layout.addWidget(instructions)
 
         # Reset button
         reset_btn = QtWidgets.QPushButton("Reset Score")
         reset_btn.clicked.connect(self.reset_game)
+        self._style_manager.style_button(reset_btn, "ghost")
         layout.addWidget(reset_btn)
 
         layout.addStretch()

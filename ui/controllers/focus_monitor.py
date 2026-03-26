@@ -13,6 +13,7 @@ from PySide6 import QtWidgets
 
 from detect.utils import compute_focus_score
 from log_config.logger import get_logger
+from ui.themes import style_status_label
 
 if TYPE_CHECKING:
     pass
@@ -23,27 +24,26 @@ logger = get_logger(__name__)
 FOCUS_GOOD_THRESHOLD = 200
 FOCUS_FAIR_THRESHOLD = 100
 
-# Focus quality colors
-COLOR_GOOD = "#2ecc71"  # Green
-COLOR_FAIR = "#f39c12"  # Yellow/Orange
-COLOR_POOR = "#e74c3c"  # Red
+# Focus quality tones
+TONE_GOOD = "success"
+TONE_FAIR = "warning"
+TONE_POOR = "error"
 
 
-def focus_quality_color(score: float) -> str:
-    """Get color for focus quality score.
+def focus_quality_tone(score: float) -> str:
+    """Get semantic tone for focus quality score.
 
     Args:
         score: Focus quality score
 
     Returns:
-        Hex color string for the quality level
+        Semantic tone for the quality level
     """
     if score >= FOCUS_GOOD_THRESHOLD:
-        return COLOR_GOOD
-    elif score >= FOCUS_FAIR_THRESHOLD:
-        return COLOR_FAIR
-    else:
-        return COLOR_POOR
+        return TONE_GOOD
+    if score >= FOCUS_FAIR_THRESHOLD:
+        return TONE_FAIR
+    return TONE_POOR
 
 
 class FocusMonitorController:
@@ -130,21 +130,17 @@ class FocusMonitorController:
             self._peak_right = focus_right
 
         # Update left label
-        self._focus_left_label.setText(
-            f"L Focus: {focus_left:.0f} (peak: {self._peak_left:.0f})"
-        )
-        self._focus_left_label.setStyleSheet(
-            f"QLabel {{ background-color: {focus_quality_color(focus_left)}; "
-            f"color: white; padding: 4px; border: 1px solid #ccc; font-weight: bold; }}"
+        style_status_label(
+            self._focus_left_label,
+            focus_quality_tone(focus_left),
+            f"L Focus: {focus_left:.0f} (peak: {self._peak_left:.0f})",
         )
 
         # Update right label
-        self._focus_right_label.setText(
-            f"R Focus: {focus_right:.0f} (peak: {self._peak_right:.0f})"
-        )
-        self._focus_right_label.setStyleSheet(
-            f"QLabel {{ background-color: {focus_quality_color(focus_right)}; "
-            f"color: white; padding: 4px; border: 1px solid #ccc; font-weight: bold; }}"
+        style_status_label(
+            self._focus_right_label,
+            focus_quality_tone(focus_right),
+            f"R Focus: {focus_right:.0f} (peak: {self._peak_right:.0f})",
         )
 
     def reset_peaks(self) -> None:
@@ -153,16 +149,8 @@ class FocusMonitorController:
         self._peak_right = 0.0
 
         # Update display to show reset
-        self._focus_left_label.setText("L Focus: --- (peak: ---)")
-        self._focus_left_label.setStyleSheet(
-            "QLabel { background-color: #95a5a6; color: white; "
-            "padding: 4px; border: 1px solid #ccc; font-weight: bold; }"
-        )
-        self._focus_right_label.setText("R Focus: --- (peak: ---)")
-        self._focus_right_label.setStyleSheet(
-            "QLabel { background-color: #95a5a6; color: white; "
-            "padding: 4px; border: 1px solid #ccc; font-weight: bold; }"
-        )
+        style_status_label(self._focus_left_label, "info", "L Focus: --- (peak: ---)")
+        style_status_label(self._focus_right_label, "info", "R Focus: --- (peak: ---)")
 
         logger.debug("Focus peaks reset")
 

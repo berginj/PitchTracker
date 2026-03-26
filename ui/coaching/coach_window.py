@@ -15,18 +15,14 @@ from configs.settings import load_config
 from ui.coaching.dialogs import SessionStartDialog
 from ui.coaching.game_state_manager import GameStateManager
 from ui.coaching.session_history_tracker import SessionHistoryTracker
-from ui.coaching.widgets import (
-    HeatMapWidget,
-    StrikeZoneOverlay,
-    TrajectoryWidget,
-    CompactFatigueIndicator,
-)
+from ui.coaching.widgets import CompactFatigueIndicator
 from ui.coaching.widgets.mode_widgets import (
     BroadcastViewWidget,
     GameModeWidget,
     SessionProgressionWidget,
 )
 from ui.team import TeamManager
+from ui.themes import ask_confirmation, get_style_manager, show_choice_dialog, show_message_dialog
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +47,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         super().__init__(parent)
         self.setWindowTitle("PitchTracker - Coaching Session")
         self.resize(1400, 900)
+        self._style_manager = get_style_manager()
 
         # Load configuration
         if config_path is None:
@@ -68,7 +65,6 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._pitcher_name = ""
 
         # Camera settings (load from saved state or use defaults)
-        from configs.app_state import load_state
         state = load_state()
         self._camera_width = state.get("coaching_width", 640)
         self._camera_height = state.get("coaching_height", 480)
@@ -111,16 +107,19 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         # Status bar
         self._status_label = QtWidgets.QLabel("Ready. Click 'Start Session' to begin.")
-        self._status_label.setStyleSheet("padding: 5px; background-color: #f0f0f0;")
+        self._style_manager.style_status_indicator(self._status_label, "info")
 
         # Main layout
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
         layout.addWidget(session_bar)
         layout.addWidget(main_content, 1)  # Takes most space
         layout.addWidget(controls)
         layout.addWidget(self._status_label)
 
         container = QtWidgets.QWidget()
+        container.setObjectName("CoachShell")
         container.setLayout(layout)
         self.setCentralWidget(container)
 
@@ -128,11 +127,11 @@ class CoachWindow(QtWidgets.QMainWindow):
         """Build session information bar."""
         # Session name
         self._session_label = QtWidgets.QLabel("Session: <not started>")
-        self._session_label.setStyleSheet("font-size: 14pt; font-weight: bold; color: #000000;")
+        self._style_manager.style_label(self._session_label, "pageTitle")
 
         # Pitcher name with switch button
         self._pitcher_label = QtWidgets.QLabel("Pitcher: <not selected>")
-        self._pitcher_label.setStyleSheet("font-size: 12pt; color: #000000;")
+        self._style_manager.style_label(self._pitcher_label, "muted")
 
         self._switch_pitcher_btn = QtWidgets.QPushButton("Switch")
         self._switch_pitcher_btn.setMaximumWidth(60)
@@ -145,7 +144,7 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         # Pitch count
         self._pitch_count_label = QtWidgets.QLabel("Pitches: 0")
-        self._pitch_count_label.setStyleSheet("font-size: 14pt; font-weight: bold; color: #2196F3;")
+        self._style_manager.style_label(self._pitch_count_label, "metricAccent")
 
         # Fatigue indicator (compact version for header)
         self._fatigue_indicator = CompactFatigueIndicator()
@@ -153,18 +152,21 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         # Recording indicator
         self._recording_indicator = QtWidgets.QLabel("● Recording")
-        self._recording_indicator.setStyleSheet("font-size: 12pt; color: red; font-weight: bold;")
+        self._recording_indicator.setText("Recording")
+        self._style_manager.style_status_indicator(self._recording_indicator, "error")
         self._recording_indicator.hide()
 
         # Separator labels (also need black color)
         sep1 = QtWidgets.QLabel("|")
-        sep1.setStyleSheet("color: #666666;")
+        self._style_manager.style_label(sep1, "muted")
         sep2 = QtWidgets.QLabel("|")
-        sep2.setStyleSheet("color: #666666;")
+        self._style_manager.style_label(sep2, "muted")
         sep3 = QtWidgets.QLabel("|")
-        sep3.setStyleSheet("color: #666666;")
+        self._style_manager.style_label(sep3, "muted")
 
         layout = QtWidgets.QHBoxLayout()
+        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(12)
         layout.addWidget(self._session_label)
         layout.addWidget(sep1)
         layout.addWidget(self._pitcher_label)
@@ -177,24 +179,26 @@ class CoachWindow(QtWidgets.QMainWindow):
         layout.addWidget(self._recording_indicator)
 
         widget = QtWidgets.QWidget()
+        widget.setProperty("surface", "card")
+        self._style_manager.polish(widget)
         widget.setLayout(layout)
-        widget.setStyleSheet("background-color: #e3f2fd; padding: 10px;")
         return widget
 
     def _build_main_content(self) -> QtWidgets.QWidget:
         """Build main content area with mode switching."""
         # Mode selector toolbar
-        mode_toolbar = QtWidgets.QWidget()
+        mode_toolbar = QtWidgets.QFrame()
+        self._style_manager.style_panel(mode_toolbar, "subtle")
         mode_toolbar_layout = QtWidgets.QHBoxLayout()
+        mode_toolbar_layout.setContentsMargins(18, 14, 18, 14)
+        mode_toolbar_layout.setSpacing(12)
 
         mode_label = QtWidgets.QLabel("View Mode:")
-        font = mode_label.font()
-        font.setPointSize(12)
-        font.setBold(True)
-        mode_label.setFont(font)
+        self._style_manager.style_label(mode_label, "eyebrow")
         mode_toolbar_layout.addWidget(mode_label)
 
         self._mode_selector = QtWidgets.QComboBox()
+        self._style_manager.style_input(self._mode_selector)
         self._mode_selector.addItems([
             "Broadcast View",
             "Session Progression",
@@ -234,7 +238,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         layout.addWidget(mode_toolbar)
         layout.addWidget(self._mode_stack, 1)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(5)
+        layout.setSpacing(12)
 
         widget = QtWidgets.QWidget()
         widget.setLayout(layout)
@@ -265,75 +269,62 @@ class CoachWindow(QtWidgets.QMainWindow):
         mode_names = ["Broadcast View", "Session Progression", "Game Mode"]
         logger.debug(f"Switched to {mode_names[index]}")
 
-    def _build_metrics_display(self) -> QtWidgets.QWidget:
-        """Build latest pitch metrics display."""
-        self._speed_label = QtWidgets.QLabel("Speed: -- mph")
-        self._speed_label.setStyleSheet("font-size: 18pt; font-weight: bold;")
-
-        self._hbreak_label = QtWidgets.QLabel("H-Break: -- in")
-        self._vbreak_label = QtWidgets.QLabel("V-Break: -- in")
-        self._result_label = QtWidgets.QLabel("Result: --")
-        self._result_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
-
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(self._speed_label)
-        layout.addWidget(self._hbreak_label)
-        layout.addWidget(self._vbreak_label)
-        layout.addWidget(self._result_label)
-        layout.addStretch()
-
-        widget = QtWidgets.QWidget()
-        widget.setLayout(layout)
-        return widget
-
-    def _build_heat_map_widget(self) -> HeatMapWidget:
-        """Build heat map widget (counts per zone)."""
-        heat_map = HeatMapWidget()
-        heat_map.setMinimumSize(200, 150)
-        return heat_map
-
     def _build_controls(self) -> QtWidgets.QWidget:
         """Build control buttons."""
-        self._setup_button = QtWidgets.QPushButton("Setup Session")
+        self._setup_button = QtWidgets.QPushButton("Start Session")
         self._setup_button.setMinimumHeight(50)
-        self._setup_button.setStyleSheet("font-size: 14pt; background-color: #2196F3; color: white;")
+        self._style_manager.style_button(self._setup_button, "primary")
         self._setup_button.clicked.connect(self._setup_session)
 
         self._start_recording_button = QtWidgets.QPushButton("▶ Start Recording")
         self._start_recording_button.setMinimumHeight(50)
-        self._start_recording_button.setStyleSheet("font-size: 14pt; background-color: #4CAF50; color: white;")
+        self._start_recording_button.setText("Start Recording")
+        self._style_manager.style_button(self._start_recording_button, "success")
         self._start_recording_button.setEnabled(False)
         self._start_recording_button.clicked.connect(self._start_recording)
 
         self._pause_button = QtWidgets.QPushButton("⏸ Pause")
         self._pause_button.setMinimumHeight(50)
+        self._pause_button.setText("Pause")
+        self._style_manager.style_button(self._pause_button, "default")
         self._pause_button.setEnabled(False)
         self._pause_button.clicked.connect(self._pause_session)
 
         self._end_button = QtWidgets.QPushButton("⏹ End Session")
         self._end_button.setMinimumHeight(50)
-        self._end_button.setStyleSheet("font-size: 14pt; background-color: #f44336; color: white;")
+        self._end_button.setText("End Session")
+        self._style_manager.style_button(self._end_button, "danger")
         self._end_button.setEnabled(False)
         self._end_button.clicked.connect(self._end_session)
 
         self._settings_button = QtWidgets.QPushButton("⚙ Settings")
         self._settings_button.setMinimumHeight(50)
+        self._settings_button.setText("Settings")
+        self._style_manager.style_button(self._settings_button, "ghost")
         self._settings_button.clicked.connect(self._show_settings)
 
         self._lane_button = QtWidgets.QPushButton("📐 Adjust Lane")
         self._lane_button.setMinimumHeight(50)
+        self._lane_button.setText("Adjust Lane")
+        self._style_manager.style_button(self._lane_button, "default")
         self._lane_button.clicked.connect(self._adjust_lane)
         self._lane_button.setToolTip("Adjust the lane ROI (region where ball tracking occurs)")
 
         self._review_button = QtWidgets.QPushButton("🎬 Review Session")
         self._review_button.setMinimumHeight(50)
+        self._review_button.setText("Review Session")
+        self._style_manager.style_button(self._review_button, "default")
         self._review_button.clicked.connect(self._open_review_mode)
         self._review_button.setToolTip("Review and analyze previous sessions")
 
         self._help_button = QtWidgets.QPushButton("❓ Help")
         self._help_button.setMinimumHeight(50)
+        self._help_button.setText("Help")
+        self._style_manager.style_button(self._help_button, "ghost")
 
         layout = QtWidgets.QHBoxLayout()
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(12)
         layout.addWidget(self._setup_button, 2)
         layout.addWidget(self._start_recording_button, 2)
         layout.addWidget(self._pause_button, 1)
@@ -344,9 +335,15 @@ class CoachWindow(QtWidgets.QMainWindow):
         layout.addWidget(self._settings_button)
         layout.addWidget(self._help_button)
 
-        widget = QtWidgets.QWidget()
+        widget = QtWidgets.QFrame()
+        self._style_manager.style_panel(widget, "normal")
         widget.setLayout(layout)
         return widget
+
+    def _set_status_message(self, message: str, tone: str = "info") -> None:
+        """Update the footer status indicator with a semantic tone."""
+        self._status_label.setText(message)
+        self._style_manager.style_status_indicator(self._status_label, tone)
 
     def _warm_camera_cache_async(self) -> None:
         """Proactively warm camera cache in background thread.
@@ -404,7 +401,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         try:
             if not self._service.is_capturing():
                 logger.info(f"Starting capture with left={left_serial}, right={right_serial}")
-                self._status_label.setText("Starting cameras...")
+                self._set_status_message("Starting cameras...", "info")
                 QtWidgets.QApplication.processEvents()
 
                 # Use configurable resolution for coaching app
@@ -456,10 +453,11 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         except Exception as e:
             logger.error(f"Failed to setup session: {e}", exc_info=True)
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self,
                 "Session Setup Error",
                 f"Failed to setup session:\n{str(e)}",
+                tone="error",
             )
             return
 
@@ -481,22 +479,22 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._end_button.setEnabled(True)
 
         # Update status
-        self._status_label.setText("Session ready. Click 'Start Recording' when ready to pitch.")
-        self._status_label.setStyleSheet("padding: 5px; background-color: #fff9c4; color: #f57f17; font-weight: bold;")
+        self._set_status_message("Session ready. Click 'Start Recording' when ready to pitch.", "warning")
 
     def _start_recording(self) -> None:
         """Start recording pitches."""
         if not self._service.is_capturing():
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "No Cameras",
                 "Cameras are not running. Please setup the session first.",
+                tone="warning",
             )
             return
 
         try:
             logger.info(f"Starting recording for session: {self._session_name}")
-            self._status_label.setText("Starting recording...")
+            self._set_status_message("Starting recording...", "info")
             QtWidgets.QApplication.processEvents()
 
             disk_warning = self._service.start_recording(
@@ -508,18 +506,20 @@ class CoachWindow(QtWidgets.QMainWindow):
 
             # Show disk space warning if present (non-blocking)
             if disk_warning:
-                QtWidgets.QMessageBox.warning(
+                show_message_dialog(
                     self,
                     "Disk Space Warning",
                     disk_warning + "\n\nYou can continue, but recording may fail if disk fills up.",
+                    tone="warning",
                 )
 
         except Exception as e:
             logger.error(f"Failed to start recording: {e}", exc_info=True)
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self,
                 "Recording Start Error",
                 f"Failed to start recording:\n{str(e)}",
+                tone="error",
             )
             return
 
@@ -531,86 +531,88 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._pause_button.setEnabled(True)
 
         # Update status
-        self._status_label.setText("● Recording in progress... Ready to track pitches.")
-        self._status_label.setStyleSheet("padding: 5px; background-color: #c8e6c9; color: #2e7d32; font-weight: bold;")
+        self._set_status_message("Recording in progress. Ready to track pitches.", "success")
+        self._style_manager.style_status_indicator(self._status_label, "success")
 
         self._session_active = True
 
     def _pause_session(self) -> None:
         """Pause current session."""
         # TODO: Implement pause logic
-        self._status_label.setText("⏸ Session paused. Click 'Start Session' to resume.")
-        self._status_label.setStyleSheet("padding: 5px; background-color: #fff9c4;")
+        self._set_status_message("Session paused. Click 'Start Session' to resume.", "warning")
+        self._style_manager.style_status_indicator(self._status_label, "warning")
 
     def _end_session(self) -> None:
         """End current session and show summary."""
-        reply = QtWidgets.QMessageBox.question(
+        if not ask_confirmation(
             self,
             "End Session",
             f"End session '{self._session_name}' with {self._pitch_count} pitches?\n\n"
             "Session summary will be displayed.",
-            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
-        )
+            confirm_variant="danger",
+        ):
+            return
 
-        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+        # Stop recording
+        try:
+            self._set_status_message("Stopping recording...", "info")
+            QtWidgets.QApplication.processEvents()
+
+            # Get session summary before stopping
+            summary = self._service.get_session_summary()
+
             # Stop recording
-            try:
-                self._status_label.setText("Stopping recording...")
-                QtWidgets.QApplication.processEvents()
+            self._service.stop_recording()
 
-                # Get session summary before stopping
-                summary = self._service.get_session_summary()
-
-                # Stop recording
-                self._service.stop_recording()
-
-                # Show summary
-                if summary:
-                    QtWidgets.QMessageBox.information(
-                        self,
-                        "Session Complete",
-                        f"Session: {self._session_name}\n"
-                        f"Pitcher: {self._pitcher_name}\n"
-                        f"Pitches: {summary.pitch_count}\n"
-                        f"Strikes: {summary.strikes}\n"
-                        f"Balls: {summary.balls}\n\n"
-                        f"Session data saved.",
-                    )
-
-            except Exception as e:
-                QtWidgets.QMessageBox.warning(
+            # Show summary
+            if summary:
+                show_message_dialog(
                     self,
-                    "Session End Error",
-                    f"Error stopping session:\n{str(e)}",
+                    "Session Complete",
+                    f"Session: {self._session_name}\n"
+                    f"Pitcher: {self._pitcher_name}\n"
+                    f"Pitches: {summary.pitch_count}\n"
+                    f"Strikes: {summary.strikes}\n"
+                    f"Balls: {summary.balls}\n\n"
+                    f"Session data saved.",
+                    tone="success",
                 )
 
-            # Reset UI
-            self._session_label.setText("Session: <not started>")
-            self._pitcher_label.setText("Pitcher: <not selected>")
-            self._pitch_count_label.setText("Pitches: 0")
-            self._recording_indicator.hide()
+        except Exception as e:
+            show_message_dialog(
+                self,
+                "Session End Error",
+                f"Error stopping session:\n{str(e)}",
+                tone="warning",
+            )
 
-            # Update buttons - reset to initial state
-            self._setup_button.setEnabled(True)
-            self._start_recording_button.setEnabled(False)
-            self._pause_button.setEnabled(False)
-            self._end_button.setEnabled(False)
+        # Reset UI
+        self._session_label.setText("Session: <not started>")
+        self._pitcher_label.setText("Pitcher: <not selected>")
+        self._pitch_count_label.setText("Pitches: 0")
+        self._recording_indicator.hide()
 
-            # Update status
-            self._status_label.setText("Session ended. Ready for next session.")
-            self._status_label.setStyleSheet("padding: 5px; background-color: #f0f0f0;")
+        # Update buttons - reset to initial state
+        self._setup_button.setEnabled(True)
+        self._start_recording_button.setEnabled(False)
+        self._pause_button.setEnabled(False)
+        self._end_button.setEnabled(False)
 
-            self._session_active = False
+        # Update status
+        self._set_status_message("Session ended. Ready for the next session.", "info")
+
+        self._session_active = False
 
     def _show_settings(self) -> None:
         """Show settings dialog."""
         # Don't allow settings changes during active session
         if self._session_active:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Session Active",
                 "Cannot change settings during an active session.\n"
                 "Please end the current session first.",
+                tone="warning",
             )
             return
 
@@ -653,7 +655,7 @@ class CoachWindow(QtWidgets.QMainWindow):
 
             # Restart capture if it's running
             if self._service.is_capturing():
-                self._status_label.setText("Applying settings...")
+                self._set_status_message("Applying settings...", "info")
                 QtWidgets.QApplication.processEvents()
 
                 try:
@@ -702,38 +704,42 @@ class CoachWindow(QtWidgets.QMainWindow):
                         str(self._config_path),
                     )
 
-                    self._status_label.setText(
-                        f"Settings applied: {self._camera_width}x{self._camera_height}@{self._camera_fps}fps"
+                    self._set_status_message(
+                        f"Settings applied: {self._camera_width}x{self._camera_height}@{self._camera_fps}fps",
+                        "success",
                     )
                     logger.info(f"Settings applied: {self._camera_width}x{self._camera_height}@{self._camera_fps}fps")
 
                 except Exception as e:
-                    QtWidgets.QMessageBox.critical(
+                    show_message_dialog(
                         self,
                         "Settings Error",
                         f"Failed to apply settings:\n{e}\n\nYou may need to restart the application.",
+                        tone="error",
                     )
                     logger.exception("Failed to apply settings")
-                    self._status_label.setText("Error applying settings")
+                    self._set_status_message("Error applying settings", "error")
             else:
                 # Just show confirmation, settings will apply on next session start
-                QtWidgets.QMessageBox.information(
+                show_message_dialog(
                     self,
                     "Settings Saved",
                     f"Settings saved successfully.\n\n"
                     f"Resolution: {self._camera_width}x{self._camera_height}@{self._camera_fps}fps\n"
                     f"Settings will apply when you start the next session.",
+                    tone="success",
                 )
 
     def _adjust_lane(self) -> None:
         """Show lane ROI adjustment dialog."""
         # Need cameras to be running to show preview
         if not self._service.is_capturing():
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Cameras Not Running",
                 "Please start a session first to view the camera feed.\n\n"
                 "The lane ROI adjustment requires a live camera preview.",
+                tone="warning",
             )
             return
 
@@ -745,11 +751,12 @@ class CoachWindow(QtWidgets.QMainWindow):
         )
 
         if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self,
                 "Lane ROI Updated",
                 "Lane ROI has been updated.\n\n"
                 "Changes will take effect for new pitches tracked during this session.",
+                tone="success",
             )
 
     def _open_review_mode(self) -> None:
@@ -798,22 +805,25 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._metrics_timer.stop()
 
         if self._session_active:
-            reply = QtWidgets.QMessageBox.question(
+            reply = show_choice_dialog(
                 self,
                 "Session Active",
                 "A session is currently active. End session before closing?",
-                QtWidgets.QMessageBox.StandardButton.Yes
-                | QtWidgets.QMessageBox.StandardButton.No
-                | QtWidgets.QMessageBox.StandardButton.Cancel,
+                choices=(
+                    ("end", "End Session", "primary", QtWidgets.QMessageBox.ButtonRole.AcceptRole),
+                    ("close", "Close Without Ending", "ghost", QtWidgets.QMessageBox.ButtonRole.DestructiveRole),
+                    ("cancel", "Cancel", "ghost", QtWidgets.QMessageBox.ButtonRole.RejectRole),
+                ),
+                default_choice="cancel",
             )
 
-            if reply == QtWidgets.QMessageBox.StandardButton.Cancel:
+            if reply == "cancel":
                 event.ignore()
                 # Restart timers if user cancels
                 self._preview_timer.start(33)
                 self._metrics_timer.start(100)
                 return
-            elif reply == QtWidgets.QMessageBox.StandardButton.Yes:
+            elif reply == "end":
                 try:
                     self._service.stop_recording()
                 except Exception:
@@ -857,7 +867,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         """
         logger.info(f"Pitch {pitch_index} started (main thread)")
         # Update status
-        self._status_label.setText(f"● Pitch {pitch_index} detected!")
+        self._set_status_message(f"Pitch {pitch_index} detected.", "info")
         # The metrics will be updated by the regular polling timer
 
     def _on_pitch_ended(self, pitch_data) -> None:
@@ -873,7 +883,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         # Metrics will be updated by the regular polling timer
         # Just update status
         if self._session_active:
-            self._status_label.setText("● Recording in progress... Ready to track pitches.")
+            self._set_status_message("Recording in progress. Ready to track pitches.", "success")
 
     def _update_metrics(self) -> None:
         """Update pitch metrics display."""

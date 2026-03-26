@@ -65,7 +65,7 @@ from ui.controllers import (
     RoiManager,
     SettingsManager,
 )
-from ui.themes import get_style_manager, GlassButton
+from ui.themes import GlassButton, ask_confirmation, get_style_manager, show_message_dialog
 
 # System hardening imports
 from app.events import get_error_bus, ErrorCategory, ErrorSeverity
@@ -233,34 +233,41 @@ class MainWindow(QtWidgets.QMainWindow):
         self._apply_detector = QtWidgets.QPushButton("Apply Detector")
 
         controls = QtWidgets.QHBoxLayout()
+        controls.setSpacing(12)
         controls.addWidget(self._record_button)
         controls.addWidget(self._stop_record_button)
 
         plate_column = QtWidgets.QVBoxLayout()
+        plate_column.setSpacing(12)
         plate_column.addWidget(self._plate_map)
         plate_column.addWidget(self._build_game_panel())
         plate_widget = QtWidgets.QWidget()
         plate_widget.setLayout(plate_column)
         self._plate_widget = plate_widget
         self._views_layout = QtWidgets.QHBoxLayout()
+        self._views_layout.setSpacing(16)
         self._views_layout.addWidget(self._left_view, 3)
         self._views_layout.addWidget(self._plate_widget, 2)
         self._views_layout.addWidget(self._right_view, 2)
 
         self._setup_group = QtWidgets.QGroupBox("Setup & Calibration")
         profile_row = QtWidgets.QHBoxLayout()
+        profile_row.setSpacing(12)
         profile_row.addWidget(self._profile_combo)
         profile_row.addWidget(self._profile_load)
         profile_row.addWidget(self._profile_name)
         profile_row.addWidget(self._profile_save)
         pitcher_row = QtWidgets.QHBoxLayout()
+        pitcher_row.setSpacing(12)
         pitcher_row.addWidget(self._pitcher_combo)
         pitcher_row.addWidget(self._pitcher_name_input)
         pitcher_row.addWidget(self._pitcher_add)
         device_row = QtWidgets.QHBoxLayout()
+        device_row.setSpacing(12)
         device_row.addWidget(self._left_input)
         device_row.addWidget(self._right_input)
         roi_row = QtWidgets.QHBoxLayout()
+        roi_row.setSpacing(12)
         roi_row.addWidget(self._lane_button)
         roi_row.addWidget(self._lane_right_button)
         roi_row.addWidget(self._plate_button)
@@ -269,13 +276,16 @@ class MainWindow(QtWidgets.QMainWindow):
         roi_row.addWidget(self._save_roi_button)
         roi_row.addWidget(self._load_roi_button)
         calib_row = QtWidgets.QHBoxLayout()
+        calib_row.setSpacing(12)
         calib_row.addWidget(self._guide_button)
         calib_row.addWidget(self._quick_cal_button)
         calib_row.addWidget(self._plate_cal_button)
         action_row = QtWidgets.QHBoxLayout()
+        action_row.setSpacing(12)
         action_row.addStretch(1)
         action_row.addWidget(self._enter_button)
         setup_layout = QtWidgets.QVBoxLayout()
+        setup_layout.setSpacing(12)
         setup_layout.addLayout(profile_row)
         setup_layout.addLayout(pitcher_row)
         setup_layout.addLayout(device_row)
@@ -284,6 +294,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._setup_group.setLayout(setup_layout)
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
         layout.addWidget(self._setup_group)
         self._controls_widget = QtWidgets.QWidget()
         self._controls_widget.setLayout(controls)
@@ -298,9 +310,11 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(self._status_label)
 
         container = QtWidgets.QWidget()
+        container.setObjectName("AppShell")
         container.setLayout(layout)
         self.setCentralWidget(container)
         self._build_menu()
+        self._apply_modern_styles()
 
         self._start_button.clicked.connect(self._start_capture)
         self._stop_button.clicked.connect(self._stop_capture)
@@ -507,6 +521,94 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._run_startup_dialog()
 
+    def _apply_modern_styles(self) -> None:
+        """Apply the centralized design system to the main app shell."""
+        sm = get_style_manager()
+
+        for button in (
+            self._start_button,
+            self._restart_button,
+            self._replay_button,
+            self._enter_button,
+            self._profile_load,
+            self._apply_detector,
+        ):
+            sm.style_button(button, "primary")
+
+        for button in (
+            self._record_button,
+            self._training_button,
+            self._profile_save,
+            self._pitcher_add,
+            self._save_strike_button,
+            self._save_roi_button,
+        ):
+            sm.style_button(button, "success")
+
+        for button in (
+            self._stop_button,
+            self._stop_record_button,
+        ):
+            sm.style_button(button, "danger")
+
+        for button in (
+            self._refresh_button,
+            self._pause_button,
+            self._step_button,
+            self._record_settings_button,
+            self._strike_settings_button,
+            self._detector_settings_button,
+            self._low_perf_button,
+            self._cue_card_button,
+            self._checklist_button,
+            self._output_browse,
+            self._lane_button,
+            self._lane_right_button,
+            self._plate_button,
+            self._clear_lane_button,
+            self._clear_plate_button,
+            self._load_roi_button,
+            self._guide_button,
+            self._quick_cal_button,
+            self._plate_cal_button,
+        ):
+            sm.style_button(button, "default")
+
+        for widget in (
+            self._left_input,
+            self._right_input,
+            self._session_name,
+            self._profile_combo,
+            self._profile_name,
+            self._pitcher_combo,
+            self._pitcher_name_input,
+            self._output_dir,
+            self._manual_speed,
+            self._ball_combo,
+            self._batter_height,
+            self._top_ratio,
+            self._bottom_ratio,
+            self._mode_combo,
+            self._frame_diff,
+            self._bg_diff,
+            self._bg_alpha,
+            self._edge_thresh,
+            self._blob_thresh,
+            self._min_area,
+            self._min_circ,
+        ):
+            sm.style_input(widget)
+
+        self._controls_widget.setProperty("surface", "toolbar")
+        sm.polish(self._controls_widget)
+        self._plate_widget.setProperty("surface", "card")
+        sm.polish(self._plate_widget)
+        self._left_view.setProperty("surface", "preview")
+        self._right_view.setProperty("surface", "preview")
+        sm.polish(self._left_view)
+        sm.polish(self._right_view)
+        sm.style_status_indicator(self._status_label, "info")
+
     def _start_capture(self) -> None:
         self._capture_controller.start_capture()
 
@@ -590,26 +692,29 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             detections = self._service.get_latest_detections()
         except Exception:
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self,
                 "Cue Card Test",
                 "Start capture to run the cue card test.",
+                tone="info",
             )
             return
         total = sum(len(items) for items in detections.values())
-        QtWidgets.QMessageBox.information(
+        show_message_dialog(
             self,
             "Cue Card Test",
             f"Detections in current frame: {total}\n"
             "Hold the cue card in the lane and confirm detections appear.",
+            tone="info",
         )
 
     def _apply_low_perf_mode(self) -> None:
         if self._timer.isActive():
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self,
                 "Low Perf Mode",
                 "Stop capture before applying low performance settings.",
+                tone="info",
             )
             return
         config_path = self._config_path()
@@ -1166,11 +1271,12 @@ class MainWindow(QtWidgets.QMainWindow):
         """Open keyboard shortcuts documentation."""
         shortcuts_path = Path("docs/KEYBOARD_SHORTCUTS.md")
         if not shortcuts_path.exists():
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self,
                 "Keyboard Shortcuts",
                 "Keyboard shortcuts documentation not found.\n\n"
                 "Expected location: docs/KEYBOARD_SHORTCUTS.md",
+                tone="info",
             )
             return
 
@@ -1186,11 +1292,12 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 subprocess.run(["xdg-open", shortcuts_path], check=True)
         except Exception as exc:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Keyboard Shortcuts",
                 f"Failed to open shortcuts documentation: {exc}\n\n"
                 f"File location: {shortcuts_path.absolute()}",
+                tone="warning",
             )
 
     def _show_about(self) -> None:
@@ -1214,7 +1321,7 @@ class MainWindow(QtWidgets.QMainWindow):
             f"Issues: github.com/berginj/PitchTracker/issues"
         )
 
-        QtWidgets.QMessageBox.about(self, "About PitchTracker", about_text)
+        show_message_dialog(self, "About PitchTracker", about_text, tone="info")
 
     def _set_target_overlay(self, enabled: bool) -> None:
         self._calibration_overlay.set_target_overlay(enabled)
@@ -1225,20 +1332,22 @@ class MainWindow(QtWidgets.QMainWindow):
     def _propose_right_lane(self) -> None:
         lane_rect = self._roi_manager.lane_rect
         if lane_rect is None:
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self,
                 "Propose Right Lane",
                 "Draw the left lane ROI first.",
+                tone="info",
             )
             return
         with self._latest_lock:
             left_frame = self._left_latest
             right_frame = self._right_latest
         if left_frame is None or right_frame is None:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Propose Right Lane",
                 "Start capture before proposing the right lane.",
+                tone="warning",
             )
             return
         left_w, left_h = left_frame.width, left_frame.height
@@ -1325,11 +1434,12 @@ class MainWindow(QtWidgets.QMainWindow):
             errors = [i for i in issues if i.severity == "error"]
             if errors:
                 error_text = "\n".join([f"• {e.field}: {e.message}" for e in errors])
-                QtWidgets.QMessageBox.critical(
+                show_message_dialog(
                     None,
                     "Configuration Error",
                     f"Configuration validation failed:\n\n{error_text}\n\n"
                     f"Please fix these errors in {config_path}",
+                    tone="error",
                 )
                 import sys
                 sys.exit(1)
@@ -1338,18 +1448,20 @@ class MainWindow(QtWidgets.QMainWindow):
             warnings = [i for i in issues if i.severity == "warning"]
             if warnings:
                 warning_text = "\n".join([f"• {w.field}: {w.message}" for w in warnings])
-                QtWidgets.QMessageBox.warning(
+                show_message_dialog(
                     None,
                     "Configuration Warnings",
                     f"Configuration has warnings:\n\n{warning_text}\n\n"
                     f"The application will continue, but you may want to review these.",
+                    tone="warning",
                 )
 
         except Exception as exc:
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 None,
                 "Configuration Error",
                 f"Failed to validate configuration:\n\n{exc}",
+                tone="error",
             )
             import sys
             sys.exit(1)
@@ -1465,14 +1577,12 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             logger.warning("⚠️ Some critical cleanup tasks failed")
             # Ask user if they want to force quit
-            reply = QtWidgets.QMessageBox.question(
+            if ask_confirmation(
                 self,
                 "Shutdown Warning",
                 "Some critical cleanup tasks failed. Force quit anyway?",
-                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-                QtWidgets.QMessageBox.No
-            )
-            if reply == QtWidgets.QMessageBox.Yes:
+                confirm_variant="danger",
+            ):
                 event.accept()
             else:
                 event.ignore()

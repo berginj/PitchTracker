@@ -1,4 +1,4 @@
-"""Core data contracts for capture, detection, stereo, tracking, and metrics."""
+"""Core runtime contracts for setup, live coaching, and review workflows."""
 
 from __future__ import annotations
 

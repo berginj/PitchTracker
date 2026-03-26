@@ -20,6 +20,7 @@ from ui.dialogs import (
     QuickCalibrateDialog,
 )
 from log_config.logger import get_logger
+from ui.themes import show_message_dialog
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QLabel
@@ -160,10 +161,11 @@ class CalibrationManager:
             )
         except Exception as exc:
             logger.error(f"Plate plane calibration failed: {exc}", exc_info=True)
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self._parent,
                 "Plate Plane Calibrate",
                 f"Calibration failed.\n\nError: {exc}",
+                tone="error",
             )
             return
 

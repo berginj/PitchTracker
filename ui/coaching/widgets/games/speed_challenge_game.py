@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ui.coaching.widgets.games.base_game import BaseGame
+from ui.themes import show_message_dialog
 
 if TYPE_CHECKING:
     from app.pipeline_service import PitchSummary
@@ -156,7 +157,7 @@ class SpeedChallengeGame(BaseGame):
             self._completed_targets += 1
             self.save_score(self._completed_targets)
             self._score_label.setText(f"Targets Hit: {self._completed_targets}")
-            QtWidgets.QMessageBox.information(self, "Hit!", "Target achieved!")
+            show_message_dialog(self, "Hit!", "Target achieved!", tone="success")
             self._generate_target()
 
     def reset_game(self) -> None:

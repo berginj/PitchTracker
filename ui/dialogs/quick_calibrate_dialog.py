@@ -6,22 +6,26 @@ from pathlib import Path
 
 from PySide6 import QtCore, QtWidgets
 
-from calib.quick_calibrate import calibrate_and_write
+from app.services.tooling import get_tooling_service
+from contracts.tooling import CalibrationRequest
+from ui.themes import (
+    apply_standard_layout,
+    build_dialog_header,
+    get_style_manager,
+    polish_form_controls,
+    show_message_dialog,
+)
 
 
 class QuickCalibrateDialog(QtWidgets.QDialog):
     """Dialog for running quick stereo calibration from checkerboard images."""
 
     def __init__(self, parent: QtWidgets.QWidget | None, config_path: Path) -> None:
-        """Initialize quick calibration dialog.
-
-        Args:
-            parent: Parent widget
-            config_path: Path to config file to update
-        """
         super().__init__(parent)
         self.setWindowTitle("Quick Calibrate")
-        self.resize(520, 240)
+        self.resize(560, 340)
+
+        self._style_manager = get_style_manager()
         self._config_path = config_path
         self.updated = False
         self.updates: dict | None = None
@@ -35,63 +39,84 @@ class QuickCalibrateDialog(QtWidgets.QDialog):
         self._square_mm.setValue(25.0)
         self._ext = QtWidgets.QLineEdit("*.png")
 
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        """Build dialog UI."""
         left_browse = QtWidgets.QPushButton("Browse")
         right_browse = QtWidgets.QPushButton("Browse")
         left_browse.clicked.connect(lambda: self._browse_dir(self._left_dir))
         right_browse.clicked.connect(lambda: self._browse_dir(self._right_dir))
+        self._style_manager.style_button(left_browse, "ghost")
+        self._style_manager.style_button(right_browse, "ghost")
 
         form = QtWidgets.QFormLayout()
+        apply_standard_layout(form, margins=(0, 0, 0, 0), spacing=12)
+
         left_row = QtWidgets.QHBoxLayout()
+        left_row.setSpacing(10)
         left_row.addWidget(self._left_dir)
         left_row.addWidget(left_browse)
+
         right_row = QtWidgets.QHBoxLayout()
+        right_row.setSpacing(10)
         right_row.addWidget(self._right_dir)
         right_row.addWidget(right_browse)
+
         form.addRow("Left images folder", left_row)
         form.addRow("Right images folder", right_row)
         form.addRow("Pattern (cols x rows)", self._pattern)
         form.addRow("Square size (mm)", self._square_mm)
         form.addRow("Image glob", self._ext)
 
-        buttons = QtWidgets.QHBoxLayout()
         run_button = QtWidgets.QPushButton("Run Calibration")
         close_button = QtWidgets.QPushButton("Close")
         run_button.clicked.connect(self._run)
         close_button.clicked.connect(self.reject)
-        buttons.addWidget(run_button)
+        self._style_manager.style_button(run_button, "primary")
+        self._style_manager.style_button(close_button, "ghost")
+
+        buttons = QtWidgets.QHBoxLayout()
+        buttons.setSpacing(10)
+        buttons.addStretch()
         buttons.addWidget(close_button)
+        buttons.addWidget(run_button)
 
         layout = QtWidgets.QVBoxLayout()
+        apply_standard_layout(layout)
+        layout.addWidget(
+            build_dialog_header(
+                "Quick Calibrate",
+                "Run a fast stereo calibration using existing checkerboard captures from disk.",
+            )
+        )
         layout.addLayout(form)
+        layout.addStretch()
         layout.addLayout(buttons)
         self.setLayout(layout)
 
-    def _browse_dir(self, target: QtWidgets.QLineEdit) -> None:
-        """Open folder browser dialog.
+        polish_form_controls(self)
 
-        Args:
-            target: QLineEdit to update with selected folder
-        """
-        path = QtWidgets.QFileDialog.getExistingDirectory(self, "Select folder")
+    def _browse_dir(self, target: QtWidgets.QLineEdit) -> None:
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Folder")
         if path:
             target.setText(path)
 
     def _run(self) -> None:
-        """Run stereo calibration from selected folders."""
         left_dir = Path(self._left_dir.text().strip())
         right_dir = Path(self._right_dir.text().strip())
         pattern = self._pattern.text().strip()
         glob_pattern = self._ext.text().strip() or "*.png"
         if not left_dir.exists() or not right_dir.exists():
-            QtWidgets.QMessageBox.warning(self, "Quick Calibrate", "Select both folders.")
+            show_message_dialog(self, "Quick Calibrate", "Select both folders.", tone="warning")
             return
+
         left_paths = sorted(left_dir.glob(glob_pattern))
         right_paths = sorted(right_dir.glob(glob_pattern))
         if not left_paths or not right_paths:
-            QtWidgets.QMessageBox.warning(self, "Quick Calibrate", "No images found.")
+            show_message_dialog(self, "Quick Calibrate", "No images found.", tone="warning")
             return
 
-        # Show progress dialog
         progress = QtWidgets.QProgressDialog("Running calibration...", "Cancel", 0, 0, self)
         progress.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
@@ -99,57 +124,53 @@ class QuickCalibrateDialog(QtWidgets.QDialog):
         QtWidgets.QApplication.processEvents()
 
         try:
-            updates = calibrate_and_write(
-                left_paths=left_paths,
-                right_paths=right_paths,
-                pattern=pattern,
-                square_mm=self._square_mm.value(),
-                config_path=self._config_path,
+            result = get_tooling_service().run_calibration(
+                CalibrationRequest(
+                    left_paths=tuple(left_paths),
+                    right_paths=tuple(right_paths),
+                    pattern=pattern,
+                    square_mm=self._square_mm.value(),
+                    config_path=self._config_path,
+                    mode="quick",
+                    write_updates=True,
+                )
             )
-        except Exception as exc:  # noqa: BLE001 - show calibration errors
+        except Exception as exc:  # noqa: BLE001 - user-facing error dialog
             progress.close()
-            QtWidgets.QMessageBox.critical(self, "Quick Calibrate", str(exc))
+            show_message_dialog(self, "Quick Calibrate", str(exc), tone="error")
             return
         finally:
             progress.close()
 
-        # Build detailed results message
-        quality_rating = updates.get("quality_rating", "Unknown")
-        quality_desc = updates.get("quality_description", "")
-        rms_error = updates.get("rms_error_px", 0.0)
-        num_images = updates.get("num_images_used", 0)
-        total_input = updates.get("total_input_images", 0)
-        rejected = total_input - num_images if total_input > num_images else 0
-        recommendations = updates.get("recommendations", [])
-
-        # Format message with quality emoji
-        quality_emoji = updates.get("quality_emoji", "✓")
-        message = f"{quality_emoji} Calibration Quality: {quality_rating}\n"
-        message += f"{quality_desc}\n\n"
-        message += f"RMS Reprojection Error: {rms_error:.3f} px\n"
-        message += f"Images Used: {num_images}/{total_input}"
+        rejected = max(0, result.total_input_images - result.num_images_used)
+        quality_token = result.quality_emoji or "[OK]"
+        message = f"{quality_token} Calibration Quality: {result.quality_rating}\n"
+        message += f"{result.quality_description}\n\n"
+        message += f"RMS Reprojection Error: {result.rms_error_px:.3f} px\n"
+        message += f"Images Used: {result.num_images_used}/{result.total_input_images}"
 
         if rejected > 0:
             message += f"\nRejected: {rejected} pairs (corner detection failed)"
 
-        if recommendations:
+        if result.recommendations:
             message += "\n\nRecommendations:\n"
-            for rec in recommendations:
-                message += f"• {rec}\n"
+            for recommendation in result.recommendations:
+                message += f"- {recommendation}\n"
 
-        message += f"\n\nUpdated Configuration:\n"
-        message += f"Baseline: {updates.get('baseline_ft', 0):.3f} ft\n"
-        message += f"Focal Length: {updates.get('focal_length_px', 0):.1f} px"
+        message += "\n\nUpdated Configuration:\n"
+        message += f"Baseline: {result.baseline_ft:.3f} ft\n"
+        message += f"Focal Length: {result.focal_length_px:.1f} px"
 
-        # Show detailed results
-        result_box = QtWidgets.QMessageBox(self)
-        result_box.setWindowTitle("Calibration Complete")
-        result_box.setText(message)
-        result_box.setIcon(QtWidgets.QMessageBox.Icon.Information)
-        result_box.exec()
+        show_message_dialog(
+            self,
+            "Calibration Complete",
+            message,
+            tone="success",
+            primary_buttons=(QtWidgets.QMessageBox.StandardButton.Ok,),
+        )
 
         self.updated = True
-        self.updates = updates
+        self.updates = result.to_payload()
 
 
 __all__ = ["QuickCalibrateDialog"]

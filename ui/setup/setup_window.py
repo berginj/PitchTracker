@@ -7,6 +7,7 @@ from typing import List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from log_config.logger import get_logger
 from ui.setup.steps import (
     BaseStep,
     CameraStep,
@@ -16,7 +17,15 @@ from ui.setup.steps import (
     RoiStep,
     ValidationStep,
 )
-from ui.themes import get_style_manager, GlassButton
+from ui.themes import (
+    GlassButton,
+    ask_confirmation,
+    get_style_manager,
+    show_message_dialog,
+    style_message_panel,
+)
+
+logger = get_logger(__name__)
 
 
 class SetupWindow(QtWidgets.QMainWindow):
@@ -75,6 +84,8 @@ class SetupWindow(QtWidgets.QMainWindow):
 
     def _build_ui(self) -> None:
         """Build wizard UI with step indicator, content area, and navigation."""
+        header = self._build_header()
+
         # Step indicator at top
         self._step_indicator = self._build_step_indicator()
 
@@ -88,13 +99,44 @@ class SetupWindow(QtWidgets.QMainWindow):
 
         # Main layout
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+        layout.addWidget(header)
         layout.addWidget(self._step_indicator)
         layout.addWidget(self._content_stack, 1)  # Content takes most space
         layout.addLayout(self._nav_layout)
 
         container = QtWidgets.QWidget()
+        container.setObjectName("WizardShell")
         container.setLayout(layout)
         self.setCentralWidget(container)
+
+    def _build_header(self) -> QtWidgets.QWidget:
+        """Build wizard header with title and context."""
+        header = QtWidgets.QFrame()
+        self._style_manager.style_panel(header, "normal")
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(24, 22, 24, 22)
+        layout.setSpacing(6)
+
+        eyebrow = QtWidgets.QLabel("System setup")
+        self._style_manager.style_label(eyebrow, "eyebrow")
+        layout.addWidget(eyebrow)
+
+        title = QtWidgets.QLabel("Configure the rig end to end")
+        self._style_manager.style_label(title, "pageTitle")
+        layout.addWidget(title)
+
+        subtitle = QtWidgets.QLabel(
+            "Move through each step once, keep calibration quality high, and export a clean package when the system is ready."
+        )
+        subtitle.setWordWrap(True)
+        self._style_manager.style_label(subtitle, "muted")
+        layout.addWidget(subtitle)
+
+        header.setLayout(layout)
+        return header
 
     def _build_step_indicator(self) -> QtWidgets.QWidget:
         """Build step indicator bar showing progress."""
@@ -108,7 +150,8 @@ class SetupWindow(QtWidgets.QMainWindow):
         ]
 
         indicator_layout = QtWidgets.QHBoxLayout()
-        indicator_layout.setSpacing(8)
+        indicator_layout.setContentsMargins(0, 0, 0, 0)
+        indicator_layout.setSpacing(10)
 
         self._step_labels: List[QtWidgets.QLabel] = []
         for i, name in enumerate(step_names):
@@ -123,42 +166,23 @@ class SetupWindow(QtWidgets.QMainWindow):
             indicator_layout.addWidget(label)
 
         indicator_widget = QtWidgets.QWidget()
+        indicator_widget.setProperty("surface", "toolbar")
+        self._style_manager.polish(indicator_widget)
         indicator_widget.setLayout(indicator_layout)
         return indicator_widget
 
     def _apply_step_style(self, label: QtWidgets.QLabel, index: int, is_current: bool, is_complete: bool = False) -> None:
         """Apply glass-themed style to step indicator label."""
-        theme = self._style_manager.theme
-
+        label.setProperty("role", "panelMessage")
         if is_current:
-            # Current step - accent color
-            label.setStyleSheet(f"""
-                background-color: {theme.accent_success_dim};
-                border: 1px solid {theme.accent_success};
-                border-radius: {theme.border_radius_small}px;
-                color: {theme.accent_success};
-                font-weight: bold;
-                padding: 8px;
-            """)
+            style_message_panel(label, "success")
         elif is_complete:
-            # Completed step - primary accent
-            label.setStyleSheet(f"""
-                background-color: {theme.accent_primary_dim};
-                border: 1px solid {theme.accent_primary};
-                border-radius: {theme.border_radius_small}px;
-                color: {theme.accent_primary};
-                font-weight: bold;
-                padding: 8px;
-            """)
+            style_message_panel(label, "info")
         else:
-            # Future step - muted
-            label.setStyleSheet(f"""
-                background-color: {theme.surface_glass};
-                border: 1px solid {theme.border_glass};
-                border-radius: {theme.border_radius_small}px;
-                color: {theme.text_muted};
-                padding: 8px;
-            """)
+            style_message_panel(label, "neutral")
+        font = label.font()
+        font.setBold(is_current or is_complete)
+        label.setFont(font)
 
     def _build_navigation(self) -> QtWidgets.QHBoxLayout:
         """Build navigation buttons."""
@@ -181,6 +205,8 @@ class SetupWindow(QtWidgets.QMainWindow):
         self._finish_button.hide()
 
         nav_layout = QtWidgets.QHBoxLayout()
+        nav_layout.setContentsMargins(0, 0, 0, 0)
+        nav_layout.setSpacing(12)
         nav_layout.addWidget(self._back_button)
         nav_layout.addStretch()
         nav_layout.addWidget(self._skip_button)
@@ -234,17 +260,23 @@ class SetupWindow(QtWidgets.QMainWindow):
                 left_serial = camera_step.get_left_serial()
                 right_serial = camera_step.get_right_serial()
                 backend = camera_step.get_backend()
-                print(f"[SetupWizard] Transitioning to Calibration Step:")
-                print(f"  Left Serial: {left_serial}")
-                print(f"  Right Serial: {right_serial}")
-                print(f"  Backend: {backend}")
+                logger.debug(
+                    "Transitioning to calibration step with left_serial={!r}, right_serial={!r}, backend={!r}",
+                    left_serial,
+                    right_serial,
+                    backend,
+                )
                 if left_serial and right_serial:
                     current_step.set_camera_serials(left_serial, right_serial)
                     current_step._backend = backend  # Update backend
-                    print(f"[SetupWizard] Camera serials passed to calibration step")
+                    logger.debug("Camera serials passed to calibration step")
                 else:
-                    print(f"[SetupWizard] ERROR: Camera serials not set! Left={left_serial}, Right={right_serial}")
-                    QtWidgets.QMessageBox.warning(
+                    logger.warning(
+                        "Cannot enter calibration step without both camera serials. left_serial={!r}, right_serial={!r}",
+                        left_serial,
+                        right_serial,
+                    )
+                    show_message_dialog(
                         self,
                         "Cameras Not Selected",
                         "Please select both left and right cameras in Step 1 before proceeding to calibration.\n\n"
@@ -283,10 +315,11 @@ class SetupWindow(QtWidgets.QMainWindow):
         # Validate current step
         is_valid, error_msg = current_step.validate()
         if not is_valid:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Validation Error",
                 f"Cannot proceed to next step:\n\n{error_msg}",
+                tone="warning",
             )
             return
 
@@ -305,15 +338,12 @@ class SetupWindow(QtWidgets.QMainWindow):
             return
 
         # Confirm skip
-        reply = QtWidgets.QMessageBox.question(
+        if ask_confirmation(
             self,
             "Skip Step",
             f"Are you sure you want to skip '{current_step.get_title()}'?\n\n"
             "You can return to this step later if needed.",
-            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
-        )
-
-        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+        ):
             # Go to next step without marking as complete
             if self._current_step_index < len(self._steps) - 1:
                 self._show_step(self._current_step_index + 1)
@@ -325,10 +355,11 @@ class SetupWindow(QtWidgets.QMainWindow):
         # Validate final step
         is_valid, error_msg = current_step.validate()
         if not is_valid:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self,
                 "Validation Error",
                 f"Cannot finish setup:\n\n{error_msg}",
+                tone="warning",
             )
             return
 
@@ -336,11 +367,12 @@ class SetupWindow(QtWidgets.QMainWindow):
         current_step.set_complete(True)
 
         # Show completion message
-        QtWidgets.QMessageBox.information(
+        show_message_dialog(
             self,
             "Setup Complete",
             "System setup and calibration complete!\n\n"
             "Calibration package has been exported and the system is ready for coaching sessions.",
+            tone="success",
         )
 
         # Close window

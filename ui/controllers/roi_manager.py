@@ -16,6 +16,7 @@ from configs.roi_io import load_rois, save_rois
 from detect.lane import LaneRoi
 from ui.geometry import Rect, normalize_rect, polygon_to_rect, rect_to_polygon
 from log_config.logger import get_logger
+from ui.themes import show_message_dialog
 
 if TYPE_CHECKING:
     from ui.widgets import RoiLabel
@@ -240,18 +241,20 @@ class RoiManager:
             True if right lane was proposed, False otherwise
         """
         if self._lane_rect is None:
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 parent,
                 "Propose Right Lane",
                 "Draw the left lane ROI first.",
+                tone="info",
             )
             return False
 
         if left_frame_size is None or right_frame_size is None:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 parent,
                 "Propose Right Lane",
                 "Start capture before proposing the right lane.",
+                tone="warning",
             )
             return False
 

@@ -57,8 +57,9 @@ def main() -> None:
     """Main entry point for PitchTracker Qt application."""
     args = parse_args()
     app = QtWidgets.QApplication([])
+    app.setStyle("Fusion")
 
-    # Apply glass theme to entire application
+    # Apply the centralized application theme.
     style_manager = get_style_manager()
     style_manager.apply_to_app(app)
 

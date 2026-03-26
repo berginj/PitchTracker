@@ -1,0 +1,169 @@
+{
+  "schema_version": "1.2.0",
+  "app_version": "0.2.0",
+  "report_id": "training-2026-01-13-0001",
+  "created_utc": "2026-01-13T15:05:00Z",
+  "session": {
+    "session_id": "session-2026-01-13-001",
+    "session_name": "bullpen-jan13",
+    "started_utc": "2026-01-13T14:59:00Z",
+    "ended_utc": "2026-01-13T15:03:00Z",
+    "pitch_count": 3,
+    "strikes": 2,
+    "balls": 1,
+    "heatmap": [
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1]
+    ],
+    "pitches": [
+      {
+        "pitch_id": "session-2026-01-13-001-pitch-001",
+        "t_start_ns": 1705169940000000000,
+        "t_end_ns": 1705169940800000000,
+        "is_strike": true,
+        "zone_row": 3,
+        "zone_col": 1,
+        "run_in": 3.2,
+        "rise_in": -1.1,
+        "speed_mph": 62.5,
+        "rotation_rpm": null,
+        "sample_count": 18
+      },
+      {
+        "pitch_id": "session-2026-01-13-001-pitch-002",
+        "t_start_ns": 1705169941000000000,
+        "t_end_ns": 1705169941800000000,
+        "is_strike": false,
+        "zone_row": null,
+        "zone_col": null,
+        "run_in": -2.5,
+        "rise_in": 0.6,
+        "speed_mph": 58.2,
+        "rotation_rpm": null,
+        "sample_count": 14
+      },
+      {
+        "pitch_id": "session-2026-01-13-001-pitch-003",
+        "t_start_ns": 1705169942000000000,
+        "t_end_ns": 1705169942800000000,
+        "is_strike": true,
+        "zone_row": 2,
+        "zone_col": 3,
+        "run_in": 1.1,
+        "rise_in": -0.3,
+        "speed_mph": 65.8,
+        "rotation_rpm": null,
+        "sample_count": 16
+      }
+    ]
+  },
+  "capture_stats": {
+    "left": {
+      "fps_avg": 59.8,
+      "fps_inst": 60.1,
+      "jitter_p95_ms": 1.8,
+      "dropped_frames": 2,
+      "queue_depth": 2,
+      "capture_latency_ms": 5.4
+    },
+    "right": {
+      "fps_avg": 60.0,
+      "fps_inst": 60.2,
+      "jitter_p95_ms": 1.7,
+      "dropped_frames": 1,
+      "queue_depth": 2,
+      "capture_latency_ms": 5.1
+    }
+  },
+  "latency_stats": {
+    "p50_ms": 120.0,
+    "p95_ms": 220.0,
+    "max_ms": 280.0
+  },
+  "brightness_stats": {
+    "left": {
+      "frame_count": 120,
+      "mean_gray_avg": 42.3,
+      "mean_gray_p95": 65.1,
+      "std_gray_avg": 12.4,
+      "std_gray_p95": 18.3
+    },
+    "right": {
+      "frame_count": 120,
+      "mean_gray_avg": 41.7,
+      "mean_gray_p95": 63.8,
+      "std_gray_avg": 11.9,
+      "std_gray_p95": 17.6
+    }
+  },
+  "detection_stats": {
+    "left": {
+      "frame_count": 120,
+      "detections_total": 95,
+      "detections_per_frame_avg": 0.79,
+      "best_confidence_p95": 0.91,
+      "radius_px_avg": 6.2
+    },
+    "right": {
+      "frame_count": 120,
+      "detections_total": 90,
+      "detections_per_frame_avg": 0.75,
+      "best_confidence_p95": 0.89,
+      "radius_px_avg": 6.1
+    }
+  },
+  "noise_metrics": {
+    "background_std_avg": 3.4,
+    "motion_false_positive_rate": 0.02
+  },
+  "errors": [
+    {
+      "t_utc": "2026-01-13T15:01:12Z",
+      "level": "warn",
+      "message": "Drop rate exceeded threshold.",
+      "context": {
+        "camera": "left",
+        "drop_rate": 0.03
+      }
+    }
+  ],
+  "logs": [
+    {
+      "t_utc": "2026-01-13T14:59:00Z",
+      "level": "info",
+      "message": "Session started.",
+      "context": {
+        "mode": "training"
+      }
+    },
+    {
+      "t_utc": "2026-01-13T15:03:00Z",
+      "level": "info",
+      "message": "Session ended.",
+      "context": {
+        "pitch_count": 3
+      }
+    }
+  ],
+  "recording": {
+    "mode": "training",
+    "output_dir": "recordings",
+    "pre_roll_ms": 500,
+    "post_roll_ms": 500
+  },
+  "files": {
+    "session_dir": "recordings/session-2026-01-13-001_20260113-150300",
+    "manifest": "manifest.json",
+    "session_summary": "session_summary.json",
+    "session_summary_csv": "session_summary.csv"
+  },
+  "source": {
+    "app": "PitchTracker",
+    "rig_id": null,
+    "pitcher": "sample pitcher",
+    "location_profile": "lane-1",
+    "operator": "coach",
+    "host": "laptop-01"
+  }
+}

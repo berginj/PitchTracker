@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.2.0",
+  "app_version": "0.2.0",
+  "session_id": "session-2026-01-11-001",
+  "pitch_count": 3,
+  "strikes": 2,
+  "balls": 1,
+  "heatmap": [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1]
+  ],
+  "pitches": [
+    {
+      "pitch_id": "session-2026-01-11-001-pitch-001",
+      "t_start_ns": 1704990000000000000,
+      "t_end_ns": 1704990000800000000,
+      "is_strike": true,
+      "zone_row": 3,
+      "zone_col": 1,
+      "run_in": 3.2,
+      "rise_in": -1.1,
+      "speed_mph": 62.5,
+      "rotation_rpm": null,
+      "sample_count": 18
+    },
+    {
+      "pitch_id": "session-2026-01-11-001-pitch-002",
+      "t_start_ns": 1704990001000000000,
+      "t_end_ns": 1704990001800000000,
+      "is_strike": false,
+      "zone_row": null,
+      "zone_col": null,
+      "run_in": -2.5,
+      "rise_in": 0.6,
+      "speed_mph": 58.2,
+      "rotation_rpm": null,
+      "sample_count": 14
+    },
+    {
+      "pitch_id": "session-2026-01-11-001-pitch-003",
+      "t_start_ns": 1704990002000000000,
+      "t_end_ns": 1704990002800000000,
+      "is_strike": true,
+      "zone_row": 2,
+      "zone_col": 3,
+      "run_in": 1.1,
+      "rise_in": -0.3,
+      "speed_mph": 65.8,
+      "rotation_rpm": null,
+      "sample_count": 16
+    }
+  ]
+}

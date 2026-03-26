@@ -14,6 +14,7 @@ from PySide6 import QtWidgets
 
 from detect.config import Mode, FilterConfig, DetectorConfig as CvDetectorConfig
 from log_config.logger import get_logger
+from ui.themes import show_message_dialog
 
 if TYPE_CHECKING:
     from configs.settings import AppConfig
@@ -164,10 +165,11 @@ class SettingsManager:
             True if settings applied successfully, False otherwise
         """
         if self._detector_type == "ml" and not self._detector_model_path:
-            QtWidgets.QMessageBox.warning(
+            show_message_dialog(
                 self._parent,
                 "Detector Settings",
                 "Select an ONNX model path before enabling ML detection.",
+                tone="warning",
             )
             return False
 

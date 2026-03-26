@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
+from ui.themes import get_style_manager
 
 if TYPE_CHECKING:
     from app.pipeline_service import PitchSummary
@@ -24,11 +25,14 @@ class StatsPanelWidget(QtWidgets.QWidget):
             parent: Parent widget
         """
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self._build_ui()
 
     def _build_ui(self) -> None:
         """Build the widget UI."""
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
 
         # Title
         title = QtWidgets.QLabel("Latest Pitch Stats")
@@ -37,6 +41,7 @@ class StatsPanelWidget(QtWidgets.QWidget):
         font.setBold(True)
         title.setFont(font)
         title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._style_manager.style_label(title, "sectionTitle")
         layout.addWidget(title)
 
         # Speed display (large, prominent)
@@ -46,7 +51,7 @@ class StatsPanelWidget(QtWidgets.QWidget):
         font.setBold(True)
         self._speed_label.setFont(font)
         self._speed_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._speed_label.setStyleSheet("color: #2196F3;")  # Blue
+        self._style_manager.style_label(self._speed_label, "metricAccent")
         layout.addWidget(self._speed_label)
 
         # H-break
@@ -72,6 +77,7 @@ class StatsPanelWidget(QtWidgets.QWidget):
         font.setBold(True)
         self._result_label.setFont(font)
         self._result_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._style_manager.style_label(self._result_label, "sectionTitle")
         layout.addWidget(self._result_label)
 
         # Separator
@@ -86,6 +92,7 @@ class StatsPanelWidget(QtWidgets.QWidget):
         font.setPointSize(12)
         font.setBold(True)
         recent_title.setFont(font)
+        self._style_manager.style_label(recent_title, "eyebrow")
         layout.addWidget(recent_title)
 
         # Recent pitches list
@@ -95,6 +102,8 @@ class StatsPanelWidget(QtWidgets.QWidget):
 
         layout.addStretch()
         self.setLayout(layout)
+        self.setProperty("surface", "card")
+        self._style_manager.polish(self)
 
     def update_latest_pitch(self, pitch: "PitchSummary") -> None:
         """Update display with latest pitch data.
@@ -125,10 +134,10 @@ class StatsPanelWidget(QtWidgets.QWidget):
         # Result (color-coded)
         if pitch.is_strike:
             self._result_label.setText("Result: STRIKE")
-            self._result_label.setStyleSheet("color: #4CAF50;")  # Green
+            self._style_manager.style_status_indicator(self._result_label, "success")
         else:
             self._result_label.setText("Result: BALL")
-            self._result_label.setStyleSheet("color: #FF5722;")  # Red
+            self._style_manager.style_status_indicator(self._result_label, "error")
 
     def update_recent_list(self, recent_pitches: List["PitchSummary"]) -> None:
         """Update recent pitches list.
@@ -164,7 +173,7 @@ class StatsPanelWidget(QtWidgets.QWidget):
         self._h_break_label.setText("H-Break: -- in")
         self._v_break_label.setText("V-Break: -- in")
         self._result_label.setText("Result: --")
-        self._result_label.setStyleSheet("")  # Reset color
+        self._style_manager.style_label(self._result_label, "sectionTitle")
         self._recent_list.clear()
 
 

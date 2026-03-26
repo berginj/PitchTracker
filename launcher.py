@@ -8,12 +8,24 @@ from pathlib import Path
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+
+def _ensure_project_root_on_sys_path(project_root: Path) -> None:
+    """Insert the project root once, normalized for Windows path casing."""
+    normalized_root = os.path.normcase(str(project_root))
+    for entry in sys.path:
+        if os.path.normcase(entry) == normalized_root:
+            return
+    sys.path.insert(0, str(project_root))
+
+
 # Add project root to path and set working directory
 project_root = Path(__file__).parent.resolve()
-sys.path.insert(0, str(project_root))
+_ensure_project_root_on_sys_path(project_root)
 os.chdir(project_root)
 
-from startup_validator import create_required_directories, validate_environment
+from app.services.tooling import ToolingService, get_tooling_service
+from startup_validator import create_required_directories
+from ui.themes import get_style_manager
 from updater import check_for_updates, get_current_version
 
 
@@ -132,18 +144,21 @@ class AboutDialog(QtWidgets.QDialog):
 
     def _build_ui(self):
         """Build about dialog UI."""
+        sm = get_style_manager()
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(28, 24, 28, 24)
+        layout.setSpacing(18)
 
         # Title
         title = QtWidgets.QLabel("PitchTracker")
         title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("font-size: 24pt; font-weight: bold; color: #2196F3; padding: 20px;")
+        sm.style_label(title, "pageTitle")
         layout.addWidget(title)
 
         # Version
         version = QtWidgets.QLabel(f"Version {get_current_version()}")
         version.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        version.setStyleSheet("font-size: 12pt; color: #666; padding-bottom: 20px;")
+        sm.style_label(version, "eyebrow")
         layout.addWidget(version)
 
         # Description
@@ -157,7 +172,7 @@ class AboutDialog(QtWidgets.QDialog):
             "• Role-based interfaces (Setup Wizard + Coaching App)"
         )
         description.setWordWrap(True)
-        description.setStyleSheet("padding: 20px; background-color: #f5f5f5; border-radius: 5px;")
+        sm.style_label(description, "muted")
         layout.addWidget(description)
 
         # Components
@@ -169,13 +184,14 @@ class AboutDialog(QtWidgets.QDialog):
             "• Calibration Tools - Stereo camera calibration"
         )
         components.setWordWrap(True)
-        components.setStyleSheet("padding: 10px; font-size: 9pt;")
+        sm.style_label(components, "eyebrow")
         layout.addWidget(components)
 
         layout.addStretch()
 
         # Close button
         close_button = QtWidgets.QPushButton("Close")
+        sm.style_button(close_button, "primary")
         close_button.clicked.connect(self.accept)
         layout.addWidget(close_button)
 
@@ -185,12 +201,23 @@ class AboutDialog(QtWidgets.QDialog):
 class LauncherWindow(QtWidgets.QMainWindow):
     """Main launcher window with role selector."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        startup_warnings: list[str] | None = None,
+        validation_service: ToolingService | None = None,
+    ):
         super().__init__()
+        self._style_manager = get_style_manager()
+        self._startup_warnings = list(startup_warnings or [])
+        self._startup_errors: list[str] = []
+        self._validation_state = "pending"
+        self._validation_service = validation_service or get_tooling_service()
+        self._validation_thread: StartupValidationThread | None = None
         self.setWindowTitle("PitchTracker")
         self.resize(800, 600)
         self._build_ui()
 
+        QtCore.QTimer.singleShot(0, self._start_environment_validation)
         # Check for updates after a short delay (non-blocking)
         QtCore.QTimer.singleShot(2000, self._check_for_updates)
 
@@ -198,13 +225,17 @@ class LauncherWindow(QtWidgets.QMainWindow):
         """Build launcher UI."""
         # Central widget
         central = QtWidgets.QWidget()
+        central.setObjectName("LauncherShell")
         layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(30)
+        layout.setContentsMargins(36, 32, 36, 32)
+        layout.setSpacing(18)
 
         # Logo/Title area
         title_widget = self._build_title()
         layout.addWidget(title_widget)
+
+        # Startup warnings banner
+        layout.addWidget(self._build_warning_banner())
 
         # Role selection buttons
         buttons_widget = self._build_role_buttons()
@@ -219,43 +250,70 @@ class LauncherWindow(QtWidgets.QMainWindow):
 
         # Set window icon if available
         self._set_window_icon()
+        self._set_role_buttons_enabled(False)
 
     def _build_title(self) -> QtWidgets.QWidget:
         """Build title area."""
-        widget = QtWidgets.QWidget()
+        widget = QtWidgets.QFrame()
+        self._style_manager.style_panel(widget, "normal")
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(28, 28, 28, 24)
+        layout.setSpacing(8)
 
         # Main title
         title = QtWidgets.QLabel("PitchTracker")
         title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet(
-            "font-size: 36pt; font-weight: bold; color: #2196F3; padding: 20px;"
-        )
+        self._style_manager.style_label(title, "title")
         layout.addWidget(title)
 
         # Subtitle
         subtitle = QtWidgets.QLabel("Baseball Pitch Tracking & Analysis System")
         subtitle.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        subtitle.setStyleSheet("font-size: 14pt; color: #666; padding-bottom: 10px;")
+        self._style_manager.style_label(subtitle, "muted")
         layout.addWidget(subtitle)
 
         # Instruction
-        instruction = QtWidgets.QLabel("Select your role to begin:")
+        instruction = QtWidgets.QLabel("Choose the workflow that matches what you need to do next.")
         instruction.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        instruction.setStyleSheet("font-size: 12pt; color: #999; padding-top: 20px;")
+        self._style_manager.style_label(instruction, "eyebrow")
         layout.addWidget(instruction)
 
         widget.setLayout(layout)
         return widget
 
+    def _build_warning_banner(self) -> QtWidgets.QWidget:
+        """Build a non-blocking startup status banner."""
+        self._warning_frame = QtWidgets.QFrame()
+        self._warning_frame.setProperty("notice", "info")
+        self._style_manager.polish(self._warning_frame)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setSpacing(6)
+
+        self._warning_title = QtWidgets.QLabel()
+        self._style_manager.style_label(self._warning_title, "sectionTitle")
+        layout.addWidget(self._warning_title)
+
+        self._warning_body = QtWidgets.QLabel()
+        self._warning_body.setWordWrap(True)
+        self._warning_body.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+        self._style_manager.style_label(self._warning_body, "muted")
+        layout.addWidget(self._warning_body)
+
+        self._warning_frame.setLayout(layout)
+        self._update_warning_banner()
+        return self._warning_frame
+
     def _build_role_buttons(self) -> QtWidgets.QWidget:
         """Build role selection buttons."""
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QHBoxLayout()
-        layout.setSpacing(40)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(20)
 
         # Setup Wizard button
-        setup_button = self._create_role_button(
+        self._setup_button = self._create_role_button(
             "🔧 Setup & Calibration",
             "For technicians and installers\n\n"
             "• Camera configuration\n"
@@ -268,7 +326,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
         )
 
         # Coaching App button
-        coach_button = self._create_role_button(
+        self._coach_button = self._create_role_button(
             "⚾ Coaching Sessions",
             "For coaches and pitchers\n\n"
             "• Start/stop sessions\n"
@@ -280,8 +338,8 @@ class LauncherWindow(QtWidgets.QMainWindow):
             self._launch_coaching,
         )
 
-        layout.addWidget(setup_button)
-        layout.addWidget(coach_button)
+        layout.addWidget(self._setup_button)
+        layout.addWidget(self._coach_button)
 
         widget.setLayout(layout)
         return widget
@@ -290,23 +348,31 @@ class LauncherWindow(QtWidgets.QMainWindow):
         self, title: str, description: str, color: str, callback
     ) -> QtWidgets.QPushButton:
         """Create a styled role selection button."""
+        sanitized_title = title.replace("ðŸ”§ ", "").replace("âš¾ ", "")
+        sanitized_description = description.replace("â€¢", "-")
+        accent = "success" if color.lower() == "#4caf50" else "primary"
+
         button = QtWidgets.QPushButton()
         button.setMinimumSize(300, 350)
-        button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        button.setProperty("variant", "role-card")
+        button.setProperty("accent", accent)
+        self._style_manager.polish(button)
 
         # Create label with formatted text
         label_layout = QtWidgets.QVBoxLayout()
+        label_layout.setContentsMargins(0, 0, 0, 0)
+        label_layout.setSpacing(12)
 
         # Title
-        title_label = QtWidgets.QLabel(title)
-        title_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        title_label.setStyleSheet(f"font-size: 18pt; font-weight: bold; color: white; padding: 10px;")
+        title_label = QtWidgets.QLabel(sanitized_title)
+        title_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter)
+        self._style_manager.style_label(title_label, "sectionTitle")
         title_label.setWordWrap(True)
 
         # Description
-        desc_label = QtWidgets.QLabel(description)
+        desc_label = QtWidgets.QLabel(sanitized_description)
         desc_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
-        desc_label.setStyleSheet("font-size: 11pt; color: white; padding: 15px;")
+        self._style_manager.style_label(desc_label, "muted")
         desc_label.setWordWrap(True)
 
         label_layout.addWidget(title_label)
@@ -319,26 +385,9 @@ class LauncherWindow(QtWidgets.QMainWindow):
 
         # Use a grid layout to center the container
         button_layout = QtWidgets.QGridLayout()
+        button_layout.setContentsMargins(0, 0, 0, 0)
         button_layout.addWidget(container, 0, 0)
         button.setLayout(button_layout)
-
-        # Styling
-        button.setStyleSheet(
-            f"""
-            QPushButton {{
-                background-color: {color};
-                border: none;
-                border-radius: 10px;
-                padding: 20px;
-            }}
-            QPushButton:hover {{
-                background-color: {self._darken_color(color)};
-            }}
-            QPushButton:pressed {{
-                background-color: {self._darken_color(color, 0.8)};
-            }}
-            """
-        )
 
         button.clicked.connect(callback)
         return button
@@ -359,23 +408,10 @@ class LauncherWindow(QtWidgets.QMainWindow):
         # About button
         about_button = QtWidgets.QPushButton("ℹ About")
         about_button.setMinimumHeight(40)
+        about_button.setText("About PitchTracker")
         about_button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         about_button.clicked.connect(self._show_about)
-        about_button.setStyleSheet(
-            """
-            QPushButton {
-                font-size: 11pt;
-                padding: 10px 20px;
-                border: 2px solid #2196F3;
-                border-radius: 5px;
-                background-color: white;
-                color: #2196F3;
-            }
-            QPushButton:hover {
-                background-color: #e3f2fd;
-            }
-            """
-        )
+        self._style_manager.style_button(about_button, "ghost")
 
         layout.addStretch()
         layout.addWidget(about_button)
@@ -387,6 +423,79 @@ class LauncherWindow(QtWidgets.QMainWindow):
         """Set window icon if available."""
         # Try to set an icon (placeholder for now)
         pass
+
+    def _start_environment_validation(self) -> None:
+        """Run startup validation after the launcher is already visible."""
+        if self._validation_thread is not None:
+            return
+
+        self._validation_thread = StartupValidationThread(self._validation_service)
+        self._validation_thread.validation_complete.connect(self._on_validation_complete)
+        self._validation_thread.validation_failed.connect(self._on_validation_failed)
+        self._validation_thread.start()
+
+    def _on_validation_complete(self, errors: list[str], warnings: list[str]) -> None:
+        """Handle background validation results."""
+        thread = self._validation_thread
+        self._validation_state = "completed"
+        self._startup_errors = list(errors)
+        self._startup_warnings = list(warnings)
+        self._set_role_buttons_enabled(not bool(errors))
+        self._update_warning_banner()
+        self._validation_thread = None
+        if thread is not None:
+            thread.deleteLater()
+
+    def _on_validation_failed(self, error_message: str) -> None:
+        """Handle background validation failures."""
+        thread = self._validation_thread
+        self._validation_state = "completed"
+        self._startup_errors = [f"Background validation failed: {error_message}"]
+        self._startup_warnings = []
+        self._set_role_buttons_enabled(False)
+        self._update_warning_banner()
+        self._validation_thread = None
+        if thread is not None:
+            thread.deleteLater()
+
+    def _set_role_buttons_enabled(self, enabled: bool) -> None:
+        """Enable or disable launcher entry points."""
+        self._setup_button.setEnabled(enabled)
+        self._coach_button.setEnabled(enabled)
+
+    def _update_warning_banner(self) -> None:
+        """Render the current startup status into the banner."""
+        if self._validation_state == "pending":
+            self._warning_title.setText("Checking system readiness")
+            self._warning_body.setText(
+                "Running startup validation in the background so the launcher can appear immediately."
+            )
+            self._warning_frame.setProperty("notice", "info")
+            self._style_manager.polish(self._warning_frame)
+            self._warning_frame.show()
+            return
+
+        messages = self._startup_errors or self._startup_warnings
+        if not messages:
+            self._warning_frame.hide()
+            return
+
+        if self._startup_errors:
+            self._warning_title.setText("Startup issues")
+            self._warning_frame.setProperty("notice", "error")
+        else:
+            self._warning_title.setText("Startup warnings")
+            self._warning_frame.setProperty("notice", "warning")
+
+        self._style_manager.polish(self._warning_frame)
+        self._warning_body.setText("\n".join(f"- {message}" for message in messages))
+        self._warning_frame.show()
+
+    def showEvent(self, event: QtGui.QShowEvent) -> None:
+        """Bring the launcher to the foreground when it is first shown."""
+        super().showEvent(event)
+        self.raise_()
+        self.activateWindow()
 
     def _launch_setup(self):
         """Launch Setup Wizard."""
@@ -510,50 +619,40 @@ class UpdateCheckThread(QtCore.QThread):
             pass
 
 
+class StartupValidationThread(QtCore.QThread):
+    """Run startup validation in a subprocess without blocking the launcher UI."""
+
+    validation_complete = QtCore.Signal(list, list)
+    validation_failed = QtCore.Signal(str)
+
+    def __init__(self, tooling_service: ToolingService):
+        super().__init__()
+        self._tooling_service = tooling_service
+
+    def run(self) -> None:
+        try:
+            result = self._tooling_service.validate_environment()
+            self.validation_complete.emit(result.errors, result.warnings)
+        except Exception as exc:  # noqa: BLE001 - surface worker failures
+            self.validation_failed.emit(str(exc))
+
+
 def main():
     """Main entry point."""
-    # Clear Python bytecode cache to ensure fresh code loads
-    # (prevents issues after git pull or code changes)
-    # Set PITCHTRACKER_NO_CACHE_CLEAR=1 to disable if needed
-    if not os.environ.get('PITCHTRACKER_NO_CACHE_CLEAR'):
-        clear_python_cache(verbose=False)
-
     # Create required directories first
     create_required_directories()
-
-    # Validate environment before starting GUI
-    errors, warnings = validate_environment()
 
     # Create QApplication (needed for dialogs)
     app = QtWidgets.QApplication(sys.argv)
 
     # Set application style
     app.setStyle("Fusion")
+    get_style_manager().apply_to_app(app)
 
     # Set application metadata
     app.setApplicationName("PitchTracker")
     app.setApplicationVersion(get_current_version())
     app.setOrganizationName("PitchTracker")
-
-    # Show critical errors and exit
-    if errors:
-        error_text = "Cannot start PitchTracker:\n\n" + "\n\n---\n\n".join(errors)
-        QtWidgets.QMessageBox.critical(
-            None,
-            "Startup Error",
-            error_text
-        )
-        sys.exit(1)
-
-    # Show warnings (non-blocking)
-    if warnings:
-        warning_text = "PitchTracker detected some issues:\n\n" + "\n\n---\n\n".join(warnings)
-        warning_text += "\n\nYou can continue, but please address these issues."
-        QtWidgets.QMessageBox.warning(
-            None,
-            "Startup Warning",
-            warning_text
-        )
 
     # Create and show launcher
     launcher = LauncherWindow()

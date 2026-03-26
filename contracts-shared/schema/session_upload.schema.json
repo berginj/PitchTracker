@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PitchTracker Session Upload",
+  "description": "Upload envelope produced after a recorded session leaves the desktop app for remote analytics or dashboard workflows.",
+  "$comment": "See contracts-shared/PERSONAS.md for producer and consumer context.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "app_version", "session", "metadata"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "app_version": { "type": "string" },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id",
+        "pitch_count",
+        "strikes",
+        "balls",
+        "heatmap",
+        "pitches"
+      ],
+      "properties": {
+        "session_id": { "type": "string" },
+        "pitch_count": { "type": "integer", "minimum": 0 },
+        "strikes": { "type": "integer", "minimum": 0 },
+        "balls": { "type": "integer", "minimum": 0 },
+        "heatmap": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "pitches": { "type": "array" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["uploaded_utc", "source"],
+      "properties": {
+        "uploaded_utc": { "type": "string" },
+        "pitcher": { "type": ["string", "null"] },
+        "location_profile": { "type": ["string", "null"] },
+        "rig_id": { "type": ["string", "null"] },
+        "source": { "type": "string" }
+      }
+    },
+    "marker_spec": { "type": ["object", "null"] }
+  }
+}

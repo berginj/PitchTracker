@@ -22,6 +22,23 @@ Usage:
 
 from .glass_theme import GlassTheme, default_theme
 from .style_manager import StyleManager, get_style_manager
+from .dialog_helpers import (
+    apply_standard_layout,
+    build_dialog_header,
+    build_notice,
+    set_notice,
+    style_status_label,
+    style_preview_surface,
+    style_message_panel,
+    style_progress_bar,
+    style_data_table,
+    style_dialog_button_box,
+    configure_message_box,
+    show_message_dialog,
+    ask_confirmation,
+    show_choice_dialog,
+    polish_form_controls,
+)
 from .glass_widgets import (
     GlassPanel,
     GlassGroupBox,
@@ -42,6 +59,21 @@ __all__ = [
     # Manager
     "StyleManager",
     "get_style_manager",
+    "apply_standard_layout",
+    "build_dialog_header",
+    "build_notice",
+    "set_notice",
+    "style_status_label",
+    "style_preview_surface",
+    "style_message_panel",
+    "style_progress_bar",
+    "style_data_table",
+    "style_dialog_button_box",
+    "configure_message_box",
+    "show_message_dialog",
+    "ask_confirmation",
+    "show_choice_dialog",
+    "polish_form_controls",
     # Widgets
     "GlassPanel",
     "GlassGroupBox",

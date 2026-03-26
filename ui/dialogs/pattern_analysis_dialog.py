@@ -9,6 +9,17 @@ from typing import TYPE_CHECKING
 
 from PySide6 import QtWidgets
 
+from ui.themes import (
+    apply_standard_layout,
+    build_dialog_header,
+    get_style_manager,
+    polish_form_controls,
+    show_message_dialog,
+    style_data_table,
+    style_message_panel,
+    style_status_label,
+)
+
 if TYPE_CHECKING:
     from analysis.pattern_detection.schemas import PatternAnalysisReport
 
@@ -22,100 +33,104 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
         session_dir: Path,
         pitcher_id: str | None = None,
     ) -> None:
-        """Initialize pattern analysis dialog.
-
-        Args:
-            parent: Parent widget
-            session_dir: Path to session directory
-            pitcher_id: Optional pitcher ID for baseline comparison
-        """
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self.setWindowTitle("Pattern Analysis")
-        self.resize(800, 600)
+        self.resize(960, 720)
         self.session_dir = session_dir
         self.pitcher_id = pitcher_id
         self.analysis_report: PatternAnalysisReport | None = None
 
-        # Create tab widget
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        """Build the analysis dialog UI."""
+        layout = QtWidgets.QVBoxLayout(self)
+        apply_standard_layout(layout)
+
+        layout.addWidget(
+            build_dialog_header(
+                "Pattern Analysis",
+                f"Analyze session data from {self.session_dir.name}.",
+                eyebrow="Insights",
+            )
+        )
+
         self.tabs = QtWidgets.QTabWidget()
 
-        # Summary tab
         self.summary_text = QtWidgets.QTextEdit()
         self.summary_text.setReadOnly(True)
+        style_message_panel(self.summary_text, "info", "Run analysis to generate a summary.")
         self.tabs.addTab(self.summary_text, "Summary")
 
-        # Anomalies tab
         self.anomalies_table = QtWidgets.QTableWidget()
         self.anomalies_table.setColumnCount(4)
-        self.anomalies_table.setHorizontalHeaderLabels(
-            ["Pitch ID", "Type", "Severity", "Details"]
-        )
-        self.anomalies_table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Stretch
-        )
+        self.anomalies_table.setHorizontalHeaderLabels(["Pitch ID", "Type", "Severity", "Details"])
+        style_data_table(self.anomalies_table)
+        self.anomalies_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.tabs.addTab(self.anomalies_table, "Anomalies")
 
-        # Pitch Classification tab
         self.classification_table = QtWidgets.QTableWidget()
         self.classification_table.setColumnCount(4)
-        self.classification_table.setHorizontalHeaderLabels(
-            ["Pitch ID", "Type", "Confidence", "Features"]
-        )
-        self.classification_table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Stretch
-        )
+        self.classification_table.setHorizontalHeaderLabels(["Pitch ID", "Type", "Confidence", "Features"])
+        style_data_table(self.classification_table)
+        self.classification_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.tabs.addTab(self.classification_table, "Pitch Types")
 
-        # Baseline Comparison tab
         self.baseline_text = QtWidgets.QTextEdit()
         self.baseline_text.setReadOnly(True)
+        style_message_panel(self.baseline_text, "info", "Run analysis to compare against a baseline profile.")
         self.tabs.addTab(self.baseline_text, "Baseline Comparison")
 
-        # Buttons
+        layout.addWidget(self.tabs, 1)
+
+        button_row = QtWidgets.QHBoxLayout()
+        button_row.setSpacing(10)
+
         self.analyze_button = QtWidgets.QPushButton("Run Analysis")
+        self._style_manager.style_button(self.analyze_button, "primary")
         self.analyze_button.clicked.connect(self._run_analysis)
 
         self.open_html_button = QtWidgets.QPushButton("Open HTML Report")
+        self._style_manager.style_button(self.open_html_button, "ghost")
         self.open_html_button.clicked.connect(self._open_html_report)
         self.open_html_button.setEnabled(False)
 
         self.export_json_button = QtWidgets.QPushButton("Export JSON")
+        self._style_manager.style_button(self.export_json_button, "ghost")
         self.export_json_button.clicked.connect(self._export_json)
         self.export_json_button.setEnabled(False)
 
         self.create_profile_button = QtWidgets.QPushButton("Create Pitcher Profile")
+        self._style_manager.style_button(self.create_profile_button, "success")
         self.create_profile_button.clicked.connect(self._create_profile)
         self.create_profile_button.setEnabled(False)
 
         close_button = QtWidgets.QPushButton("Close")
+        self._style_manager.style_button(close_button, "ghost")
         close_button.clicked.connect(self.accept)
 
-        # Layout
-        button_row1 = QtWidgets.QHBoxLayout()
-        button_row1.addWidget(self.analyze_button)
-        button_row1.addWidget(self.open_html_button)
-        button_row1.addWidget(self.export_json_button)
-        button_row1.addStretch(1)
+        button_row.addWidget(self.analyze_button)
+        button_row.addWidget(self.open_html_button)
+        button_row.addWidget(self.export_json_button)
+        button_row.addWidget(self.create_profile_button)
+        button_row.addStretch()
+        button_row.addWidget(close_button)
+        layout.addLayout(button_row)
 
-        button_row2 = QtWidgets.QHBoxLayout()
-        button_row2.addWidget(self.create_profile_button)
-        button_row2.addStretch(1)
-        button_row2.addWidget(close_button)
-
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(self.tabs)
-        layout.addLayout(button_row1)
-        layout.addLayout(button_row2)
-
-        self.setLayout(layout)
-
-        # Status bar
-        self.status_label = QtWidgets.QLabel("Ready to analyze")
+        self.status_label = QtWidgets.QLabel("Ready to analyze.")
+        style_status_label(self.status_label, "info", "Ready to analyze.")
         layout.addWidget(self.status_label)
+
+        polish_form_controls(self)
+
+    def _set_status(self, text: str, tone: str = "info") -> None:
+        """Update analysis status."""
+        style_status_label(self.status_label, tone, text)
 
     def _run_analysis(self) -> None:
         """Run pattern analysis on the session."""
-        self.status_label.setText("Running analysis...")
+        self._set_status("Running analysis...", "warning")
         self.analyze_button.setEnabled(False)
         QtWidgets.QApplication.processEvents()
 
@@ -123,8 +138,6 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
             from analysis.pattern_detection.detector import PatternDetector
 
             detector = PatternDetector()
-
-            # Run analysis
             self.analysis_report = detector.analyze_session(
                 self.session_dir,
                 pitcher_id=self.pitcher_id,
@@ -132,25 +145,26 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
                 output_html=True,
             )
 
-            # Update UI with results
             self._update_summary()
             self._update_anomalies()
             self._update_classifications()
             self._update_baseline()
 
-            # Enable export buttons
             self.open_html_button.setEnabled(True)
             self.export_json_button.setEnabled(True)
             self.create_profile_button.setEnabled(True)
-
-            self.status_label.setText(
-                f"Analysis complete: {self.analysis_report.summary.total_pitches} pitches analyzed"
+            self._set_status(
+                f"Analysis complete: {self.analysis_report.summary.total_pitches} pitches analyzed",
+                "success",
             )
 
-        except Exception as e:
-            self.status_label.setText(f"Analysis failed: {e}")
-            QtWidgets.QMessageBox.critical(
-                self, "Analysis Error", f"Failed to analyze session:\n\n{e}"
+        except Exception as exc:
+            self._set_status(f"Analysis failed: {exc}", "error")
+            show_message_dialog(
+                self,
+                "Analysis Error",
+                f"Failed to analyze session:\n\n{exc}",
+                tone="error",
             )
         finally:
             self.analyze_button.setEnabled(True)
@@ -189,7 +203,10 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
 """
         if repertoire:
             for entry in repertoire:
-                text += f"<p><b>{entry.pitch_type}:</b> {entry.count} pitches ({entry.percentage * 100:.1f}%), avg {entry.avg_speed_mph:.1f} mph</p>"
+                text += (
+                    f"<p><b>{entry.pitch_type}:</b> {entry.count} pitches "
+                    f"({entry.percentage * 100:.1f}%), avg {entry.avg_speed_mph:.1f} mph</p>"
+                )
         else:
             text += "<p>No pitch types classified</p>"
 
@@ -202,20 +219,12 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
 
         anomalies = self.analysis_report.anomalies
         self.anomalies_table.setRowCount(len(anomalies))
-
         for row, anomaly in enumerate(anomalies):
-            self.anomalies_table.setItem(
-                row, 0, QtWidgets.QTableWidgetItem(anomaly.pitch_id)
-            )
-            self.anomalies_table.setItem(
-                row, 1, QtWidgets.QTableWidgetItem(anomaly.anomaly_type)
-            )
-            self.anomalies_table.setItem(
-                row, 2, QtWidgets.QTableWidgetItem(anomaly.severity)
-            )
-            self.anomalies_table.setItem(
-                row, 3, QtWidgets.QTableWidgetItem(json.dumps(anomaly.details))
-            )
+            self.anomalies_table.setItem(row, 0, QtWidgets.QTableWidgetItem(anomaly.pitch_id))
+            self.anomalies_table.setItem(row, 1, QtWidgets.QTableWidgetItem(anomaly.anomaly_type))
+            self.anomalies_table.setItem(row, 2, QtWidgets.QTableWidgetItem(anomaly.severity))
+            self.anomalies_table.setItem(row, 3, QtWidgets.QTableWidgetItem(json.dumps(anomaly.details)))
+        self.anomalies_table.resizeRowsToContents()
 
     def _update_classifications(self) -> None:
         """Update pitch classification tab."""
@@ -224,40 +233,36 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
 
         classifications = self.analysis_report.pitch_classification
         self.classification_table.setRowCount(len(classifications))
-
         for row, classification in enumerate(classifications):
+            self.classification_table.setItem(row, 0, QtWidgets.QTableWidgetItem(classification.pitch_id))
+            self.classification_table.setItem(row, 1, QtWidgets.QTableWidgetItem(classification.heuristic_type))
             self.classification_table.setItem(
-                row, 0, QtWidgets.QTableWidgetItem(classification.pitch_id)
-            )
-            self.classification_table.setItem(
-                row, 1, QtWidgets.QTableWidgetItem(classification.heuristic_type)
-            )
-            self.classification_table.setItem(
-                row, 2, QtWidgets.QTableWidgetItem(f"{classification.confidence:.2f}")
+                row,
+                2,
+                QtWidgets.QTableWidgetItem(f"{classification.confidence:.2f}"),
             )
             self.classification_table.setItem(
                 row,
                 3,
                 QtWidgets.QTableWidgetItem(json.dumps(classification.features)),
             )
+        self.classification_table.resizeRowsToContents()
 
     def _update_baseline(self) -> None:
         """Update baseline comparison tab."""
         if not self.analysis_report or not self.analysis_report.baseline_comparison:
-            self.baseline_text.setHtml("<p>No baseline profile available</p>")
+            self.baseline_text.setHtml("<p>No baseline profile available.</p>")
             return
 
         baseline = self.analysis_report.baseline_comparison
-
         if not baseline.profile_exists:
-            self.baseline_text.setHtml("<p>No baseline profile exists for this pitcher</p>")
+            self.baseline_text.setHtml("<p>No baseline profile exists for this pitcher.</p>")
             return
 
-        text = "<h2>Baseline Comparison</h2>"
-
-        # Velocity comparison
         velocity = baseline.velocity_vs_baseline
-        text += f"""
+        strike = baseline.strike_percentage_vs_baseline
+        text = f"""
+<h2>Baseline Comparison</h2>
 <h3>Velocity</h3>
 <ul>
 <li><b>Current:</b> {velocity['current']:.1f} mph</li>
@@ -265,11 +270,7 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
 <li><b>Delta:</b> {velocity['delta_mph']:.1f} mph</li>
 <li><b>Status:</b> {velocity['status']}</li>
 </ul>
-"""
 
-        # Strike percentage
-        strike = baseline.strike_percentage_vs_baseline
-        text += f"""
 <h3>Strike Percentage</h3>
 <ul>
 <li><b>Current:</b> {strike['current'] * 100:.1f}%</li>
@@ -278,7 +279,6 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
 <li><b>Status:</b> {strike['status']}</li>
 </ul>
 """
-
         self.baseline_text.setHtml(text)
 
     def _open_html_report(self) -> None:
@@ -287,20 +287,25 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
         if html_path.exists():
             webbrowser.open(html_path.as_uri())
         else:
-            QtWidgets.QMessageBox.warning(
-                self, "Report Not Found", "HTML report not found. Run analysis first."
+            show_message_dialog(
+                self,
+                "Report Not Found",
+                "HTML report not found. Run analysis first.",
+                tone="warning",
             )
 
     def _export_json(self) -> None:
-        """Export analysis report to JSON file."""
+        """Export analysis report to a JSON file."""
         json_path = self.session_dir / "analysis_report.json"
         if not json_path.exists():
-            QtWidgets.QMessageBox.warning(
-                self, "Report Not Found", "JSON report not found. Run analysis first."
+            show_message_dialog(
+                self,
+                "Report Not Found",
+                "JSON report not found. Run analysis first.",
+                tone="warning",
             )
             return
 
-        # Ask user where to save
         save_path, _ = QtWidgets.QFileDialog.getSaveFileName(
             self,
             "Export Analysis Report",
@@ -312,13 +317,15 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
             import shutil
 
             shutil.copy(json_path, save_path)
-            QtWidgets.QMessageBox.information(
-                self, "Export Complete", f"Report exported to:\n{save_path}"
+            show_message_dialog(
+                self,
+                "Export Complete",
+                f"Report exported to:\n{save_path}",
+                tone="success",
             )
 
     def _create_profile(self) -> None:
-        """Create or update pitcher profile."""
-        # Ask for pitcher ID if not provided
+        """Create or update a pitcher profile."""
         pitcher_id = self.pitcher_id
         if not pitcher_id:
             pitcher_id, ok = QtWidgets.QInputDialog.getText(
@@ -333,23 +340,24 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
             from analysis.pattern_detection.detector import PatternDetector
 
             detector = PatternDetector()
-
-            # Create profile from this session
             detector.create_pitcher_profile(pitcher_id, [self.session_dir])
 
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self,
                 "Profile Created",
-                f"Pitcher profile created/updated for: {pitcher_id}",
+                f"Pitcher profile created or updated for: {pitcher_id}",
+                tone="success",
             )
 
-            # Re-run analysis with profile
             self.pitcher_id = pitcher_id
             self._run_analysis()
 
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(
-                self, "Profile Error", f"Failed to create profile:\n\n{e}"
+        except Exception as exc:
+            show_message_dialog(
+                self,
+                "Profile Error",
+                f"Failed to create profile:\n\n{exc}",
+                tone="error",
             )
 
 

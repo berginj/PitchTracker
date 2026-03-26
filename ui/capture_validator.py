@@ -21,6 +21,15 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from capture import CameraDevice
 from configs.settings import AppConfig, load_config
+from ui.themes import (
+    apply_standard_layout,
+    build_dialog_header,
+    get_style_manager,
+    polish_form_controls,
+    show_message_dialog,
+    style_preview_surface,
+    style_status_label,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +44,7 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
         parent: Optional[QtWidgets.QWidget] = None,
     ):
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self.setWindowTitle("Camera Capture Validator")
         self.resize(1200, 700)
 
@@ -67,20 +77,17 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
     def _build_ui(self) -> None:
         """Build validator UI."""
         central = QtWidgets.QWidget()
+        central.setObjectName("AppShell")
         layout = QtWidgets.QVBoxLayout()
+        apply_standard_layout(layout)
 
-        # Title
-        title = QtWidgets.QLabel("Camera Capture Validator")
-        title.setStyleSheet("font-size: 18pt; font-weight: bold; padding: 10px;")
-        layout.addWidget(title)
-
-        info = QtWidgets.QLabel(
+        header = build_dialog_header(
+            "Camera Capture Validator",
             "Test your calibrated cameras by viewing live preview and recording raw video.\n"
-            "No detection or tracking - just camera capture validation."
+            "No detection or tracking, just direct camera capture validation.",
+            eyebrow="Utilities",
         )
-        info.setStyleSheet("padding: 5px; color: #666; font-style: italic;")
-        info.setWordWrap(True)
-        layout.addWidget(info)
+        layout.addWidget(header)
 
         # Camera previews
         preview_layout = QtWidgets.QHBoxLayout()
@@ -91,7 +98,7 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
         self._left_view.setMinimumSize(500, 375)
         self._left_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._left_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._left_view.setStyleSheet("background-color: #000000; color: #ffffff;")
+        style_preview_surface(self._left_view)
         left_layout = QtWidgets.QVBoxLayout()
         left_layout.addWidget(self._left_view)
         left_group.setLayout(left_layout)
@@ -103,7 +110,7 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
         self._right_view.setMinimumSize(500, 375)
         self._right_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._right_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._right_view.setStyleSheet("background-color: #000000; color: #ffffff;")
+        style_preview_surface(self._right_view)
         right_layout = QtWidgets.QVBoxLayout()
         right_layout.addWidget(self._right_view)
         right_group.setLayout(right_layout)
@@ -116,17 +123,18 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
 
         self._start_button = QtWidgets.QPushButton("▶ Start Cameras")
         self._start_button.setMinimumHeight(50)
-        self._start_button.setStyleSheet("font-size: 14pt; background-color: #4CAF50; color: white;")
+        self._style_manager.style_button(self._start_button, "success")
         self._start_button.clicked.connect(self._start_cameras)
 
         self._record_button = QtWidgets.QPushButton("⏺ Start Recording")
         self._record_button.setMinimumHeight(50)
-        self._record_button.setStyleSheet("font-size: 14pt; background-color: #f44336; color: white;")
+        self._style_manager.style_button(self._record_button, "danger")
         self._record_button.setEnabled(False)
         self._record_button.clicked.connect(self._toggle_recording)
 
         self._stop_button = QtWidgets.QPushButton("⏹ Stop Cameras")
         self._stop_button.setMinimumHeight(50)
+        self._style_manager.style_button(self._stop_button, "ghost")
         self._stop_button.setEnabled(False)
         self._stop_button.clicked.connect(self._stop_cameras)
 
@@ -137,11 +145,16 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
 
         # Status
         self._status_label = QtWidgets.QLabel("Ready. Click 'Start Cameras' to begin.")
-        self._status_label.setStyleSheet("padding: 5px; background-color: #f0f0f0;")
+        style_status_label(self._status_label, "info", "Ready. Click 'Start Cameras' to begin.")
         layout.addWidget(self._status_label)
 
         central.setLayout(layout)
         self.setCentralWidget(central)
+        polish_form_controls(central)
+
+    def _set_status(self, text: str, tone: str = "info") -> None:
+        """Update the validator status banner."""
+        style_status_label(self._status_label, tone, text)
 
     def _start_cameras(self) -> None:
         """Start camera capture."""
@@ -186,14 +199,18 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
             self._start_button.setEnabled(False)
             self._record_button.setEnabled(True)
             self._stop_button.setEnabled(True)
-            self._status_label.setText(f"✓ Cameras running: Left={self._left_serial}, Right={self._right_serial}")
-            self._status_label.setStyleSheet("padding: 5px; background-color: #c8e6c9; color: #2e7d32;")
+            self._set_status(
+                f"Cameras running: Left={self._left_serial}, Right={self._right_serial}",
+                "success",
+            )
 
         except Exception as e:
-            QtWidgets.QMessageBox.critical(
+            show_message_dialog(
                 self,
                 "Camera Error",
-                f"Failed to start cameras:\n{e}\n\nCheck camera connections and permissions.",
+                f"Failed to start cameras:\n{e}",
+                tone="error",
+                informative_text="Check camera connections and permissions.",
             )
             self._stop_cameras()
 
@@ -235,8 +252,7 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
         self._start_button.setEnabled(True)
         self._record_button.setEnabled(False)
         self._stop_button.setEnabled(False)
-        self._status_label.setText("Cameras stopped.")
-        self._status_label.setStyleSheet("padding: 5px; background-color: #f0f0f0;")
+        self._set_status("Cameras stopped.", "info")
 
     def _toggle_recording(self) -> None:
         """Toggle video recording."""
@@ -294,15 +310,15 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
 
                 self._recording = True
                 self._record_button.setText("⏹ Stop Recording")
-                self._record_button.setStyleSheet("font-size: 14pt; background-color: #FF5722; color: white;")
-                self._status_label.setText(f"⏺ Recording to: {self._test_dir}")
-                self._status_label.setStyleSheet("padding: 5px; background-color: #ffcdd2; color: #c62828;")
+                self._style_manager.style_button(self._record_button, "danger")
+                self._set_status(f"Recording to: {self._test_dir}", "warning")
 
             except Exception as e:
-                QtWidgets.QMessageBox.critical(
+                show_message_dialog(
                     self,
                     "Recording Error",
                     f"Failed to start recording:\n{e}",
+                    tone="error",
                 )
 
         else:
@@ -317,12 +333,11 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
 
             self._recording = False
             self._record_button.setText("⏺ Start Recording")
-            self._record_button.setStyleSheet("font-size: 14pt; background-color: #f44336; color: white;")
-            self._status_label.setText(f"✓ Recording saved to: {self._test_dir}")
-            self._status_label.setStyleSheet("padding: 5px; background-color: #c8e6c9; color: #2e7d32;")
+            self._style_manager.style_button(self._record_button, "danger")
+            self._set_status(f"Recording saved to: {self._test_dir}", "success")
 
             # Show directory
-            QtWidgets.QMessageBox.information(
+            show_message_dialog(
                 self,
                 "Recording Complete",
                 f"Test recording saved to:\n{self._test_dir}\n\n"
@@ -330,6 +345,7 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
                 f"- left_camera.avi\n"
                 f"- right_camera.avi\n"
                 f"- test_info.txt",
+                tone="success",
             )
 
     def _update_preview(self) -> None:

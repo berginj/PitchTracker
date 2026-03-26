@@ -17,6 +17,7 @@ from .capture import CaptureService, FrameCallback, CameraStateCallback
 from .detection import DetectionService, ObservationCallback
 from .recording import RecordingService, RecordingCallback
 from .analysis import AnalysisService
+from .tooling import ToolingService, SubprocessToolingService, get_tooling_service
 
 __all__ = [
     # Capture service
@@ -31,4 +32,8 @@ __all__ = [
     "RecordingCallback",
     # Analysis service
     "AnalysisService",
+    # Tooling service
+    "ToolingService",
+    "SubprocessToolingService",
+    "get_tooling_service",
 ]
