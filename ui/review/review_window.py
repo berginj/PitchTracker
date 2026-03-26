@@ -10,7 +10,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.review import PitchScore, ReviewService
 from ui.review.widgets import ParameterPanel, PitchListWidget, PlaybackControls, TimelineWidget, VideoDisplayWidget
-from ui.themes import ask_confirmation, get_style_manager, show_message_dialog
+from ui.themes import apply_standard_layout, ask_confirmation, get_style_manager, show_message_dialog
 from visualization.trajectory_renderer import (
     RenderStyle,
     TrajectoryRenderConfig,
@@ -218,8 +218,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         # Main horizontal layout
         main_layout = QtWidgets.QHBoxLayout()
-        main_layout.setContentsMargins(24, 24, 24, 24)
-        main_layout.setSpacing(16)
+        apply_standard_layout(main_layout)
         main_layout.addWidget(left_section, 1)  # Video section takes most space
         main_layout.addWidget(right_section)  # Right panel
 
@@ -246,7 +245,6 @@ class ReviewWindow(QtWidgets.QMainWindow):
         # Vertical layout
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
         layout.addWidget(self._parameter_panel)
         layout.addWidget(self._pitch_list)
 
@@ -282,7 +280,6 @@ class ReviewWindow(QtWidgets.QMainWindow):
         # Layout
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(14)
         layout.addWidget(video_section, 1)  # Takes most space
         layout.addWidget(self._timeline)
         layout.addWidget(self._controls)
@@ -315,7 +312,6 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         # Horizontal layout for side-by-side
         layout = QtWidgets.QHBoxLayout()
-        layout.setSpacing(16)
         layout.addWidget(left_group)
         layout.addWidget(right_group)
 

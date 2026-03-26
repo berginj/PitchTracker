@@ -42,28 +42,18 @@ class TargetScoringGame(BaseGame):
 
         # Title
         title = QtWidgets.QLabel("TARGET SCORING")
-        font = title.font()
-        font.setPointSize(18)
-        font.setBold(True)
-        title.setFont(font)
+        self._style_manager.style_label(title, "pageTitle")
         title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
         # Score display
         self._score_label = QtWidgets.QLabel("Score: 0")
-        font = self._score_label.font()
-        font.setPointSize(24)
-        font.setBold(True)
-        self._score_label.setFont(font)
         self._score_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._style_manager.style_label(self._score_label, "metricAccent")
         layout.addWidget(self._score_label)
 
         # Streak display
         self._streak_label = QtWidgets.QLabel("Streak: 0")
-        font = self._streak_label.font()
-        font.setPointSize(14)
-        self._streak_label.setFont(font)
         self._streak_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._style_manager.style_label(self._streak_label, "muted")
         layout.addWidget(self._streak_label)
@@ -87,6 +77,7 @@ class TargetScoringGame(BaseGame):
         layout.addWidget(reset_btn)
 
         layout.addStretch()
+        self._style_manager.apply_standard_layout(layout)
         self.setLayout(layout)
 
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
@@ -108,10 +99,7 @@ class TargetScoringGame(BaseGame):
             painter.drawLine(0, i * cell_height, width, i * cell_height)
 
         # Draw point values
-        font = painter.font()
-        font.setPointSize(20)
-        font.setBold(True)
-        painter.setFont(font)
+        theme = self._style_manager.get_theme()
 
         for row in range(3):
             for col in range(3):
@@ -121,11 +109,11 @@ class TargetScoringGame(BaseGame):
 
                 # Color code by value
                 if points == 5:
-                    painter.setPen(QtGui.QColor(244, 67, 54))  # Red
+                    painter.setPen(QtGui.QColor(theme.accent_error))
                 elif points == 3:
-                    painter.setPen(QtGui.QColor(255, 152, 0))  # Orange
+                    painter.setPen(QtGui.QColor(theme.accent_warning))
                 else:
-                    painter.setPen(QtGui.QColor(76, 175, 80))  # Green
+                    painter.setPen(QtGui.QColor(theme.accent_success))
 
                 painter.drawText(
                     QtCore.QRect(x, y, cell_width, cell_height),

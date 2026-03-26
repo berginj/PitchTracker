@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
-from ui.themes import get_style_manager
+
+from ui.themes import apply_standard_layout, get_style_manager
 
 if TYPE_CHECKING:
     from app.pipeline_service import PitchSummary
@@ -31,51 +32,34 @@ class StatsPanelWidget(QtWidgets.QWidget):
     def _build_ui(self) -> None:
         """Build the widget UI."""
         layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(12)
+        apply_standard_layout(layout)
 
         # Title
         title = QtWidgets.QLabel("Latest Pitch Stats")
-        font = title.font()
-        font.setPointSize(14)
-        font.setBold(True)
-        title.setFont(font)
         title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._style_manager.style_label(title, "sectionTitle")
         layout.addWidget(title)
 
         # Speed display (large, prominent)
         self._speed_label = QtWidgets.QLabel("Speed: -- mph")
-        font = self._speed_label.font()
-        font.setPointSize(18)
-        font.setBold(True)
-        self._speed_label.setFont(font)
         self._speed_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._style_manager.style_label(self._speed_label, "metricAccent")
         layout.addWidget(self._speed_label)
 
         # H-break
         self._h_break_label = QtWidgets.QLabel("H-Break: -- in")
-        font = self._h_break_label.font()
-        font.setPointSize(12)
-        self._h_break_label.setFont(font)
         self._h_break_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._style_manager.style_label(self._h_break_label, "muted")
         layout.addWidget(self._h_break_label)
 
         # V-break
         self._v_break_label = QtWidgets.QLabel("V-Break: -- in")
-        font = self._v_break_label.font()
-        font.setPointSize(12)
-        self._v_break_label.setFont(font)
         self._v_break_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._style_manager.style_label(self._v_break_label, "muted")
         layout.addWidget(self._v_break_label)
 
         # Result
         self._result_label = QtWidgets.QLabel("Result: --")
-        font = self._result_label.font()
-        font.setPointSize(14)
-        font.setBold(True)
-        self._result_label.setFont(font)
         self._result_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._style_manager.style_label(self._result_label, "sectionTitle")
         layout.addWidget(self._result_label)
@@ -88,10 +72,6 @@ class StatsPanelWidget(QtWidgets.QWidget):
 
         # Recent pitches title
         recent_title = QtWidgets.QLabel("Recent Pitches")
-        font = recent_title.font()
-        font.setPointSize(12)
-        font.setBold(True)
-        recent_title.setFont(font)
         self._style_manager.style_label(recent_title, "eyebrow")
         layout.addWidget(recent_title)
 
@@ -150,6 +130,8 @@ class StatsPanelWidget(QtWidgets.QWidget):
         # Show last 10 pitches, newest first
         display_pitches = recent_pitches[-10:][::-1]
 
+        theme = self._style_manager.theme
+
         for i, pitch in enumerate(display_pitches):
             # Format: "#1: 85.3 mph - STRIKE"
             pitch_num = len(recent_pitches) - i
@@ -158,12 +140,12 @@ class StatsPanelWidget(QtWidgets.QWidget):
 
             item_text = f"#{pitch_num}: {speed_str} mph - {result_str}"
 
-            # Color code by result
+            # Color code by result using theme colors
             item = QtWidgets.QListWidgetItem(item_text)
             if pitch.is_strike:
-                item.setForeground(QtGui.QColor("#4CAF50"))  # Green
+                item.setForeground(QtGui.QColor(theme.accent_success))
             else:
-                item.setForeground(QtGui.QColor("#FF5722"))  # Red
+                item.setForeground(QtGui.QColor(theme.accent_error))
 
             self._recent_list.addItem(item)
 

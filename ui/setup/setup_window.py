@@ -19,6 +19,7 @@ from ui.setup.steps import (
 )
 from ui.themes import (
     GlassButton,
+    apply_standard_layout,
     ask_confirmation,
     get_style_manager,
     show_message_dialog,
@@ -99,8 +100,7 @@ class SetupWindow(QtWidgets.QMainWindow):
 
         # Main layout
         layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(16)
+        apply_standard_layout(layout)
         layout.addWidget(header)
         layout.addWidget(self._step_indicator)
         layout.addWidget(self._content_stack, 1)  # Content takes most space
@@ -118,7 +118,6 @@ class SetupWindow(QtWidgets.QMainWindow):
 
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(24, 22, 24, 22)
-        layout.setSpacing(6)
 
         eyebrow = QtWidgets.QLabel("System setup")
         self._style_manager.style_label(eyebrow, "eyebrow")
@@ -151,7 +150,6 @@ class SetupWindow(QtWidgets.QMainWindow):
 
         indicator_layout = QtWidgets.QHBoxLayout()
         indicator_layout.setContentsMargins(0, 0, 0, 0)
-        indicator_layout.setSpacing(10)
 
         self._step_labels: List[QtWidgets.QLabel] = []
         for i, name in enumerate(step_names):
@@ -206,7 +204,6 @@ class SetupWindow(QtWidgets.QMainWindow):
 
         nav_layout = QtWidgets.QHBoxLayout()
         nav_layout.setContentsMargins(0, 0, 0, 0)
-        nav_layout.setSpacing(12)
         nav_layout.addWidget(self._back_button)
         nav_layout.addStretch()
         nav_layout.addWidget(self._skip_button)

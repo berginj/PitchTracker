@@ -65,7 +65,7 @@ from ui.controllers import (
     RoiManager,
     SettingsManager,
 )
-from ui.themes import GlassButton, ask_confirmation, get_style_manager, show_message_dialog
+from ui.themes import GlassButton, apply_standard_layout, ask_confirmation, get_style_manager, show_message_dialog
 
 # System hardening imports
 from app.events import get_error_bus, ErrorCategory, ErrorSeverity
@@ -233,41 +233,34 @@ class MainWindow(QtWidgets.QMainWindow):
         self._apply_detector = QtWidgets.QPushButton("Apply Detector")
 
         controls = QtWidgets.QHBoxLayout()
-        controls.setSpacing(12)
         controls.addWidget(self._record_button)
         controls.addWidget(self._stop_record_button)
 
         plate_column = QtWidgets.QVBoxLayout()
-        plate_column.setSpacing(12)
         plate_column.addWidget(self._plate_map)
         plate_column.addWidget(self._build_game_panel())
         plate_widget = QtWidgets.QWidget()
         plate_widget.setLayout(plate_column)
         self._plate_widget = plate_widget
         self._views_layout = QtWidgets.QHBoxLayout()
-        self._views_layout.setSpacing(16)
         self._views_layout.addWidget(self._left_view, 3)
         self._views_layout.addWidget(self._plate_widget, 2)
         self._views_layout.addWidget(self._right_view, 2)
 
         self._setup_group = QtWidgets.QGroupBox("Setup & Calibration")
         profile_row = QtWidgets.QHBoxLayout()
-        profile_row.setSpacing(12)
         profile_row.addWidget(self._profile_combo)
         profile_row.addWidget(self._profile_load)
         profile_row.addWidget(self._profile_name)
         profile_row.addWidget(self._profile_save)
         pitcher_row = QtWidgets.QHBoxLayout()
-        pitcher_row.setSpacing(12)
         pitcher_row.addWidget(self._pitcher_combo)
         pitcher_row.addWidget(self._pitcher_name_input)
         pitcher_row.addWidget(self._pitcher_add)
         device_row = QtWidgets.QHBoxLayout()
-        device_row.setSpacing(12)
         device_row.addWidget(self._left_input)
         device_row.addWidget(self._right_input)
         roi_row = QtWidgets.QHBoxLayout()
-        roi_row.setSpacing(12)
         roi_row.addWidget(self._lane_button)
         roi_row.addWidget(self._lane_right_button)
         roi_row.addWidget(self._plate_button)
@@ -276,16 +269,13 @@ class MainWindow(QtWidgets.QMainWindow):
         roi_row.addWidget(self._save_roi_button)
         roi_row.addWidget(self._load_roi_button)
         calib_row = QtWidgets.QHBoxLayout()
-        calib_row.setSpacing(12)
         calib_row.addWidget(self._guide_button)
         calib_row.addWidget(self._quick_cal_button)
         calib_row.addWidget(self._plate_cal_button)
         action_row = QtWidgets.QHBoxLayout()
-        action_row.setSpacing(12)
         action_row.addStretch(1)
         action_row.addWidget(self._enter_button)
         setup_layout = QtWidgets.QVBoxLayout()
-        setup_layout.setSpacing(12)
         setup_layout.addLayout(profile_row)
         setup_layout.addLayout(pitcher_row)
         setup_layout.addLayout(device_row)
@@ -294,8 +284,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._setup_group.setLayout(setup_layout)
 
         layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(16)
+        apply_standard_layout(layout)
         layout.addWidget(self._setup_group)
         self._controls_widget = QtWidgets.QWidget()
         self._controls_widget.setLayout(controls)

@@ -12,6 +12,8 @@ from ui.coaching.widgets.games.speed_challenge_game import SpeedChallengeGame
 from ui.coaching.widgets.games.target_scoring_game import TargetScoringGame
 from ui.coaching.widgets.games.tic_tac_toe_game import TicTacToeGame
 from ui.coaching.widgets.mode_widgets.base_mode_widget import BaseModeWidget
+from ui.themes import get_style_manager
+from ui.themes.layout_helpers import apply_standard_layout
 
 if TYPE_CHECKING:
     from contracts import Frame
@@ -43,6 +45,7 @@ class GameModeWidget(BaseModeWidget):
             parent: Parent widget
         """
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self._game_state_mgr = game_state_manager
         self._build_ui()
 
@@ -54,10 +57,7 @@ class GameModeWidget(BaseModeWidget):
         selector_layout = QtWidgets.QHBoxLayout()
 
         title = QtWidgets.QLabel("GAME MODE")
-        font = title.font()
-        font.setPointSize(16)
-        font.setBold(True)
-        title.setFont(font)
+        self._style_manager.style_label(title, "sectionTitle")
         selector_layout.addWidget(title)
 
         selector_layout.addStretch()
@@ -91,8 +91,7 @@ class GameModeWidget(BaseModeWidget):
 
         layout.addWidget(self._game_stack, 1)
 
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(10)
+        apply_standard_layout(layout)
 
         self.setLayout(layout)
 

@@ -262,7 +262,7 @@ class ThemeLinter:
     def generate_summary(self) -> str:
         """Generate summary statistics."""
         if not self.violations:
-            return "✅ No theme violations found! All UI files are compliant."
+            return "[OK] No theme violations found! All UI files are compliant."
 
         total_files = len(set(v.file_path for v in self.violations))
         total_violations = len(self.violations)

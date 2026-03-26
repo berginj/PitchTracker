@@ -63,7 +63,6 @@ class SessionSummaryDialog(QtWidgets.QDialog):
         layout.addWidget(content_splitter, 1)
 
         export_row = QtWidgets.QHBoxLayout()
-        export_row.setSpacing(10)
 
         self._export_combo = QtWidgets.QComboBox()
         self._export_combo.addItem("Session Summary (JSON)", "summary_json")
@@ -101,7 +100,6 @@ class SessionSummaryDialog(QtWidgets.QDialog):
     def _build_metric_cards(self) -> QtWidgets.QHBoxLayout:
         """Build top-line metric cards."""
         layout = QtWidgets.QHBoxLayout()
-        layout.setSpacing(12)
         cards = [
             ("Pitches", str(self._summary.pitch_count)),
             ("Strikes", str(self._summary.strikes)),
@@ -116,7 +114,6 @@ class SessionSummaryDialog(QtWidgets.QDialog):
             self._style_manager.style_panel(card, "normal")
             card_layout = QtWidgets.QVBoxLayout(card)
             card_layout.setContentsMargins(14, 12, 14, 12)
-            card_layout.setSpacing(6)
             eyebrow = QtWidgets.QLabel(label)
             self._style_manager.style_label(eyebrow, "eyebrow")
             metric = QtWidgets.QLabel(value)
@@ -132,7 +129,6 @@ class SessionSummaryDialog(QtWidgets.QDialog):
         self._style_manager.style_panel(panel, "normal")
         layout = QtWidgets.QVBoxLayout(panel)
         layout.setContentsMargins(14, 12, 14, 14)
-        layout.setSpacing(10)
 
         title = QtWidgets.QLabel("Strike Zone Heatmap")
         self._style_manager.style_label(title, "sectionTitle")
@@ -176,7 +172,6 @@ class SessionSummaryDialog(QtWidgets.QDialog):
         self._style_manager.style_panel(panel, "normal")
         layout = QtWidgets.QVBoxLayout(panel)
         layout.setContentsMargins(14, 12, 14, 14)
-        layout.setSpacing(10)
 
         title = QtWidgets.QLabel("Pitch Details")
         self._style_manager.style_label(title, "sectionTitle")

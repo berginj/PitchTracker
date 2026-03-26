@@ -57,7 +57,6 @@ class PitcherCard(QtWidgets.QFrame):
 
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(14, 10, 14, 10)
-        layout.setSpacing(10)
         layout.addWidget(self._name_label, 1)
         layout.addWidget(self._edit_btn)
         layout.addWidget(self._delete_btn)
@@ -129,7 +128,6 @@ class TeamManager(QtWidgets.QDialog):
 
         self._roster_list = QtWidgets.QWidget()
         self._roster_layout = QtWidgets.QVBoxLayout(self._roster_list)
-        self._roster_layout.setSpacing(8)
         self._roster_layout.setContentsMargins(12, 12, 12, 12)
         self._roster_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
 
@@ -150,7 +148,6 @@ class TeamManager(QtWidgets.QDialog):
         self._style_manager.style_panel(add_section, "subtle")
         add_layout = QtWidgets.QHBoxLayout(add_section)
         add_layout.setContentsMargins(14, 12, 14, 12)
-        add_layout.setSpacing(10)
 
         self._new_pitcher_edit = QtWidgets.QLineEdit()
         self._new_pitcher_edit.setPlaceholderText("New pitcher name...")

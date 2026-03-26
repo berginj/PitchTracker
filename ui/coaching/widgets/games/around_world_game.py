@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ui.coaching.widgets.games.base_game import BaseGame
-from ui.themes import show_message_dialog
+from ui.themes import get_style_manager, show_message_dialog
 
 if TYPE_CHECKING:
     from app.pipeline_service import PitchSummary
@@ -32,6 +32,7 @@ class AroundWorldGame(BaseGame):
     ):
         """Initialize around the world game."""
         super().__init__(game_state_manager, parent)
+        self._style_manager = get_style_manager()
         self._current_index = 0
         self._pitch_count = 0
         self._build_ui()
@@ -41,27 +42,19 @@ class AroundWorldGame(BaseGame):
         layout = QtWidgets.QVBoxLayout()
 
         title = QtWidgets.QLabel("AROUND THE WORLD")
-        font = title.font()
-        font.setPointSize(18)
-        font.setBold(True)
-        title.setFont(font)
+        self._style_manager.style_label(title, "pageTitle")
         title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
         # Progress display
         self._progress_label = QtWidgets.QLabel(f"Target: 1/{len(self.SEQUENCE)}")
-        font = self._progress_label.font()
-        font.setPointSize(16)
-        font.setBold(True)
-        self._progress_label.setFont(font)
+        self._style_manager.style_label(self._progress_label, "sectionTitle")
         self._progress_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._progress_label)
 
         # Pitch counter
         self._pitch_label = QtWidgets.QLabel("Pitches: 0")
-        font = self._pitch_label.font()
-        font.setPointSize(14)
-        self._pitch_label.setFont(font)
+        self._style_manager.style_label(self._pitch_label, "accent")
         self._pitch_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._pitch_label)
 
@@ -71,15 +64,18 @@ class AroundWorldGame(BaseGame):
         layout.addWidget(self._grid_widget, 1)
 
         instructions = QtWidgets.QLabel("Hit zones in order. Target zone glows yellow.")
+        self._style_manager.style_label(instructions, "muted")
         instructions.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         instructions.setWordWrap(True)
         layout.addWidget(instructions)
 
         reset_btn = QtWidgets.QPushButton("Restart")
         reset_btn.clicked.connect(self.reset_game)
+        self._style_manager.style_button(reset_btn, "ghost")
         layout.addWidget(reset_btn)
 
         layout.addStretch()
+        self._style_manager.apply_standard_layout(layout)
         self.setLayout(layout)
 
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
@@ -101,16 +97,15 @@ class AroundWorldGame(BaseGame):
             painter.drawLine(0, i * cell_height, width, i * cell_height)
 
         # Mark completed zones (green check)
+        theme = self._style_manager.get_theme()
         for i in range(self._current_index):
             row, col = self.SEQUENCE[i]
             x = col * cell_width
             y = row * cell_height
-            painter.fillRect(x + 2, y + 2, cell_width - 4, cell_height - 4, QtGui.QColor(76, 175, 80, 100))
-            painter.setPen(QtGui.QColor(76, 175, 80))
-            font = painter.font()
-            font.setPointSize(20)
-            font.setBold(True)
-            painter.setFont(font)
+            success_color = QtGui.QColor(theme.accent_success)
+            success_color.setAlpha(100)
+            painter.fillRect(x + 2, y + 2, cell_width - 4, cell_height - 4, success_color)
+            painter.setPen(QtGui.QColor(theme.accent_success))
             painter.drawText(QtCore.QRect(x, y, cell_width, cell_height), QtCore.Qt.AlignmentFlag.AlignCenter, "✓")
 
         # Highlight current target (yellow)
@@ -118,7 +113,9 @@ class AroundWorldGame(BaseGame):
             row, col = self.SEQUENCE[self._current_index]
             x = col * cell_width
             y = row * cell_height
-            painter.fillRect(x + 2, y + 2, cell_width - 4, cell_height - 4, QtGui.QColor(255, 235, 59, 150))
+            warning_color = QtGui.QColor(theme.accent_warning)
+            warning_color.setAlpha(150)
+            painter.fillRect(x + 2, y + 2, cell_width - 4, cell_height - 4, warning_color)
 
     def process_pitch(self, pitch: "PitchSummary") -> None:
         """Process pitch."""

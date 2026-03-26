@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ui.coaching.widgets.games.base_game import BaseGame
-from ui.themes import show_message_dialog
+from ui.themes import get_style_manager, show_message_dialog
 
 if TYPE_CHECKING:
     from app.pipeline_service import PitchSummary
@@ -31,6 +31,7 @@ class SpeedChallengeGame(BaseGame):
     ):
         """Initialize speed challenge game."""
         super().__init__(game_state_manager, parent)
+        self._style_manager = get_style_manager()
         self._difficulty = "Easy"
         self._current_target = None
         self._completed_targets = 0
@@ -42,16 +43,15 @@ class SpeedChallengeGame(BaseGame):
         layout = QtWidgets.QVBoxLayout()
 
         title = QtWidgets.QLabel("SPEED CHALLENGE")
-        font = title.font()
-        font.setPointSize(18)
-        font.setBold(True)
-        title.setFont(font)
+        self._style_manager.style_label(title, "pageTitle")
         title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
         # Difficulty selector
         diff_layout = QtWidgets.QHBoxLayout()
-        diff_layout.addWidget(QtWidgets.QLabel("Difficulty:"))
+        diff_label = QtWidgets.QLabel("Difficulty:")
+        self._style_manager.style_label(diff_label, "muted")
+        diff_layout.addWidget(diff_label)
         self._diff_combo = QtWidgets.QComboBox()
         self._diff_combo.addItems(["Easy", "Medium", "Hard"])
         self._diff_combo.currentTextChanged.connect(self._on_difficulty_changed)
@@ -61,18 +61,13 @@ class SpeedChallengeGame(BaseGame):
 
         # Target display
         self._target_label = QtWidgets.QLabel("Target: -- mph, Zone --")
-        font = self._target_label.font()
-        font.setPointSize(14)
-        font.setBold(True)
-        self._target_label.setFont(font)
+        self._style_manager.style_label(self._target_label, "sectionTitle")
         self._target_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._target_label)
 
         # Score display
         self._score_label = QtWidgets.QLabel("Targets Hit: 0")
-        font = self._score_label.font()
-        font.setPointSize(16)
-        self._score_label.setFont(font)
+        self._style_manager.style_label(self._score_label, "sectionTitle")
         self._score_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._score_label)
 
@@ -82,14 +77,17 @@ class SpeedChallengeGame(BaseGame):
         layout.addWidget(self._grid_widget, 1)
 
         instructions = QtWidgets.QLabel("Hit target zone at target speed (±tolerance)")
+        self._style_manager.style_label(instructions, "muted")
         instructions.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(instructions)
 
         reset_btn = QtWidgets.QPushButton("New Target")
         reset_btn.clicked.connect(self._generate_target)
+        self._style_manager.style_button(reset_btn, "ghost")
         layout.addWidget(reset_btn)
 
         layout.addStretch()
+        self._style_manager.apply_standard_layout(layout)
         self.setLayout(layout)
 
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
@@ -112,10 +110,13 @@ class SpeedChallengeGame(BaseGame):
 
         # Highlight target zone
         if self._current_target:
+            theme = self._style_manager.get_theme()
             row, col = self._current_target["zone_row"], self._current_target["zone_col"]
             x = col * cell_width
             y = row * cell_height
-            painter.fillRect(x + 2, y + 2, cell_width - 4, cell_height - 4, QtGui.QColor(255, 152, 0, 150))
+            warning_color = QtGui.QColor(theme.accent_warning)
+            warning_color.setAlpha(150)
+            painter.fillRect(x + 2, y + 2, cell_width - 4, cell_height - 4, warning_color)
 
     def _generate_target(self) -> None:
         """Generate random target."""

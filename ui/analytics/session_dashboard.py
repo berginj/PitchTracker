@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, List, Optional
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ui.themes import get_style_manager, style_progress_bar
+from ui.themes import apply_standard_layout, get_style_manager, style_progress_bar
 
 try:
     from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -60,18 +60,15 @@ class SessionDashboard(QtWidgets.QWidget):
         """Build the dashboard UI."""
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(16)
 
         self._header = self._build_header()
         self._stats_row = self._build_stats_cards()
 
         charts_layout = QtWidgets.QHBoxLayout()
-        charts_layout.setSpacing(16)
         self._velocity_chart = self._build_velocity_chart()
         charts_layout.addWidget(self._velocity_chart, 2)
 
         right_side = QtWidgets.QVBoxLayout()
-        right_side.setSpacing(16)
         self._heat_map = self._build_heat_map()
         right_side.addWidget(self._heat_map)
         self._pitch_type_chart = self._build_pitch_type_chart()
@@ -96,7 +93,6 @@ class SessionDashboard(QtWidgets.QWidget):
 
         layout = QtWidgets.QVBoxLayout(widget)
         layout.setContentsMargins(20, 18, 20, 18)
-        layout.setSpacing(6)
         layout.addWidget(self._title_label)
         layout.addWidget(self._session_info)
         return widget
@@ -104,7 +100,6 @@ class SessionDashboard(QtWidgets.QWidget):
     def _build_stats_cards(self) -> QtWidgets.QHBoxLayout:
         """Build row of stats cards."""
         layout = QtWidgets.QHBoxLayout()
-        layout.setSpacing(12)
         self._avg_velocity_card = self._create_stat_card("Avg Velocity", "--", "mph")
         self._max_velocity_card = self._create_stat_card("Max Velocity", "--", "mph")
         self._strike_pct_card = self._create_stat_card("Strike Rate", "--", "%")
@@ -139,11 +134,9 @@ class SessionDashboard(QtWidgets.QWidget):
 
         layout = QtWidgets.QVBoxLayout(card)
         layout.setContentsMargins(14, 12, 14, 12)
-        layout.setSpacing(6)
         layout.addWidget(label_widget)
 
         value_row = QtWidgets.QHBoxLayout()
-        value_row.setSpacing(6)
         value_row.addWidget(value_widget)
         value_row.addWidget(unit_widget)
         value_row.addStretch()
@@ -160,7 +153,6 @@ class SessionDashboard(QtWidgets.QWidget):
 
         layout = QtWidgets.QVBoxLayout(widget)
         layout.setContentsMargins(14, 12, 14, 14)
-        layout.setSpacing(10)
         layout.addWidget(title_label)
         return widget, layout
 
@@ -405,7 +397,6 @@ class SessionDashboard(QtWidgets.QWidget):
         row = QtWidgets.QWidget()
         layout = QtWidgets.QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(10)
 
         label_widget = QtWidgets.QLabel(label)
         label_widget.setMinimumWidth(72)

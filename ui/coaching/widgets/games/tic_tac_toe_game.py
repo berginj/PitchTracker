@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ui.coaching.widgets.games.base_game import BaseGame
-from ui.themes import show_message_dialog
+from ui.themes import get_style_manager, show_message_dialog
 
 if TYPE_CHECKING:
     from app.pipeline_service import PitchSummary
@@ -30,6 +30,7 @@ class TicTacToeGame(BaseGame):
             parent: Parent widget
         """
         super().__init__(game_state_manager, parent)
+        self._style_manager = get_style_manager()
         self._grid = [[None]*3 for _ in range(3)]  # None, 'X', or 'O'
         self._wins = 0
         self._losses = 0
@@ -41,18 +42,13 @@ class TicTacToeGame(BaseGame):
 
         # Title
         title = QtWidgets.QLabel("TIC-TAC-TOE")
-        font = title.font()
-        font.setPointSize(18)
-        font.setBold(True)
-        title.setFont(font)
+        self._style_manager.style_label(title, "pageTitle")
         title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
         # Score display
         self._score_label = QtWidgets.QLabel("Wins: 0 | Losses: 0")
-        font = self._score_label.font()
-        font.setPointSize(14)
-        self._score_label.setFont(font)
+        self._style_manager.style_label(self._score_label, "sectionTitle")
         self._score_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._score_label)
 
@@ -63,6 +59,7 @@ class TicTacToeGame(BaseGame):
 
         # Instructions
         instructions = QtWidgets.QLabel("Hit zones to play X. AI plays O.")
+        self._style_manager.style_label(instructions, "muted")
         instructions.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         instructions.setWordWrap(True)
         layout.addWidget(instructions)
@@ -70,9 +67,11 @@ class TicTacToeGame(BaseGame):
         # Reset button
         reset_btn = QtWidgets.QPushButton("New Game")
         reset_btn.clicked.connect(self.reset_game)
+        self._style_manager.style_button(reset_btn, "ghost")
         layout.addWidget(reset_btn)
 
         layout.addStretch()
+        self._style_manager.apply_standard_layout(layout)
         self.setLayout(layout)
 
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
@@ -94,6 +93,7 @@ class TicTacToeGame(BaseGame):
             painter.drawLine(0, i * cell_height, width, i * cell_height)
 
         # Draw X's and O's
+        theme = self._style_manager.get_theme()
         for row in range(3):
             for col in range(3):
                 x = col * cell_width
@@ -101,11 +101,11 @@ class TicTacToeGame(BaseGame):
                 mark = self._grid[row][col]
 
                 if mark == 'X':
-                    painter.setPen(QtGui.QPen(QtGui.QColor(33, 150, 243), 4))
+                    painter.setPen(QtGui.QPen(QtGui.QColor(theme.accent_info), 4))
                     painter.drawLine(x + 20, y + 20, x + cell_width - 20, y + cell_height - 20)
                     painter.drawLine(x + cell_width - 20, y + 20, x + 20, y + cell_height - 20)
                 elif mark == 'O':
-                    painter.setPen(QtGui.QPen(QtGui.QColor(244, 67, 54), 4))
+                    painter.setPen(QtGui.QPen(QtGui.QColor(theme.accent_error), 4))
                     painter.drawEllipse(x + 20, y + 20, cell_width - 40, cell_height - 40)
 
     def process_pitch(self, pitch: "PitchSummary") -> None:

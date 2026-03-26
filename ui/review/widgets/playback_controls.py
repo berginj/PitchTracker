@@ -135,7 +135,6 @@ class PlaybackControls(QtWidgets.QWidget):
 
         # Top row: Frame controls
         frame_layout = QtWidgets.QHBoxLayout()
-        frame_layout.setSpacing(10)
         frame_layout.addWidget(self._seek_start_btn)
         frame_layout.addWidget(self._step_back_btn)
         frame_layout.addWidget(self._play_pause_btn, 1)  # Play button takes more space
@@ -144,7 +143,6 @@ class PlaybackControls(QtWidgets.QWidget):
 
         # Bottom row: Speed, loop, and pitch navigation
         options_layout = QtWidgets.QHBoxLayout()
-        options_layout.setSpacing(10)
         options_layout.addWidget(self._prev_pitch_btn)
         options_layout.addWidget(self._next_pitch_btn)
         options_layout.addStretch()
@@ -155,7 +153,6 @@ class PlaybackControls(QtWidgets.QWidget):
         # Main layout
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(20, 18, 20, 18)
-        layout.setSpacing(12)
         layout.addLayout(frame_layout)
         layout.addLayout(options_layout)
 

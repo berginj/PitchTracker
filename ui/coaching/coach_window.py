@@ -22,7 +22,7 @@ from ui.coaching.widgets.mode_widgets import (
     SessionProgressionWidget,
 )
 from ui.team import TeamManager
-from ui.themes import ask_confirmation, get_style_manager, show_choice_dialog, show_message_dialog
+from ui.themes import apply_standard_layout, ask_confirmation, get_style_manager, show_choice_dialog, show_message_dialog
 
 logger = logging.getLogger(__name__)
 
@@ -111,8 +111,7 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         # Main layout
         layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(16)
+        apply_standard_layout(layout)
         layout.addWidget(session_bar)
         layout.addWidget(main_content, 1)  # Takes most space
         layout.addWidget(controls)
@@ -164,7 +163,6 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         layout = QtWidgets.QHBoxLayout()
         layout.setContentsMargins(20, 18, 20, 18)
-        layout.setSpacing(12)
         layout.addWidget(self._session_label)
         layout.addWidget(sep1)
         layout.addWidget(self._pitcher_label)
@@ -189,7 +187,6 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._style_manager.style_panel(mode_toolbar, "subtle")
         mode_toolbar_layout = QtWidgets.QHBoxLayout()
         mode_toolbar_layout.setContentsMargins(18, 14, 18, 14)
-        mode_toolbar_layout.setSpacing(12)
 
         mode_label = QtWidgets.QLabel("View Mode:")
         self._style_manager.style_label(mode_label, "eyebrow")
@@ -236,7 +233,6 @@ class CoachWindow(QtWidgets.QMainWindow):
         layout.addWidget(mode_toolbar)
         layout.addWidget(self._mode_stack, 1)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
 
         widget = QtWidgets.QWidget()
         widget.setLayout(layout)
@@ -322,7 +318,6 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         layout = QtWidgets.QHBoxLayout()
         layout.setContentsMargins(18, 16, 18, 16)
-        layout.setSpacing(12)
         layout.addWidget(self._setup_button, 2)
         layout.addWidget(self._start_recording_button, 2)
         layout.addWidget(self._pause_button, 1)

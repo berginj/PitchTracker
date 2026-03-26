@@ -6,6 +6,8 @@ from typing import Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from ui.themes import get_style_manager
+
 
 class TimelineWidget(QtWidgets.QWidget):
     """Timeline scrubber for seeking through video.
@@ -29,6 +31,7 @@ class TimelineWidget(QtWidgets.QWidget):
             parent: Optional parent widget
         """
         super().__init__(parent)
+        self._style_manager = get_style_manager()
 
         self._current_frame = 0
         self._total_frames = 0
@@ -84,13 +87,14 @@ class TimelineWidget(QtWidgets.QWidget):
         # Get widget dimensions
         width = self.width()
         height = self.height()
+        theme = self._style_manager.theme
 
         # Background
-        painter.fillRect(0, 0, width, height, QtGui.QColor("#1e1e1e"))
+        painter.fillRect(0, 0, width, height, QtGui.QColor(theme.background_dark))
 
         if self._total_frames == 0:
             # No video loaded - show placeholder text
-            painter.setPen(QtGui.QColor("#888"))
+            painter.setPen(QtGui.QColor(theme.text_muted))
             painter.drawText(
                 QtCore.QRect(0, 0, width, height),
                 QtCore.Qt.AlignmentFlag.AlignCenter,
@@ -105,10 +109,10 @@ class TimelineWidget(QtWidgets.QWidget):
 
         # Draw timeline bar background
         bar_rect = QtCore.QRect(margin, bar_y, width - 2 * margin, bar_height)
-        painter.fillRect(bar_rect, QtGui.QColor("#333"))
+        painter.fillRect(bar_rect, QtGui.QColor(theme.surface_secondary))
 
         # Draw border
-        painter.setPen(QtGui.QColor("#555"))
+        painter.setPen(QtGui.QColor(theme.border))
         painter.drawRect(bar_rect)
 
         # Calculate progress
@@ -121,11 +125,11 @@ class TimelineWidget(QtWidgets.QWidget):
         progress_width = int((width - 2 * margin) * progress)
         if progress_width > 0:
             progress_rect = QtCore.QRect(margin, bar_y, progress_width, bar_height)
-            painter.fillRect(progress_rect, QtGui.QColor("#2196F3"))
+            painter.fillRect(progress_rect, QtGui.QColor(theme.accent_primary))
 
         # Draw current position indicator (vertical line)
         indicator_x = margin + progress_width
-        painter.setPen(QtGui.QPen(QtGui.QColor("#FFF"), 2))
+        painter.setPen(QtGui.QPen(QtGui.QColor(theme.text), 2))
         painter.drawLine(indicator_x, bar_y - 5, indicator_x, bar_y + bar_height + 5)
 
         # Draw frame counter text
@@ -137,7 +141,7 @@ class TimelineWidget(QtWidgets.QWidget):
             f"({self._format_time(current_time_ms)} / {self._format_time(total_time_ms)})"
         )
 
-        painter.setPen(QtGui.QColor("#FFF"))
+        painter.setPen(QtGui.QColor(theme.text))
         painter.drawText(
             QtCore.QRect(0, 5, width, 20),
             QtCore.Qt.AlignmentFlag.AlignCenter,

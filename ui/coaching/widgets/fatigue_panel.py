@@ -74,7 +74,6 @@ class FatiguePanel(QtWidgets.QFrame):
         score_layout.addWidget(self._score_value)
 
         metrics_layout = QtWidgets.QFormLayout()
-        metrics_layout.setSpacing(4)
 
         self._velocity_label = QtWidgets.QLabel("--")
         self._movement_label = QtWidgets.QLabel("--")
@@ -102,7 +101,6 @@ class FatiguePanel(QtWidgets.QFrame):
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(8)
         layout.addWidget(title_label)
         layout.addLayout(score_layout)
         layout.addLayout(metrics_layout)
@@ -193,7 +191,6 @@ class CompactFatigueIndicator(QtWidgets.QWidget):
 
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(6, 4, 6, 4)
-        layout.setSpacing(6)
         layout.addWidget(self._score_label)
         layout.addWidget(self._status_chip)
 

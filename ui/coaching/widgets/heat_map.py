@@ -6,6 +6,8 @@ from typing import Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from ui.themes import get_style_manager
+
 
 class HeatMapWidget(QtWidgets.QWidget):
     """Heat map widget showing pitch count by strike zone location.
@@ -16,6 +18,7 @@ class HeatMapWidget(QtWidgets.QWidget):
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self.setMinimumSize(200, 200)
 
         # Zone counts (3x3 grid, row-major order)
@@ -83,10 +86,7 @@ class HeatMapWidget(QtWidgets.QWidget):
                 # Draw count text
                 if count > 0:
                     painter.setPen(QtCore.Qt.GlobalColor.black)
-                    font = painter.font()
-                    font.setPointSize(16)
-                    font.setBold(True)
-                    painter.setFont(font)
+                    painter.setFont(self._style_manager.get_font("heading"))
 
                     text_rect = QtCore.QRectF(x, y, cell_width, cell_height)
                     painter.drawText(
@@ -97,9 +97,7 @@ class HeatMapWidget(QtWidgets.QWidget):
 
         # Draw zone labels
         painter.setPen(QtCore.Qt.GlobalColor.gray)
-        font = painter.font()
-        font.setPointSize(8)
-        painter.setFont(font)
+        painter.setFont(self._style_manager.get_font("caption"))
 
         # Top labels (High, Middle, Low)
         painter.drawText(
@@ -157,6 +155,7 @@ class StrikeZoneOverlay(QtWidgets.QWidget):
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         # Strike zone boundaries (normalized 0.0-1.0)
@@ -237,10 +236,7 @@ class StrikeZoneOverlay(QtWidgets.QWidget):
 
         # Draw label
         painter.setPen(QtCore.Qt.GlobalColor.green)
-        font = painter.font()
-        font.setPointSize(10)
-        font.setBold(True)
-        painter.setFont(font)
+        painter.setFont(self._style_manager.get_font("default"))
         painter.drawText(
             zone_left_px + 5, zone_top_px + 20,
             "STRIKE ZONE"
@@ -258,6 +254,7 @@ class TrajectoryWidget(QtWidgets.QWidget):
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self.setMinimumSize(300, 200)
 
         # Trajectory data: list of (y_positions, z_positions) tuples
@@ -388,9 +385,7 @@ class TrajectoryWidget(QtWidgets.QWidget):
 
         # Draw labels
         painter.setPen(QtCore.Qt.GlobalColor.black)
-        font = painter.font()
-        font.setPointSize(8)
-        painter.setFont(font)
+        painter.setFont(self._style_manager.get_font("caption"))
 
         # Mound label
         painter.drawText(mound_x - 20, ground_y + 15, "Mound")

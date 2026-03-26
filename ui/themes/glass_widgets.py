@@ -12,6 +12,7 @@ from PySide6 import QtWidgets, QtCore, QtGui
 from PySide6.QtCore import Qt
 
 from .style_manager import get_style_manager
+from .layout_helpers import apply_standard_layout
 
 
 class GlassPanel(QtWidgets.QFrame):
@@ -304,12 +305,21 @@ class GlassDialog(QtWidgets.QDialog):
             title: Dialog window title
         """
         super().__init__(parent)
+        self._style_manager = get_style_manager()
+
         if title:
             self.setWindowTitle(title)
 
-        # Apply dark background
-        sm = get_style_manager()
-        self.setStyleSheet(f"background-color: {sm.theme.background_dark};")
+        # Apply dark background via property system
+        self.setProperty("surface", "dialog")
+        self._style_manager.polish(self)
+
+    def polish_controls(self) -> None:
+        """Polish all form controls in the dialog.
+
+        Call this after building the dialog UI with input widgets.
+        """
+        self._style_manager.polish_form_controls(self)
 
     def create_button_box(
         self,
@@ -328,6 +338,7 @@ class GlassDialog(QtWidgets.QDialog):
             Layout containing Cancel and OK buttons
         """
         layout = QtWidgets.QHBoxLayout()
+        apply_standard_layout(layout)
         layout.addStretch()
 
         self.cancel_button = GlassButton(cancel_text, variant="ghost")

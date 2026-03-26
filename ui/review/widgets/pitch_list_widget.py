@@ -8,6 +8,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.review import PitchScore
 from ui.themes import get_style_manager
+from ui.themes.layout_helpers import apply_standard_layout
 
 
 class PitchListWidget(QtWidgets.QWidget):
@@ -43,8 +44,7 @@ class PitchListWidget(QtWidgets.QWidget):
     def _build_ui(self) -> None:
         """Build pitch list UI."""
         layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(14)
+        apply_standard_layout(layout)
 
         # Title
         title = QtWidgets.QLabel("Pitch List")
@@ -202,14 +202,15 @@ class PitchListWidget(QtWidgets.QWidget):
         Returns:
             QColor for score
         """
+        theme = self._style_manager.theme
         if score == PitchScore.GOOD:
-            return QtGui.QColor("#4CAF50")
+            return QtGui.QColor(theme.accent_success)
         elif score == PitchScore.PARTIAL:
-            return QtGui.QColor("#FF9800")
+            return QtGui.QColor(theme.accent_warning)
         elif score == PitchScore.MISSED:
-            return QtGui.QColor("#f44336")
+            return QtGui.QColor(theme.accent_danger)
         else:
-            return QtGui.QColor("#888")
+            return QtGui.QColor(theme.text_muted)
 
     def _on_pitch_selection_changed(self, current_row: int) -> None:
         """Handle pitch selection change.
