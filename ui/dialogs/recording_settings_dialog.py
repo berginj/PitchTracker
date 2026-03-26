@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6 import QtWidgets
+
+from ui.themes import (
+    apply_standard_layout,
+    build_dialog_header,
+    get_style_manager,
+    style_dialog_button_box,
+)
 
 
 class RecordingSettingsDialog(QtWidgets.QDialog):
@@ -25,9 +34,12 @@ class RecordingSettingsDialog(QtWidgets.QDialog):
         """
         super().__init__(parent)
         self.setWindowTitle("Recording Settings")
-        self.resize(520, 220)
+        self.resize(600, 280)
+        self._style_manager = get_style_manager()
 
+        # Initialize widgets
         self._session = QtWidgets.QLineEdit(session)
+
         self._output_dir = QtWidgets.QLineEdit(output_dir)
 
         self._speed = QtWidgets.QDoubleSpinBox()
@@ -36,33 +48,48 @@ class RecordingSettingsDialog(QtWidgets.QDialog):
         self._speed.setSuffix(" mph")
         self._speed.setValue(speed_mph)
 
-        browse_button = QtWidgets.QPushButton("Browse")
-        browse_button.clicked.connect(self._browse)
+        self._browse_button = QtWidgets.QPushButton("Browse...")
+        self._browse_button.clicked.connect(self._browse)
+
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        """Build dialog UI with theme system."""
+        layout = QtWidgets.QVBoxLayout()
+        apply_standard_layout(layout)
+
+        # Header
+        header = build_dialog_header(
+            "Recording Settings",
+            "Configure session name, output location, and reference speed"
+        )
+        layout.addWidget(header)
 
         # Form layout
         form = QtWidgets.QFormLayout()
+        form.setSpacing(12)
 
         output_row = QtWidgets.QHBoxLayout()
-        output_row.addWidget(self._output_dir)
-        output_row.addWidget(browse_button)
+        output_row.addWidget(self._output_dir, 1)
+        output_row.addWidget(self._browse_button)
 
-        form.addRow("Session name", self._session)
-        form.addRow("Output dir", output_row)
-        form.addRow("Measured speed", self._speed)
+        form.addRow("Session name:", self._session)
+        form.addRow("Output directory:", output_row)
+        form.addRow("Measured speed:", self._speed)
+
+        layout.addLayout(form)
 
         # Buttons
-        buttons = QtWidgets.QHBoxLayout()
-        apply_button = QtWidgets.QPushButton("Apply")
-        cancel_button = QtWidgets.QPushButton("Cancel")
-        apply_button.clicked.connect(self.accept)
-        cancel_button.clicked.connect(self.reject)
-        buttons.addWidget(apply_button)
-        buttons.addWidget(cancel_button)
+        button_box = QtWidgets.QDialogButtonBox()
+        apply_btn = button_box.addButton("Apply", QtWidgets.QDialogButtonBox.AcceptRole)
+        cancel_btn = button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.RejectRole)
+        style_dialog_button_box(button_box, primary=True)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
 
-        layout = QtWidgets.QVBoxLayout()
-        layout.addLayout(form)
-        layout.addLayout(buttons)
         self.setLayout(layout)
+        self._style_manager.polish_form_controls(self)
 
     def _browse(self) -> None:
         """Open folder browser dialog."""

@@ -7,6 +7,12 @@ from pathlib import Path
 from PySide6 import QtWidgets
 
 from detect.config import Mode
+from ui.themes import (
+    apply_standard_layout,
+    build_dialog_header,
+    get_style_manager,
+    style_dialog_button_box,
+)
 
 
 class DetectorSettingsDialog(QtWidgets.QDialog):
@@ -55,30 +61,10 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
         """
         super().__init__(parent)
         self.setWindowTitle("Detector Settings")
-        self.resize(700, 560)
+        self.resize(700, 680)
+        self._style_manager = get_style_manager()
 
-        # Help text
-        help_text = QtWidgets.QTextEdit()
-        help_text.setReadOnly(True)
-        help_text.setText(
-            "\n".join(
-                [
-                    "Detector Tuning Guide:",
-                    "",
-                    "- Mode: MODE_A uses frame differencing; MODE_B is more robust on busy backgrounds.",
-                    "- Frame diff / BG diff: Sensitivity thresholds; lower = more detections, more noise.",
-                    "- BG alpha: Background update rate; lower keeps older background longer.",
-                    "- Edge thresh: Canny edge strength for MODE_B.",
-                    "- Blob thresh: Threshold for blob candidate generation.",
-                    "- Min area: Rejects tiny blobs; increase to reduce noise.",
-                    "- Min circularity: 0..1; higher rejects non-circular shapes.",
-                    "- ML: Select an ONNX model and input size if using detector type ML.",
-                    "",
-                    "Tip: Start with MODE_A and lower thresholds until the cue card is detected.",
-                ]
-            )
-        )
-
+        # Initialize all widgets first
         # Detection mode
         self._mode = QtWidgets.QComboBox()
         self._mode.addItems([Mode.MODE_A.value, Mode.MODE_B.value])
@@ -92,7 +78,7 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
 
         # ML model fields
         self._model_path = QtWidgets.QLineEdit(model_path or "")
-        self._model_browse = QtWidgets.QPushButton("Browse")
+        self._model_browse = QtWidgets.QPushButton("Browse...")
         self._model_browse.clicked.connect(self._browse_model)
 
         self._model_input_w = QtWidgets.QSpinBox()
@@ -165,55 +151,107 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
         self._min_area.setValue(min_area)
         self._min_circ.setValue(min_circ)
 
-        # Form layout
-        form = QtWidgets.QFormLayout()
-        form.addRow("Detector type", self._detector_type)
-
-        model_row = QtWidgets.QHBoxLayout()
-        model_row.addWidget(self._model_path)
-        model_row.addWidget(self._model_browse)
-        form.addRow("Model path", model_row)
-
-        input_row = QtWidgets.QHBoxLayout()
-        input_row.addWidget(QtWidgets.QLabel("W"))
-        input_row.addWidget(self._model_input_w)
-        input_row.addWidget(QtWidgets.QLabel("H"))
-        input_row.addWidget(self._model_input_h)
-        form.addRow("Model input", input_row)
-
-        form.addRow("Model conf", self._model_conf)
-        form.addRow("Model class id", self._model_class_id)
-        form.addRow("Model format", self._model_format)
-        form.addRow("Mode", self._mode)
-        form.addRow("Frame diff", self._frame_diff)
-        form.addRow("BG diff", self._bg_diff)
-        form.addRow("BG alpha", self._bg_alpha)
-        form.addRow("Edge thresh", self._edge_thresh)
-        form.addRow("Blob thresh", self._blob_thresh)
-        form.addRow("Min area", self._min_area)
-        form.addRow("Min circularity", self._min_circ)
-        form.addRow("Detection threading", self._threading)
-        form.addRow("Worker count (pool)", self._workers)
-
-        # Buttons
-        buttons = QtWidgets.QHBoxLayout()
-        apply_button = QtWidgets.QPushButton("Apply")
-        cancel_button = QtWidgets.QPushButton("Cancel")
-        apply_button.clicked.connect(self.accept)
-        cancel_button.clicked.connect(self.reject)
-        buttons.addWidget(apply_button)
-        buttons.addWidget(cancel_button)
-
-        # Main layout
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(help_text)
-        layout.addLayout(form)
-        layout.addLayout(buttons)
-        self.setLayout(layout)
+        # Build UI
+        self._build_ui()
 
         # Connect toggle for ML fields
         self._detector_type.currentIndexChanged.connect(self._toggle_model_fields)
         self._toggle_model_fields()
+
+    def _build_ui(self) -> None:
+        """Build dialog UI with theme system."""
+        layout = QtWidgets.QVBoxLayout()
+        apply_standard_layout(layout)
+
+        # Header
+        header = build_dialog_header(
+            "Detector Settings",
+            "Configure ball detection parameters for classical and ML detectors"
+        )
+        layout.addWidget(header)
+
+        # Help text
+        help_text = QtWidgets.QTextEdit()
+        help_text.setReadOnly(True)
+        help_text.setProperty("role", "panelMessage")
+        help_text.setMaximumHeight(150)
+        help_text.setText(
+            "\n".join(
+                [
+                    "Detector Tuning Guide:",
+                    "",
+                    "- Mode: MODE_A uses frame differencing; MODE_B is more robust on busy backgrounds.",
+                    "- Frame diff / BG diff: Sensitivity thresholds; lower = more detections, more noise.",
+                    "- BG alpha: Background update rate; lower keeps older background longer.",
+                    "- Edge thresh: Canny edge strength for MODE_B.",
+                    "- Blob thresh: Threshold for blob candidate generation.",
+                    "- Min area: Rejects tiny blobs; increase to reduce noise.",
+                    "- Min circularity: 0..1; higher rejects non-circular shapes.",
+                    "- ML: Select an ONNX model and input size if using detector type ML.",
+                    "",
+                    "Tip: Start with MODE_A and lower thresholds until the cue card is detected.",
+                ]
+            )
+        )
+        layout.addWidget(help_text)
+
+        # Form layout
+        form = QtWidgets.QFormLayout()
+        form.setSpacing(12)
+        form.addRow("Detector type:", self._detector_type)
+
+        model_row = QtWidgets.QHBoxLayout()
+        model_row.addWidget(self._model_path, 1)
+        model_row.addWidget(self._model_browse)
+        form.addRow("Model path:", model_row)
+
+        input_row = QtWidgets.QHBoxLayout()
+        input_row.addWidget(QtWidgets.QLabel("W:"))
+        input_row.addWidget(self._model_input_w)
+        input_row.addWidget(QtWidgets.QLabel("H:"))
+        input_row.addWidget(self._model_input_h)
+        input_row.addStretch()
+        form.addRow("Model input:", input_row)
+
+        form.addRow("Model confidence:", self._model_conf)
+        form.addRow("Model class ID:", self._model_class_id)
+        form.addRow("Model format:", self._model_format)
+
+        # Separator
+        separator = QtWidgets.QFrame()
+        separator.setFrameShape(QtWidgets.QFrame.HLine)
+        layout.addWidget(separator)
+
+        form.addRow("Detection mode:", self._mode)
+        form.addRow("Frame diff threshold:", self._frame_diff)
+        form.addRow("Background diff threshold:", self._bg_diff)
+        form.addRow("Background alpha:", self._bg_alpha)
+        form.addRow("Edge threshold:", self._edge_thresh)
+        form.addRow("Blob threshold:", self._blob_thresh)
+        form.addRow("Min area:", self._min_area)
+        form.addRow("Min circularity:", self._min_circ)
+
+        # Separator
+        separator2 = QtWidgets.QFrame()
+        separator2.setFrameShape(QtWidgets.QFrame.HLine)
+        layout.addWidget(separator2)
+
+        form.addRow("Detection threading:", self._threading)
+        form.addRow("Worker count:", self._workers)
+
+        layout.addLayout(form)
+
+        # Buttons
+        button_box = QtWidgets.QDialogButtonBox()
+        apply_btn = button_box.addButton("Apply", QtWidgets.QDialogButtonBox.AcceptRole)
+        cancel_btn = button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.RejectRole)
+        style_dialog_button_box(button_box, primary=True)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+        self.setLayout(layout)
+        self._style_manager.polish_form_controls(self)
 
     def values(self) -> dict:
         """Get configured detector settings.

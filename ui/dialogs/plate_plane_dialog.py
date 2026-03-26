@@ -6,6 +6,13 @@ from pathlib import Path
 
 from PySide6 import QtWidgets
 
+from ui.themes import (
+    apply_standard_layout,
+    build_dialog_header,
+    get_style_manager,
+    style_dialog_button_box,
+)
+
 
 class PlatePlaneDialog(QtWidgets.QDialog):
     """Dialog for selecting image pair for plate plane calibration."""
@@ -19,36 +26,60 @@ class PlatePlaneDialog(QtWidgets.QDialog):
         """
         super().__init__(parent)
         self.setWindowTitle("Plate Plane Calibrate")
-        self.resize(520, 200)
+        self.resize(600, 280)
+        self._style_manager = get_style_manager()
+        self._config_path = config_path
+
+        # Initialize widgets
         self._left = QtWidgets.QLineEdit()
         self._right = QtWidgets.QLineEdit()
-        left_browse = QtWidgets.QPushButton("Browse")
-        right_browse = QtWidgets.QPushButton("Browse")
-        left_browse.clicked.connect(lambda: self._browse(self._left))
-        right_browse.clicked.connect(lambda: self._browse(self._right))
 
-        form = QtWidgets.QFormLayout()
-        left_row = QtWidgets.QHBoxLayout()
-        left_row.addWidget(self._left)
-        left_row.addWidget(left_browse)
-        right_row = QtWidgets.QHBoxLayout()
-        right_row.addWidget(self._right)
-        right_row.addWidget(right_browse)
-        form.addRow("Left image", left_row)
-        form.addRow("Right image", right_row)
+        self._left_browse = QtWidgets.QPushButton("Browse...")
+        self._right_browse = QtWidgets.QPushButton("Browse...")
+        self._left_browse.clicked.connect(lambda: self._browse(self._left))
+        self._right_browse.clicked.connect(lambda: self._browse(self._right))
 
-        buttons = QtWidgets.QHBoxLayout()
-        run_button = QtWidgets.QPushButton("Run")
-        cancel_button = QtWidgets.QPushButton("Cancel")
-        run_button.clicked.connect(self.accept)
-        cancel_button.clicked.connect(self.reject)
-        buttons.addWidget(run_button)
-        buttons.addWidget(cancel_button)
+        self._build_ui()
 
+    def _build_ui(self) -> None:
+        """Build dialog UI with theme system."""
         layout = QtWidgets.QVBoxLayout()
+        apply_standard_layout(layout)
+
+        # Header
+        header = build_dialog_header(
+            "Plate Plane Calibration",
+            "Select stereo image pair containing plate reference"
+        )
+        layout.addWidget(header)
+
+        # Form
+        form = QtWidgets.QFormLayout()
+        form.setSpacing(12)
+
+        left_row = QtWidgets.QHBoxLayout()
+        left_row.addWidget(self._left, 1)
+        left_row.addWidget(self._left_browse)
+
+        right_row = QtWidgets.QHBoxLayout()
+        right_row.addWidget(self._right, 1)
+        right_row.addWidget(self._right_browse)
+
+        form.addRow("Left image:", left_row)
+        form.addRow("Right image:", right_row)
         layout.addLayout(form)
-        layout.addLayout(buttons)
+
+        # Buttons
+        button_box = QtWidgets.QDialogButtonBox()
+        run_btn = button_box.addButton("Run Calibration", QtWidgets.QDialogButtonBox.AcceptRole)
+        cancel_btn = button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.RejectRole)
+        style_dialog_button_box(button_box, primary=True)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
         self.setLayout(layout)
+        self._style_manager.polish_form_controls(self)
 
     def _browse(self, target: QtWidgets.QLineEdit) -> None:
         """Open file browser dialog for image selection.

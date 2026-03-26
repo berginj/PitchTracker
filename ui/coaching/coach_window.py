@@ -137,9 +137,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._switch_pitcher_btn.setMaximumWidth(60)
         self._switch_pitcher_btn.setMaximumHeight(24)
         self._switch_pitcher_btn.setToolTip("Switch to a different pitcher")
-        self._switch_pitcher_btn.setStyleSheet(
-            "font-size: 10pt; background-color: #bbdefb; padding: 2px 8px;"
-        )
+        self._style_manager.style_button(self._switch_pitcher_btn, "ghost")
         self._switch_pitcher_btn.clicked.connect(self._switch_pitcher)
 
         # Pitch count

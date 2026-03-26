@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from PySide6 import QtWidgets
 
+from configs.app_state import load_state
 from configs.location_profiles import list_profiles
 from configs.pitchers import load_pitchers
-from configs.app_state import load_state
+from ui.themes import (
+    apply_standard_layout,
+    build_dialog_header,
+    get_style_manager,
+    style_dialog_button_box,
+)
 
 
 class StartupDialog(QtWidgets.QDialog):
@@ -20,8 +26,10 @@ class StartupDialog(QtWidgets.QDialog):
         """
         super().__init__(parent)
         self.setWindowTitle("Select Location and Pitcher")
-        self.resize(520, 220)
+        self.resize(520, 280)
+        self._style_manager = get_style_manager()
 
+        # Initialize widgets
         self._profile = QtWidgets.QComboBox()
         self._profile.addItems(list_profiles())
 
@@ -35,22 +43,38 @@ class StartupDialog(QtWidgets.QDialog):
         if last_pitcher:
             self._pitcher.setCurrentText(last_pitcher)
 
-        form = QtWidgets.QFormLayout()
-        form.addRow("Location profile", self._profile)
-        form.addRow("Pitcher", self._pitcher)
+        self._build_ui()
 
-        buttons = QtWidgets.QHBoxLayout()
-        apply_button = QtWidgets.QPushButton("Continue")
-        cancel_button = QtWidgets.QPushButton("Cancel")
-        apply_button.clicked.connect(self.accept)
-        cancel_button.clicked.connect(self.reject)
-        buttons.addWidget(apply_button)
-        buttons.addWidget(cancel_button)
-
+    def _build_ui(self) -> None:
+        """Build dialog UI with theme system."""
         layout = QtWidgets.QVBoxLayout()
+        apply_standard_layout(layout)
+
+        # Header
+        header = build_dialog_header(
+            "Session Setup",
+            "Select location profile and pitcher to begin"
+        )
+        layout.addWidget(header)
+
+        # Form
+        form = QtWidgets.QFormLayout()
+        form.setSpacing(12)
+        form.addRow("Location profile:", self._profile)
+        form.addRow("Pitcher:", self._pitcher)
         layout.addLayout(form)
-        layout.addLayout(buttons)
+
+        # Buttons
+        button_box = QtWidgets.QDialogButtonBox()
+        continue_btn = button_box.addButton("Continue", QtWidgets.QDialogButtonBox.AcceptRole)
+        cancel_btn = button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.RejectRole)
+        style_dialog_button_box(button_box, primary=True)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
         self.setLayout(layout)
+        self._style_manager.polish_form_controls(self)
 
     def values(self) -> tuple[str, str]:
         """Get selected profile and pitcher names.
