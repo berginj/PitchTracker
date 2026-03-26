@@ -430,6 +430,13 @@ class CompactFatigueIndicator(QtWidgets.QWidget):
 
         self._apply_style()
 
+    def reset(self) -> None:
+        """Reset indicator to initial state (for pitcher switch)."""
+        self._detector = FatigueDetector()
+        self._score_label.setText("--")
+        self._status_dot.setObjectName("fatigue_status_dot_ok")
+        self._apply_style()
+
 
 __all__ = [
     "FatiguePanel",

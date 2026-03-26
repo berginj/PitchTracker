@@ -26,6 +26,7 @@ from ui.coaching.widgets.mode_widgets import (
     GameModeWidget,
     SessionProgressionWidget,
 )
+from ui.team import TeamManager
 
 logger = logging.getLogger(__name__)
 
@@ -129,9 +130,18 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._session_label = QtWidgets.QLabel("Session: <not started>")
         self._session_label.setStyleSheet("font-size: 14pt; font-weight: bold; color: #000000;")
 
-        # Pitcher name
+        # Pitcher name with switch button
         self._pitcher_label = QtWidgets.QLabel("Pitcher: <not selected>")
         self._pitcher_label.setStyleSheet("font-size: 12pt; color: #000000;")
+
+        self._switch_pitcher_btn = QtWidgets.QPushButton("Switch")
+        self._switch_pitcher_btn.setMaximumWidth(60)
+        self._switch_pitcher_btn.setMaximumHeight(24)
+        self._switch_pitcher_btn.setToolTip("Switch to a different pitcher")
+        self._switch_pitcher_btn.setStyleSheet(
+            "font-size: 10pt; background-color: #bbdefb; padding: 2px 8px;"
+        )
+        self._switch_pitcher_btn.clicked.connect(self._switch_pitcher)
 
         # Pitch count
         self._pitch_count_label = QtWidgets.QLabel("Pitches: 0")
@@ -158,6 +168,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         layout.addWidget(self._session_label)
         layout.addWidget(sep1)
         layout.addWidget(self._pitcher_label)
+        layout.addWidget(self._switch_pitcher_btn)
         layout.addWidget(sep2)
         layout.addWidget(self._pitch_count_label)
         layout.addWidget(sep3)
@@ -748,6 +759,37 @@ class CoachWindow(QtWidgets.QMainWindow):
         review_window = ReviewWindow(parent=self)
         review_window.show()
         logger.info("Opened review mode window")
+
+    def _switch_pitcher(self) -> None:
+        """Show team manager dialog to switch pitchers."""
+        dialog = TeamManager(parent=self)
+        dialog.pitcher_selected.connect(self._on_pitcher_switched)
+
+        if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+            selected = dialog.get_selected_pitcher()
+            if selected:
+                self._on_pitcher_switched(selected)
+
+    def _on_pitcher_switched(self, pitcher_name: str) -> None:
+        """Handle pitcher switch.
+
+        Args:
+            pitcher_name: New pitcher name
+        """
+        old_pitcher = self._pitcher_name
+        self._pitcher_name = pitcher_name
+
+        # Update UI
+        self._pitcher_label.setText(f"Pitcher: {pitcher_name}")
+
+        # Reset fatigue tracking for new pitcher
+        self._fatigue_indicator.reset()
+
+        # Log the switch
+        logger.info(f"Switched pitcher: {old_pitcher} -> {pitcher_name}")
+
+        # Update status
+        self._status_label.setText(f"Switched to pitcher: {pitcher_name}")
 
     def closeEvent(self, event) -> None:
         """Handle window close event - stop capture and recording."""

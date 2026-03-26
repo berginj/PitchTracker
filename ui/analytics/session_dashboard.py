@@ -27,6 +27,9 @@ except ImportError:
     HAS_MATPLOTLIB = False
 
 from typing import TYPE_CHECKING
+
+from analysis.pattern_detection.pitch_classifier import classify_pitch_heuristic
+
 if TYPE_CHECKING:
     from app.pipeline_service import PitchSummary, SessionSummary
 
@@ -492,14 +495,51 @@ class SessionDashboard(QtWidgets.QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
-        # For now, show strikes vs balls breakdown
-        # (Pitch classification would need to be implemented separately)
-        strikes = sum(1 for p in pitches if p.is_strike)
-        balls = len(pitches) - strikes
+        if not pitches:
+            return
 
-        if pitches:
-            self._add_pitch_type_row("Strikes", strikes, len(pitches), "#4FFFB0")
-            self._add_pitch_type_row("Balls", balls, len(pitches), "#FF6B6B")
+        # Classify pitches using heuristic classifier
+        pitch_type_counts: dict = {}
+        pitch_type_colors = {
+            "Fastball (4-seam)": "#FF6B6B",
+            "Fastball": "#FF8E8E",
+            "Sinker": "#FFA07A",
+            "Cutter": "#FFB347",
+            "Slider": "#64C8FF",
+            "Changeup": "#4FFFB0",
+            "Curveball": "#9B59B6",
+            "Curveball (slow)": "#8E44AD",
+            "Unknown": "#888888",
+        }
+
+        for pitch in pitches:
+            # Prepare pitch data for classifier
+            pitch_data = {
+                "speed_mph": pitch.speed_mph,
+                "run_in": pitch.run_in,
+                "rise_in": pitch.rise_in,
+                "pitch_id": getattr(pitch, "pitch_id", "unknown"),
+            }
+
+            try:
+                classification = classify_pitch_heuristic(pitch_data)
+                pitch_type = classification.heuristic_type
+            except Exception:
+                pitch_type = "Unknown"
+
+            pitch_type_counts[pitch_type] = pitch_type_counts.get(pitch_type, 0) + 1
+
+        # Sort by count (descending)
+        sorted_types = sorted(
+            pitch_type_counts.items(),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+
+        # Add rows for each pitch type
+        for pitch_type, count in sorted_types:
+            color = pitch_type_colors.get(pitch_type, "#888888")
+            self._add_pitch_type_row(pitch_type, count, len(pitches), color)
 
     def _add_pitch_type_row(
         self,

@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.review import PitchScore, ReviewService
 from ui.review.widgets import ParameterPanel, PitchListWidget, PlaybackControls, TimelineWidget, VideoDisplayWidget
+from visualization.trajectory_renderer import (
+    RenderStyle,
+    TrajectoryRenderConfig,
+    TrajectoryRenderer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +52,12 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._playback_timer.timeout.connect(self._on_playback_tick)
         self._is_playing = False
         self._loop_enabled = False
+
+        # Trajectory overlay
+        self._trajectory_overlay_enabled = False
+        self._trajectory_renderer_left: Optional[TrajectoryRenderer] = None
+        self._trajectory_renderer_right: Optional[TrajectoryRenderer] = None
+        self._current_observations: List = []
 
         # Session navigation
         self._session_list: list[Path] = []
@@ -170,6 +181,15 @@ class ReviewWindow(QtWidgets.QMainWindow):
         clear_annotations_action = QtGui.QAction("Clear Annotations", self)
         clear_annotations_action.triggered.connect(self._clear_annotations)
         tools_menu.addAction(clear_annotations_action)
+
+        tools_menu.addSeparator()
+
+        trajectory_action = QtGui.QAction("Toggle Trajectory Overlay", self)
+        trajectory_action.setShortcut("T")
+        trajectory_action.setCheckable(True)
+        trajectory_action.triggered.connect(self._toggle_trajectory_overlay)
+        tools_menu.addAction(trajectory_action)
+        self._trajectory_action = trajectory_action
 
         # Export menu
         export_menu = menubar.addMenu("&Export")
@@ -356,6 +376,13 @@ class ReviewWindow(QtWidgets.QMainWindow):
             pitch_scores = self._service._pitch_scores
             self._pitch_list.load_pitches(session.pitches, pitch_scores)
 
+            # Initialize trajectory renderers for overlay
+            self._init_trajectory_renderers()
+
+            # Load trajectory for first pitch if available
+            if session.pitches:
+                self._load_trajectory_for_pitch(0)
+
             # Load and display first frame
             self._update_video_displays()
 
@@ -389,6 +416,13 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._right_display.clear()
         self._timeline.reset()
         self._pitch_list.clear()
+
+        # Clear trajectory state
+        self._trajectory_renderer_left = None
+        self._trajectory_renderer_right = None
+        self._current_observations = []
+        self._trajectory_overlay_enabled = False
+        self._trajectory_action.setChecked(False)
 
         self.setWindowTitle("PitchTracker - Review Mode")
         self._status_bar.showMessage("Session closed. Open a session to begin.")
@@ -753,6 +787,9 @@ class ReviewWindow(QtWidgets.QMainWindow):
         if not self._service.session:
             return
 
+        # Load trajectory for selected pitch
+        self._load_trajectory_for_pitch(pitch_index)
+
         # Seek to pitch
         self._service.seek_to_pitch(pitch_index)
         self._update_video_displays()
@@ -805,6 +842,11 @@ class ReviewWindow(QtWidgets.QMainWindow):
         try:
             left_detections, right_detections = self._service.run_detection_on_current_frame()
 
+            # Apply trajectory overlay if enabled
+            if self._trajectory_overlay_enabled and self._current_observations:
+                left_frame = self._apply_trajectory_overlay(left_frame, "left")
+                right_frame = self._apply_trajectory_overlay(right_frame, "right")
+
             # Update displays with frames and detections
             self._left_display.set_frame(left_frame, left_detections)
             self._right_display.set_frame(right_frame, right_detections)
@@ -820,6 +862,109 @@ class ReviewWindow(QtWidgets.QMainWindow):
             # Still show frames even if detection fails
             self._left_display.set_frame(left_frame)
             self._right_display.set_frame(right_frame)
+
+    def _apply_trajectory_overlay(
+        self,
+        frame,
+        camera: str,
+    ):
+        """Apply trajectory overlay to a frame.
+
+        Args:
+            frame: Video frame
+            camera: "left" or "right"
+
+        Returns:
+            Frame with trajectory overlay
+        """
+        renderer = (
+            self._trajectory_renderer_left
+            if camera == "left"
+            else self._trajectory_renderer_right
+        )
+
+        if renderer is None or not self._current_observations:
+            return frame
+
+        try:
+            return renderer.render_on_frame(frame, self._current_observations)
+        except Exception as e:
+            logger.debug(f"Trajectory overlay failed: {e}")
+            return frame
+
+    def _load_trajectory_for_pitch(self, pitch_index: int) -> None:
+        """Load trajectory observations for a pitch.
+
+        Args:
+            pitch_index: Index of pitch in session
+        """
+        if not self._service.session:
+            return
+
+        pitches = self._service.session.pitches
+        if pitch_index < 0 or pitch_index >= len(pitches):
+            self._current_observations = []
+            return
+
+        pitch = pitches[pitch_index]
+
+        # Load observations from pitch data if available
+        if pitch.original_observations:
+            self._current_observations = pitch.original_observations
+            logger.debug(f"Loaded {len(self._current_observations)} trajectory observations")
+        else:
+            self._current_observations = []
+
+    def _init_trajectory_renderers(self) -> None:
+        """Initialize trajectory renderers for current session."""
+        if not self._service.session:
+            self._trajectory_renderer_left = None
+            self._trajectory_renderer_right = None
+            return
+
+        # Try to load stereo geometry from session calibration
+        try:
+            from stereo.simple_stereo import StereoGeometry
+
+            # Use default geometry if calibration not available
+            # These are reasonable defaults for typical camera setup
+            geometry = StereoGeometry(
+                focal_length_px=1000.0,
+                baseline_ft=0.5,
+                cx=640.0,
+                cy=360.0,
+            )
+
+            # Load from session calibration if available
+            if self._service.session.calibration:
+                cal = self._service.session.calibration
+                geometry = StereoGeometry(
+                    focal_length_px=cal.get("focal_length_px", 1000.0),
+                    baseline_ft=cal.get("baseline_ft", 0.5),
+                    cx=cal.get("cx", 640.0),
+                    cy=cal.get("cy", 360.0),
+                )
+
+            config = TrajectoryRenderConfig(
+                style=RenderStyle.GRADIENT,
+                line_thickness=2,
+                show_release_point=True,
+                show_plate_crossing=True,
+            )
+
+            self._trajectory_renderer_left = TrajectoryRenderer(
+                geometry, camera="left", config=config
+            )
+            self._trajectory_renderer_right = TrajectoryRenderer(
+                geometry, camera="right", config=config
+            )
+
+            logger.info("Trajectory renderers initialized")
+
+        except Exception as e:
+            logger.warning(f"Could not initialize trajectory renderers: {e}")
+            self._trajectory_renderer_left = None
+            self._trajectory_renderer_right = None
 
     def _export_config(self) -> None:
         """Export tuned detector configuration."""
@@ -934,6 +1079,22 @@ class ReviewWindow(QtWidgets.QMainWindow):
         mode_str = "ON" if checked else "OFF"
         self._status_bar.showMessage(f"Annotation mode: {mode_str}")
         logger.info(f"Annotation mode: {mode_str}")
+
+    def _toggle_trajectory_overlay(self, checked: bool) -> None:
+        """Toggle trajectory overlay on/off.
+
+        Args:
+            checked: True to enable trajectory overlay
+        """
+        self._trajectory_overlay_enabled = checked
+
+        mode_str = "ON" if checked else "OFF"
+        self._status_bar.showMessage(f"Trajectory overlay: {mode_str}")
+        logger.info(f"Trajectory overlay: {mode_str}")
+
+        # Refresh display to show/hide trajectory
+        if self._service.session:
+            self._update_video_displays()
 
     def _clear_annotations(self) -> None:
         """Clear all manual annotations from both displays."""

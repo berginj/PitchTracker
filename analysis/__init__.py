@@ -1,3 +1,16 @@
 """Analysis module for post-processing pitch data."""
 
-__all__ = ["pattern_detection"]
+from .trend_analyzer import (
+    BaselineComparison,
+    SessionSummary,
+    TrendAnalyzer,
+    TrendReport,
+)
+
+__all__ = [
+    "pattern_detection",
+    "BaselineComparison",
+    "SessionSummary",
+    "TrendAnalyzer",
+    "TrendReport",
+]
