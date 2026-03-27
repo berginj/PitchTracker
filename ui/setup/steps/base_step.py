@@ -6,6 +6,8 @@ from typing import Optional
 
 from PySide6 import QtWidgets
 
+from ui.themes import get_style_manager
+
 
 class BaseStep(QtWidgets.QWidget):
     """Base class for wizard steps with validation and navigation.
@@ -15,6 +17,7 @@ class BaseStep(QtWidgets.QWidget):
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self._complete = False
 
     def get_title(self) -> str:

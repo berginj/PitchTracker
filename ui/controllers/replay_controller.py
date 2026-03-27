@@ -18,6 +18,7 @@ from detect.config import Mode, FilterConfig, DetectorConfig as CvDetectorConfig
 from detect.classical_detector import ClassicalDetector
 from ui.drawing import frame_to_pixmap
 from ui.geometry import Rect, roi_overlays, rect_to_polygon
+from ui.themes import get_style_manager
 from log_config.logger import get_logger
 
 if TYPE_CHECKING:
@@ -64,6 +65,7 @@ class ReplayController:
             stop_capture: Callback to stop live capture
             start_timer: Callback to start refresh timer (takes ms interval)
         """
+        self._style_manager = get_style_manager()
         self._parent = parent
         self._left_view = left_view
         self._right_view = right_view

@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, List, Optional
 from PySide6 import QtWidgets
 from PySide6.QtCore import QObject
 
+from ui.themes import get_style_manager
+
 if TYPE_CHECKING:
     from contracts import Frame
     from app.pipeline_service import PitchSummary
@@ -33,6 +35,7 @@ class BaseModeWidget(QtWidgets.QWidget, metaclass=QABCMeta):
             parent: Parent widget
         """
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self._current_camera = "left"  # Default camera selection
 
     @abstractmethod

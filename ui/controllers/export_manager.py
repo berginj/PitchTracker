@@ -15,6 +15,7 @@ from ui.export import (
     upload_session,
     save_session_export,
 )
+from ui.themes import get_style_manager
 from log_config.logger import get_logger
 
 if TYPE_CHECKING:
@@ -54,6 +55,7 @@ class ExportManager:
             get_pitcher_name: Callback to get current pitcher name
             get_location_profile: Callback to get current location profile
         """
+        self._style_manager = get_style_manager()
         self._parent = parent
         self._config_path = config_path
         self._roi_path = roi_path

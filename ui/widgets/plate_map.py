@@ -9,6 +9,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from contracts import StereoObservation
 from metrics.strike_zone import StrikeZone
+from ui.themes import get_style_manager
 
 # Theme-compatible colors (dark glass theme)
 _BG_COLOR = QtGui.QColor(10, 14, 20)  # Matches theme background_dark
@@ -25,6 +26,7 @@ class PitchTrail:
 class PlateMapWidget(QtWidgets.QWidget):
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self._zone: Optional[StrikeZone] = None
         self._trails: List[PitchTrail] = []
         self._board: List[List[str]] = [["", "", ""], ["", "", ""], ["", "", ""]]

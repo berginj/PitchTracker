@@ -10,6 +10,7 @@ from PySide6 import QtWidgets
 from ui.coaching.widgets.camera_view_widget import CameraViewWidget
 from ui.coaching.widgets.mode_widgets.base_mode_widget import BaseModeWidget
 from ui.coaching.widgets.stats_panel_widget import StatsPanelWidget
+from ui.themes import get_style_manager
 
 if TYPE_CHECKING:
     from contracts import Frame
@@ -32,6 +33,7 @@ class BroadcastViewWidget(BaseModeWidget):
             parent: Parent widget
         """
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self._build_ui()
 
     def _build_ui(self) -> None:

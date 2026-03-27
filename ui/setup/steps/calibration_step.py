@@ -92,6 +92,7 @@ class CalibrationStep(BaseStep):
     ):
         super().__init__(parent)
         self._style_manager = get_style_manager()
+        self._theme = self._style_manager.theme
         self._backend = backend
         self._left_camera: Optional[CameraDevice] = None
         self._right_camera: Optional[CameraDevice] = None
@@ -1510,7 +1511,7 @@ class CalibrationStep(BaseStep):
             elif blur_score >= POOR_THRESHOLD:
                 return (f"Focus: Acceptable ({blur_score:.0f})", "warning")
             else:
-                return (f"⚠ ADJUST FOCUS ⚠ ({blur_score:.0f})", "#FFFFFF", "#F44336")  # Red
+                return (f"⚠ ADJUST FOCUS ⚠ ({blur_score:.0f})", "error")
 
         # Update left camera focus indicator
         left_text, *_ = get_focus_status(left_blur)
@@ -3318,29 +3319,29 @@ class CalibrationStep(BaseStep):
         """
         # Choose color and icon based on quality
         if results.quality == "CRITICAL":
-            bg_color = "#FFEBEE"
-            border_color = "#F44336"
-            text_color = "#C62828"
+            bg_color = self._theme.accent_error_dim
+            border_color = self._theme.accent_error
+            text_color = self._theme.accent_error
             icon = "❌"
         elif results.quality == "POOR":
-            bg_color = "#FFF3E0"
-            border_color = "#FF9800"
-            text_color = "#E65100"
+            bg_color = self._theme.accent_warning_dim
+            border_color = self._theme.accent_warning
+            text_color = self._theme.accent_warning
             icon = "⚠️"
         elif results.quality == "ACCEPTABLE":
-            bg_color = "#FFF9C4"
-            border_color = "#FBC02D"
-            text_color = "#F57F17"
+            bg_color = self._theme.accent_warning_dim
+            border_color = self._theme.accent_warning
+            text_color = self._theme.accent_warning
             icon = "🟡"
         elif results.quality == "GOOD":
-            bg_color = "#E8F5E9"
-            border_color = "#4CAF50"
-            text_color = "#2E7D32"
+            bg_color = self._theme.accent_success_dim
+            border_color = self._theme.accent_success
+            text_color = self._theme.accent_success
             icon = "✓"
         else:  # EXCELLENT
-            bg_color = "#E8F5E9"
-            border_color = "#4CAF50"
-            text_color = "#1B5E20"
+            bg_color = self._theme.accent_success_dim
+            border_color = self._theme.accent_success
+            text_color = self._theme.accent_success
             icon = "✅"
 
         # Build status message
@@ -3348,7 +3349,7 @@ class CalibrationStep(BaseStep):
 
         # Add badge if quick check
         if quick_check:
-            status_html += " <span style='background-color: #FFC107; color: black; padding: 2px 6px; border-radius: 3px; font-size: 8pt;'>⚡ QUICK CHECK</span>"
+            status_html += f" <span style='background-color: {self._theme.accent_warning}; color: black; padding: 2px 6px; border-radius: 3px; font-size: 8pt;'>⚡ QUICK CHECK</span>"
             status_html += "<br><i style='font-size: 9pt;'>Single-frame analysis - run Full Check for averaged results</i>"
 
         # Add corrections applied
@@ -3388,27 +3389,27 @@ class CalibrationStep(BaseStep):
 
         # Choose gauge color based on score
         if quality_score >= 90:
-            gauge_color = "#4CAF50"  # Green
+            gauge_color = self._theme.accent_success  # Green
             gauge_emoji = "✅"
         elif quality_score >= 75:
-            gauge_color = "#8BC34A"  # Light green
+            gauge_color = self._theme.accent_success  # Light green
             gauge_emoji = "✓"
         elif quality_score >= 60:
-            gauge_color = "#FFC107"  # Yellow
+            gauge_color = self._theme.accent_warning  # Yellow
             gauge_emoji = "🟡"
         elif quality_score >= 40:
-            gauge_color = "#FF9800"  # Orange
+            gauge_color = self._theme.accent_warning  # Orange
             gauge_emoji = "⚠️"
         else:
-            gauge_color = "#F44336"  # Red
+            gauge_color = self._theme.accent_error  # Red
             gauge_emoji = "❌"
 
         gauge_html = f"""
         <div style='text-align: center;'>
             <div style='font-size: 32pt; color: {gauge_color};'>{gauge_emoji}</div>
             <div style='font-size: 20pt; color: {gauge_color}; font-weight: bold;'>{quality_score}%</div>
-            <div style='font-size: 11pt; color: #000000; font-weight: bold;'>{results.quality}</div>
-            <div style='font-size: 10pt; color: #000000;'>
+            <div style='font-size: 11pt; color: {self._theme.text_primary}; font-weight: bold;'>{results.quality}</div>
+            <div style='font-size: 10pt; color: {self._theme.text_primary};'>
                 {issues_count} issue{'s' if issues_count != 1 else ''} detected
             </div>
         </div>
@@ -3980,8 +3981,8 @@ class CalibrationStep(BaseStep):
                 comparison = compare_with_preset(self._alignment_results, preset_data)
 
                 # Build comparison display
-                trend_color = "#4CAF50" if comparison["trend"] == "BETTER" else (
-                    "#F44336" if comparison["trend"] == "WORSE" else "#FFC107"
+                trend_color = self._theme.accent_success if comparison["trend"] == "BETTER" else (
+                    self._theme.accent_error if comparison["trend"] == "WORSE" else self._theme.accent_warning
                 )
 
                 comparison_html = f"""
@@ -4001,7 +4002,7 @@ class CalibrationStep(BaseStep):
                 <hr>
                 <h4>Detailed Comparison:</h4>
                 <table style='width: 100%;'>
-                    <tr style='background-color: #f5f5f5;'>
+                    <tr style='background-color: {self._theme.surface_glass};'>
                         <th>Metric</th>
                         <th>Current</th>
                         <th>Preset</th>
@@ -4018,7 +4019,7 @@ class CalibrationStep(BaseStep):
                 ]:
                     delta_data = comparison["deltas"][metric_name]
                     status_emoji = "✓" if delta_data["better"] else "⚠️"
-                    status_color = "#4CAF50" if delta_data["better"] else "#FF9800"
+                    status_color = self._theme.accent_success if delta_data["better"] else self._theme.accent_warning
 
                     comparison_html += f"""
                     <tr>

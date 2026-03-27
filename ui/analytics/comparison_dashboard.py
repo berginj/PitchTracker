@@ -29,6 +29,7 @@ except ImportError:
     HAS_MATPLOTLIB = False
 
 from analysis.trend_analyzer import SessionSummary, TrendAnalyzer
+from ui.themes import apply_standard_layout, polish_form_controls, show_message_dialog
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,6 @@ class PitcherComparisonCard(QtWidgets.QFrame):
 
         # Stats grid
         stats_layout = QtWidgets.QGridLayout()
-        stats_layout.setSpacing(4)
 
         row = 0
 
@@ -158,7 +158,6 @@ class PitcherComparisonCard(QtWidgets.QFrame):
 
         # Main layout
         layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(12, 8, 12, 8)
         layout.addLayout(header_layout)
         layout.addLayout(stats_layout)
         layout.addStretch()
@@ -242,6 +241,9 @@ class ComparisonDashboard(QtWidgets.QWidget):
         self._pitcher_cards: Dict[str, PitcherComparisonCard] = {}
         self._trend_analyzer = TrendAnalyzer()
 
+        from ui.themes import get_style_manager
+        self._theme = get_style_manager().theme
+
         self._build_ui()
         self._apply_style()
 
@@ -257,7 +259,6 @@ class ComparisonDashboard(QtWidgets.QWidget):
         # Pitcher cards (horizontal scroll)
         self._cards_container = QtWidgets.QWidget()
         self._cards_layout = QtWidgets.QHBoxLayout()
-        self._cards_layout.setSpacing(8)
         self._cards_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
         self._cards_container.setLayout(self._cards_layout)
 
@@ -281,8 +282,6 @@ class ComparisonDashboard(QtWidgets.QWidget):
 
         # Main layout
         layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
         layout.addWidget(header)
         layout.addWidget(add_section)
         layout.addWidget(cards_scroll)
@@ -305,7 +304,6 @@ class ComparisonDashboard(QtWidgets.QWidget):
         add_btn.clicked.connect(self._on_add_pitcher)
 
         layout = QtWidgets.QHBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._pitcher_combo)
         layout.addWidget(add_btn)
         layout.addStretch()
@@ -319,7 +317,6 @@ class ComparisonDashboard(QtWidgets.QWidget):
         widget.setObjectName("comparison_charts")
 
         layout = QtWidgets.QHBoxLayout()
-        layout.setSpacing(12)
 
         # Velocity comparison chart
         self._velocity_chart = self._build_velocity_chart()
@@ -341,12 +338,11 @@ class ComparisonDashboard(QtWidgets.QWidget):
         title.setObjectName("chart_title")
 
         layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(12, 8, 12, 8)
         layout.addWidget(title)
 
         if HAS_MATPLOTLIB:
             self._velocity_figure = Figure(figsize=(5, 3), dpi=100)
-            self._velocity_figure.patch.set_facecolor("#0a0e14")
+            self._velocity_figure.patch.set_facecolor(self._theme.background_dark)
             self._velocity_canvas = FigureCanvas(self._velocity_figure)
             self._velocity_canvas.setMinimumHeight(200)
             layout.addWidget(self._velocity_canvas, 1)
@@ -370,12 +366,11 @@ class ComparisonDashboard(QtWidgets.QWidget):
         title.setObjectName("chart_title")
 
         layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(12, 8, 12, 8)
         layout.addWidget(title)
 
         if HAS_MATPLOTLIB:
             self._accuracy_figure = Figure(figsize=(5, 3), dpi=100)
-            self._accuracy_figure.patch.set_facecolor("#0a0e14")
+            self._accuracy_figure.patch.set_facecolor(self._theme.background_dark)
             self._accuracy_canvas = FigureCanvas(self._accuracy_figure)
             self._accuracy_canvas.setMinimumHeight(200)
             layout.addWidget(self._accuracy_canvas, 1)
@@ -401,7 +396,6 @@ class ComparisonDashboard(QtWidgets.QWidget):
         clear_btn.clicked.connect(self._on_clear_all)
 
         layout = QtWidgets.QHBoxLayout()
-        layout.setContentsMargins(0, 8, 0, 0)
         layout.addStretch()
         layout.addWidget(clear_btn)
         layout.addWidget(export_csv_btn)
@@ -626,10 +620,10 @@ class ComparisonDashboard(QtWidgets.QWidget):
         ax = self._velocity_figure.add_subplot(111)
 
         # Style
-        ax.set_facecolor("#0a0e14")
-        ax.tick_params(colors="#ffffff80")
-        ax.spines["bottom"].set_color("#ffffff30")
-        ax.spines["left"].set_color("#ffffff30")
+        ax.set_facecolor(self._theme.background_dark)
+        ax.tick_params(colors=self._theme.text_muted)
+        ax.spines["bottom"].set_color(self._theme.border_glass)
+        ax.spines["left"].set_color(self._theme.border_glass)
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
@@ -640,7 +634,7 @@ class ComparisonDashboard(QtWidgets.QWidget):
                 "Add pitchers to compare",
                 ha="center",
                 va="center",
-                color="#ffffff60",
+                color=self._theme.text_muted,
                 transform=ax.transAxes,
             )
             self._velocity_canvas.draw()
@@ -660,7 +654,7 @@ class ComparisonDashboard(QtWidgets.QWidget):
             avg_velocities,
             width,
             label="Avg",
-            color="#64C8FF",
+            color=self._theme.accent_primary,
             alpha=0.8,
         )
         ax.bar(
@@ -668,11 +662,11 @@ class ComparisonDashboard(QtWidgets.QWidget):
             max_velocities,
             width,
             label="Max",
-            color="#4FFFB0",
+            color=self._theme.accent_success,
             alpha=0.8,
         )
 
-        ax.set_ylabel("Velocity (mph)", color="#ffffff80", fontsize=9)
+        ax.set_ylabel("Velocity (mph)", color=self._theme.text_muted, fontsize=9)
         ax.set_xticks(x)
         ax.set_xticklabels(names, rotation=45, ha="right", fontsize=8)
         ax.legend(loc="upper right", fontsize=8)
@@ -689,10 +683,10 @@ class ComparisonDashboard(QtWidgets.QWidget):
         ax = self._accuracy_figure.add_subplot(111)
 
         # Style
-        ax.set_facecolor("#0a0e14")
-        ax.tick_params(colors="#ffffff80")
-        ax.spines["bottom"].set_color("#ffffff30")
-        ax.spines["left"].set_color("#ffffff30")
+        ax.set_facecolor(self._theme.background_dark)
+        ax.tick_params(colors=self._theme.text_muted)
+        ax.spines["bottom"].set_color(self._theme.border_glass)
+        ax.spines["left"].set_color(self._theme.border_glass)
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
@@ -703,7 +697,7 @@ class ComparisonDashboard(QtWidgets.QWidget):
                 "Add pitchers to compare",
                 ha="center",
                 va="center",
-                color="#ffffff60",
+                color=self._theme.text_muted,
                 transform=ax.transAxes,
             )
             self._accuracy_canvas.draw()
@@ -719,18 +713,18 @@ class ComparisonDashboard(QtWidgets.QWidget):
         colors = []
         for pct in strike_pcts:
             if pct >= 65:
-                colors.append("#4FFFB0")  # Green - good
+                colors.append(self._theme.accent_success)  # Green - good
             elif pct >= 55:
-                colors.append("#FFB347")  # Orange - average
+                colors.append(self._theme.accent_warning)  # Orange - average
             else:
-                colors.append("#FF6B6B")  # Red - below average
+                colors.append(self._theme.accent_error)  # Red - below average
 
         ax.bar(x, strike_pcts, color=colors, alpha=0.8)
 
-        ax.set_ylabel("Strike %", color="#ffffff80", fontsize=9)
+        ax.set_ylabel("Strike %", color=self._theme.text_muted, fontsize=9)
         ax.set_xticks(x)
         ax.set_xticklabels(names, rotation=45, ha="right", fontsize=8)
-        ax.axhline(y=60, color="#ffffff40", linestyle="--", linewidth=1)
+        ax.axhline(y=60, color=self._theme.border_glass, linestyle="--", linewidth=1)
 
         self._accuracy_figure.tight_layout()
         self._accuracy_canvas.draw()
@@ -791,18 +785,20 @@ class ComparisonDashboard(QtWidgets.QWidget):
             logger.info(f"Exported comparison to {path}")
 
             # Show confirmation
-            QtWidgets.QMessageBox.information(
-                self,
-                "Export Complete",
-                f"Comparison exported to:\n{path}",
+            show_message_dialog(
+                parent=self,
+                title="Export Complete",
+                message=f"Comparison exported to:\n{path}",
+                level="info"
             )
 
         except Exception as e:
             logger.error(f"Failed to export comparison: {e}")
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Export Failed",
-                f"Failed to export comparison:\n{e}",
+            show_message_dialog(
+                parent=self,
+                title="Export Failed",
+                message=f"Failed to export comparison:\n{e}",
+                level="warning"
             )
 
 
@@ -824,6 +820,8 @@ class ComparisonDashboardDialog(QtWidgets.QDialog):
         layout.addWidget(close_btn)
 
         self.setLayout(layout)
+        apply_standard_layout(layout)
+        polish_form_controls([close_btn])
 
     @property
     def dashboard(self) -> ComparisonDashboard:

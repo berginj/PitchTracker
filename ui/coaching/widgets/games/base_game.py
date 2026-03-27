@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Optional
 from PySide6 import QtWidgets
 from PySide6.QtCore import QObject
 
+from ui.themes import get_style_manager
+
 if TYPE_CHECKING:
     from app.pipeline_service import PitchSummary
     from ui.coaching.game_state_manager import GameStateManager
@@ -37,6 +39,7 @@ class BaseGame(QtWidgets.QWidget, metaclass=QABCMeta):
             parent: Parent widget
         """
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self._state_mgr = game_state_manager
         self._session_score = 0
         self._session_start_time = 0.0

@@ -7,6 +7,8 @@ from typing import List, Optional, Tuple
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from ui.themes import get_style_manager
+
 
 class VelocityTrendChart(QtWidgets.QWidget):
     """Line chart showing velocity trend over session."""
@@ -19,6 +21,7 @@ class VelocityTrendChart(QtWidgets.QWidget):
         """
         super().__init__(parent)
         self._data: List[Tuple[int, float]] = []  # (pitch_index, velocity_mph)
+        self._theme = get_style_manager().theme
         self.setMinimumSize(400, 200)
 
     def update_data(self, data: List[Tuple[int, float]]) -> None:
@@ -54,9 +57,7 @@ class VelocityTrendChart(QtWidgets.QWidget):
         if not self._data:
             # No data - show placeholder
             painter.setPen(QtCore.Qt.GlobalColor.gray)
-            font = painter.font()
-            font.setPointSize(12)
-            painter.setFont(font)
+            painter.setFont(self._theme.get_font(size=12))
             painter.drawText(
                 QtCore.QRect(0, 0, width, height),
                 QtCore.Qt.AlignmentFlag.AlignCenter,
@@ -95,9 +96,7 @@ class VelocityTrendChart(QtWidgets.QWidget):
         painter.drawLine(margin, margin, margin, height - margin)  # Y-axis
 
         # Draw labels
-        font = painter.font()
-        font.setPointSize(8)
-        painter.setFont(font)
+        painter.setFont(self._theme.get_font(size=8))
 
         # Y-axis labels (velocity)
         for i in range(5):
@@ -138,6 +137,7 @@ class StrikeRatioGauge(QtWidgets.QWidget):
         """
         super().__init__(parent)
         self._percentage = 0.0  # 0.0 to 1.0
+        self._theme = get_style_manager().theme
         self.setMinimumSize(200, 200)
 
     def set_percentage(self, percentage: float) -> None:
@@ -191,10 +191,7 @@ class StrikeRatioGauge(QtWidgets.QWidget):
 
         # Draw percentage text
         painter.setPen(QtCore.Qt.GlobalColor.black)
-        font = painter.font()
-        font.setPointSize(24)
-        font.setBold(True)
-        painter.setFont(font)
+        painter.setFont(self._theme.get_font(size=24, weight="bold"))
         text = f"{self._percentage * 100:.0f}%"
         painter.drawText(
             QtCore.QRect(0, center_y - 20, width, 40),
@@ -203,9 +200,7 @@ class StrikeRatioGauge(QtWidgets.QWidget):
         )
 
         # Draw label
-        font.setPointSize(10)
-        font.setBold(False)
-        painter.setFont(font)
+        painter.setFont(self._theme.get_font(size=10))
         painter.drawText(
             QtCore.QRect(0, center_y + 20, width, 30),
             QtCore.Qt.AlignmentFlag.AlignCenter,
@@ -245,6 +240,7 @@ class AccuracyTrendChart(QtWidgets.QWidget):
         """
         super().__init__(parent)
         self._data: List[Tuple[int, float]] = []  # (pitch_index, accuracy)
+        self._theme = get_style_manager().theme
         self.setMinimumSize(300, 150)
 
     def update_data(self, data: List[Tuple[int, float]]) -> None:
@@ -279,9 +275,7 @@ class AccuracyTrendChart(QtWidgets.QWidget):
 
         if not self._data:
             painter.setPen(QtCore.Qt.GlobalColor.gray)
-            font = painter.font()
-            font.setPointSize(10)
-            painter.setFont(font)
+            painter.setFont(self._theme.get_font(size=10))
             painter.drawText(
                 QtCore.QRect(0, 0, width, height),
                 QtCore.Qt.AlignmentFlag.AlignCenter,
@@ -314,9 +308,7 @@ class AccuracyTrendChart(QtWidgets.QWidget):
         painter.drawLine(margin, margin, margin, height - margin)
 
         # Labels
-        font = painter.font()
-        font.setPointSize(8)
-        painter.setFont(font)
+        painter.setFont(self._theme.get_font(size=8))
 
         for i in range(5):
             acc = i / 4.0
@@ -348,6 +340,7 @@ class FastestPitchWidget(QtWidgets.QWidget):
         """
         super().__init__(parent)
         self._speed = 0.0
+        self._theme = get_style_manager().theme
         self.setMinimumSize(200, 100)
 
     def set_speed(self, speed: float) -> None:
@@ -380,10 +373,7 @@ class FastestPitchWidget(QtWidgets.QWidget):
         painter.drawRect(0, 0, width - 1, height - 1)
 
         # Draw label
-        font = painter.font()
-        font.setPointSize(12)
-        font.setBold(True)
-        painter.setFont(font)
+        painter.setFont(self._theme.get_font(size=12, weight="bold"))
         painter.drawText(
             QtCore.QRect(0, 10, width, 30),
             QtCore.Qt.AlignmentFlag.AlignCenter,
@@ -391,8 +381,7 @@ class FastestPitchWidget(QtWidgets.QWidget):
         )
 
         # Draw speed
-        font.setPointSize(36)
-        painter.setFont(font)
+        painter.setFont(self._theme.get_font(size=36, weight="bold"))
         painter.setPen(QtGui.QColor(211, 47, 47))  # Red
         speed_text = f"{self._speed:.1f}" if self._speed > 0 else "--"
         painter.drawText(
@@ -402,8 +391,7 @@ class FastestPitchWidget(QtWidgets.QWidget):
         )
 
         # Draw units
-        font.setPointSize(14)
-        painter.setFont(font)
+        painter.setFont(self._theme.get_font(size=14, weight="bold"))
         painter.setPen(QtCore.Qt.GlobalColor.black)
         painter.drawText(
             QtCore.QRect(0, height - 30, width, 25),

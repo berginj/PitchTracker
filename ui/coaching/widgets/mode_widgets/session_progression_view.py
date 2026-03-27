@@ -15,6 +15,7 @@ from ui.coaching.widgets.progression_charts_widget import (
     StrikeRatioGauge,
     VelocityTrendChart,
 )
+from ui.themes import get_style_manager
 
 if TYPE_CHECKING:
     from contracts import Frame
@@ -44,6 +45,7 @@ class SessionProgressionWidget(BaseModeWidget):
             parent: Parent widget
         """
         super().__init__(parent)
+        self._style_manager = get_style_manager()
         self._session_tracker = session_tracker
         self._build_ui()
 
