@@ -52,11 +52,9 @@ class QtPipelineService(QtCore.QObject):
 
     def _subscribe_to_events(self) -> None:
         """Subscribe to EventBus events and convert to Qt signals."""
-        # Access the EventBus from the orchestrator
-        if hasattr(self._service, '_event_bus'):
-            self._service._event_bus.subscribe(PitchStartEvent, self._on_pitch_start_event)
-            self._service._event_bus.subscribe(PitchEndEvent, self._on_pitch_end_event)
-            logger.debug("QtPipelineService subscribed to EventBus pitch events")
+        self._service.subscribe_event(PitchStartEvent, self._on_pitch_start_event)
+        self._service.subscribe_event(PitchEndEvent, self._on_pitch_end_event)
+        logger.debug("QtPipelineService subscribed to pitch events")
 
     def _on_pitch_start_event(self, event: PitchStartEvent) -> None:
         """Internal handler for PitchStartEvent - emits Qt signal.
@@ -118,6 +116,18 @@ class QtPipelineService(QtCore.QObject):
         """Stop recording (delegates to underlying service)."""
         return self._service.stop_recording()
 
+    def pause_recording(self):
+        """Pause recording while keeping capture active."""
+        return self._service.pause_recording()
+
+    def resume_recording(self):
+        """Resume a paused recording session."""
+        return self._service.resume_recording()
+
+    def is_recording_paused(self) -> bool:
+        """Check if recording is paused."""
+        return self._service.is_recording_paused()
+
     def get_preview_frames(self):
         """Get preview frames (delegates to underlying service)."""
         return self._service.get_preview_frames()
@@ -137,6 +147,22 @@ class QtPipelineService(QtCore.QObject):
     def set_manual_speed_mph(self, speed_mph: Optional[float]):
         """Set manual speed (delegates to underlying service)."""
         return self._service.set_manual_speed_mph(speed_mph)
+
+    def set_ball_type(self, ball_type: str):
+        """Set ball type (delegates to underlying service)."""
+        return self._service.set_ball_type(ball_type)
+
+    def set_batter_height_in(self, height_in: float):
+        """Set batter height (delegates to underlying service)."""
+        return self._service.set_batter_height_in(height_in)
+
+    def get_session_summary(self):
+        """Get current session summary (delegates to underlying service)."""
+        return self._service.get_session_summary()
+
+    def update_mound_distance(self, distance_ft: float):
+        """Update mound distance (delegates to underlying service)."""
+        return self._service.update_mound_distance(distance_ft)
 
     def get_last_session_summary(self):
         """Get last session summary (delegates to underlying service)."""

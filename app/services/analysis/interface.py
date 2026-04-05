@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Optional
 
-from app.pipeline_service import PitchSummary, SessionSummary
+from app.contracts import PitchSummary, SessionSummary
 from app.pipeline.pitch_tracking_v2 import PitchData
 from configs.settings import AppConfig
 from contracts import StereoObservation
@@ -190,6 +190,10 @@ class AnalysisService(ABC):
 
         Note: Ratios define zone boundaries relative to batter height.
         """
+
+    @abstractmethod
+    def set_manual_speed_mph(self, speed_mph: Optional[float]) -> None:
+        """Override radar speed for future pitch analyses."""
 
     @abstractmethod
     def update_config(self, config: AppConfig) -> None:

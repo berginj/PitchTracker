@@ -28,6 +28,8 @@ def create_session_manifest(
     mode: str,
     measured_speed_mph: float,
     config_path: str,
+    started_utc: Optional[str] = None,
+    ended_utc: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create session manifest.
 
@@ -44,9 +46,13 @@ def create_session_manifest(
     manifest = create_base_manifest()
     manifest.update({
         "pitch_id": pitch_id,
+        "session_id": session_name,
+        "session_name": session_name,
         "session": session_name,
         "mode": mode,
         "measured_speed_mph": measured_speed_mph,
+        "t_start_utc": started_utc,
+        "t_end_utc": ended_utc,
         "config_path": config_path or "configs/default.yaml",
         "calibration_profile_id": None,
         "session_summary": "session_summary.json",
@@ -60,7 +66,11 @@ def create_session_manifest(
 
 
 def create_pitch_manifest(
-    summary, config_path: str, performance_metrics: Optional[Dict] = None
+    summary,
+    config_path: str,
+    performance_metrics: Optional[Dict] = None,
+    left_video: str = "left.avi",
+    right_video: str = "right.avi",
 ) -> Dict[str, Any]:
     """Create pitch manifest.
 
@@ -95,8 +105,8 @@ def create_pitch_manifest(
             "expected_error_ft": summary.trajectory_expected_error_ft,
             "confidence": summary.trajectory_confidence,
         },
-        "left_video": "left.avi",
-        "right_video": "right.avi",
+        "left_video": left_video,
+        "right_video": right_video,
         "left_timestamps": "left_timestamps.csv",
         "right_timestamps": "right_timestamps.csv",
         "config_path": config_path or "configs/default.yaml",

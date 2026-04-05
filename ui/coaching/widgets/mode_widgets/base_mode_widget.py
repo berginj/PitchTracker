@@ -13,6 +13,7 @@ from ui.themes import get_style_manager
 if TYPE_CHECKING:
     from contracts import Frame
     from app.pipeline_service import PitchSummary
+    from ui.coaching.strike_zone_mapping import StrikeZoneOverlayConfig
 
 
 # Combined metaclass for Qt + ABC
@@ -101,3 +102,10 @@ class BaseModeWidget(QtWidgets.QWidget, metaclass=QABCMeta):
         if camera in ("left", "right"):
             self._current_camera = camera
             # Subclasses should override and update their camera widget
+
+    def set_strike_zone_config(self, overlay_config: "StrikeZoneOverlayConfig") -> None:
+        """Update strike-zone overlay configuration.
+
+        Modes without a strike-zone overlay can ignore this.
+        """
+        del overlay_config

@@ -55,6 +55,24 @@ class CheckerboardNotFoundError(CalibrationError):
     pass
 
 
+class CalibrationInputError(CalibrationError):
+    """Raised when calibration inputs are invalid or incomplete."""
+
+    pass
+
+
+class CalibrationExecutionError(CalibrationError):
+    """Raised when the calibration worker fails during execution."""
+
+    pass
+
+
+class CalibrationPersistenceError(CalibrationError):
+    """Raised when calibration results cannot be written to disk."""
+
+    pass
+
+
 class ConfigError(PitchTrackerError):
     """Base exception for configuration errors."""
 

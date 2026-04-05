@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
+from app.contracts import PitchSummary, SessionSummary
 from contracts import Frame, StereoObservation
 
 
@@ -89,6 +90,23 @@ class PitchEndEvent:
     observations: List[StereoObservation]
     timestamp_ns: int
     duration_ns: int
+
+
+@dataclass(frozen=True)
+class PitchAnalyzedEvent:
+    """Published when pitch analysis has produced a durable summary.
+
+    Published By: AnalysisService
+    Subscribed By: RecordingService, UI observers
+
+    Attributes:
+        pitch_id: Unique identifier for the pitch
+        summary: Computed pitch summary
+        session_summary: Latest aggregate session summary after this pitch
+    """
+    pitch_id: str
+    summary: PitchSummary
+    session_summary: SessionSummary
 
 
 @dataclass(frozen=True)

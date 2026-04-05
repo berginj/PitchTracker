@@ -4,14 +4,10 @@ from __future__ import annotations
 
 from typing import Dict, Iterable, List, Optional
 
+from app.contracts import SessionSummary
 from capture.camera_device import CameraStats
 from detect.lane import LaneGate
 from stereo.association import StereoMatch
-
-# Import from parent module to avoid circular dependency
-# These are part of the public API and defined in pipeline_service.py
-if False:  # TYPE_CHECKING equivalent
-    from app.pipeline_service import PitchSummary, SessionSummary
 
 
 def stats_to_dict(stats: CameraStats) -> Dict[str, float]:
@@ -134,9 +130,6 @@ def build_session_summary(session_id: str, pitches: List) -> Dict:
             row = 3 - row  # Flip Y-axis for display
             col = max(1, min(3, pitch.zone_col)) - 1
             heatmap[row][col] += 1
-
-    # Import here to avoid circular dependency
-    from app.pipeline_service import SessionSummary
 
     return SessionSummary(
         session_id=session_id,

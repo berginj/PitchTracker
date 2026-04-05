@@ -45,7 +45,9 @@ class RecordingService(ABC):
         self,
         session_name: str,
         config: AppConfig,
-        mode: Optional[str] = None
+        mode: Optional[str] = None,
+        pitch_id: Optional[str] = None,
+        config_path: Optional[Path] = None,
     ) -> str:
         """Start a new recording session.
 
@@ -56,6 +58,8 @@ class RecordingService(ABC):
             session_name: Name for the session (used in directory name)
             config: Application configuration
             mode: Optional mode identifier (e.g., "coaching", "practice")
+            pitch_id: Optional fallback pitch identifier for manifests
+            config_path: Optional path to the active config file
 
         Returns:
             Warning message if disk space is low, empty string otherwise
@@ -156,6 +160,10 @@ class RecordingService(ABC):
 
         Note: Only affects future sessions, not current session.
         """
+
+    @abstractmethod
+    def set_manual_speed_mph(self, speed_mph: Optional[float]) -> None:
+        """Set a manual speed override for future manifest output."""
 
     @abstractmethod
     def get_session_dir(self) -> Optional[Path]:

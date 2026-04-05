@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from dataclasses import replace
 from pathlib import Path
 from typing import Optional
 
@@ -15,6 +16,7 @@ from configs.settings import load_config
 from ui.coaching.dialogs import SessionStartDialog
 from ui.coaching.game_state_manager import GameStateManager
 from ui.coaching.session_history_tracker import SessionHistoryTracker
+from ui.coaching.strike_zone_mapping import StrikeZoneOverlayConfig
 from ui.coaching.widgets import CompactFatigueIndicator
 from ui.coaching.widgets.mode_widgets import (
     BroadcastViewWidget,
@@ -60,9 +62,11 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         # Session state
         self._session_active = False
+        self._session_paused = False
         self._pitch_count = 0
         self._session_name = ""
         self._pitcher_name = ""
+        self._strike_zone_overlay_config = StrikeZoneOverlayConfig.from_app_config(self._config)
 
         # Camera settings (load from saved state or use defaults)
         state = load_state()
@@ -215,8 +219,11 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._mode_stack = QtWidgets.QStackedWidget()
 
         # Create all 3 modes
-        self._broadcast_mode = BroadcastViewWidget()
-        self._progression_mode = SessionProgressionWidget(self._session_tracker)
+        self._broadcast_mode = BroadcastViewWidget(self._strike_zone_overlay_config)
+        self._progression_mode = SessionProgressionWidget(
+            self._session_tracker,
+            self._strike_zone_overlay_config,
+        )
         self._game_mode = GameModeWidget(self._game_state_mgr)
 
         self._mode_stack.addWidget(self._broadcast_mode)
@@ -382,9 +389,22 @@ class CoachWindow(QtWidgets.QMainWindow):
         # Update configuration from dialog
         if dialog.batter_height_in != self._config.strike_zone.batter_height_in:
             self._service.set_batter_height_in(dialog.batter_height_in)
+            self._config = replace(
+                self._config,
+                strike_zone=replace(
+                    self._config.strike_zone,
+                    batter_height_in=dialog.batter_height_in,
+                ),
+            )
 
         if dialog.ball_type != self._config.ball.type:
             self._service.set_ball_type(dialog.ball_type)
+            self._config = replace(
+                self._config,
+                ball=replace(self._config.ball, type=dialog.ball_type),
+            )
+
+        self._apply_strike_zone_overlay_config(dialog.batter_height_in)
 
         # Get camera serials from dialog
         left_serial = dialog.left_serial
@@ -522,18 +542,41 @@ class CoachWindow(QtWidgets.QMainWindow):
         # Update buttons
         self._start_recording_button.setEnabled(False)
         self._pause_button.setEnabled(True)
+        self._pause_button.setText("Pause")
 
         # Update status
         self._set_status_message("Recording in progress. Ready to track pitches.", "success")
         self._style_manager.style_status_indicator(self._status_label, "success")
 
         self._session_active = True
+        self._session_paused = False
 
     def _pause_session(self) -> None:
-        """Pause current session."""
-        # TODO: Implement pause logic
-        self._set_status_message("Session paused. Click 'Start Session' to resume.", "warning")
-        self._style_manager.style_status_indicator(self._status_label, "warning")
+        """Toggle pause/resume for the current recording session."""
+        if not self._session_active:
+            return
+
+        try:
+            if self._session_paused:
+                self._service.resume_recording()
+                self._session_paused = False
+                self._pause_button.setText("Pause")
+                self._recording_indicator.show()
+                self._set_status_message("Recording resumed. Ready to track pitches.", "success")
+            else:
+                self._service.pause_recording()
+                self._session_paused = True
+                self._pause_button.setText("Resume")
+                self._recording_indicator.hide()
+                self._set_status_message("Session paused. Cameras remain live until you resume.", "warning")
+        except Exception as e:
+            logger.error(f"Failed to toggle pause state: {e}", exc_info=True)
+            show_message_dialog(
+                self,
+                "Pause Error",
+                f"Unable to update the session state:\n{e}",
+                tone="error",
+            )
 
     def _end_session(self) -> None:
         """End current session and show summary."""
@@ -589,12 +632,14 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._setup_button.setEnabled(True)
         self._start_recording_button.setEnabled(False)
         self._pause_button.setEnabled(False)
+        self._pause_button.setText("Pause")
         self._end_button.setEnabled(False)
 
         # Update status
         self._set_status_message("Session ended. Ready for the next session.", "info")
 
         self._session_active = False
+        self._session_paused = False
 
     def _show_settings(self) -> None:
         """Show settings dialog."""
@@ -875,12 +920,12 @@ class CoachWindow(QtWidgets.QMainWindow):
         logger.info("Pitch ended (main thread)")
         # Metrics will be updated by the regular polling timer
         # Just update status
-        if self._session_active:
+        if self._session_active and not self._session_paused:
             self._set_status_message("Recording in progress. Ready to track pitches.", "success")
 
     def _update_metrics(self) -> None:
         """Update pitch metrics display."""
-        if not self._session_active:
+        if not self._session_active or self._session_paused:
             return
 
         try:
@@ -909,3 +954,11 @@ class CoachWindow(QtWidgets.QMainWindow):
         except Exception as e:
             # Log metrics errors for debugging
             logger.error(f"Metrics update failed: {e}", exc_info=True)
+
+    def _apply_strike_zone_overlay_config(self, batter_height_in: float) -> None:
+        """Push the active strike-zone configuration into overlay-capable modes."""
+        self._strike_zone_overlay_config = self._strike_zone_overlay_config.with_batter_height(
+            batter_height_in
+        )
+        for mode in (self._broadcast_mode, self._progression_mode, self._game_mode):
+            mode.set_strike_zone_config(self._strike_zone_overlay_config)

@@ -9,6 +9,7 @@ Manages detection pipeline:
 
 from __future__ import annotations
 
+from collections import deque
 import threading
 from typing import Dict, List, Optional, Tuple
 
@@ -21,7 +22,9 @@ from app.services.detection.interface import DetectionService, ObservationCallba
 from configs.settings import AppConfig
 from contracts import Detection, Frame, StereoObservation
 from detect.config import DetectorConfig, Mode
+from detect.lane import LaneGate, LaneRoi
 from log_config.logger import get_logger
+from stereo import StereoLaneGate
 
 logger = get_logger(__name__)
 
@@ -81,6 +84,7 @@ class DetectionServiceImpl(DetectionService):
         # Lane ROIs (optional)
         self._lane_rois: Optional[Dict[str, List[Tuple[float, float]]]] = None
         self._plate_rois: Optional[Dict[str, List[Tuple[float, float]]]] = None
+        self._latest_observations: deque[StereoObservation] = deque(maxlen=64)
 
         # Stats tracking
         self._detection_count = 0
@@ -186,13 +190,14 @@ class DetectionServiceImpl(DetectionService):
             stereo_matcher = self._initializer.create_stereo_matcher(self._config)
 
             # Build processor
+            lane_gate, plate_gate, stereo_gate, plate_stereo_gate = self._build_gates()
             self._processor = DetectionProcessor(
                 config=self._config,
                 stereo_matcher=stereo_matcher,
-                lane_gate=None,  # Will be set via set_lane_rois()
-                plate_gate=None,
-                stereo_gate=None,
-                plate_stereo_gate=None,
+                lane_gate=lane_gate,
+                plate_gate=plate_gate,
+                stereo_gate=stereo_gate,
+                plate_stereo_gate=plate_stereo_gate,
                 get_ball_radius_fn=lambda: 1.45  # Default ball radius
             )
 
@@ -211,6 +216,7 @@ class DetectionServiceImpl(DetectionService):
 
             self._running = True
             self._detection_start_time = __import__('time').time()
+            self._latest_observations.clear()
 
             logger.info("Detection started")
 
@@ -296,8 +302,8 @@ class DetectionServiceImpl(DetectionService):
         Thread-Safe: Returns snapshot of latest observations.
         """
         # Observations are published via EventBus, not buffered here
-        # For backward compatibility, return empty list
-        return []
+        with self._lock:
+            return list(self._latest_observations)
 
     def on_observation_detected(self, callback: ObservationCallback) -> None:
         """Register callback for stereo observation events.
@@ -371,7 +377,14 @@ class DetectionServiceImpl(DetectionService):
             self._lane_rois = lane_rois
             self._plate_rois = plate_rois
 
-            # Future Enhancement: Rebuild processor with new ROIs (requires hot-swap mechanism)
+            lane_gate, plate_gate, stereo_gate, plate_stereo_gate = self._build_gates()
+            if self._processor is not None:
+                self._processor.update_gates(
+                    lane_gate=lane_gate,
+                    plate_gate=plate_gate,
+                    stereo_gate=stereo_gate,
+                    plate_stereo_gate=plate_stereo_gate,
+                )
             logger.info(f"Lane ROIs set for cameras: {list(lane_rois.keys())}")
 
     def is_running(self) -> bool:
@@ -382,6 +395,13 @@ class DetectionServiceImpl(DetectionService):
         """
         with self._lock:
             return self._running
+
+    def update_config(self, config: AppConfig) -> None:
+        """Update detection configuration used for future processor work."""
+        with self._lock:
+            self._config = config
+            if self._processor is not None:
+                self._processor.update_config(config)
 
     # Internal Event Handlers
 
@@ -476,6 +496,8 @@ class DetectionServiceImpl(DetectionService):
         try:
             # Publish each observation to EventBus
             for obs in observations:
+                with self._lock:
+                    self._latest_observations.append(obs)
                 event = ObservationDetectedEvent(
                     observation=obs,
                     timestamp_ns=obs.t_ns,
@@ -511,6 +533,27 @@ class DetectionServiceImpl(DetectionService):
 
         self._subscribed = True
         logger.info("DetectionService subscribed to EventBus")
+
+    def _build_gates(
+        self,
+    ) -> tuple[Optional[LaneGate], Optional[LaneGate], Optional[StereoLaneGate], Optional[StereoLaneGate]]:
+        lane_gate = self._build_lane_gate(self._lane_rois)
+        plate_gate = self._build_lane_gate(self._plate_rois)
+        stereo_gate = StereoLaneGate(lane_gate) if lane_gate is not None else None
+        plate_stereo_gate = StereoLaneGate(plate_gate) if plate_gate is not None else None
+        return lane_gate, plate_gate, stereo_gate, plate_stereo_gate
+
+    @staticmethod
+    def _build_lane_gate(roi_map: Optional[Dict[str, List[Tuple[float, float]]]]) -> Optional[LaneGate]:
+        if not roi_map:
+            return None
+
+        return LaneGate(
+            roi_by_camera={
+                camera_id: LaneRoi(polygon=list(points))
+                for camera_id, points in roi_map.items()
+            }
+        )
 
     def _unsubscribe_from_events(self) -> None:
         """Unsubscribe from EventBus events.

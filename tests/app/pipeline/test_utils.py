@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
+from app.contracts import PitchSummary
 from app.pipeline.utils import (
     build_session_summary,
     build_stereo_matches,
     gate_detections,
     stats_to_dict,
 )
-from app.pipeline_service import PitchSummary
 from capture.camera_device import CameraStats
 from contracts import Detection, StereoObservation
 from detect.lane import LaneGate, LaneRoi

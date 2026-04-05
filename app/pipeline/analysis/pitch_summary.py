@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import List, Optional
 
+from app.contracts import PitchSummary
 from configs.settings import AppConfig
 from contracts import StereoObservation
 from metrics.simple_metrics import compute_plate_from_observations
@@ -61,9 +62,6 @@ class PitchAnalyzer:
         Returns:
             PitchSummary object
         """
-        # Import here to avoid circular dependency
-        from app.pipeline_service import PitchSummary
-
         # Compute strike zone
         zone = build_strike_zone(
             plate_z_ft=self._config.metrics.plate_plane_z_ft,

@@ -7,9 +7,11 @@ capture, detection, recording, and analysis services through EventBus.
 from __future__ import annotations
 
 import threading
+from dataclasses import replace
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Type
 
+from app.contracts import CalibrationProfile, SessionSummary
 from app.events.event_bus import EventBus
 from app.events.event_types import (
     FrameCapturedEvent,
@@ -18,7 +20,7 @@ from app.events.event_types import (
     PitchStartEvent,
 )
 from app.pipeline.pitch_tracking_v2 import PitchConfig, PitchData, PitchStateMachineV2
-from app.pipeline_service import CalibrationProfile, PipelineService, SessionSummary
+from app.pipeline.service_contracts import PipelineService
 from app.services.analysis import AnalysisServiceImpl
 from app.services.capture import CaptureServiceImpl
 from app.services.detection import DetectionServiceImpl
@@ -89,10 +91,14 @@ class PipelineOrchestrator(PipelineService):
         # Configuration
         self._config: Optional[AppConfig] = None
         self._config_path: Optional[Path] = None
+        self._record_dir: Optional[Path] = None
+        self._manual_speed_mph: Optional[float] = None
 
         # State
         self._capturing = False
         self._detection_started = False
+        self._recording_active = False
+        self._recording_paused = False
 
         # Latest observation for strike result
         self._latest_observation: Optional[StereoObservation] = None
@@ -133,12 +139,21 @@ class PipelineOrchestrator(PipelineService):
 
             if self._detection_service is None:
                 self._detection_service = DetectionServiceImpl(self._event_bus, config)
+            else:
+                self._detection_service.update_config(config)
 
             if self._recording_service is None:
                 self._recording_service = RecordingServiceImpl(self._event_bus)
+                if self._record_dir is not None:
+                    self._recording_service.set_record_directory(self._record_dir)
+                self._recording_service.set_manual_speed_mph(self._manual_speed_mph)
 
             if self._analysis_service is None:
                 self._analysis_service = AnalysisServiceImpl(self._event_bus, config)
+                self._analysis_service.set_manual_speed_mph(self._manual_speed_mph)
+            else:
+                self._analysis_service.update_config(config)
+                self._analysis_service.set_manual_speed_mph(self._manual_speed_mph)
 
             # Create pitch tracker
             self._pitch_tracker = PitchStateMachineV2(self._pitch_config)
@@ -250,11 +265,16 @@ class PipelineOrchestrator(PipelineService):
                 self._analysis_service.start_analysis()
 
             # Start recording service
-            return self._recording_service.start_session(
+            warning = self._recording_service.start_session(
                 session_name=session_name or "session",
                 config=self._config,
                 mode=mode,
+                pitch_id=pitch_id,
+                config_path=self._config_path,
             )
+            self._recording_active = True
+            self._recording_paused = False
+            return warning
 
     def set_record_directory(self, path: Optional[Path]) -> None:
         """Set base directory for recordings.
@@ -263,6 +283,7 @@ class PipelineOrchestrator(PipelineService):
             path: Base directory path for recordings
         """
         with self._lock:
+            self._record_dir = path
             if self._recording_service is not None:
                 self._recording_service.set_record_directory(path)
 
@@ -271,11 +292,13 @@ class PipelineOrchestrator(PipelineService):
 
         Args:
             speed_mph: Speed in mph (or None to clear)
-
-        Note: Not implemented in current architecture
         """
-        # Future Enhancement: Implement manual speed override (requires UI integration)
-        pass
+        with self._lock:
+            self._manual_speed_mph = speed_mph
+            if self._analysis_service is not None:
+                self._analysis_service.set_manual_speed_mph(speed_mph)
+            if self._recording_service is not None:
+                self._recording_service.set_manual_speed_mph(speed_mph)
 
     def stop_recording(self) -> RecordingBundle:
         """Stop recording and return the bundle.
@@ -296,9 +319,58 @@ class PipelineOrchestrator(PipelineService):
 
             # Stop recording
             bundle = self._recording_service.stop_session()
+            self._recording_active = False
+            self._recording_paused = False
 
             logger.info(f"Recording stopped: {bundle.session_dir}")
             return bundle
+
+    def pause_recording(self) -> None:
+        """Pause active session recording while keeping capture live."""
+        with self._lock:
+            if not self._recording_active or self._recording_service is None:
+                raise RuntimeError("Recording not active")
+            if self._recording_paused:
+                return
+
+            if self._pitch_tracker is not None:
+                self._pitch_tracker.force_end()
+
+            if self._analysis_service is not None:
+                self._analysis_service.pause_analysis()
+
+            if self._detection_started and self._detection_service is not None:
+                self._detection_service.stop_detection()
+                self._detection_started = False
+
+            self._recording_service.pause_session()
+            self._recording_paused = True
+            logger.info("Recording paused")
+
+    def resume_recording(self) -> None:
+        """Resume a paused recording session."""
+        with self._lock:
+            if not self._recording_active or self._recording_service is None:
+                raise RuntimeError("Recording not active")
+            if not self._recording_paused:
+                return
+            if self._detection_service is None:
+                raise RuntimeError("Detection service not initialized")
+
+            self._recording_service.resume_session()
+
+            if self._analysis_service is not None:
+                self._analysis_service.resume_analysis()
+
+            self._detection_service.start_detection()
+            self._detection_started = True
+            self._recording_paused = False
+            logger.info("Recording resumed")
+
+    def is_recording_paused(self) -> bool:
+        """Check if the current recording session is paused."""
+        with self._lock:
+            return self._recording_paused
 
     def run_calibration(self, profile_id: str) -> CalibrationProfile:
         """Run calibration and return a profile summary.
@@ -312,6 +384,7 @@ class PipelineOrchestrator(PipelineService):
         Note: Calibration runs in separate calibration pipeline
         """
         # Future Enhancement: Implement calibration via separate pipeline
+        logger.warning("run_calibration(%s) is not implemented in PipelineOrchestrator", profile_id)
         raise NotImplementedError("Calibration not yet implemented in orchestrator")
 
     def get_stats(self) -> Dict[str, Dict[str, float]]:
@@ -475,7 +548,6 @@ class PipelineOrchestrator(PipelineService):
         """
         with self._lock:
             if self._analysis_service is None:
-                from app.pipeline_service import SessionSummary
                 return SessionSummary(
                     session_id="none",
                     pitch_count=0,
@@ -499,6 +571,11 @@ class PipelineOrchestrator(PipelineService):
 
             return self._analysis_service.get_recent_pitch_paths()
 
+    def get_recent_pitches(self, count: int = 10) -> List:
+        """Return the most recent analyzed pitches for coaching UI compatibility."""
+        summary = self.get_session_summary()
+        return list(summary.pitches[-count:])
+
     def get_session_dir(self) -> Optional[Path]:
         """Return the current session directory if available.
 
@@ -510,6 +587,37 @@ class PipelineOrchestrator(PipelineService):
                 return None
 
             return self._recording_service.get_session_dir()
+
+    def get_last_session_summary(self) -> SessionSummary:
+        """Compatibility wrapper for UI callers that expect the legacy API."""
+        return self.get_session_summary()
+
+    def reload_config(self, config: AppConfig) -> None:
+        """Reload configuration for future analysis and recording operations."""
+        with self._lock:
+            self._config = config
+            if self._analysis_service is not None:
+                self._analysis_service.update_config(config)
+            if self._detection_service is not None:
+                self._detection_service.update_config(config)
+
+    def reload_rois(self) -> None:
+        """Reload ROIs for compatibility with legacy UI callers."""
+        logger.warning("reload_rois() is deprecated compatibility surface and currently a no-op")
+        return None
+
+    def update_mound_distance(self, distance_ft: float) -> None:
+        """Update mound distance in the active configuration."""
+        with self._lock:
+            if self._config is None:
+                return
+
+            self._config = replace(
+                self._config,
+                metrics=replace(self._config.metrics, release_plane_z_ft=distance_ft),
+            )
+            if self._analysis_service is not None:
+                self._analysis_service.update_config(self._config)
 
     # Internal Event Handlers
 
@@ -557,6 +665,7 @@ class PipelineOrchestrator(PipelineService):
         try:
             # Publish PitchStartEvent
             event = PitchStartEvent(
+                pitch_id=self._make_pitch_id(pitch_index),
                 pitch_index=pitch_index,
                 timestamp_ns=pitch_data.start_ns,
             )
@@ -580,7 +689,7 @@ class PipelineOrchestrator(PipelineService):
         try:
             # Publish PitchEndEvent
             event = PitchEndEvent(
-                pitch_id=f"pitch_{pitch_data.pitch_index:05d}",
+                pitch_id=self._make_pitch_id(pitch_data.pitch_index),
                 observations=pitch_data.observations,
                 timestamp_ns=pitch_data.end_ns,
                 duration_ns=pitch_data.duration_ns(),
@@ -603,3 +712,15 @@ class PipelineOrchestrator(PipelineService):
         """Unsubscribe from ObservationDetectedEvent."""
         self._event_bus.unsubscribe(ObservationDetectedEvent, self._on_observation_detected_internal)
         logger.info("PipelineOrchestrator unsubscribed from ObservationDetectedEvent")
+
+    def subscribe_event(self, event_type: Type, handler: Callable) -> None:
+        """Register a public EventBus subscription without exposing internals."""
+        self._event_bus.subscribe(event_type, handler)
+
+    def unsubscribe_event(self, event_type: Type, handler: Callable) -> bool:
+        """Remove a public EventBus subscription without exposing internals."""
+        return self._event_bus.unsubscribe(event_type, handler)
+
+    @staticmethod
+    def _make_pitch_id(pitch_index: int) -> str:
+        return f"pitch_{pitch_index:05d}"

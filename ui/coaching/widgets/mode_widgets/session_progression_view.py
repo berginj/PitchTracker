@@ -7,6 +7,10 @@ from typing import TYPE_CHECKING, List, Optional
 
 from PySide6 import QtWidgets
 
+from ui.coaching.strike_zone_mapping import (
+    StrikeZoneOverlayConfig,
+    calculate_overlay_layout,
+)
 from ui.coaching.widgets.camera_view_widget import CameraViewWidget
 from ui.coaching.widgets.mode_widgets.base_mode_widget import BaseModeWidget
 from ui.coaching.widgets.progression_charts_widget import (
@@ -36,17 +40,20 @@ class SessionProgressionWidget(BaseModeWidget):
     def __init__(
         self,
         session_tracker: "SessionHistoryTracker",
+        overlay_config: StrikeZoneOverlayConfig,
         parent: Optional[QtWidgets.QWidget] = None
     ):
         """Initialize session progression view mode.
 
         Args:
             session_tracker: Session history tracker for metrics
+            overlay_config: Strike-zone overlay settings
             parent: Parent widget
         """
         super().__init__(parent)
         self._style_manager = get_style_manager()
         self._session_tracker = session_tracker
+        self._overlay_config = overlay_config
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -108,6 +115,7 @@ class SessionProgressionWidget(BaseModeWidget):
 
         # Connect camera selection changes
         self._camera_widget.camera_changed.connect(self._on_camera_changed)
+        self._apply_strike_zone_layout()
 
     def _on_camera_changed(self, camera: str) -> None:
         """Handle camera selection change.
@@ -147,23 +155,22 @@ class SessionProgressionWidget(BaseModeWidget):
         accuracy_history = self._session_tracker.get_strike_accuracy_history()
         self._accuracy_chart.update_data(accuracy_history)
 
-        # Update camera overlay with latest pitch location
-        if (latest_pitch.trajectory_plate_x_ft is not None and
-            latest_pitch.trajectory_plate_z_ft is not None):
-
-            # Convert to normalized coordinates
-            plate_x = latest_pitch.trajectory_plate_x_ft
-            plate_z = latest_pitch.trajectory_plate_z_ft
-
-            # Simple normalization (assumes ±2 ft horizontal, 0-5 ft vertical)
-            norm_x = (plate_x + 2.0) / 4.0
-            norm_z = plate_z / 5.0
-
-            # Clamp to valid range
-            norm_x = max(0.0, min(1.0, norm_x))
-            norm_z = max(0.0, min(1.0, norm_z))
-
-            self._camera_widget.update_pitch_location(norm_x, norm_z)
+        if (
+            latest_pitch.trajectory_plate_x_ft is not None
+            and latest_pitch.trajectory_plate_y_ft is not None
+        ):
+            layout = calculate_overlay_layout(
+                self._overlay_config,
+                plate_x_ft=latest_pitch.trajectory_plate_x_ft,
+                plate_y_ft=latest_pitch.trajectory_plate_y_ft,
+            )
+            self._camera_widget.set_strike_zone(
+                layout.zone_left,
+                layout.zone_right,
+                layout.zone_top,
+                layout.zone_bottom,
+            )
+            self._camera_widget.update_pitch_location(layout.pitch_x, layout.pitch_y)
 
         logger.debug(
             f"Session progression: Updated with {self._session_tracker.get_pitch_count()} pitches, "
@@ -209,6 +216,29 @@ class SessionProgressionWidget(BaseModeWidget):
         """
         super().set_camera_selection(camera)
         self._camera_widget.set_active_camera(camera)
+
+    def set_strike_zone_config(self, overlay_config: StrikeZoneOverlayConfig) -> None:
+        """Update strike-zone configuration for overlay placement."""
+        self._overlay_config = overlay_config
+        self._apply_strike_zone_layout()
+
+    def _apply_strike_zone_layout(self) -> None:
+        """Apply current strike-zone bounds to the overlay."""
+        layout = calculate_overlay_layout(
+            self._overlay_config,
+            plate_x_ft=0.0,
+            plate_y_ft=(
+                self._overlay_config.batter_height_in
+                * (self._overlay_config.top_ratio + self._overlay_config.bottom_ratio)
+                / 24.0
+            ),
+        )
+        self._camera_widget.set_strike_zone(
+            layout.zone_left,
+            layout.zone_right,
+            layout.zone_top,
+            layout.zone_bottom,
+        )
 
 
 __all__ = ["SessionProgressionWidget"]

@@ -10,16 +10,17 @@ Manages analysis pipeline:
 
 from __future__ import annotations
 
+import json
 import threading
 from collections import deque
 from pathlib import Path
 from typing import List, Optional
 
+from app.contracts import PitchSummary, SessionSummary, session_summary_from_dict
 from app.events.event_bus import EventBus
-from app.events.event_types import PitchEndEvent
+from app.events.event_types import PitchAnalyzedEvent, PitchEndEvent
 from app.pipeline.analysis.pitch_summary import PitchAnalyzer
 from app.pipeline.pitch_tracking_v2 import PitchData
-from app.pipeline_service import PitchSummary, SessionSummary
 from app.services.analysis.interface import AnalysisService
 from calib.online_refinement import OnlineCalibrationRefiner
 from configs.settings import AppConfig
@@ -69,7 +70,7 @@ class AnalysisServiceImpl(AnalysisService):
         self._analyzer = PitchAnalyzer(
             config=config,
             get_ball_radius_fn=self._get_ball_radius,
-            radar_speed_fn=lambda: None  # No radar speed by default
+            radar_speed_fn=lambda: self._manual_speed_mph,
         )
 
         # Session state
@@ -85,6 +86,7 @@ class AnalysisServiceImpl(AnalysisService):
         self._batter_height_in = config.strike_zone.batter_height_in
         self._top_ratio = config.strike_zone.top_ratio
         self._bottom_ratio = config.strike_zone.bottom_ratio
+        self._manual_speed_mph: Optional[float] = None
 
         # Online calibration refinement
         self._refiner: Optional[OnlineCalibrationRefiner] = None
@@ -100,6 +102,8 @@ class AnalysisServiceImpl(AnalysisService):
                 self._refinement_enabled = False
 
         # EventBus subscription
+        self._analysis_active = False
+        self._analysis_paused = False
         self._subscribed = False
 
         logger.info("AnalysisService initialized")
@@ -110,7 +114,7 @@ class AnalysisServiceImpl(AnalysisService):
         Subscribes to EventBus for automatic pitch analysis.
         """
         with self._lock:
-            if self._subscribed:
+            if self._analysis_active:
                 return
 
             # Initialize session summary
@@ -127,6 +131,8 @@ class AnalysisServiceImpl(AnalysisService):
 
             # Subscribe to EventBus
             self._subscribe_to_events()
+            self._analysis_active = True
+            self._analysis_paused = False
 
             logger.info("Analysis started")
 
@@ -136,13 +142,35 @@ class AnalysisServiceImpl(AnalysisService):
         Unsubscribes from EventBus.
         """
         with self._lock:
-            if not self._subscribed:
+            if not self._analysis_active:
                 return
 
             # Unsubscribe from EventBus
             self._unsubscribe_from_events()
+            self._analysis_active = False
+            self._analysis_paused = False
 
             logger.info("Analysis stopped")
+
+    def pause_analysis(self) -> None:
+        """Pause analysis without clearing accumulated session state."""
+        with self._lock:
+            if not self._analysis_active or self._analysis_paused:
+                return
+
+            self._unsubscribe_from_events()
+            self._analysis_paused = True
+            logger.info("Analysis paused")
+
+    def resume_analysis(self) -> None:
+        """Resume analysis for the current session."""
+        with self._lock:
+            if not self._analysis_active or not self._analysis_paused:
+                return
+
+            self._subscribe_to_events()
+            self._analysis_paused = False
+            logger.info("Analysis resumed")
 
     def analyze_pitch(self, pitch_data: PitchData, config: AppConfig) -> PitchSummary:
         """Analyze a completed pitch and generate summary.
@@ -198,16 +226,16 @@ class AnalysisServiceImpl(AnalysisService):
         if not session_path.exists():
             raise FileNotFoundError(f"Session directory not found: {session_path}")
 
-        # Not Implemented: Load session summary from disk
-        # Currently returns empty summary (use review service for full session data)
-        return SessionSummary(
-            session_id=session_path.name,
-            pitch_count=0,
-            strikes=0,
-            balls=0,
-            heatmap=[[0] * 3 for _ in range(3)],
-            pitches=[]
-        )
+        summary_path = session_path / "session_summary.json"
+        if not summary_path.exists():
+            raise FileNotFoundError(f"Session summary not found: {summary_path}")
+
+        try:
+            payload = json.loads(summary_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid session summary JSON: {exc}") from exc
+
+        return session_summary_from_dict(payload)
 
     def detect_patterns(self, session_path: Path, pitcher_id: Optional[str] = None) -> dict:
         """Run pattern detection on a recorded session.
@@ -234,14 +262,19 @@ class AnalysisServiceImpl(AnalysisService):
         if not session_path.exists():
             raise FileNotFoundError(f"Session directory not found: {session_path}")
 
-        # Note: Pattern detection is implemented via analysis.cli and PatternAnalysisDialog
-        # This service method returns stub (use analysis.pattern_detection.detector directly)
-        return {
-            "session_id": session_path.name,
-            "pitcher_id": pitcher_id,
-            "pitch_count": 0,
-            "patterns": []
-        }
+        summary = self.analyze_session(session_path)
+        if summary.pitch_count < 5:
+            raise ValueError("Session has insufficient pitches (< 5)")
+
+        from analysis.pattern_detection.detector import PatternDetector
+
+        report = PatternDetector().analyze_session(
+            session_path=session_path,
+            pitcher_id=pitcher_id,
+            output_json=True,
+            output_html=True,
+        )
+        return report.to_dict()
 
     def calculate_strike_result(
         self,
@@ -389,6 +422,12 @@ class AnalysisServiceImpl(AnalysisService):
             self._analyzer.update_config(config)
             logger.info("Analysis config updated")
 
+    def set_manual_speed_mph(self, speed_mph: Optional[float]) -> None:
+        """Override radar speed used for future pitch analyses."""
+        with self._lock:
+            self._manual_speed_mph = speed_mph
+            logger.info("Manual speed override updated: %s", speed_mph)
+
     def get_refinement_summary(self) -> Optional[dict]:
         """Get online calibration refinement summary.
 
@@ -455,6 +494,15 @@ class AnalysisServiceImpl(AnalysisService):
                     )
 
             logger.info(f"Pitch analyzed: {event.pitch_id}, strike={summary.is_strike}")
+
+            current_summary = self.get_session_summary()
+            self._event_bus.publish(
+                PitchAnalyzedEvent(
+                    pitch_id=event.pitch_id,
+                    summary=summary,
+                    session_summary=current_summary,
+                )
+            )
 
             # Online calibration refinement
             if self._refinement_enabled and self._refiner and summary.trajectory_confidence:

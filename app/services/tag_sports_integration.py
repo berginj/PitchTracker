@@ -1,12 +1,4 @@
-"""TAG Sports integration service for importing practice data.
-
-This module provides the service layer for integrating TAG Sports practice data
-into PitchTracker pitcher profiles. Supports manual JSON import (Phase 1) and
-cloud API sync (Phase 2+).
-
-Part of TAG Sports Partnership integration (March 2026).
-See: docs/TAG_DEEP_INTEGRATION_API_SPEC.md
-"""
+"""TAG Sports integration service for importing practice data and staged runtime adapters."""
 
 from __future__ import annotations
 
@@ -18,9 +10,30 @@ from typing import List, Optional
 
 from loguru import logger
 
+from app.services.tag_sports_adapters import (
+    TagBluetoothAdapter,
+    TagBluetoothDevice,
+    TagBluetoothPitchMeasurement,
+    TagCloudAdapter,
+    TagCloudTokens,
+    TagCloudUploadReceipt,
+)
+from app.services.tag_sports_flags import TagSportsFeatureFlags
 
-# JSON Schema Version Support
+
 SUPPORTED_SCHEMA_VERSIONS = ["1.0"]
+
+
+class TagSportsFeatureDisabledError(RuntimeError):
+    """Raised when a staged TAG feature is disabled by feature flag."""
+
+
+class TagSportsAuthenticationError(RuntimeError):
+    """Raised when a cloud operation is attempted before authentication."""
+
+
+class TagSportsConfigurationError(RuntimeError):
+    """Raised when a staged TAG runtime is enabled without a concrete adapter."""
 
 
 @dataclass
@@ -30,19 +43,19 @@ class TagSportsPitch:
     pitch_number: int
     timestamp: datetime
     speed_mph: float
-    pitch_type: str = ""  # Athlete-tagged type (e.g., "Fastball", "Changeup")
+    pitch_type: str = ""
     notes: str = ""
-    video_url: Optional[str] = None  # If TAG Sports stores video
+    video_url: Optional[str] = None
 
 
 @dataclass
 class TagSportsSession:
     """TAG Sports practice session data."""
 
-    session_id: str  # TAG Sports internal session ID
+    session_id: str
     date: datetime
-    location: str  # Free-text location (e.g., "Backyard practice")
-    session_type: str  # practice, bullpen, game, warmup, other
+    location: str
+    session_type: str
     total_pitches: int
     avg_speed_mph: float
     max_speed_mph: float
@@ -55,10 +68,10 @@ class TagSportsSession:
 class TagSportsAthleteData:
     """TAG Sports athlete information."""
 
-    tag_user_id: str  # Unique TAG Sports user ID
+    tag_user_id: str
     name: str
     birth_year: Optional[int] = None
-    throws: Optional[str] = None  # "right", "left", "both"
+    throws: Optional[str] = None
     position: Optional[str] = None
     email: Optional[str] = None
 
@@ -76,49 +89,36 @@ class TagSportsImportResult:
 
 
 class TagSportsIntegrationService:
-    """Service for importing and managing TAG Sports practice data.
+    """Service for importing and managing TAG Sports practice data."""
 
-    Provides integration between TAG Sports consumer tracking and PitchTracker
-    facility training. Supports:
-    - Manual JSON import (Phase 1)
-    - Cloud API sync (Phase 2+)
-    - Session merging and deduplication
-    - Data validation and error handling
-
-    Example:
-        >>> service = TagSportsIntegrationService()
-        >>> result = service.import_from_file(Path("TAG_export_john_doe.json"))
-        >>> if result.success:
-        ...     print(f"Imported {result.sessions_imported} sessions")
-    """
-
-    def __init__(self):
-        """Initialize TAG Sports integration service."""
+    def __init__(
+        self,
+        *,
+        feature_flags: Optional[TagSportsFeatureFlags] = None,
+        cloud_adapter: Optional[TagCloudAdapter] = None,
+        bluetooth_adapter: Optional[TagBluetoothAdapter] = None,
+    ):
         self._import_history: List[Path] = []
+        self.feature_flags = feature_flags or TagSportsFeatureFlags.from_env()
+        self.cloud_client = TagSportsCloudAPIClient(
+            feature_flags=self.feature_flags,
+            adapter=cloud_adapter,
+        )
+        self.bluetooth_service = TagSportsBluetoothService(
+            feature_flags=self.feature_flags,
+            adapter=bluetooth_adapter,
+        )
 
     def import_from_file(self, file_path: Path) -> TagSportsImportResult:
-        """Import TAG Sports data from JSON export file.
-
-        Args:
-            file_path: Path to TAG Sports export JSON file
-
-        Returns:
-            Import result with success status, statistics, and any errors
-
-        Raises:
-            FileNotFoundError: If file doesn't exist
-        """
+        """Import TAG Sports data from JSON export file."""
         if not file_path.exists():
             raise FileNotFoundError(f"TAG Sports export file not found: {file_path}")
 
         try:
             logger.info(f"Importing TAG Sports data from: {file_path}")
+            with open(file_path, "r", encoding="utf-8") as file_handle:
+                data = json.load(file_handle)
 
-            # Read and parse JSON
-            with open(file_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            # Validate schema version
             schema_version = data.get("schema_version")
             if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
                 return TagSportsImportResult(
@@ -132,7 +132,6 @@ class TagSportsIntegrationService:
                     ],
                 )
 
-            # Validate required fields
             validation_errors = self._validate_required_fields(data)
             if validation_errors:
                 return TagSportsImportResult(
@@ -143,18 +142,11 @@ class TagSportsIntegrationService:
                     errors=validation_errors,
                 )
 
-            # Extract athlete info
             athlete_data = self._parse_athlete_data(data["athlete"])
-
-            # Extract and validate sessions
             sessions, session_warnings = self._parse_sessions(data["sessions"])
-
-            # Calculate statistics
             total_pitches = sum(session.total_pitches for session in sessions)
 
-            # Record import in history
             self._import_history.append(file_path)
-
             logger.info(
                 f"Successfully imported {len(sessions)} sessions ({total_pitches} pitches) "
                 f"for {athlete_data.name}"
@@ -169,62 +161,48 @@ class TagSportsIntegrationService:
                 warnings=session_warnings,
             )
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON file: {e}")
+        except json.JSONDecodeError as exc:
+            logger.error(f"Invalid JSON file: {exc}")
             return TagSportsImportResult(
                 success=False,
                 athlete_data=None,
                 sessions_imported=0,
                 pitches_imported=0,
-                errors=[f"Invalid JSON file: {str(e)}"],
+                errors=[f"Invalid JSON file: {exc}"],
+            )
+        except Exception as exc:
+            logger.exception(f"Failed to import TAG Sports data: {exc}")
+            return TagSportsImportResult(
+                success=False,
+                athlete_data=None,
+                sessions_imported=0,
+                pitches_imported=0,
+                errors=[f"Import failed: {exc}"],
             )
 
-        except Exception as e:
-            logger.exception(f"Failed to import TAG Sports data: {e}")
-            return TagSportsImportResult(
-                success=False,
-                athlete_data=None,
-                sessions_imported=0,
-                pitches_imported=0,
-                errors=[f"Import failed: {str(e)}"],
-            )
+    def get_runtime_capabilities(self) -> dict[str, bool]:
+        """Return feature-flag state for staged TAG integrations."""
+        return {
+            "cloud_sync_enabled": self.feature_flags.cloud_sync_enabled,
+            "bluetooth_enabled": self.feature_flags.bluetooth_enabled,
+        }
 
     def _validate_required_fields(self, data: dict) -> List[str]:
-        """Validate required fields in TAG Sports export.
-
-        Args:
-            data: Parsed JSON data
-
-        Returns:
-            List of validation errors (empty if valid)
-        """
         errors = []
-
-        # Top-level required fields
         required_top = ["schema_version", "export_metadata", "athlete", "sessions"]
-        for field in required_top:
-            if field not in data:
-                errors.append(f"Missing required field: {field}")
+        for field_name in required_top:
+            if field_name not in data:
+                errors.append(f"Missing required field: {field_name}")
 
         if "athlete" in data:
-            # Athlete required fields
             athlete = data["athlete"]
-            required_athlete = ["tag_user_id", "name"]
-            for field in required_athlete:
-                if field not in athlete:
-                    errors.append(f"Missing required athlete field: {field}")
+            for field_name in ["tag_user_id", "name"]:
+                if field_name not in athlete:
+                    errors.append(f"Missing required athlete field: {field_name}")
 
         return errors
 
     def _parse_athlete_data(self, athlete_dict: dict) -> TagSportsAthleteData:
-        """Parse athlete data from JSON.
-
-        Args:
-            athlete_dict: Athlete section of TAG Sports export
-
-        Returns:
-            Parsed athlete data
-        """
         return TagSportsAthleteData(
             tag_user_id=athlete_dict["tag_user_id"],
             name=athlete_dict["name"],
@@ -237,89 +215,66 @@ class TagSportsIntegrationService:
     def _parse_sessions(
         self, sessions_list: List[dict]
     ) -> tuple[List[TagSportsSession], List[str]]:
-        """Parse session data from JSON.
-
-        Args:
-            sessions_list: List of session dictionaries
-
-        Returns:
-            Tuple of (parsed sessions, warnings)
-        """
-        sessions = []
-        warnings = []
+        sessions: List[TagSportsSession] = []
+        warnings: List[str] = []
 
         for idx, session_dict in enumerate(sessions_list):
             try:
-                # Parse pitches
                 pitches = []
                 for pitch_dict in session_dict.get("pitches", []):
-                    pitch = TagSportsPitch(
-                        pitch_number=pitch_dict["pitch_number"],
-                        timestamp=datetime.fromisoformat(
-                            pitch_dict["timestamp"].replace("Z", "+00:00")
-                        ),
-                        speed_mph=pitch_dict["speed_mph"],
-                        pitch_type=pitch_dict.get("pitch_type", ""),
-                        notes=pitch_dict.get("notes", ""),
-                        video_url=pitch_dict.get("video_url"),
+                    pitches.append(
+                        TagSportsPitch(
+                            pitch_number=pitch_dict["pitch_number"],
+                            timestamp=datetime.fromisoformat(
+                                pitch_dict["timestamp"].replace("Z", "+00:00")
+                            ),
+                            speed_mph=pitch_dict["speed_mph"],
+                            pitch_type=pitch_dict.get("pitch_type", ""),
+                            notes=pitch_dict.get("notes", ""),
+                            video_url=pitch_dict.get("video_url"),
+                        )
                     )
-                    pitches.append(pitch)
 
-                # Get summary stats
                 summary = session_dict.get("summary", {})
-
-                # Create session
                 session = TagSportsSession(
                     session_id=session_dict["session_id"],
-                    date=datetime.fromisoformat(
-                        session_dict["date"].replace("Z", "+00:00")
-                    ),
+                    date=datetime.fromisoformat(session_dict["date"].replace("Z", "+00:00")),
                     location=session_dict.get("location", "Unknown"),
                     session_type=session_dict.get("session_type", "practice"),
                     total_pitches=summary.get("total_pitches", len(pitches)),
                     avg_speed_mph=summary.get(
                         "avg_speed_mph",
-                        sum(p.speed_mph for p in pitches) / len(pitches) if pitches else 0
+                        sum(p.speed_mph for p in pitches) / len(pitches) if pitches else 0.0,
                     ),
                     max_speed_mph=summary.get(
                         "max_speed_mph",
-                        max((p.speed_mph for p in pitches), default=0)
+                        max((p.speed_mph for p in pitches), default=0.0),
                     ),
                     min_speed_mph=summary.get(
                         "min_speed_mph",
-                        min((p.speed_mph for p in pitches), default=0)
+                        min((p.speed_mph for p in pitches), default=0.0),
                     ),
                     pitches=pitches,
                     notes=session_dict.get("notes", ""),
                 )
 
+                warnings.extend(self.validate_session_data(session))
                 sessions.append(session)
-
-            except Exception as e:
-                warnings.append(f"Failed to parse session {idx + 1}: {str(e)}")
-                logger.warning(f"Failed to parse session {idx + 1}: {e}")
+            except Exception as exc:
+                warnings.append(f"Failed to parse session {idx + 1}: {exc}")
+                logger.warning(f"Failed to parse session {idx + 1}: {exc}")
 
         return sessions, warnings
 
     def validate_session_data(self, session: TagSportsSession) -> List[str]:
-        """Validate session data for quality/sanity checks.
-
-        Args:
-            session: TAG Sports session to validate
-
-        Returns:
-            List of validation warnings (empty if all OK)
-        """
         warnings = []
 
-        # Check pitch count consistency
         if session.total_pitches != len(session.pitches):
             warnings.append(
                 f"Session {session.session_id}: Summary says {session.total_pitches} pitches "
                 f"but {len(session.pitches)} pitches in array"
             )
 
-        # Check velocity ranges (sanity check)
         for pitch in session.pitches:
             if pitch.speed_mph < 20 or pitch.speed_mph > 120:
                 warnings.append(
@@ -327,9 +282,8 @@ class TagSportsIntegrationService:
                     f"Unusual velocity ({pitch.speed_mph} mph) - possible measurement error"
                 )
 
-        # Check date ordering
         if session.pitches:
-            timestamps = [p.timestamp for p in session.pitches]
+            timestamps = [pitch.timestamp for pitch in session.pitches]
             if timestamps != sorted(timestamps):
                 warnings.append(
                     f"Session {session.session_id}: Pitch timestamps not in chronological order"
@@ -338,61 +292,113 @@ class TagSportsIntegrationService:
         return warnings
 
 
-# Future: Cloud API integration (Phase 2)
 class TagSportsCloudAPIClient:
-    """Client for PitchTracker cloud API (TAG Sports integration).
+    """Feature-flagged client for staged TAG cloud sync deliverables."""
 
-    Used by both TAG Sports mobile app and PitchTracker desktop app to
-    sync athlete data via cloud platform.
-
-    Phase 2 implementation (Months 4-6).
-    See: docs/TAG_DEEP_INTEGRATION_API_SPEC.md
-    """
-
-    def __init__(self, api_base_url: str = "https://api.pitchtracker.io/v1"):
-        """Initialize cloud API client.
-
-        Args:
-            api_base_url: Base URL for PitchTracker cloud API
-        """
+    def __init__(
+        self,
+        *,
+        api_base_url: str = "https://api.pitchtracker.io/v1",
+        feature_flags: Optional[TagSportsFeatureFlags] = None,
+        adapter: Optional[TagCloudAdapter] = None,
+    ) -> None:
         self.api_base_url = api_base_url
-        self._access_token: Optional[str] = None
-        self._refresh_token: Optional[str] = None
+        self._feature_flags = feature_flags or TagSportsFeatureFlags.from_env()
+        self._adapter = adapter
+        self._tokens: Optional[TagCloudTokens] = None
 
-    # TODO: Implement OAuth authentication
-    # TODO: Implement session upload/download
-    # TODO: Implement athlete profile management
-    # TODO: Implement webhook subscriptions
+    def authenticate(self, client_id: str, client_secret: str) -> TagCloudTokens:
+        self._require_enabled()
+        self._tokens = self._adapter.authenticate(client_id, client_secret)
+        return self._tokens
+
+    def upload_session(
+        self,
+        athlete: TagSportsAthleteData,
+        session: TagSportsSession,
+    ) -> TagCloudUploadReceipt:
+        self._require_authenticated()
+        return self._adapter.upload_session(athlete, session)
+
+    def download_sessions(self, athlete_id: str) -> List[TagSportsSession]:
+        self._require_authenticated()
+        return self._adapter.download_sessions(athlete_id)
+
+    def _require_enabled(self) -> None:
+        if not self._feature_flags.cloud_sync_enabled:
+            raise TagSportsFeatureDisabledError(
+                "TAG cloud sync is disabled. Enable PITCHTRACKER_TAG_CLOUD_SYNC_ENABLED to use it."
+            )
+        if self._adapter is None:
+            raise TagSportsConfigurationError(
+                "TAG cloud sync is enabled, but no cloud adapter is configured."
+            )
+
+    def _require_authenticated(self) -> None:
+        self._require_enabled()
+        if self._tokens is None:
+            raise TagSportsAuthenticationError("Authenticate the TAG cloud client before syncing.")
 
 
-# Future: Bluetooth integration (Phase 3)
 class TagSportsBluetoothService:
-    """Bluetooth integration for TAG Sports devices.
+    """Feature-flagged Bluetooth service with a mock runtime adapter."""
 
-    Enables TAG Sports devices to connect directly to facility PCs via Bluetooth,
-    streaming real-time velocity measurements during PitchTracker sessions.
+    def __init__(
+        self,
+        *,
+        feature_flags: Optional[TagSportsFeatureFlags] = None,
+        adapter: Optional[TagBluetoothAdapter] = None,
+    ) -> None:
+        self._feature_flags = feature_flags or TagSportsFeatureFlags.from_env()
+        self._adapter = adapter
+        self._connected_device: Optional[TagBluetoothDevice] = None
 
-    Phase 3 implementation (Months 7-9).
-    See: docs/TAG_DEEP_INTEGRATION_API_SPEC.md
-    """
+    def discover_devices(self) -> List[TagBluetoothDevice]:
+        self._require_enabled()
+        return self._adapter.discover_devices()
 
-    def __init__(self):
-        """Initialize Bluetooth service."""
-        self._connected = False
-        self._device_id: Optional[str] = None
+    def connect(self, device_id: str) -> TagBluetoothDevice:
+        self._require_enabled()
+        self._connected_device = self._adapter.connect(device_id)
+        return self._connected_device
 
-    # TODO: Implement BLE device discovery
-    # TODO: Implement BLE connection/pairing
-    # TODO: Implement pitch data streaming via BLE notifications
-    # TODO: Implement session control commands
+    def disconnect(self) -> None:
+        if not self._feature_flags.bluetooth_enabled:
+            return
+        if self._adapter is None:
+            raise TagSportsConfigurationError(
+                "TAG Bluetooth integration is enabled, but no Bluetooth adapter is configured."
+            )
+        self._adapter.disconnect()
+        self._connected_device = None
+
+    def read_measurements(self) -> List[TagBluetoothPitchMeasurement]:
+        self._require_enabled()
+        if self._connected_device is None:
+            raise RuntimeError("Connect to a TAG Bluetooth device before reading measurements.")
+        return self._adapter.read_measurements()
+
+    def _require_enabled(self) -> None:
+        if not self._feature_flags.bluetooth_enabled:
+            raise TagSportsFeatureDisabledError(
+                "TAG Bluetooth integration is disabled. Enable PITCHTRACKER_TAG_BLE_ENABLED to use it."
+            )
+        if self._adapter is None:
+            raise TagSportsConfigurationError(
+                "TAG Bluetooth integration is enabled, but no Bluetooth adapter is configured."
+            )
 
 
 __all__ = [
-    "TagSportsIntegrationService",
-    "TagSportsImportResult",
-    "TagSportsSession",
-    "TagSportsPitch",
+    "SUPPORTED_SCHEMA_VERSIONS",
     "TagSportsAthleteData",
-    "TagSportsCloudAPIClient",  # Future
-    "TagSportsBluetoothService",  # Future
+    "TagSportsAuthenticationError",
+    "TagSportsBluetoothService",
+    "TagSportsConfigurationError",
+    "TagSportsFeatureDisabledError",
+    "TagSportsImportResult",
+    "TagSportsIntegrationService",
+    "TagSportsPitch",
+    "TagSportsSession",
+    "TagSportsCloudAPIClient",
 ]

@@ -62,6 +62,7 @@ class SessionRecorder:
         self._disk_error_callback: Optional[callable] = None
         self._critical_disk_gb = 5.0  # Stop recording if below this
         self._warning_disk_gb = 20.0  # Warn user if below this
+        self._session_started_utc: Optional[str] = None
 
     def _check_disk_space(self, required_gb: float = 50.0) -> tuple[bool, str]:
         """Check disk space and return warning message if low.
@@ -197,6 +198,7 @@ class SessionRecorder:
         base = session_name or pitch_id
         safe = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in base)
         timestamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
+        self._session_started_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         self._session_dir = self._record_dir / f"{safe}_{timestamp}"
         self._session_dir.mkdir(parents=True, exist_ok=True)
 
@@ -249,14 +251,18 @@ class SessionRecorder:
             return
 
         # Write manifest
+        ended_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         manifest = create_session_manifest(
             pitch_id=pitch_id,
             session_name=session_name,
             mode=mode,
             measured_speed_mph=measured_speed_mph,
             config_path=config_path,
+            started_utc=self._session_started_utc,
+            ended_utc=ended_utc,
         )
         (self._session_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
+        self._session_started_utc = None
 
     def write_frame(self, label: str, frame: Frame) -> None:
         """Write frame to session recording with error detection.

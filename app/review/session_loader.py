@@ -80,6 +80,12 @@ class SessionLoader:
     associated data (videos, manifests, detections, etc.).
     """
 
+    _SESSION_MANIFEST_CANDIDATES = ("manifest.json", "session_manifest.json")
+    _PITCH_MANIFEST_CANDIDATES = ("manifest.json", "pitch_manifest.json")
+    _DETECTIONS_LEFT_CANDIDATES = ("detections_left.json", "detections/left_detections.json")
+    _DETECTIONS_RIGHT_CANDIDATES = ("detections_right.json", "detections/right_detections.json")
+    _OBSERVATIONS_CANDIDATES = ("observations.json", "observations/stereo_observations.json")
+
     @staticmethod
     def get_available_sessions(recordings_dir: Path) -> list[Path]:
         """Scan recordings directory for available session directories.
@@ -102,11 +108,11 @@ class SessionLoader:
 
         sessions = []
         for item in recordings_dir.iterdir():
-            if item.is_dir() and item.name.startswith("session-"):
-                # Check if it has a manifest file
-                manifest_path = item / "session_manifest.json"
-                if manifest_path.exists():
-                    sessions.append(item)
+            if item.is_dir() and SessionLoader._find_existing_path(
+                item,
+                SessionLoader._SESSION_MANIFEST_CANDIDATES,
+            ) is not None:
+                sessions.append(item)
 
         # Sort by name (which includes timestamp) in descending order
         sessions.sort(reverse=True)
@@ -138,22 +144,27 @@ class SessionLoader:
             return False, f"Path is not a directory: {session_dir}"
 
         # Check for required session files
-        required_files = [
-            "session_manifest.json",
-        ]
+        if SessionLoader._find_existing_path(
+            session_dir,
+            SessionLoader._SESSION_MANIFEST_CANDIDATES,
+        ) is None:
+            return False, "Missing required files: manifest.json or session_manifest.json"
 
-        missing_files = []
-        for filename in required_files:
-            file_path = session_dir / filename
-            if not file_path.exists():
-                missing_files.append(filename)
-
-        if missing_files:
-            return False, f"Missing required files: {', '.join(missing_files)}"
+        manifest_path = SessionLoader._find_existing_path(
+            session_dir,
+            SessionLoader._SESSION_MANIFEST_CANDIDATES,
+        )
+        manifest = {}
+        if manifest_path is not None:
+            try:
+                with open(manifest_path, "r") as f:
+                    manifest = json.load(f)
+            except json.JSONDecodeError:
+                return False, f"Failed to parse session manifest: {manifest_path}"
 
         # Check for session videos (at least one should exist)
-        session_left = session_dir / "session_left.avi"
-        session_right = session_dir / "session_right.avi"
+        session_left = session_dir / manifest.get("session_left_video", "session_left.avi")
+        session_right = session_dir / manifest.get("session_right_video", "session_right.avi")
 
         if not session_left.exists() and not session_right.exists():
             return False, "Session videos not found (session_left.avi or session_right.avi)"
@@ -189,15 +200,20 @@ class SessionLoader:
             raise ValueError(f"Invalid session: {error_msg}")
 
         # Load session manifest
-        manifest_path = session_dir / "session_manifest.json"
+        manifest_path = SessionLoader._find_existing_path(
+            session_dir,
+            SessionLoader._SESSION_MANIFEST_CANDIDATES,
+        )
+        if manifest_path is None:
+            raise ValueError(f"Invalid session: manifest not found in {session_dir}")
         try:
             with open(manifest_path, 'r') as f:
                 manifest = json.load(f)
         except json.JSONDecodeError as e:
             raise ValueError(f"Failed to parse session manifest: {e}")
 
-        # Get session ID from directory name
-        session_id = session_dir.name
+        # Prefer manifest-provided contract fields, then fall back to directory name.
+        session_id = manifest.get("session_id") or manifest.get("session_name") or session_dir.name
 
         # Load session-level video paths
         left_video_path = session_dir / manifest.get("session_left_video", "session_left.avi")
@@ -260,7 +276,10 @@ class SessionLoader:
 
         # Find all pitch directories
         for item in session_dir.iterdir():
-            if item.is_dir() and item.name.startswith("pitch-"):
+            if item.is_dir() and SessionLoader._find_existing_path(
+                item,
+                SessionLoader._PITCH_MANIFEST_CANDIDATES,
+            ) is not None:
                 try:
                     pitch = SessionLoader._load_pitch(item)
                     pitches.append(pitch)
@@ -290,15 +309,20 @@ class SessionLoader:
         pitch_id = pitch_dir.name
 
         # Load pitch manifest
-        manifest_path = pitch_dir / "pitch_manifest.json"
-        if not manifest_path.exists():
-            raise FileNotFoundError(f"Pitch manifest not found: {manifest_path}")
+        manifest_path = SessionLoader._find_existing_path(
+            pitch_dir,
+            SessionLoader._PITCH_MANIFEST_CANDIDATES,
+        )
+        if manifest_path is None:
+            raise FileNotFoundError(f"Pitch manifest not found in {pitch_dir}")
 
         try:
             with open(manifest_path, 'r') as f:
                 manifest = json.load(f)
         except json.JSONDecodeError as e:
             raise ValueError(f"Failed to parse pitch manifest: {e}")
+
+        pitch_id = manifest.get("pitch_id") or pitch_id
 
         # Get video paths from manifest
         left_video_path = pitch_dir / manifest.get("left_video", "left.avi")
@@ -308,8 +332,11 @@ class SessionLoader:
 
         # Load original detections if available
         detections_left = None
-        detections_left_path = pitch_dir / "detections_left.json"
-        if detections_left_path.exists():
+        detections_left_path = SessionLoader._find_existing_path(
+            pitch_dir,
+            SessionLoader._DETECTIONS_LEFT_CANDIDATES,
+        )
+        if detections_left_path is not None and detections_left_path.exists():
             try:
                 with open(detections_left_path, 'r') as f:
                     detections_left = json.load(f)
@@ -317,8 +344,11 @@ class SessionLoader:
                 logger.debug(f"Failed to load left detections for {pitch_id}: {e}")
 
         detections_right = None
-        detections_right_path = pitch_dir / "detections_right.json"
-        if detections_right_path.exists():
+        detections_right_path = SessionLoader._find_existing_path(
+            pitch_dir,
+            SessionLoader._DETECTIONS_RIGHT_CANDIDATES,
+        )
+        if detections_right_path is not None and detections_right_path.exists():
             try:
                 with open(detections_right_path, 'r') as f:
                     detections_right = json.load(f)
@@ -327,8 +357,11 @@ class SessionLoader:
 
         # Load observations if available
         observations = None
-        observations_path = pitch_dir / "observations.json"
-        if observations_path.exists():
+        observations_path = SessionLoader._find_existing_path(
+            pitch_dir,
+            SessionLoader._OBSERVATIONS_CANDIDATES,
+        )
+        if observations_path is not None and observations_path.exists():
             try:
                 with open(observations_path, 'r') as f:
                     observations = json.load(f)
@@ -356,3 +389,12 @@ class SessionLoader:
             original_observations=observations,
             frame_files=frame_files,
         )
+
+    @staticmethod
+    def _find_existing_path(base_dir: Path, candidates: tuple[str, ...]) -> Optional[Path]:
+        """Return the first existing file from a set of compatibility candidates."""
+        for candidate in candidates:
+            candidate_path = base_dir / candidate
+            if candidate_path.exists():
+                return candidate_path
+        return None

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from app.contracts import PitchSummary
 from app.pipeline.analysis.session_summary import SessionManager
-from app.pipeline_service import PitchSummary
 from contracts import StereoObservation
 
 

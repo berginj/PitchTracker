@@ -201,6 +201,19 @@ class DetectionProcessor:
         self._cached_strike_zone = None
         self._cached_strike_zone_config_hash = None
 
+    def update_gates(
+        self,
+        lane_gate: Optional[LaneGate],
+        plate_gate: Optional[LaneGate],
+        stereo_gate: Optional[StereoLaneGate],
+        plate_stereo_gate: Optional[StereoLaneGate],
+    ) -> None:
+        """Hot-swap lane and plate gates used for future frames."""
+        self._lane_gate = lane_gate
+        self._plate_gate = plate_gate
+        self._stereo_gate = stereo_gate
+        self._plate_stereo_gate = plate_stereo_gate
+
     def _get_or_build_strike_zone(self):
         """Get cached strike zone or build new one if config changed.
 

@@ -1,21 +1,32 @@
-from calib.calibrator import Calibrator
-from capture.camera_device import CameraDevice
-from detect.detector import Detector
-from metrics.compute import MetricsComputer
-from record.recorder import Recorder
-from rectify.rectifier import Rectifier
-from stereo.association import StereoMatcher
-from track.tracker import Tracker
-from ui.render import Renderer
+import inspect
+
+from app.services.analysis import AnalysisService, AnalysisServiceImpl
+from app.services.capture import CaptureService, CaptureServiceImpl
+from app.services.detection import DetectionService, DetectionServiceImpl
+from app.services.recording import RecordingService, RecordingServiceImpl
+from app.services.tooling import ToolingService, SubprocessToolingService
+from app.pipeline.service_contracts import PipelineService
+from app.services.orchestrator import PipelineOrchestrator
 
 
-def test_interfaces_are_abstract() -> None:
-    assert issubclass(CameraDevice, object)
-    assert issubclass(Calibrator, object)
-    assert issubclass(Detector, object)
-    assert issubclass(StereoMatcher, object)
-    assert issubclass(Tracker, object)
-    assert issubclass(MetricsComputer, object)
-    assert issubclass(Recorder, object)
-    assert issubclass(Rectifier, object)
-    assert issubclass(Renderer, object)
+def test_service_contracts_are_abstract() -> None:
+    assert inspect.isabstract(CaptureService)
+    assert inspect.isabstract(DetectionService)
+    assert inspect.isabstract(RecordingService)
+    assert inspect.isabstract(AnalysisService)
+    assert inspect.isabstract(ToolingService)
+    assert inspect.isabstract(PipelineService)
+
+
+def test_service_implementations_match_declared_contracts() -> None:
+    assert issubclass(CaptureServiceImpl, CaptureService)
+    assert issubclass(DetectionServiceImpl, DetectionService)
+    assert issubclass(RecordingServiceImpl, RecordingService)
+    assert issubclass(AnalysisServiceImpl, AnalysisService)
+    assert issubclass(SubprocessToolingService, ToolingService)
+    assert issubclass(PipelineOrchestrator, PipelineService)
+
+
+def test_pipeline_orchestrator_exposes_public_event_subscription_hooks() -> None:
+    assert hasattr(PipelineOrchestrator, "subscribe_event")
+    assert hasattr(PipelineOrchestrator, "unsubscribe_event")

@@ -147,6 +147,7 @@ def main() -> None:
         response = {
             "ok": False,
             "error": str(exc),
+            "error_type": exc.__class__.__name__,
             "stdout": stdout_buffer.getvalue(),
             "stderr": stderr_buffer.getvalue(),
             "traceback": traceback.format_exc(),

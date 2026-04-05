@@ -20,8 +20,9 @@ from app.events.event_bus import EventBus
 from app.events.event_types import (
     FrameCapturedEvent,
     ObservationDetectedEvent,
+    PitchAnalyzedEvent,
     PitchStartEvent,
-    PitchEndEvent
+    PitchEndEvent,
 )
 from app.pipeline.recording.session_recorder import SessionRecorder
 from app.pipeline.recording.pitch_recorder import PitchRecorder
@@ -75,6 +76,7 @@ class RecordingServiceImpl(RecordingService):
         self._pitch_recorder: Optional[PitchRecorder] = None
         self._pitch_active = False
         self._current_pitch_id: Optional[str] = None
+        self._completed_pitch_recorders: Dict[str, PitchRecorder] = {}
 
         # Pre-roll frame buffer (before pitch detection)
         # Maintains 60 frames × 2 cameras (~8MB)
@@ -97,6 +99,7 @@ class RecordingServiceImpl(RecordingService):
 
         # EventBus subscriptions (not subscribed until session starts)
         self._subscribed = False
+        self._session_paused = False
 
         logger.info("RecordingService initialized")
 
@@ -104,7 +107,9 @@ class RecordingServiceImpl(RecordingService):
         self,
         session_name: str,
         config: AppConfig,
-        mode: Optional[str] = None
+        mode: Optional[str] = None,
+        pitch_id: Optional[str] = None,
+        config_path: Optional[Path] = None,
     ) -> str:
         """Start a new recording session.
 
@@ -129,6 +134,8 @@ class RecordingServiceImpl(RecordingService):
             self._config = config
             self._session_name = session_name
             self._mode = mode
+            self._config_path = None if config_path is None else str(config_path)
+            self._last_pitch_id = pitch_id
 
             # Create session recorder
             self._session_recorder = SessionRecorder(config, self._record_dir)
@@ -140,6 +147,7 @@ class RecordingServiceImpl(RecordingService):
             )
 
             self._session_active = True
+            self._session_paused = False
 
             # Subscribe to EventBus events
             self._subscribe_to_events()
@@ -189,11 +197,14 @@ class RecordingServiceImpl(RecordingService):
             # Clear state
             self._session_recorder = None
             self._session_active = False
+            self._session_paused = False
             self._config = None
             self._session_name = None
             self._mode = None
             self._measured_speed_mph = None
             self._last_pitch_id = None
+            self._config_path = None
+            self._completed_pitch_recorders.clear()
 
             # Clear pre-roll buffers
             self._pre_roll_buffer["left"].clear()
@@ -213,8 +224,38 @@ class RecordingServiceImpl(RecordingService):
                 frames=[],
                 detections=[],
                 track=[],
-                metrics=None
+                metrics=None,
+                session_dir=session_dir,
             )
+
+    def pause_session(self) -> None:
+        """Pause recording while keeping the session open."""
+        with self._lock:
+            if not self._session_active:
+                raise RuntimeError("No session active")
+            if self._session_paused:
+                return
+
+            if self._pitch_active:
+                self._stop_pitch_internal()
+
+            self._unsubscribe_from_events()
+            self._pre_roll_buffer["left"].clear()
+            self._pre_roll_buffer["right"].clear()
+            self._session_paused = True
+            logger.info("Recording session paused")
+
+    def resume_session(self) -> None:
+        """Resume recording for an existing session."""
+        with self._lock:
+            if not self._session_active:
+                raise RuntimeError("No session active")
+            if not self._session_paused:
+                return
+
+            self._subscribe_to_events()
+            self._session_paused = False
+            logger.info("Recording session resumed")
 
     def start_pitch(self, pitch_id: str) -> None:
         """Start recording a pitch within the current session.
@@ -294,12 +335,16 @@ class RecordingServiceImpl(RecordingService):
         pitch_dir = self._pitch_recorder.get_pitch_dir()
 
         # Close pitch recorder
-        self._pitch_recorder.close(force=False)
+        recorder = self._pitch_recorder
+        recorder.close(force=False)
 
         # NOTE: Manifest writing happens later when PitchEndEvent is received
         # with full trajectory analysis results
 
         pitch_id = self._current_pitch_id
+        if pitch_id is not None and not (recorder.get_pitch_dir() / "manifest.json").exists():
+            self._completed_pitch_recorders[pitch_id] = recorder
+
         self._pitch_recorder = None
         self._pitch_active = False
         self._current_pitch_id = None
@@ -384,6 +429,12 @@ class RecordingServiceImpl(RecordingService):
             self._record_dir = path
             logger.info(f"Recording directory set to: {path}")
 
+    def set_manual_speed_mph(self, speed_mph: Optional[float]) -> None:
+        """Set manual speed override captured in future session manifests."""
+        with self._lock:
+            self._measured_speed_mph = speed_mph
+            logger.info(f"Recording manual speed override set to: {speed_mph}")
+
     def get_session_dir(self) -> Optional[Path]:
         """Get directory path for current session.
 
@@ -414,6 +465,11 @@ class RecordingServiceImpl(RecordingService):
         """
         with self._lock:
             return self._session_active
+
+    def is_paused(self) -> bool:
+        """Check if session recording is paused."""
+        with self._lock:
+            return self._session_paused
 
     def is_recording_pitch(self) -> bool:
         """Check if pitch recording is active.
@@ -511,11 +567,33 @@ class RecordingServiceImpl(RecordingService):
             event: PitchEndEvent with pitch_id, observations, timestamp_ns, duration_ns
         """
         try:
-            # Note: stop_pitch() already called by post-roll completion
-            # This event is primarily for writing manifest with analysis results
-            pass
+            logger.debug("PitchEndEvent received for %s", event.pitch_id)
         except Exception as e:
             logger.error(f"Error handling pitch end: {e}", exc_info=True)
+
+    def _on_pitch_analyzed(self, event: PitchAnalyzedEvent) -> None:
+        """Handle PitchAnalyzedEvent from EventBus.
+
+        Writes the finalized pitch manifest once analysis is complete.
+        """
+        try:
+            with self._lock:
+                recorder = None
+                if self._pitch_active and self._current_pitch_id == event.pitch_id:
+                    recorder = self._pitch_recorder
+                if recorder is None:
+                    recorder = self._completed_pitch_recorders.get(event.pitch_id)
+
+            if recorder is None:
+                logger.warning("No pitch recorder available for analyzed pitch %s", event.pitch_id)
+                return
+
+            recorder.write_manifest(event.summary, self._config_path)
+
+            with self._lock:
+                self._completed_pitch_recorders.pop(event.pitch_id, None)
+        except Exception as e:
+            logger.error(f"Error writing pitch manifest: {e}", exc_info=True)
 
     # EventBus Subscription Management
 
@@ -531,6 +609,7 @@ class RecordingServiceImpl(RecordingService):
         self._event_bus.subscribe(ObservationDetectedEvent, self._on_observation_detected)
         self._event_bus.subscribe(PitchStartEvent, self._on_pitch_start)
         self._event_bus.subscribe(PitchEndEvent, self._on_pitch_end)
+        self._event_bus.subscribe(PitchAnalyzedEvent, self._on_pitch_analyzed)
 
         self._subscribed = True
         logger.info("RecordingService subscribed to EventBus")
@@ -547,6 +626,7 @@ class RecordingServiceImpl(RecordingService):
         self._event_bus.unsubscribe(ObservationDetectedEvent, self._on_observation_detected)
         self._event_bus.unsubscribe(PitchStartEvent, self._on_pitch_start)
         self._event_bus.unsubscribe(PitchEndEvent, self._on_pitch_end)
+        self._event_bus.unsubscribe(PitchAnalyzedEvent, self._on_pitch_analyzed)
 
         self._subscribed = False
         logger.info("RecordingService unsubscribed from EventBus")

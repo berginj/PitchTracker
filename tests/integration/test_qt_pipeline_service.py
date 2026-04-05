@@ -58,7 +58,7 @@ class TestQtPipelineServiceBasics:
         # Should initialize without errors
         assert service is not None
         assert service._service is not None
-        assert hasattr(service._service, '_event_bus')
+        assert hasattr(service._service, 'subscribe_event')
 
     def test_uses_pipeline_orchestrator(self, qapp):
         """Test QtPipelineService uses PipelineOrchestrator."""
@@ -70,16 +70,14 @@ class TestQtPipelineServiceBasics:
         assert isinstance(service._service, PipelineOrchestrator)
 
     def test_subscribes_to_eventbus(self, qapp):
-        """Test QtPipelineService subscribes to EventBus events."""
+        """Test QtPipelineService uses the orchestrator's public event hooks."""
         service = QtPipelineService(backend="sim")
 
-        # Verify subscription happened (check internal EventBus state)
-        event_bus = service._service._event_bus
-        assert event_bus is not None
+        assert service._service.unsubscribe_event(PitchStartEvent, service._on_pitch_start_event) is True
+        assert service._service.unsubscribe_event(PitchEndEvent, service._on_pitch_end_event) is True
 
-        # EventBus should have subscribers for PitchStartEvent and PitchEndEvent
-        assert PitchStartEvent in event_bus._subscribers
-        assert PitchEndEvent in event_bus._subscribers
+        service._service.subscribe_event(PitchStartEvent, service._on_pitch_start_event)
+        service._service.subscribe_event(PitchEndEvent, service._on_pitch_end_event)
 
 
 class TestQtPipelineServiceDelegation:

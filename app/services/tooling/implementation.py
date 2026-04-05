@@ -17,6 +17,11 @@ from contracts.tooling import (
     TrainingReportRequest,
     TrainingReportResult,
 )
+from exceptions import (
+    CalibrationExecutionError,
+    CalibrationInputError,
+    CalibrationPersistenceError,
+)
 
 from .interface import ToolingService
 
@@ -73,32 +78,46 @@ class SubprocessToolingService(ToolingService):
         ]
         request_envelope = {"task": task, "payload": payload}
 
-        completed = subprocess.run(
-            command,
-            input=json.dumps(request_envelope),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            cwd=str(self._project_root),
-            timeout=timeout_seconds,
-            check=False,
-        )
+        try:
+            completed = subprocess.run(
+                command,
+                input=json.dumps(request_envelope),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                cwd=str(self._project_root),
+                timeout=timeout_seconds,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            self._raise_task_error(
+                task,
+                f"{task} timed out after {timeout_seconds} seconds",
+                error_type=exc.__class__.__name__,
+            )
 
         stdout = completed.stdout.strip()
         stderr = completed.stderr.strip()
         if not stdout:
             details = stderr or f"worker exited with code {completed.returncode}"
-            raise RuntimeError(f"{task} produced no response: {details}")
+            self._raise_task_error(
+                task,
+                f"{task} produced no response: {details}",
+                error_type="NoWorkerResponse",
+            )
 
         try:
             response = json.loads(stdout)
         except json.JSONDecodeError as exc:
-            raise RuntimeError(
-                f"{task} returned invalid JSON: {exc}\nstdout:\n{stdout}\nstderr:\n{stderr}"
-            ) from exc
+            self._raise_task_error(
+                task,
+                f"{task} returned invalid JSON: {exc}\nstdout:\n{stdout}\nstderr:\n{stderr}",
+                error_type=exc.__class__.__name__,
+            )
 
         if not response.get("ok", False):
             error_text = str(response.get("error", f"{task} failed"))
+            error_type = response.get("error_type")
             worker_stdout = response.get("stdout")
             worker_stderr = response.get("stderr")
             worker_traceback = response.get("traceback")
@@ -110,9 +129,36 @@ class SubprocessToolingService(ToolingService):
                 details.append(f"worker stderr:\n{worker_stderr}")
             if worker_traceback:
                 details.append(f"worker traceback:\n{worker_traceback}")
-            raise RuntimeError("\n\n".join(details))
+            self._raise_task_error(
+                task,
+                "\n\n".join(details),
+                error_type=str(error_type) if error_type else None,
+            )
 
         return dict(response["result"])
+
+    def _raise_task_error(
+        self,
+        task: str,
+        message: str,
+        *,
+        error_type: str | None = None,
+    ) -> None:
+        """Raise task-specific exceptions for worker failures."""
+        if task != "run_calibration":
+            raise RuntimeError(message)
+
+        calibration_error_type = (error_type or "").lower()
+        if calibration_error_type in {"valueerror", "filenotfounderror"}:
+            raise CalibrationInputError(message)
+        if calibration_error_type in {
+            "permissionerror",
+            "oserror",
+            "isadirectoryerror",
+            "notadirectoryerror",
+        }:
+            raise CalibrationPersistenceError(message)
+        raise CalibrationExecutionError(message)
 
 
 _default_tooling_service: ToolingService | None = None

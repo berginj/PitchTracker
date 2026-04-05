@@ -168,6 +168,10 @@ class CameraViewWidget(QtWidgets.QWidget):
         """
         self._strike_zone.set_latest_pitch(norm_x, norm_y)
 
+    def set_strike_zone(self, left: float, right: float, top: float, bottom: float) -> None:
+        """Update strike-zone overlay boundaries."""
+        self._strike_zone.set_strike_zone(left, right, top, bottom)
+
     def clear_pitch_location(self) -> None:
         """Clear pitch location marker."""
         self._strike_zone.clear_latest_pitch()

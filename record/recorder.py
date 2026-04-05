@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Iterable
+from pathlib import Path
+from typing import Iterable, Optional
 
 from contracts import Detection, Frame, PitchMetrics, TrackSample
 
@@ -16,6 +17,7 @@ class RecordingBundle:
     detections: Iterable[Detection]
     track: Iterable[TrackSample]
     metrics: PitchMetrics
+    session_dir: Optional[Path] = None
 
 
 class Recorder(ABC):

@@ -48,6 +48,8 @@ class PitchRecorder:
         # CSV writers (file handle, csv.writer)
         self._left_csv: Optional[Tuple] = None
         self._right_csv: Optional[Tuple] = None
+        self._left_video_name = "left.avi"
+        self._right_video_name = "right.avi"
 
         # Pre-roll buffers
         pre_roll_ns = int(config.recording.pre_roll_ms * 1e6)
@@ -270,7 +272,13 @@ class PitchRecorder:
             config_path: Path to config file used
             performance_metrics: Optional performance metrics dict
         """
-        manifest = create_pitch_manifest(summary, config_path, performance_metrics)
+        manifest = create_pitch_manifest(
+            summary,
+            config_path,
+            performance_metrics,
+            left_video=self._left_video_name,
+            right_video=self._right_video_name,
+        )
         (self._pitch_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
 
     def is_active(self) -> bool:
@@ -340,6 +348,8 @@ class PitchRecorder:
 
         left_path = self._pitch_dir / f"left{extension}"
         right_path = self._pitch_dir / f"right{extension}"
+        self._left_video_name = left_path.name
+        self._right_video_name = right_path.name
 
         self._left_writer = cv2.VideoWriter(
             str(left_path),
