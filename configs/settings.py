@@ -152,6 +152,14 @@ class UploadConfig:
 
 
 @dataclass(frozen=True)
+class CalibrationValidationConfig:
+    enabled: bool = True
+    alert_threshold_px: float = 5.0
+    recalibration_interval_days: int = 30
+    min_trajectories_for_refinement: int = 50
+
+
+@dataclass(frozen=True)
 class AppConfig:
     camera: CameraConfig
     stereo: StereoConfig
@@ -164,6 +172,7 @@ class AppConfig:
     strike_zone: StrikeZoneConfig
     ball: BallConfig
     upload: UploadConfig
+    calibration_validation: CalibrationValidationConfig = CalibrationValidationConfig()
 
 
 def load_config(path: Path) -> AppConfig:
@@ -255,6 +264,14 @@ def load_config(path: Path) -> AppConfig:
             "api_key": "",
         }))
 
+        cal_val_data = data.get("calibration_validation", {})
+        calibration_validation = CalibrationValidationConfig(
+            enabled=cal_val_data.get("enabled", True),
+            alert_threshold_px=cal_val_data.get("alert_threshold_px", 5.0),
+            recalibration_interval_days=cal_val_data.get("recalibration_interval_days", 30),
+            min_trajectories_for_refinement=cal_val_data.get("min_trajectories_for_refinement", 50),
+        )
+
         config = AppConfig(
             camera=camera,
             stereo=stereo,
@@ -267,6 +284,7 @@ def load_config(path: Path) -> AppConfig:
             strike_zone=strike_zone,
             ball=ball,
             upload=upload,
+            calibration_validation=calibration_validation,
         )
 
         logger.info(f"Configuration loaded successfully: {config.detector.type} detector, {config.camera.width}x{config.camera.height}@{config.camera.fps}fps")

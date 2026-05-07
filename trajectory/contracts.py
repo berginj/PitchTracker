@@ -101,3 +101,25 @@ class TrajectoryFitResult:
             "diagnostics": self.diagnostics.to_dict(),
             "residuals": [residual.__dict__ for residual in self.residuals],
         }
+
+    def to_shared_contract(self) -> "TrajectoryFit":
+        """Convert to the shared contracts.TrajectoryFit type.
+
+        Bridges the richer trajectory-module result into the pipeline's
+        common contract, preserving extra detail in the diagnostics dict.
+        """
+        from contracts import TrajectoryFit
+
+        diag = self.diagnostics.to_dict()
+        diag["plate_crossing_t_ns"] = self.plate_crossing_t_ns
+        diag["expected_plate_error_ft"] = self.expected_plate_error_ft
+        if self.residuals:
+            diag["residual_count"] = len(self.residuals)
+
+        return TrajectoryFit(
+            model_name=self.model_name,
+            samples=list(self.samples),
+            crossing_xyz_ft=self.plate_crossing_xyz_ft,
+            confidence=self.confidence,
+            diagnostics=diag,
+        )

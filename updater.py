@@ -5,7 +5,9 @@ Checks GitHub Releases for newer versions and provides download/install function
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -76,6 +78,7 @@ def check_for_updates(timeout: int = 5) -> dict:
         'available': False,
         'version': None,
         'download_url': None,
+        'expected_sha256': None,
         'release_notes': None,
         'release_date': None,
     }
@@ -118,11 +121,28 @@ def check_for_updates(timeout: int = 5) -> dict:
             logger.warning("No installer found in latest release")
             return result
 
+        # Extract SHA-256 checksum from release body (format: "SHA256: <hex>")
+        release_body = data.get('body', '') or ''
+        expected_sha256 = _parse_sha256_from_body(release_body)
+
+        # Also check for a .sha256 asset file matching the installer
+        if not expected_sha256:
+            installer_name = installer_asset.get('name', '')
+            for asset in assets:
+                if asset.get('name', '') == f"{installer_name}.sha256":
+                    try:
+                        sha_url = asset.get('browser_download_url')
+                        with urlopen(sha_url, timeout=timeout) as sha_resp:
+                            expected_sha256 = sha_resp.read().decode('utf-8').strip().split()[0]
+                    except Exception as e:
+                        logger.debug(f"Failed to fetch .sha256 asset: {e}")
+
         # Update available!
         result['available'] = True
         result['version'] = latest_version
         result['download_url'] = installer_asset.get('browser_download_url')
-        result['release_notes'] = data.get('body', 'No release notes available.')
+        result['expected_sha256'] = expected_sha256
+        result['release_notes'] = release_body
         result['release_date'] = data.get('published_at', '')
 
         logger.info(f"Update available: v{latest_version}")
@@ -142,20 +162,55 @@ def check_for_updates(timeout: int = 5) -> dict:
         return result
 
 
+def _parse_sha256_from_body(body: str) -> Optional[str]:
+    """Extract SHA-256 hash from release notes body.
+
+    Looks for patterns like "SHA256: <hex>" or "sha256: <hex>".
+
+    Args:
+        body: Release notes markdown text
+
+    Returns:
+        Hex digest string if found, None otherwise
+    """
+    match = re.search(r'(?i)sha256[:\s]+([a-fA-F0-9]{64})', body)
+    return match.group(1).lower() if match else None
+
+
+def _verify_sha256(file_path: Path, expected: str) -> bool:
+    """Verify SHA-256 hash of a downloaded file.
+
+    Args:
+        file_path: Path to file to verify
+        expected: Expected hex digest
+
+    Returns:
+        True if hash matches
+    """
+    sha256 = hashlib.sha256()
+    with open(file_path, 'rb') as f:
+        for chunk in iter(lambda: f.read(8192), b''):
+            sha256.update(chunk)
+    actual = sha256.hexdigest().lower()
+    return actual == expected.lower()
+
+
 def download_update(
     url: str,
     dest_path: Optional[Path] = None,
-    progress_callback: Optional[callable] = None
+    progress_callback: Optional[callable] = None,
+    expected_sha256: Optional[str] = None,
 ) -> Optional[Path]:
-    """Download update installer.
+    """Download update installer with optional integrity verification.
 
     Args:
         url: Download URL
         dest_path: Destination file path (default: temp file)
         progress_callback: Callback(bytes_downloaded, total_bytes)
+        expected_sha256: Expected SHA-256 hex digest for verification
 
     Returns:
-        Path to downloaded file, or None if download failed
+        Path to downloaded file, or None if download or verification failed
     """
     try:
         # Use temp file if no destination specified
@@ -191,6 +246,18 @@ def download_update(
                         progress_callback(bytes_downloaded, total_size)
 
         logger.info(f"Update downloaded: {dest_path} ({bytes_downloaded} bytes)")
+
+        # Verify integrity if checksum provided
+        if expected_sha256:
+            if _verify_sha256(dest_path, expected_sha256):
+                logger.info("SHA-256 verification passed")
+            else:
+                logger.error("SHA-256 verification FAILED — download may be corrupted or tampered")
+                dest_path.unlink(missing_ok=True)
+                return None
+        else:
+            logger.warning("No SHA-256 checksum available — skipping integrity verification")
+
         return dest_path
 
     except Exception as e:
@@ -211,6 +278,14 @@ def install_update(installer_path: Path, silent: bool = False) -> bool:
         True if installer launched successfully
     """
     try:
+        if not installer_path.exists():
+            logger.error(f"Installer not found: {installer_path}")
+            return False
+
+        if installer_path.stat().st_size < 1_000_000:
+            logger.error(f"Installer suspiciously small ({installer_path.stat().st_size} bytes)")
+            return False
+
         logger.info(f"Launching installer: {installer_path}")
 
         # Build command line arguments

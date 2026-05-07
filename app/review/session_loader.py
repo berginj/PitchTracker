@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from configs.settings import AppConfig, load_config
+from exceptions import PitchTrackerError
 from log_config.logger import get_logger
 
 logger = get_logger(__name__)
@@ -71,6 +72,64 @@ class LoadedSession:
     session_summary: Optional[dict] = None
     calibration: Optional[dict] = None
     original_config: Optional[AppConfig] = None
+
+
+def _safe_path(base_dir: Path, untrusted: str, default: str) -> Path:
+    """Resolve a manifest path value safely within a base directory.
+
+    Rejects absolute paths, '..' traversal, and non-string values.
+    Falls back to *default* when the value is unsafe or missing.
+    """
+    if not isinstance(untrusted, str) or not untrusted:
+        return base_dir / default
+    # Reject absolute paths and traversal attempts
+    if Path(untrusted).is_absolute() or ".." in Path(untrusted).parts:
+        logger.warning(f"Rejected unsafe manifest path: {untrusted!r}")
+        return base_dir / default
+    resolved = (base_dir / untrusted).resolve()
+    base_resolved = base_dir.resolve()
+    if not str(resolved).startswith(str(base_resolved)):
+        logger.warning(f"Path escapes session directory: {untrusted!r}")
+        return base_dir / default
+    return base_dir / untrusted
+
+
+def _validate_session_manifest(manifest: dict) -> None:
+    """Validate minimal session manifest structure.
+
+    Raises:
+        PitchTrackerError: If manifest is structurally invalid
+    """
+    if not isinstance(manifest, dict):
+        raise PitchTrackerError("Session manifest is not a JSON object")
+    # Validate path-bearing fields are strings when present
+    path_fields = [
+        "session_left_video", "session_right_video",
+        "session_left_timestamps", "session_right_timestamps",
+        "session_summary", "config_path",
+    ]
+    for field in path_fields:
+        value = manifest.get(field)
+        if value is not None and not isinstance(value, str):
+            raise PitchTrackerError(f"Manifest field '{field}' must be a string, got {type(value).__name__}")
+
+
+def _validate_pitch_manifest(manifest: dict) -> None:
+    """Validate minimal pitch manifest structure.
+
+    Raises:
+        PitchTrackerError: If manifest is structurally invalid
+    """
+    if not isinstance(manifest, dict):
+        raise PitchTrackerError("Pitch manifest is not a JSON object")
+    path_fields = ["left_video", "right_video", "left_timestamps", "right_timestamps"]
+    for field in path_fields:
+        value = manifest.get(field)
+        if value is not None and not isinstance(value, str):
+            raise PitchTrackerError(f"Pitch manifest field '{field}' must be a string, got {type(value).__name__}")
+
+
+_SAFE_CONFIG_DIRS = (Path("configs"),)
 
 
 class SessionLoader:
@@ -163,8 +222,8 @@ class SessionLoader:
                 return False, f"Failed to parse session manifest: {manifest_path}"
 
         # Check for session videos (at least one should exist)
-        session_left = session_dir / manifest.get("session_left_video", "session_left.avi")
-        session_right = session_dir / manifest.get("session_right_video", "session_right.avi")
+        session_left = _safe_path(session_dir, manifest.get("session_left_video", "session_left.avi"), "session_left.avi")
+        session_right = _safe_path(session_dir, manifest.get("session_right_video", "session_right.avi"), "session_right.avi")
 
         if not session_left.exists() and not session_right.exists():
             return False, "Session videos not found (session_left.avi or session_right.avi)"
@@ -212,18 +271,20 @@ class SessionLoader:
         except json.JSONDecodeError as e:
             raise ValueError(f"Failed to parse session manifest: {e}")
 
+        _validate_session_manifest(manifest)
+
         # Prefer manifest-provided contract fields, then fall back to directory name.
         session_id = manifest.get("session_id") or manifest.get("session_name") or session_dir.name
 
-        # Load session-level video paths
-        left_video_path = session_dir / manifest.get("session_left_video", "session_left.avi")
-        right_video_path = session_dir / manifest.get("session_right_video", "session_right.avi")
-        left_timestamps_path = session_dir / manifest.get("session_left_timestamps", "session_left_timestamps.csv")
-        right_timestamps_path = session_dir / manifest.get("session_right_timestamps", "session_right_timestamps.csv")
+        # Load session-level video paths (with path safety)
+        left_video_path = _safe_path(session_dir, manifest.get("session_left_video", "session_left.avi"), "session_left.avi")
+        right_video_path = _safe_path(session_dir, manifest.get("session_right_video", "session_right.avi"), "session_right.avi")
+        left_timestamps_path = _safe_path(session_dir, manifest.get("session_left_timestamps", "session_left_timestamps.csv"), "session_left_timestamps.csv")
+        right_timestamps_path = _safe_path(session_dir, manifest.get("session_right_timestamps", "session_right_timestamps.csv"), "session_right_timestamps.csv")
 
         # Load session summary if available
         session_summary = None
-        summary_path = session_dir / manifest.get("session_summary", "session_summary.json")
+        summary_path = _safe_path(session_dir, manifest.get("session_summary", "session_summary.json"), "session_summary.json")
         if summary_path.exists():
             try:
                 with open(summary_path, 'r') as f:
@@ -232,16 +293,31 @@ class SessionLoader:
             except Exception as e:
                 logger.warning(f"Failed to load session summary: {e}")
 
-        # Load original configuration
+        # Load original configuration (restricted to known safe directories)
         original_config = None
         config_path_str = manifest.get("config_path", "configs/default.yaml")
-        config_path = Path(config_path_str)
-        if config_path.exists():
-            try:
-                original_config = load_config(config_path)
-                logger.debug(f"Loaded original config: {config_path}")
-            except Exception as e:
-                logger.warning(f"Failed to load original config from {config_path}: {e}")
+        if isinstance(config_path_str, str):
+            config_path = Path(config_path_str)
+            # Only load configs from within session dir or known config directories
+            safe = False
+            if not config_path.is_absolute():
+                for safe_dir in _SAFE_CONFIG_DIRS:
+                    if str(config_path).startswith(str(safe_dir)):
+                        safe = True
+                        break
+                # Also allow configs stored within the session
+                session_config = _safe_path(session_dir, config_path_str, "")
+                if session_config != session_dir and session_config.exists():
+                    safe = True
+                    config_path = session_config
+            if safe and config_path.exists():
+                try:
+                    original_config = load_config(config_path)
+                    logger.debug(f"Loaded original config: {config_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to load original config from {config_path}: {e}")
+            elif config_path_str:
+                logger.debug(f"Skipped config load from restricted path: {config_path_str}")
 
         # Load individual pitches
         pitches = SessionLoader._load_pitches(session_dir)
@@ -322,13 +398,15 @@ class SessionLoader:
         except json.JSONDecodeError as e:
             raise ValueError(f"Failed to parse pitch manifest: {e}")
 
+        _validate_pitch_manifest(manifest)
+
         pitch_id = manifest.get("pitch_id") or pitch_id
 
-        # Get video paths from manifest
-        left_video_path = pitch_dir / manifest.get("left_video", "left.avi")
-        right_video_path = pitch_dir / manifest.get("right_video", "right.avi")
-        left_timestamps_path = pitch_dir / manifest.get("left_timestamps", "left_timestamps.csv")
-        right_timestamps_path = pitch_dir / manifest.get("right_timestamps", "right_timestamps.csv")
+        # Get video paths from manifest (with path safety)
+        left_video_path = _safe_path(pitch_dir, manifest.get("left_video", "left.avi"), "left.avi")
+        right_video_path = _safe_path(pitch_dir, manifest.get("right_video", "right.avi"), "right.avi")
+        left_timestamps_path = _safe_path(pitch_dir, manifest.get("left_timestamps", "left_timestamps.csv"), "left_timestamps.csv")
+        right_timestamps_path = _safe_path(pitch_dir, manifest.get("right_timestamps", "right_timestamps.csv"), "right_timestamps.csv")
 
         # Load original detections if available
         detections_left = None

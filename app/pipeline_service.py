@@ -86,6 +86,7 @@ class InProcessPipelineService(
         self._record_lock = threading.Lock()
         self._session_active = False
         self._pitch_id = "pitch-unknown"
+        self._last_pitch_summary: Optional[PitchSummary] = None
         self._last_session_summary = SessionSummary(
             session_id="session",
             pitch_count=0,
@@ -281,26 +282,32 @@ class InProcessPipelineService(
         """Stop capture on both cameras with error handling.
 
         Ensures all resources are properly cleaned up even if errors occur.
+        Logs errors from individual cleanup steps as warnings rather than
+        silently swallowing them, and re-raises if camera stop itself fails.
         """
         logger.info("Stopping capture")
+        errors: list[Exception] = []
 
+        # Stop detection threads
         try:
-            # Stop detection threads
-            try:
-                if self._detection_pool:
-                    self._detection_pool.stop()
-                logger.debug("Detection threads stopped")
-            except Exception as exc:
-                logger.warning(f"Error stopping detection threads: {exc}")
-
-            # Stop camera capture (stops threads, closes cameras)
-            self._camera_mgr.stop_capture()
-
-            logger.info("Capture stopped successfully")
-
+            if self._detection_pool:
+                self._detection_pool.stop()
+            logger.debug("Detection threads stopped")
         except Exception as exc:
-            logger.exception("Unexpected error during capture stop")
-            # Don't raise - we want stop to be best-effort cleanup
+            logger.warning(f"Error stopping detection threads: {exc}")
+            errors.append(exc)
+
+        # Stop camera capture (stops threads, closes cameras)
+        try:
+            self._camera_mgr.stop_capture()
+        except Exception as exc:
+            logger.exception("Error stopping camera capture")
+            errors.append(exc)
+
+        if errors:
+            logger.warning(f"Capture stopped with {len(errors)} error(s)")
+        else:
+            logger.info("Capture stopped successfully")
 
     def get_preview_frames(self) -> Tuple[Frame, Frame]:
         """Get latest preview frames from both cameras.
@@ -325,25 +332,27 @@ class InProcessPipelineService(
         Returns:
             Warning message if disk space is low, empty string otherwise
         """
-        self._recording = True
-        self._recorded_frames = []
-        if pitch_id:
-            self._pitch_id = pitch_id
-        else:
-            self._pitch_id = time.strftime("pitch-%Y%m%d-%H%M%S", time.gmtime())
-        self._record_session = session_name
-        self._record_mode = mode
-        self._session_active = True
-        if self._pitch_tracker:
-            self._pitch_tracker.reset()
-        self._last_session_summary = SessionSummary(
-            session_id=self._record_session or "session",
-            pitch_count=0,
-            strikes=0,
-            balls=0,
-            heatmap=[[0, 0, 0], [0, 0, 0], [0, 0, 0]],
-            pitches=[],
-        )
+        with self._record_lock:
+            self._recording = True
+            self._recorded_frames = []
+            self._last_pitch_summary = None
+            if pitch_id:
+                self._pitch_id = pitch_id
+            else:
+                self._pitch_id = time.strftime("pitch-%Y%m%d-%H%M%S", time.gmtime())
+            self._record_session = session_name
+            self._record_mode = mode
+            self._session_active = True
+            if self._pitch_tracker:
+                self._pitch_tracker.reset()
+            self._last_session_summary = SessionSummary(
+                session_id=self._record_session or "session",
+                pitch_count=0,
+                strikes=0,
+                balls=0,
+                heatmap=[[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+                pitches=[],
+            )
         warning = self._start_recording_io()
         return warning
 
@@ -354,24 +363,45 @@ class InProcessPipelineService(
         self._manual_speed_mph = speed_mph
 
     def stop_recording(self) -> RecordingBundle:
-        self._recording = False
-        if self._pitch_tracker:
-            self._pitch_tracker.force_end()
-        self._session_active = False
+        with self._record_lock:
+            self._recording = False
+            self._session_active = False
+            pitch_tracker = self._pitch_tracker
+            pitch_id = self._pitch_id
+            summary = self._last_pitch_summary
+
+        if pitch_tracker:
+            pitch_tracker.force_end()
         self._stop_recording_io()
-        metrics = PitchMetrics(
-            pitch_id=self._pitch_id,
-            t_start_ns=0,
-            t_end_ns=0,
-            velo_mph=0.0,
-            HB_in=0.0,
-            iVB_in=0.0,
-            release_xyz_ft=(0.0, 0.0, 0.0),
-            approach_angles_deg=(0.0, 0.0),
-            confidence=0.0,
-        )
+
+        # Build metrics from last analyzed pitch if available
+        if summary is not None:
+            metrics = PitchMetrics(
+                pitch_id=summary.pitch_id,
+                t_start_ns=summary.t_start_ns,
+                t_end_ns=summary.t_end_ns,
+                velo_mph=summary.speed_mph or 0.0,
+                HB_in=summary.run_in,
+                iVB_in=summary.rise_in,
+                release_xyz_ft=(0.0, 0.0, 0.0),
+                approach_angles_deg=(0.0, 0.0),
+                confidence=summary.trajectory_confidence or 0.0,
+            )
+        else:
+            metrics = PitchMetrics(
+                pitch_id=pitch_id,
+                t_start_ns=0,
+                t_end_ns=0,
+                velo_mph=0.0,
+                HB_in=0.0,
+                iVB_in=0.0,
+                release_xyz_ft=(0.0, 0.0, 0.0),
+                approach_angles_deg=(0.0, 0.0),
+                confidence=0.0,
+            )
+
         return RecordingBundle(
-            pitch_id=self._pitch_id,
+            pitch_id=pitch_id,
             frames=[],
             detections=[],
             track=[],
@@ -477,7 +507,8 @@ class InProcessPipelineService(
                 self._pitch_analyzer.update_config(self._config)
 
     def get_session_summary(self) -> SessionSummary:
-        return self._last_session_summary
+        with self._record_lock:
+            return self._last_session_summary
 
     def get_recent_pitch_paths(self) -> list[list[StereoObservation]]:
         if self._session_manager:

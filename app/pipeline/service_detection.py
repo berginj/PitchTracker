@@ -105,15 +105,18 @@ class PipelineServiceDetectionMixin:
 
     def _on_pitch_start(self, pitch_index: int, pitch_data: PitchData) -> None:
         session = self._record_session or "session"
-        self._pitch_id = f"{session}-pitch-{pitch_index:03d}"
+        with self._record_lock:
+            self._pitch_id = f"{session}-pitch-{pitch_index:03d}"
 
         if self._config and self._session_recorder:
             session_dir = self._session_recorder.get_session_dir()
             if session_dir:
-                self._pitch_recorder = PitchRecorder(self._config, session_dir, self._pitch_id)
-                self._pitch_recorder.start_pitch()
+                recorder = PitchRecorder(self._config, session_dir, self._pitch_id)
+                recorder.start_pitch()
                 for cam_label, frame in pitch_data.pre_roll_frames:
-                    self._pitch_recorder.write_frame(cam_label, frame)
+                    recorder.write_frame(cam_label, frame)
+                with self._record_lock:
+                    self._pitch_recorder = recorder
 
     def _on_pitch_end(self, pitch_data: PitchData) -> None:
         if self._pitch_analyzer is None or self._session_manager is None:
@@ -131,7 +134,9 @@ class PipelineServiceDetectionMixin:
         )
 
         self._session_manager.add_pitch(summary, observations)
-        self._last_session_summary = self._session_manager.get_summary()
+        with self._record_lock:
+            self._last_session_summary = self._session_manager.get_summary()
+            self._last_pitch_summary = summary
 
         if self._pitch_recorder:
             self._pitch_recorder.end_pitch(end_ns)

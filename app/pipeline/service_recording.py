@@ -97,15 +97,20 @@ class PipelineServiceRecordingMixin:
             self._write_session_summary()
 
     def _write_record_frame_single(self, label: str, frame: Frame) -> None:
-        if not self._recording:
+        with self._record_lock:
+            recording = self._recording
+            session_recorder = self._session_recorder
+            pitch_recorder = self._pitch_recorder
+        if not recording:
             return
-        if self._session_recorder:
-            self._session_recorder.write_frame(label, frame)
-        if self._pitch_recorder and self._pitch_recorder.is_active():
-            self._pitch_recorder.write_frame(label, frame)
-            if self._pitch_recorder.should_close():
-                self._pitch_recorder.close()
-                self._pitch_recorder = None
+        if session_recorder:
+            session_recorder.write_frame(label, frame)
+        if pitch_recorder and pitch_recorder.is_active():
+            pitch_recorder.write_frame(label, frame)
+            if pitch_recorder.should_close():
+                pitch_recorder.close()
+                with self._record_lock:
+                    self._pitch_recorder = None
 
     def _write_session_summary(self) -> None:
         if self._session_recorder:
