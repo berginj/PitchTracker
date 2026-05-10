@@ -1,19 +1,38 @@
+# Python/runtime caches
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
 .venv/
+venv/
+
+# Local app state/config
 configs/.first_run_done
 configs/roi.json
 configs/pitchers.json
 configs/app_state.json
 configs/locations/
 *.log
+logs/
 
-# Claude Code local settings
+# Local assistant/tool settings
 .claude/
+.codex/
 
 # Test artifacts
 alignment_checks/
 screenshots/
+alignment_check_log.txt
+test.tmp
+*.tmp
+recordings/
+calibration/
+camera_tests/
 
 # Benchmark results
 benchmarks/results_*.json
@@ -23,3 +42,7 @@ build/
 dist/
 installer_output/
 *.spec.bak
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
