@@ -3,12 +3,29 @@
 from __future__ import annotations
 
 import argparse
+import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
 import yaml
+
+
+@dataclass(frozen=True)
+class CornerDetection:
+    """Detected calibration points for one image."""
+
+    index: int
+    path: Path
+    objpoints: np.ndarray
+    imgpoints: np.ndarray
+    kind: str
+    corner_ids: Optional[np.ndarray] = None
+
+
+MIN_CHARUCO_STEREO_CORNERS = 8
 
 
 def parse_args() -> argparse.Namespace:
@@ -32,20 +49,16 @@ def _collect_corners(
     paths: List[Path],
     pattern_size: Tuple[int, int],
     square_mm: float,
-) -> Tuple[List[np.ndarray], List[np.ndarray], Tuple[int, int], List[int]]:
+) -> Tuple[List[CornerDetection], Tuple[int, int]]:
     """Detect calibration board corners in images.
 
     Tries ChArUco board detection first, falls back to plain checkerboard if no markers found.
 
     Returns:
-        objpoints: Object points for successful detections
-        imgpoints: Image points for successful detections
+        detections: CornerDetection records for successful detections
         img_size: Image dimensions (width, height)
-        success_indices: List of indices where corner detection succeeded
     """
-    objpoints: List[np.ndarray] = []
-    imgpoints: List[np.ndarray] = []
-    success_indices: List[int] = []
+    detections: List[CornerDetection] = []
     img_size: Tuple[int, int] | None = None
 
     # Create ChArUco board
@@ -125,9 +138,16 @@ def _collect_corners(
                     # Older API
                     obj_pts = board.chessboardCorners[charuco_ids.flatten()]
 
-                objpoints.append(obj_pts)
-                imgpoints.append(charuco_corners)
-                success_indices.append(i)
+                detections.append(
+                    CornerDetection(
+                        index=i,
+                        path=path,
+                        objpoints=np.asarray(obj_pts, dtype=np.float32),
+                        imgpoints=np.asarray(charuco_corners, dtype=np.float32),
+                        kind="charuco",
+                        corner_ids=np.asarray(charuco_ids, dtype=np.int32).reshape(-1),
+                    )
+                )
                 print(f"✓ ({num_corners} ChArUco corners)")
                 charuco_success = True
 
@@ -171,28 +191,28 @@ def _collect_corners(
                 objp[:, :2] = np.mgrid[0:board_size[0], 0:board_size[1]].T.reshape(-1, 2)
                 objp *= square_mm  # Scale by square size
 
-                objpoints.append(objp)
-                imgpoints.append(corners_refined)
-                success_indices.append(i)
+                detections.append(
+                    CornerDetection(
+                        index=i,
+                        path=path,
+                        objpoints=objp,
+                        imgpoints=np.asarray(corners_refined, dtype=np.float32),
+                        kind="checkerboard",
+                    )
+                )
                 print(f"✓ ({len(corners_refined)} checkerboard corners)")
             else:
                 print("❌ No ChArUco markers and no checkerboard pattern")
 
-    print(f"Found calibration corners in {len(objpoints)} images (ChArUco or checkerboard)")
+    print(f"Found calibration corners in {len(detections)} images (ChArUco or checkerboard)")
     if img_size is None:
         raise RuntimeError("No valid images found for calibration.")
-    return objpoints, imgpoints, img_size, success_indices
+    return detections, img_size
 
 
 def _match_stereo_pairs(
-    left_obj: List[np.ndarray],
-    left_img: List[np.ndarray],
-    left_indices: List[int],
-    left_paths: List[Path],
-    right_obj: List[np.ndarray],
-    right_img: List[np.ndarray],
-    right_indices: List[int],
-    right_paths: List[Path],
+    left_detections: List[CornerDetection],
+    right_detections: List[CornerDetection],
 ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[str]]:
     """Match left and right corner detections, keeping only pairs where both succeeded.
 
@@ -202,9 +222,10 @@ def _match_stereo_pairs(
         right_imgpoints: Matched right image points
         rejection_report: List of rejection messages for user feedback
     """
-    # Find common indices (images where both cameras detected corners)
-    left_set = set(left_indices)
-    right_set = set(right_indices)
+    left_by_index = {det.index: det for det in left_detections}
+    right_by_index = {det.index: det for det in right_detections}
+    left_set = set(left_by_index)
+    right_set = set(right_by_index)
     common_indices = sorted(left_set & right_set)
 
     # Track rejections for reporting
@@ -213,14 +234,14 @@ def _match_stereo_pairs(
     rejection_report = []
 
     if left_only:
-        rejected_names = [left_paths[i].name for i in sorted(left_only)]
+        rejected_names = [left_by_index[i].path.name for i in sorted(left_only)]
         rejection_report.append(
             f"Rejected {len(left_only)} images (left detected, right failed): {', '.join(rejected_names[:5])}"
             + ("..." if len(rejected_names) > 5 else "")
         )
 
     if right_only:
-        rejected_names = [right_paths[i].name for i in sorted(right_only)]
+        rejected_names = [right_by_index[i].path.name for i in sorted(right_only)]
         rejection_report.append(
             f"Rejected {len(right_only)} images (right detected, left failed): {', '.join(rejected_names[:5])}"
             + ("..." if len(rejected_names) > 5 else "")
@@ -232,11 +253,45 @@ def _match_stereo_pairs(
     matched_right = []
 
     for idx in common_indices:
-        left_pos = left_indices.index(idx)
-        right_pos = right_indices.index(idx)
-        matched_obj.append(left_obj[left_pos])
-        matched_left.append(left_img[left_pos])
-        matched_right.append(right_img[right_pos])
+        left = left_by_index[idx]
+        right = right_by_index[idx]
+        if left.kind != right.kind:
+            rejection_report.append(
+                f"Rejected pair {left.path.name}/{right.path.name}: mixed detection types "
+                f"({left.kind} vs {right.kind})"
+            )
+            continue
+
+        if left.kind == "charuco":
+            if left.corner_ids is None or right.corner_ids is None:
+                rejection_report.append(
+                    f"Rejected pair {left.path.name}/{right.path.name}: missing ChArUco corner IDs"
+                )
+                continue
+            left_id_to_pos = {int(corner_id): pos for pos, corner_id in enumerate(left.corner_ids)}
+            right_id_to_pos = {int(corner_id): pos for pos, corner_id in enumerate(right.corner_ids)}
+            shared_ids = sorted(set(left_id_to_pos) & set(right_id_to_pos))
+            if len(shared_ids) < MIN_CHARUCO_STEREO_CORNERS:
+                rejection_report.append(
+                    f"Rejected pair {left.path.name}/{right.path.name}: only {len(shared_ids)} shared "
+                    f"ChArUco corners (need {MIN_CHARUCO_STEREO_CORNERS})"
+                )
+                continue
+            left_rows = [left_id_to_pos[corner_id] for corner_id in shared_ids]
+            right_rows = [right_id_to_pos[corner_id] for corner_id in shared_ids]
+            matched_obj.append(left.objpoints[left_rows])
+            matched_left.append(left.imgpoints[left_rows])
+            matched_right.append(right.imgpoints[right_rows])
+            continue
+
+        if len(left.objpoints) != len(right.objpoints) or len(left.imgpoints) != len(right.imgpoints):
+            rejection_report.append(
+                f"Rejected pair {left.path.name}/{right.path.name}: checkerboard corner counts differ"
+            )
+            continue
+        matched_obj.append(left.objpoints)
+        matched_left.append(left.imgpoints)
+        matched_right.append(right.imgpoints)
 
     return matched_obj, matched_left, matched_right, rejection_report
 
@@ -258,22 +313,39 @@ def _compute_per_image_errors(
         List of dicts with left_rms, right_rms, combined_rms for each image
     """
     errors = []
-    rvec_zero = np.zeros(3)
-    tvec_zero = np.zeros(3)
-
     for obj_pts, left_pts, right_pts in zip(objpoints, left_img, right_img):
+        left_pts_2d = np.asarray(left_pts, dtype=np.float32).reshape(-1, 2)
+        right_pts_2d = np.asarray(right_pts, dtype=np.float32).reshape(-1, 2)
+        ok, rvec_left, tvec_left = cv2.solvePnP(
+            np.asarray(obj_pts, dtype=np.float32),
+            left_pts_2d,
+            mtx_left,
+            dist_left,
+            flags=cv2.SOLVEPNP_ITERATIVE,
+        )
+        if not ok:
+            errors.append({
+                "left_rms": float("inf"),
+                "right_rms": float("inf"),
+                "combined_rms": float("inf"),
+            })
+            continue
+
         # Project to left camera
         left_projected, _ = cv2.projectPoints(
-            obj_pts, rvec_zero, tvec_zero, mtx_left, dist_left
+            obj_pts, rvec_left, tvec_left, mtx_left, dist_left
         )
-        left_error = np.sqrt(np.mean((left_pts - left_projected.reshape(-1, 2)) ** 2))
+        left_error = np.sqrt(np.mean((left_pts_2d - left_projected.reshape(-1, 2)) ** 2))
 
-        # Project to right camera (with rotation and translation)
-        rvec_r, _ = cv2.Rodrigues(R)
+        # Project to right camera by transforming the board pose from left to right.
+        rmat_left, _ = cv2.Rodrigues(rvec_left)
+        rmat_right = R @ rmat_left
+        tvec_right = R @ tvec_left + T
+        rvec_right, _ = cv2.Rodrigues(rmat_right)
         right_projected, _ = cv2.projectPoints(
-            obj_pts, rvec_r, T, mtx_right, dist_right
+            obj_pts, rvec_right, tvec_right, mtx_right, dist_right
         )
-        right_error = np.sqrt(np.mean((right_pts - right_projected.reshape(-1, 2)) ** 2))
+        right_error = np.sqrt(np.mean((right_pts_2d - right_projected.reshape(-1, 2)) ** 2))
 
         combined_error = np.sqrt(left_error**2 + right_error**2)
 
@@ -401,16 +473,15 @@ def quick_calibrate(
 
     # Collect corners using existing function (already has ChArUco + fallback)
     print("=== LEFT CAMERA ===")
-    left_obj, left_img, img_size, left_indices = _collect_corners(left_paths, pattern_size, square_mm)
+    left_detections, img_size = _collect_corners(left_paths, pattern_size, square_mm)
 
     print("\n=== RIGHT CAMERA ===")
-    right_obj, right_img, _, right_indices = _collect_corners(right_paths, pattern_size, square_mm)
+    right_detections, _ = _collect_corners(right_paths, pattern_size, square_mm)
 
     # Match pairs
     print("\n=== MATCHING STEREO PAIRS ===")
     objpoints, left_imgpoints, right_imgpoints, rejection_report = _match_stereo_pairs(
-        left_obj, left_img, left_indices, left_paths,
-        right_obj, right_img, right_indices, right_paths,
+        left_detections, right_detections
     )
 
     # Report rejections
@@ -645,15 +716,14 @@ def _calibrate(
     RECOMMENDED_PAIRS = 15
 
     print("\n=== LEFT CAMERA ===")
-    left_obj, left_img, img_size, left_indices = _collect_corners(left_paths, pattern_size, square_mm)
+    left_detections, img_size = _collect_corners(left_paths, pattern_size, square_mm)
     print("\n=== RIGHT CAMERA ===")
-    right_obj, right_img, _, right_indices = _collect_corners(right_paths, pattern_size, square_mm)
+    right_detections, _ = _collect_corners(right_paths, pattern_size, square_mm)
 
     # Match pairs where both cameras detected corners
     print("\n=== MATCHING STEREO PAIRS ===")
     objpoints, left_imgpoints, right_imgpoints, rejection_report = _match_stereo_pairs(
-        left_obj, left_img, left_indices, left_paths,
-        right_obj, right_img, right_indices, right_paths,
+        left_detections, right_detections
     )
 
     # Report rejections
@@ -802,6 +872,7 @@ def _save_calibration_file(updates: dict) -> None:
     calib_dir.mkdir(parents=True, exist_ok=True)
 
     calib_path = calib_dir / "stereo_calibration.npz"
+    report_path = calib_dir / "report.json"
 
     # Extract quality info for saving
     quality = updates.get("quality", {})
@@ -828,6 +899,20 @@ def _save_calibration_file(updates: dict) -> None:
         quality_rating=quality.get("rating", "UNKNOWN"),
         quality_description=quality.get("description", ""),
     )
+    report = {
+        "calibration_mode": updates.get("calibration_mode", "FULL"),
+        "rms_error_px": updates.get("rms_error_px", 0.0),
+        "num_images": updates.get("num_images", 0),
+        "num_images_used": updates.get("num_images_used", updates.get("num_images", 0)),
+        "total_input_images": updates.get("total_input_images", 0),
+        "baseline_ft": updates.get("baseline_ft", 0.0),
+        "focal_length_px": updates.get("focal_length_px", 0.0),
+        "image_size": list(updates.get("img_size", [])),
+        "quality": quality,
+        "per_image_errors": updates.get("per_image_errors", []),
+        "recommendations": updates.get("recommendations", []),
+    }
+    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
 
 def load_calibration_quality(calib_path: Optional[Path] = None) -> Optional[dict]:

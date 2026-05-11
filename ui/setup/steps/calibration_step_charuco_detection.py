@@ -39,6 +39,57 @@ logger = get_logger(__name__)
 
 
 class CalibrationStepCharucoDetectionMixin:
+    def _detect_charuco_ids(self, image: np.ndarray) -> tuple[np.ndarray | None, float]:
+        """Return interpolated ChArUco corner IDs and blur score for capture validation."""
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image.copy()
+
+        dict_name = self._cached_dict_name or "DICT_6X6_250"
+        dictionary_id = getattr(cv2.aruco, dict_name, cv2.aruco.DICT_6X6_250)
+        aruco_dict = cv2.aruco.getPredefinedDictionary(dictionary_id)
+        try:
+            detector_params = cv2.aruco.DetectorParameters()
+            detector = cv2.aruco.ArucoDetector(aruco_dict, detector_params)
+            marker_corners, marker_ids, _ = detector.detectMarkers(gray)
+        except AttributeError:
+            detector_params = cv2.aruco.DetectorParameters_create()
+            marker_corners, marker_ids, _ = cv2.aruco.detectMarkers(
+                gray, aruco_dict, parameters=detector_params
+            )
+
+        blur_score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+        if marker_ids is None or len(marker_ids) == 0:
+            return None, blur_score
+
+        try:
+            board = cv2.aruco.CharucoBoard(
+                (self._pattern_cols, self._pattern_rows),
+                self._square_mm,
+                self._square_mm * 0.75,
+                aruco_dict,
+            )
+        except (AttributeError, TypeError):
+            board = cv2.aruco.CharucoBoard_create(
+                self._pattern_cols,
+                self._pattern_rows,
+                self._square_mm,
+                self._square_mm * 0.75,
+                aruco_dict,
+            )
+        try:
+            num_corners, _, charuco_ids = cv2.aruco.interpolateCornersCharuco(
+                marker_corners, marker_ids, gray, board
+            )
+        except TypeError:
+            num_corners, _, charuco_ids = cv2.aruco.interpolateCornersCharuco(
+                marker_corners, marker_ids, gray, board
+            )
+        if num_corners is None or charuco_ids is None:
+            return None, blur_score
+        return np.asarray(charuco_ids, dtype=np.int32).reshape(-1), blur_score
+
     def _detect_charuco(self, image: np.ndarray) -> tuple[bool, np.ndarray, float]:
         """Detect ChArUco board and draw corners.
 

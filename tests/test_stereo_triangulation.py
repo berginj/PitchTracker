@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from stereo.simple_stereo import SimpleStereoMatcher, StereoGeometry
+from stereo.calibrated_stereo import CalibratedStereoGeometry, CalibratedStereoMatcher
 from stereo.association import StereoMatch
 from contracts import Detection
 
@@ -41,7 +42,7 @@ def test_basic_triangulation():
         t_capture_monotonic_ns=0,
         u=left_u,
         v=left_v,
-        radius=10.0,
+        radius_px=10.0,
         confidence=1.0,
     )
 
@@ -51,12 +52,12 @@ def test_basic_triangulation():
         t_capture_monotonic_ns=0,
         u=right_u,
         v=right_v,
-        radius=10.0,
+        radius_px=10.0,
         confidence=1.0,
     )
 
     matcher = SimpleStereoMatcher(geometry)
-    match = StereoMatch(left_det, right_det)
+    match = StereoMatch(left_det, right_det, epipolar_error_px=0.0, score=1.0)
 
     # Compute depth
     disparity = left_det.u - right_det.u
@@ -96,7 +97,7 @@ def test_triangulation_off_center():
         t_capture_monotonic_ns=0,
         u=left_u,
         v=left_v,
-        radius=10.0,
+        radius_px=10.0,
         confidence=1.0,
     )
 
@@ -106,7 +107,7 @@ def test_triangulation_off_center():
         t_capture_monotonic_ns=0,
         u=right_u,
         v=right_v,
-        radius=10.0,
+        radius_px=10.0,
         confidence=1.0,
     )
 
@@ -141,7 +142,7 @@ def test_epipolar_constraint():
         t_capture_monotonic_ns=0,
         u=960.0,
         v=540.0,
-        radius=10.0,
+        radius_px=10.0,
         confidence=1.0,
     )
 
@@ -151,7 +152,7 @@ def test_epipolar_constraint():
         t_capture_monotonic_ns=0,
         u=936.0,
         v=560.0,  # 20 pixels off in y - violates constraint
-        radius=10.0,
+        radius_px=10.0,
         confidence=1.0,
     )
 
@@ -207,6 +208,45 @@ def test_zero_disparity_handling():
         computed_depth = (geometry.baseline_ft * geometry.focal_length_px) / disparity
 
     assert computed_depth == float('inf') or computed_depth > 1000.0
+
+
+def test_calibrated_stereo_triangulates_with_full_matrices():
+    """Saved calibration matrices should support runtime triangulation."""
+    baseline_ft = 1.0
+    baseline_mm = baseline_ft * 304.8
+    focal_px = 1200.0
+    cx = 960.0
+    cy = 540.0
+    k = np.array([[focal_px, 0.0, cx], [0.0, focal_px, cy], [0.0, 0.0, 1.0]], dtype=np.float64)
+    tx = np.array([[-baseline_mm], [0.0], [0.0]], dtype=np.float64)
+    f = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, baseline_mm], [0.0, -baseline_mm, 0.0]])
+    geometry = CalibratedStereoGeometry(
+        mtx_left=k,
+        dist_left=np.zeros(5),
+        mtx_right=k,
+        dist_right=np.zeros(5),
+        R=np.eye(3),
+        T=tx,
+        F=f,
+        img_size=(1920, 1080),
+        epipolar_epsilon_px=3.0,
+        z_min_ft=3.0,
+        z_max_ft=80.0,
+    )
+    matcher = CalibratedStereoMatcher(geometry)
+    expected_z_ft = 50.0
+    disparity = focal_px * baseline_ft / expected_z_ft
+    left = Detection("left", 0, 100, cx, cy, 10.0, 1.0)
+    right = Detection("right", 0, 200, cx - disparity, cy, 10.0, 1.0)
+
+    match = matcher.match(left, right)
+    assert match is not None
+    obs = matcher.triangulate(match)
+
+    assert abs(obs.Z - expected_z_ft) < 0.1
+    assert abs(obs.X) < 0.01
+    assert obs.t_ns == 150
+    assert obs.confidence == 1.0
 
 
 if __name__ == "__main__":

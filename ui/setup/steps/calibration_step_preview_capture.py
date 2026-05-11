@@ -98,15 +98,14 @@ class CalibrationStepPreviewCaptureMixin:
             pass
 
     def _auto_detect_charuco_pattern(self, marker_ids: np.ndarray) -> Optional[tuple[int, int, float]]:
-        """Auto-detect ChArUco pattern size and calculate square size.
-
-        Assumes board is printed vertically on standard US letter paper (8.5" x 11").
+        """Auto-detect ChArUco pattern size without guessing physical square size.
 
         Args:
             marker_ids: Detected ArUco marker IDs
 
         Returns:
-            (cols, rows, square_mm) tuple or None if cannot detect
+            (cols, rows, square_mm) tuple or None if cannot detect. The square_mm
+            value remains the user-entered/measured value.
         """
         if marker_ids is None or len(marker_ids) == 0:
             return None
@@ -157,20 +156,10 @@ class CalibrationStepPreviewCaptureMixin:
 
         cols, rows = detected_pattern
 
-        # Calculate square size assuming US letter paper (215.9mm x 279.4mm) vertical orientation
-        # Board uses approximately 70-75% of paper height
-        LETTER_HEIGHT_MM = 279.4
-        USABLE_HEIGHT_RATIO = 0.70  # Board uses ~70% of paper
-
-        # For N rows, board height = N * square_size
-        board_height_mm = LETTER_HEIGHT_MM * USABLE_HEIGHT_RATIO
-        square_mm = board_height_mm / rows
-
-        # Round to nearest 0.5mm for cleaner values
-        square_mm = round(square_mm * 2) / 2
+        square_mm = float(self._square_mm)
 
         logger.debug(
-            "Auto-detected ChArUco candidate from markers: count={}, max_id={}, pattern={}x{}, square_mm={:.1f}",
+            "Auto-detected ChArUco candidate from markers: count={}, max_id={}, pattern={}x{}, keeping measured square_mm={:.1f}",
             len(marker_ids),
             max_id,
             cols,
@@ -179,6 +168,25 @@ class CalibrationStepPreviewCaptureMixin:
         )
 
         return (cols, rows, square_mm)
+
+    def _validate_capture_pair(self, left_image: np.ndarray, right_image: np.ndarray) -> tuple[bool, str]:
+        """Validate the exact frames that will be saved for calibration."""
+        left_ids, left_blur = self._detect_charuco_ids(left_image)
+        right_ids, right_blur = self._detect_charuco_ids(right_image)
+        if left_blur < 100 or right_blur < 100:
+            return (
+                False,
+                f"Capture rejected because focus is too soft (left={left_blur:.0f}, right={right_blur:.0f}).",
+            )
+        if left_ids is None or right_ids is None:
+            return False, "Capture rejected because the ChArUco board was not detected in both saved frames."
+        shared = set(int(x) for x in left_ids) & set(int(x) for x in right_ids)
+        if len(shared) < 8:
+            return (
+                False,
+                f"Capture rejected because only {len(shared)} shared ChArUco corners were visible in both cameras.",
+            )
+        return True, f"{len(shared)} shared ChArUco corners"
 
     def _try_checkerboard_fallback(
         self,
@@ -317,6 +325,16 @@ class CalibrationStepPreviewCaptureMixin:
                     self,
                     "Capture Failed",
                     "Failed to read from cameras.",
+                    tone="warning",
+                )
+                return
+
+            valid, validation_message = self._validate_capture_pair(left_frame.image, right_frame.image)
+            if not valid:
+                show_message_dialog(
+                    self,
+                    "Capture Rejected",
+                    validation_message,
                     tone="warning",
                 )
                 return

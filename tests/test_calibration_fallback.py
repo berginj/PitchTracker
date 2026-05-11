@@ -106,19 +106,22 @@ def test_collect_corners_charuco_success():
         cv2.imwrite(str(path2), image2)
 
         # Test corner detection
-        objpoints, imgpoints, img_size, success_indices = _collect_corners(
+        detections, img_size = _collect_corners(
             [path1, path2], pattern_size, square_mm
         )
 
         # Verify results
-        assert len(objpoints) == 2, "Should detect corners in both images"
-        assert len(imgpoints) == 2, "Should have image points for both images"
-        assert success_indices == [0, 1], "Both images should succeed"
+        assert len(detections) == 2, "Should detect corners in both images"
+        assert [det.index for det in detections] == [0, 1], "Both images should succeed"
         assert img_size[0] > 0 and img_size[1] > 0, "Image size should be valid"
 
         # Verify corner count (ChArUco boards have (cols-1)*(rows-1) internal corners)
         expected_corners = (pattern_size[0] - 1) * (pattern_size[1] - 1)
-        for obj_pts, img_pts in zip(objpoints, imgpoints):
+        for det in detections:
+            obj_pts = det.objpoints
+            img_pts = det.imgpoints
+            assert det.kind == "charuco"
+            assert det.corner_ids is not None
             assert len(obj_pts) > 0, "Should have object points"
             assert len(img_pts) > 0, "Should have image points"
             assert len(obj_pts) == len(img_pts), "Object and image points should match"
@@ -142,18 +145,20 @@ def test_collect_corners_checkerboard_fallback():
         cv2.imwrite(str(path2), image2)
 
         # Test corner detection with fallback
-        objpoints, imgpoints, img_size, success_indices = _collect_corners(
+        detections, img_size = _collect_corners(
             [path1, path2], pattern_size, square_mm
         )
 
         # Verify results
-        assert len(objpoints) == 2, "Should detect corners in both images using fallback"
-        assert len(imgpoints) == 2, "Should have image points for both images"
-        assert success_indices == [0, 1], "Both images should succeed"
+        assert len(detections) == 2, "Should detect corners in both images using fallback"
+        assert [det.index for det in detections] == [0, 1], "Both images should succeed"
 
         # Verify corner count for plain checkerboard (internal corners only)
         internal_corners = (pattern_size[0] - 1) * (pattern_size[1] - 1)
-        for obj_pts, img_pts in zip(objpoints, imgpoints):
+        for det in detections:
+            obj_pts = det.objpoints
+            img_pts = det.imgpoints
+            assert det.kind == "checkerboard"
             assert len(obj_pts) == internal_corners, f"Should have {internal_corners} corners"
             assert len(img_pts) == internal_corners, f"Should have {internal_corners} image points"
 
@@ -182,17 +187,18 @@ def test_collect_corners_mixed_detection():
         cv2.imwrite(str(path2), checker_image)
 
         # Test corner detection
-        objpoints, imgpoints, img_size, success_indices = _collect_corners(
+        detections, img_size = _collect_corners(
             [path1, path2], pattern_size, square_mm
         )
 
         # Verify results
-        assert len(objpoints) == 2, "Should detect corners in both images"
-        assert len(imgpoints) == 2, "Should have image points for both images"
-        assert success_indices == [0, 1], "Both images should succeed"
+        assert len(detections) == 2, "Should detect corners in both images"
+        assert [det.index for det in detections] == [0, 1], "Both images should succeed"
 
         # Both should have valid corners (exact count may vary for ChArUco)
-        for obj_pts, img_pts in zip(objpoints, imgpoints):
+        for det in detections:
+            obj_pts = det.objpoints
+            img_pts = det.imgpoints
             assert len(obj_pts) >= 4, "Should have at least MIN_CORNERS (4)"
             assert len(obj_pts) == len(img_pts), "Object and image points should match"
 
@@ -212,14 +218,12 @@ def test_collect_corners_complete_failure():
         cv2.imwrite(str(path), noise_image)
 
         # Test corner detection - should fail but not crash
-        objpoints, imgpoints, img_size, success_indices = _collect_corners(
+        detections, img_size = _collect_corners(
             [path], pattern_size, square_mm
         )
 
         # Verify failure handling
-        assert len(objpoints) == 0, "Should not detect any corners in noise"
-        assert len(imgpoints) == 0, "Should have no image points"
-        assert len(success_indices) == 0, "No images should succeed"
+        assert len(detections) == 0, "Should not detect any corners in noise"
 
 
 def test_collect_corners_partial_success():
@@ -243,14 +247,13 @@ def test_collect_corners_partial_success():
         cv2.imwrite(str(path3), charuco_image)
 
         # Test corner detection
-        objpoints, imgpoints, img_size, success_indices = _collect_corners(
+        detections, img_size = _collect_corners(
             [path1, path2, path3], pattern_size, square_mm
         )
 
         # Verify results
-        assert len(objpoints) == 2, "Should detect corners in 2 out of 3 images"
-        assert len(imgpoints) == 2, "Should have image points for 2 images"
-        assert success_indices == [0, 2], "First and third images should succeed"
+        assert len(detections) == 2, "Should detect corners in 2 out of 3 images"
+        assert [det.index for det in detections] == [0, 2], "First and third images should succeed"
 
 
 def test_collect_corners_invalid_image_path():

@@ -222,6 +222,8 @@ def load_config(path: Path) -> AppConfig:
             z_min_ft=stereo_data["z_min_ft"],
             z_max_ft=stereo_data["z_max_ft"],
             max_jump_in=stereo_data["max_jump_in"],
+            use_frame_index_pairing=stereo_data.get("use_frame_index_pairing", False),
+            frame_index_tolerance=stereo_data.get("frame_index_tolerance", 1),
         )
         tracking = TrackingConfig(**data["tracking"])
         metrics = MetricsConfig(

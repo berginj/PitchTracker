@@ -17,7 +17,7 @@ from detect.config import DetectorConfig as CvDetectorConfig
 from detect.config import FilterConfig, Mode
 from detect.lane import LaneGate, LaneRoi
 from detect.ml_detector import MlDetector
-from stereo import StereoLaneGate
+from stereo import CalibratedStereoGeometry, CalibratedStereoMatcher, StereoLaneGate, StereoMatcher
 from stereo.simple_stereo import SimpleStereoMatcher, StereoGeometry
 
 
@@ -130,7 +130,7 @@ class PipelineInitializer:
         return lane_polygon, lane_gate, stereo_gate, plate_gate, plate_stereo_gate
 
     @staticmethod
-    def create_stereo_matcher(config: AppConfig) -> SimpleStereoMatcher:
+    def create_stereo_matcher(config: AppConfig) -> StereoMatcher:
         """Create stereo matcher from config.
 
         Args:
@@ -139,6 +139,16 @@ class PipelineInitializer:
         Returns:
             Initialized SimpleStereoMatcher
         """
+        calibration_path = Path("calibration/stereo_calibration.npz")
+        if calibration_path.exists():
+            calibrated_geometry = CalibratedStereoGeometry.from_npz(
+                calibration_path,
+                epipolar_epsilon_px=float(config.stereo.epipolar_epsilon_px),
+                z_min_ft=float(config.stereo.z_min_ft),
+                z_max_ft=float(config.stereo.z_max_ft),
+            )
+            return CalibratedStereoMatcher(calibrated_geometry)
+
         cx = config.stereo.cx
         cy = config.stereo.cy
         if cx is None:

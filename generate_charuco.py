@@ -15,9 +15,12 @@ Usage:
 """
 
 import argparse
+import json
 import sys
+from pathlib import Path
 
 import cv2
+import numpy as np
 
 
 def generate_charuco_board(
@@ -67,6 +70,9 @@ def generate_charuco_board(
         dictionary
     )
 
+    dpi = 300
+    px_per_mm = dpi / 25.4
+
     # Paper dimensions at 300 DPI
     if paper_size.lower() == "a4":
         # A4: 210mm × 297mm = 2480 × 3508 pixels at 300 DPI
@@ -77,12 +83,37 @@ def generate_charuco_board(
         img_size = (2550, 3300)
         paper_name = "US Letter (8.5\" × 11\")"
 
-    # Generate image with margin
-    margin = 100  # pixels
-    img = board.generateImage(img_size, marginSize=margin, borderBits=1)
+    board_size_px = (
+        int(round(cols * square_mm * px_per_mm)),
+        int(round(rows * square_mm * px_per_mm)),
+    )
+    if board_size_px[0] > img_size[0] or board_size_px[1] > img_size[1]:
+        raise ValueError(
+            f"Board {cols}x{rows} at {square_mm}mm squares is too large for {paper_name} at 100% scale"
+        )
+
+    board_img = board.generateImage(board_size_px, marginSize=0, borderBits=1)
+    img = np.full((img_size[1], img_size[0]), 255, dtype=np.uint8)
+    x0 = (img_size[0] - board_size_px[0]) // 2
+    y0 = (img_size[1] - board_size_px[1]) // 2
+    img[y0:y0 + board_size_px[1], x0:x0 + board_size_px[0]] = board_img
 
     # Save
     cv2.imwrite(output, img)
+    metadata = {
+        "cols": cols,
+        "rows": rows,
+        "square_mm": square_mm,
+        "marker_mm": marker_mm,
+        "dictionary": dict_name.lower(),
+        "paper_size": paper_size.lower(),
+        "dpi": dpi,
+        "board_size_px": list(board_size_px),
+        "image_size_px": list(img_size),
+        "print_scale": "100%",
+    }
+    metadata_path = Path(output).with_suffix(".json")
+    metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
     # Print success message with instructions
     # Use ASCII-safe characters for Windows console compatibility
@@ -91,6 +122,7 @@ def generate_charuco_board(
     print("=" * 70)
     print()
     print(f"File: {output}")
+    print(f"Metadata: {metadata_path}")
     print(f"Pattern: {cols} columns x {rows} rows")
     print(f"Square size: {square_mm} mm")
     print(f"Marker size: {marker_mm:.1f} mm")

@@ -16,8 +16,8 @@ class StereoGeometry:
     cx: float
     cy: float
     epipolar_epsilon_px: float
-    z_min_ft: float
-    z_max_ft: float
+    z_min_ft: float = 3.0
+    z_max_ft: float = 80.0
 
 
 class SimpleStereoMatcher(StereoMatcher):

@@ -8,6 +8,7 @@ from app.contracts import SessionSummary
 from capture.camera_device import CameraStats
 from detect.lane import LaneGate
 from stereo.association import StereoMatch
+from stereo.association import StereoMatcher
 
 
 def stats_to_dict(stats: CameraStats) -> Dict[str, float]:
@@ -45,7 +46,10 @@ def gate_detections(lane_gate: Optional[LaneGate], detections: Iterable) -> list
 
 
 def build_stereo_matches(
-    left_detections: Iterable, right_detections: Iterable, epipolar_tolerance: float = 10.0
+    left_detections: Iterable,
+    right_detections: Iterable,
+    epipolar_tolerance: float = 10.0,
+    matcher: Optional[StereoMatcher] = None,
 ) -> list[StereoMatch]:
     """Build stereo match candidates with epipolar pre-filtering.
 
@@ -70,6 +74,14 @@ def build_stereo_matches(
 
     # Early exit if either side has no detections
     if not left_list or not right_list:
+        return matches
+
+    if matcher is not None:
+        for left in left_list:
+            for right in right_list:
+                match = matcher.match(left, right)
+                if match is not None:
+                    matches.append(match)
         return matches
 
     # Sort right detections by v-coordinate for efficient range queries

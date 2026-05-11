@@ -9,7 +9,12 @@ import cv2
 # Import the quick calibration functions
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from calib.quick_calibrate import quick_calibrate, _rate_quick_calibration_quality
+from calib.quick_calibrate import (
+    CornerDetection,
+    quick_calibrate,
+    _match_stereo_pairs,
+    _rate_quick_calibration_quality,
+)
 
 
 def create_charuco_board_image(
@@ -43,6 +48,80 @@ def create_charuco_board_image(
         image = board.draw(img_size)
 
     return image
+
+
+def test_match_stereo_pairs_intersects_charuco_corner_ids():
+    """Stereo calibration must align ChArUco points by corner ID, not row position."""
+    left_ids = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=np.int32)
+    right_ids = np.array([9, 8, 7, 6, 5, 4, 3, 2, 1], dtype=np.int32)
+    left_obj = np.array([[float(i), 0.0, 0.0] for i in left_ids], dtype=np.float32)
+    left_img = np.array([[[float(i), 10.0]] for i in left_ids], dtype=np.float32)
+    right_obj = np.array([[float(i), 0.0, 0.0] for i in right_ids], dtype=np.float32)
+    right_img = np.array([[[float(i), 20.0]] for i in right_ids], dtype=np.float32)
+
+    objpoints, left_points, right_points, rejection_report = _match_stereo_pairs(
+        [
+            CornerDetection(
+                index=0,
+                path=Path("left.png"),
+                objpoints=left_obj,
+                imgpoints=left_img,
+                kind="charuco",
+                corner_ids=left_ids,
+            )
+        ],
+        [
+            CornerDetection(
+                index=0,
+                path=Path("right.png"),
+                objpoints=right_obj,
+                imgpoints=right_img,
+                kind="charuco",
+                corner_ids=right_ids,
+            )
+        ],
+    )
+
+    assert rejection_report == []
+    assert len(objpoints) == 1
+    assert objpoints[0][:, 0].tolist() == list(range(1, 10))
+    assert left_points[0].reshape(-1, 2)[:, 0].tolist() == list(range(1, 10))
+    assert right_points[0].reshape(-1, 2)[:, 0].tolist() == list(range(1, 10))
+
+
+def test_match_stereo_pairs_rejects_too_few_shared_charuco_ids():
+    left_ids = np.array([1, 2, 3, 4, 5, 6, 7], dtype=np.int32)
+    right_ids = np.array([1, 2, 3, 4, 5, 6, 7], dtype=np.int32)
+    points = np.zeros((7, 3), dtype=np.float32)
+    image_points = np.zeros((7, 1, 2), dtype=np.float32)
+
+    objpoints, left_points, right_points, rejection_report = _match_stereo_pairs(
+        [
+            CornerDetection(
+                index=0,
+                path=Path("left.png"),
+                objpoints=points,
+                imgpoints=image_points,
+                kind="charuco",
+                corner_ids=left_ids,
+            )
+        ],
+        [
+            CornerDetection(
+                index=0,
+                path=Path("right.png"),
+                objpoints=points,
+                imgpoints=image_points,
+                kind="charuco",
+                corner_ids=right_ids,
+            )
+        ],
+    )
+
+    assert objpoints == []
+    assert left_points == []
+    assert right_points == []
+    assert any("only 7 shared ChArUco corners" in msg for msg in rejection_report)
 
 
 def test_quick_calibrate_with_5_images():

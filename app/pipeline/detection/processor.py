@@ -16,9 +16,8 @@ from metrics.simple_metrics import (
     compute_plate_stub,
 )
 from metrics.strike_zone import StrikeResult, build_strike_zone, is_strike
-from stereo import StereoLaneGate
-from stereo.simple_stereo import SimpleStereoMatcher
-from track.simple_tracker import SimpleTracker
+from stereo import StereoLaneGate, StereoMatcher
+from track.trajectory_tracker import TimestampedTrajectoryTracker
 
 from app.pipeline.utils import build_stereo_matches, gate_detections
 
@@ -40,7 +39,7 @@ class DetectionProcessor:
     def __init__(
         self,
         config: AppConfig,
-        stereo_matcher: SimpleStereoMatcher,
+        stereo_matcher: StereoMatcher,
         lane_gate: Optional[LaneGate],
         plate_gate: Optional[LaneGate],
         stereo_gate: Optional[StereoLaneGate],
@@ -67,7 +66,7 @@ class DetectionProcessor:
         self._get_ball_radius_fn = get_ball_radius_fn
 
         # Tracking
-        self._tracker = SimpleTracker()
+        self._tracker = TimestampedTrajectoryTracker()
         self._plate_observations = deque(maxlen=12)
 
         # Stereo buffering
@@ -515,8 +514,17 @@ class DetectionProcessor:
                     )
                 return
 
-        # Build stereo matches
-        matches = build_stereo_matches(left_gated, right_gated)
+        # Build stereo matches through the configured matcher so calibrated rigs use
+        # their saved fundamental matrix instead of a rectified horizontal shortcut.
+        epipolar_tolerance = 10.0
+        if self._config is not None:
+            epipolar_tolerance = float(self._config.stereo.epipolar_epsilon_px)
+        matches = build_stereo_matches(
+            left_gated,
+            right_gated,
+            epipolar_tolerance=epipolar_tolerance,
+            matcher=self._stereo,
+        )
         if self._stereo_gate is not None:
             matches = self._stereo_gate.filter_matches(matches)
 
@@ -526,16 +534,16 @@ class DetectionProcessor:
         else:
             plate_matches = []
 
-        # Triangulate observations
-        observations = []
-        for match in plate_matches:
-            observations.append(self._stereo.triangulate(match))
+        # Triangulate lane observations. Plate matches remain the input for plate
+        # metrics, but the pitch tracker benefits from the longer in-flight path.
+        observations = [self._stereo.triangulate(match) for match in matches]
+        plate_observations = [self._stereo.triangulate(match) for match in plate_matches]
 
         # Track observations
         for obs in observations:
             state = self._tracker.update(obs)
-            if state.samples:
-                self._plate_observations.append(obs)
+        for obs in plate_observations:
+            self._plate_observations.append(obs)
 
         # Compute plate metrics
         if self._plate_observations:
