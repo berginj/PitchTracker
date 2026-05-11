@@ -265,22 +265,42 @@ class SessionStartDialog(QtWidgets.QDialog):
 
     def _build_calibration_status(self) -> QtWidgets.QWidget:
         """Build calibration status indicator with quality metrics."""
+        from calib.runtime_status import describe_runtime_calibration
         from calib.quick_calibrate import load_calibration_quality
 
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout()
         apply_standard_layout(layout, margins=(0, 0, 0, 0), spacing=8)
 
+        status = describe_runtime_calibration()
         calibration_file = Path("calibration/stereo_calibration.npz")
-        has_calibration = calibration_file.exists()
+        has_calibration = status["mode"] == "full_matrix"
         quality = load_calibration_quality() if has_calibration else None
 
-        if not has_calibration:
+        if status["mode"] == "missing":
             notice, _ = build_notice(
                 "No calibration found. Run the setup wizard before starting a production session.",
                 tone="warning",
             )
             detail_label = QtWidgets.QLabel("You can continue, but measurements may be inaccurate.")
+            self._style_manager.style_label(detail_label, "muted")
+            layout.addWidget(notice)
+            layout.addWidget(detail_label)
+        elif status["mode"] == "scalar_fallback":
+            notice, _ = build_notice(
+                "Calibration is using simplified scalar fallback.",
+                tone="warning",
+            )
+            detail_label = QtWidgets.QLabel(status["message"])
+            self._style_manager.style_label(detail_label, "muted")
+            layout.addWidget(notice)
+            layout.addWidget(detail_label)
+        elif status["mode"] == "invalid_matrix_file":
+            notice, _ = build_notice(
+                "Calibration file is invalid.",
+                tone="error",
+            )
+            detail_label = QtWidgets.QLabel(status["message"])
             self._style_manager.style_label(detail_label, "muted")
             layout.addWidget(notice)
             layout.addWidget(detail_label)

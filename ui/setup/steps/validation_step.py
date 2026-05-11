@@ -152,23 +152,10 @@ class ValidationStep(BaseStep):
         return False, "Configuration file not found"
 
     def _check_calibration(self) -> tuple[bool, str]:
-        calib_file = Path("calibration/stereo_calibration.npz")
-        if calib_file.exists():
-            return True, f"Found at {calib_file}"
+        from calib.runtime_status import describe_runtime_calibration
 
-        import yaml
-
-        config_path = Path("configs/default.yaml")
-        if config_path.exists():
-            try:
-                data = yaml.safe_load(config_path.read_text())
-                stereo = data.get("stereo", {})
-                if stereo.get("baseline_ft") and stereo.get("focal_length_px"):
-                    return True, "Calibration parameters are present in config"
-            except Exception:
-                pass
-
-        return False, "Stereo calibration not found"
+        status = describe_runtime_calibration()
+        return bool(status["ok"]), str(status["message"])
 
     def _check_rois(self) -> tuple[bool, str]:
         roi_path = Path("rois/shared_rois.json")
