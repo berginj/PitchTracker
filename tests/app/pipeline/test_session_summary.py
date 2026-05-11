@@ -9,6 +9,19 @@ from app.pipeline.analysis.session_summary import SessionManager
 from contracts import StereoObservation
 
 
+def _observation(t_ns: int) -> StereoObservation:
+    return StereoObservation(
+        t_ns=t_ns,
+        left=(100.0, 100.0),
+        right=(90.0, 100.0),
+        X=0.0,
+        Y=0.0,
+        Z=50.0,
+        quality=1.0,
+        confidence=1.0,
+    )
+
+
 class TestSessionManager:
     """Tests for SessionManager."""
 
@@ -42,18 +55,7 @@ class TestSessionManager:
             rotation_rpm=2000.0,
             sample_count=30,
         )
-        observations = [
-            StereoObservation(
-                x_ft=0.0,
-                y_ft=0.0,
-                z_ft=50.0,
-                t_ns=1000,
-                x_px_left=100.0,
-                y_px_left=100.0,
-                x_px_right=90.0,
-                y_px_right=100.0,
-            )
-        ]
+        observations = [_observation(1000)]
 
         manager.add_pitch(pitch, observations)
 
@@ -116,18 +118,7 @@ class TestSessionManager:
                 rotation_rpm=2000.0,
                 sample_count=30,
             )
-            observations = [
-                StereoObservation(
-                    x_ft=0.0,
-                    y_ft=0.0,
-                    z_ft=50.0,
-                    t_ns=i * 1000,
-                    x_px_left=100.0,
-                    y_px_left=100.0,
-                    x_px_right=90.0,
-                    y_px_right=100.0,
-                )
-            ]
+            observations = [_observation(i * 1000)]
             manager.add_pitch(pitch, observations)
 
         paths = manager.get_recent_paths()
@@ -153,7 +144,7 @@ class TestSessionManager:
         manager.add_pitch(pitch, [])
 
         summary = manager.get_summary()
-        # Check heatmap has count at (1, 1)
-        assert summary.heatmap[1][1] == 1
+        # Zone rows are flipped for display, so zone (1, 1) maps to bottom-left.
+        assert summary.heatmap[2][0] == 1
         # Other cells should be 0
         assert summary.heatmap[0][0] == 0
