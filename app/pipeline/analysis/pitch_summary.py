@@ -12,6 +12,7 @@ from metrics.simple_metrics import compute_plate_from_observations
 from metrics.strike_zone import StrikeResult, build_strike_zone, is_strike
 from trajectory.physics import PhysicsDragFitter
 from trajectory.contracts import TrajectoryFitRequest
+from app.pipeline.analysis.observation_diagnostics import summarize_observations
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,7 @@ class PitchAnalyzer:
 
         # Compute plate metrics
         metrics = compute_plate_from_observations(observations)
+        observation_stats = summarize_observations(observations)
 
         # Get radar speed
         radar_speed = self._radar_speed_fn()
@@ -121,6 +123,11 @@ class PitchAnalyzer:
             trajectory_drag_param=diagnostics.drag_param if diagnostics else None,
             trajectory_rmse_px=diagnostics.rmse_px if diagnostics else None,
             trajectory_rmse_3d_ft=diagnostics.rmse_3d_ft if diagnostics else None,
+            observation_duration_ms=observation_stats["observation_duration_ms"],
+            observation_rate_hz=observation_stats["observation_rate_hz"],
+            observation_max_gap_ms=observation_stats["observation_max_gap_ms"],
+            observation_z_span_ft=observation_stats["observation_z_span_ft"],
+            observation_mean_confidence=observation_stats["observation_mean_confidence"],
         )
 
         return summary

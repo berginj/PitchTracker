@@ -36,6 +36,11 @@ class PitchSummary:
     trajectory_drag_param: Optional[float] = None
     trajectory_rmse_px: Optional[float] = None
     trajectory_rmse_3d_ft: Optional[float] = None
+    observation_duration_ms: Optional[float] = None
+    observation_rate_hz: Optional[float] = None
+    observation_max_gap_ms: Optional[float] = None
+    observation_z_span_ft: Optional[float] = None
+    observation_mean_confidence: Optional[float] = None
 
 
 @dataclass(frozen=True)

@@ -149,6 +149,10 @@ class PipelineServiceDetectionMixin:
                         if duration_ns > 0
                         else 0.0
                     ),
+                    "observation_duration_ms": summary.observation_duration_ms,
+                    "observation_max_gap_ms": summary.observation_max_gap_ms,
+                    "observation_z_span_ft": summary.observation_z_span_ft,
+                    "observation_mean_confidence": summary.observation_mean_confidence,
                 },
                 "timing_accuracy": {
                     "pre_roll_frames_captured": len(pitch_data.pre_roll_frames),
