@@ -36,6 +36,7 @@ from ui.setup.steps.calibration_step_lifecycle import CalibrationStepLifecycleMi
 from ui.setup.steps.calibration_step_panels import CalibrationStepPanelsMixin
 from ui.setup.steps.calibration_step_preview_capture import CalibrationStepPreviewCaptureMixin
 from ui.setup.steps.calibration_step_status import CalibrationStepStatusMixin
+from ui.setup.steps.charuco_metadata import load_charuco_metadata
 from ui.themes import (
     apply_standard_layout,
     ask_confirmation,
@@ -101,6 +102,7 @@ class CalibrationStep(
         self._square_mm = 30.0  # Default: 30mm square size
         self._min_captures = 10
         self._config_path = Path("configs/default.yaml")
+        self._charuco_metadata_path: Optional[Path] = None
 
         # Capture state
         self._captures: list[tuple[np.ndarray, np.ndarray]] = []
@@ -129,6 +131,7 @@ class CalibrationStep(
         self._camera_history_file: Path = Path("configs") / "camera_history.json"  # Track camera assignments
         self._detected_patterns: list = []  # Multiple detected ChArUco patterns
         self._auto_swap_on_startup: bool = True  # Auto-check camera orientation on startup
+        self._load_board_metadata()
 
         # Camera capability detection (Phase 3)
         self._camera_capabilities: Optional = None  # CameraCapabilities from detection
@@ -141,6 +144,36 @@ class CalibrationStep(
         # Preview timer
         self._preview_timer = QtCore.QTimer()
         self._preview_timer.timeout.connect(self._update_preview)
+
+    def _load_board_metadata(self) -> None:
+        """Load generated ChArUco board metadata when available."""
+        try:
+            metadata = load_charuco_metadata()
+        except Exception as exc:
+            logger.warning("Failed to load ChArUco board metadata: {}", exc)
+            return
+        if metadata is None:
+            return
+        self._pattern_cols = metadata.cols
+        self._pattern_rows = metadata.rows
+        self._square_mm = metadata.square_mm
+        self._cached_dict_name = _dict_name_for_opencv(metadata.dictionary)
+        self._charuco_metadata_path = metadata.source_path
+        logger.info(
+            "Loaded ChArUco metadata from {}: {}x{} square_mm={:.2f} dict={}",
+            metadata.source_path,
+            metadata.cols,
+            metadata.rows,
+            metadata.square_mm,
+            metadata.dictionary,
+        )
+
+
+def _dict_name_for_opencv(dictionary: str) -> str:
+    normalized = dictionary.upper()
+    if not normalized.startswith("DICT_"):
+        normalized = f"DICT_{normalized}"
+    return normalized
 
 
 __all__ = ["CalibrationStep"]

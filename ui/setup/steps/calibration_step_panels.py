@@ -84,7 +84,14 @@ class CalibrationStepPanelsMixin:
         # Pattern detection info label
         self._pattern_info_label = QtWidgets.QLabel("No pattern detected")
         self._pattern_info_label.setToolTip("Shows currently detected ChArUco pattern and dictionary")
-        self._set_pattern_info_state("No pattern detected", "info")
+        if self._charuco_metadata_path is not None:
+            self._set_pattern_info_state(
+                f"Loaded board metadata: {self._pattern_cols}x{self._pattern_rows}, {self._square_mm:.1f} mm",
+                "success",
+            )
+            self._pattern_locked = True
+        else:
+            self._set_pattern_info_state("No pattern detected", "info")
 
         board_layout.addWidget(pattern_label)
         board_layout.addWidget(self._pattern_cols_spin)
