@@ -34,7 +34,7 @@ def log_fit_summary(
         len(samples),
         duration_ms,
         fit.confidence,
-        f\"{residual:.4f}\" if residual is not None else \"n/a\",
+        f"{residual:.4f}" if residual is not None else "n/a",
     )
 
 

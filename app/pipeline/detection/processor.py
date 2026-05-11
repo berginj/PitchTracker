@@ -20,6 +20,7 @@ from stereo import StereoLaneGate, StereoMatcher
 from track.trajectory_tracker import TimestampedTrajectoryTracker
 
 from app.pipeline.utils import build_stereo_matches, gate_detections
+from app.pipeline.sync_diagnostics import summarize_sync_quality
 
 logger = logging.getLogger(__name__)
 
@@ -258,37 +259,33 @@ class DetectionProcessor:
         Analyzes recent frame deltas and warns if cameras are poorly synchronized.
         """
         import time
-        import numpy as np
 
         if not self._frame_deltas_ns:
             return
-
-        deltas_ms = np.array(self._frame_deltas_ns) / 1e6
-        mean_delta = np.mean(deltas_ms)
-        max_delta = np.max(deltas_ms)
-        p95_delta = np.percentile(deltas_ms, 95)
-
-        # Thresholds for warnings
-        WARN_MEAN_MS = 10.0  # Mean delta > 10ms is concerning
-        WARN_MAX_MS = 50.0   # Max delta > 50ms is very concerning
-        WARN_P95_MS = 20.0   # 95th percentile > 20ms is concerning
 
         # Throttle warnings to once per minute
         current_time = time.monotonic()
         if current_time - self._last_sync_warning_time < 60.0:
             return
 
-        # Check for poor synchronization
-        if mean_delta > WARN_MEAN_MS or max_delta > WARN_MAX_MS or p95_delta > WARN_P95_MS:
-            drop_rate = (self._dropped_frames_sync / max(self._total_paired_frames, 1)) * 100
+        stats = summarize_sync_quality(
+            self._frame_deltas_ns,
+            self._total_paired_frames,
+            self._dropped_frames_sync,
+        )
 
+        # Check for poor synchronization
+        if stats["sync_quality"] in {"WARN", "POOR"}:
             logger.warning(
                 f"Poor timestamp synchronization detected:\n"
-                f"  Mean delta: {mean_delta:.1f}ms (target: <{WARN_MEAN_MS}ms)\n"
-                f"  P95 delta:  {p95_delta:.1f}ms (target: <{WARN_P95_MS}ms)\n"
-                f"  Max delta:  {max_delta:.1f}ms (target: <{WARN_MAX_MS}ms)\n"
-                f"  Dropped frames: {self._dropped_frames_sync} ({drop_rate:.1f}%)\n"
-                f"Recommendation: Consider hardware trigger or frame-index pairing"
+                f"  Mean delta: {stats['mean_delta_ms']:.1f}ms "
+                f"({stats['mean_motion_in_at_max_speed']:.1f}in at 60mph)\n"
+                f"  P95 delta:  {stats['p95_delta_ms']:.1f}ms "
+                f"({stats['p95_motion_in_at_max_speed']:.1f}in at 60mph)\n"
+                f"  Max delta:  {stats['max_delta_ms']:.1f}ms "
+                f"({stats['max_motion_in_at_max_speed']:.1f}in at 60mph)\n"
+                f"  Dropped frames: {self._dropped_frames_sync} ({stats['drop_rate_pct']:.1f}%)\n"
+                f"Recommendation: {stats['sync_recommendation']}"
             )
             self._last_sync_warning_time = current_time
 
@@ -304,30 +301,11 @@ class DetectionProcessor:
             - dropped_sync: Frames dropped due to sync issues
             - drop_rate_pct: Percentage of frames dropped
         """
-        import numpy as np
-
-        if not self._frame_deltas_ns:
-            return {
-                "mean_delta_ms": 0.0,
-                "p95_delta_ms": 0.0,
-                "max_delta_ms": 0.0,
-                "total_paired": self._total_paired_frames,
-                "dropped_sync": self._dropped_frames_sync,
-                "drop_rate_pct": 0.0,
-            }
-
-        deltas_ms = np.array(self._frame_deltas_ns) / 1e6
-        total = self._total_paired_frames + self._dropped_frames_sync
-        drop_rate = (self._dropped_frames_sync / max(total, 1)) * 100
-
-        return {
-            "mean_delta_ms": float(np.mean(deltas_ms)),
-            "p95_delta_ms": float(np.percentile(deltas_ms, 95)),
-            "max_delta_ms": float(np.max(deltas_ms)),
-            "total_paired": self._total_paired_frames,
-            "dropped_sync": self._dropped_frames_sync,
-            "drop_rate_pct": float(drop_rate),
-        }
+        return summarize_sync_quality(
+            self._frame_deltas_ns,
+            self._total_paired_frames,
+            self._dropped_frames_sync,
+        )
 
     def _match_stereo_buffers(self) -> None:
         """Match stereo pairs from buffered frames.
