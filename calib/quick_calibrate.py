@@ -213,7 +213,7 @@ def _collect_corners(
 def _match_stereo_pairs(
     left_detections: List[CornerDetection],
     right_detections: List[CornerDetection],
-) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[str]]:
+) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[str], List[dict]]:
     """Match left and right corner detections, keeping only pairs where both succeeded.
 
     Returns:
@@ -221,6 +221,7 @@ def _match_stereo_pairs(
         left_imgpoints: Matched left image points
         right_imgpoints: Matched right image points
         rejection_report: List of rejection messages for user feedback
+        pair_diagnostics: Per-pair accepted/rejected diagnostics
     """
     left_by_index = {det.index: det for det in left_detections}
     right_by_index = {det.index: det for det in right_detections}
@@ -232,6 +233,7 @@ def _match_stereo_pairs(
     left_only = left_set - right_set
     right_only = right_set - left_set
     rejection_report = []
+    pair_diagnostics: List[dict] = []
 
     if left_only:
         rejected_names = [left_by_index[i].path.name for i in sorted(left_only)]
@@ -239,6 +241,16 @@ def _match_stereo_pairs(
             f"Rejected {len(left_only)} images (left detected, right failed): {', '.join(rejected_names[:5])}"
             + ("..." if len(rejected_names) > 5 else "")
         )
+        for i in sorted(left_only):
+            pair_diagnostics.append({
+                "index": i,
+                "status": "rejected",
+                "reason": "right_detection_failed",
+                "left_image": left_by_index[i].path.name,
+                "right_image": None,
+                "left_corners": int(len(left_by_index[i].imgpoints)),
+                "right_corners": 0,
+            })
 
     if right_only:
         rejected_names = [right_by_index[i].path.name for i in sorted(right_only)]
@@ -246,6 +258,16 @@ def _match_stereo_pairs(
             f"Rejected {len(right_only)} images (right detected, left failed): {', '.join(rejected_names[:5])}"
             + ("..." if len(rejected_names) > 5 else "")
         )
+        for i in sorted(right_only):
+            pair_diagnostics.append({
+                "index": i,
+                "status": "rejected",
+                "reason": "left_detection_failed",
+                "left_image": None,
+                "right_image": right_by_index[i].path.name,
+                "left_corners": 0,
+                "right_corners": int(len(right_by_index[i].imgpoints)),
+            })
 
     # Build matched lists
     matched_obj = []
@@ -256,44 +278,75 @@ def _match_stereo_pairs(
         left = left_by_index[idx]
         right = right_by_index[idx]
         if left.kind != right.kind:
+            reason = f"mixed_detection_types:{left.kind}:{right.kind}"
             rejection_report.append(
                 f"Rejected pair {left.path.name}/{right.path.name}: mixed detection types "
                 f"({left.kind} vs {right.kind})"
             )
+            pair_diagnostics.append(_pair_diag(idx, left, right, "rejected", reason, 0))
             continue
 
         if left.kind == "charuco":
             if left.corner_ids is None or right.corner_ids is None:
+                reason = "missing_charuco_corner_ids"
                 rejection_report.append(
                     f"Rejected pair {left.path.name}/{right.path.name}: missing ChArUco corner IDs"
                 )
+                pair_diagnostics.append(_pair_diag(idx, left, right, "rejected", reason, 0))
                 continue
             left_id_to_pos = {int(corner_id): pos for pos, corner_id in enumerate(left.corner_ids)}
             right_id_to_pos = {int(corner_id): pos for pos, corner_id in enumerate(right.corner_ids)}
             shared_ids = sorted(set(left_id_to_pos) & set(right_id_to_pos))
             if len(shared_ids) < MIN_CHARUCO_STEREO_CORNERS:
+                reason = f"too_few_shared_charuco_corners:{len(shared_ids)}"
                 rejection_report.append(
                     f"Rejected pair {left.path.name}/{right.path.name}: only {len(shared_ids)} shared "
                     f"ChArUco corners (need {MIN_CHARUCO_STEREO_CORNERS})"
                 )
+                pair_diagnostics.append(_pair_diag(idx, left, right, "rejected", reason, len(shared_ids)))
                 continue
             left_rows = [left_id_to_pos[corner_id] for corner_id in shared_ids]
             right_rows = [right_id_to_pos[corner_id] for corner_id in shared_ids]
             matched_obj.append(left.objpoints[left_rows])
             matched_left.append(left.imgpoints[left_rows])
             matched_right.append(right.imgpoints[right_rows])
+            pair_diagnostics.append(_pair_diag(idx, left, right, "accepted", "shared_charuco_ids", len(shared_ids)))
             continue
 
         if len(left.objpoints) != len(right.objpoints) or len(left.imgpoints) != len(right.imgpoints):
+            reason = "checkerboard_corner_count_mismatch"
             rejection_report.append(
                 f"Rejected pair {left.path.name}/{right.path.name}: checkerboard corner counts differ"
             )
+            pair_diagnostics.append(_pair_diag(idx, left, right, "rejected", reason, 0))
             continue
         matched_obj.append(left.objpoints)
         matched_left.append(left.imgpoints)
         matched_right.append(right.imgpoints)
+        pair_diagnostics.append(_pair_diag(idx, left, right, "accepted", "checkerboard_index_order", len(left.imgpoints)))
 
-    return matched_obj, matched_left, matched_right, rejection_report
+    return matched_obj, matched_left, matched_right, rejection_report, pair_diagnostics
+
+
+def _pair_diag(
+    index: int,
+    left: CornerDetection,
+    right: CornerDetection,
+    status: str,
+    reason: str,
+    shared_corners: int,
+) -> dict:
+    return {
+        "index": index,
+        "status": status,
+        "reason": reason,
+        "left_image": left.path.name,
+        "right_image": right.path.name,
+        "detection_type": left.kind if left.kind == right.kind else f"{left.kind}/{right.kind}",
+        "left_corners": int(len(left.imgpoints)),
+        "right_corners": int(len(right.imgpoints)),
+        "shared_corners": int(shared_corners),
+    }
 
 
 def _compute_per_image_errors(
@@ -480,7 +533,7 @@ def quick_calibrate(
 
     # Match pairs
     print("\n=== MATCHING STEREO PAIRS ===")
-    objpoints, left_imgpoints, right_imgpoints, rejection_report = _match_stereo_pairs(
+    objpoints, left_imgpoints, right_imgpoints, rejection_report, pair_diagnostics = _match_stereo_pairs(
         left_detections, right_detections
     )
 
@@ -621,6 +674,8 @@ def quick_calibrate(
         "num_images_used": num_pairs,
         "total_input_images": len(left_paths),
         "per_image_errors": per_image_errors,
+        "pair_diagnostics": pair_diagnostics,
+        "rejection_report": rejection_report,
         "quality": quality,
         "quality_rating": quality["rating"],
         "quality_description": quality["description"],
@@ -722,7 +777,7 @@ def _calibrate(
 
     # Match pairs where both cameras detected corners
     print("\n=== MATCHING STEREO PAIRS ===")
-    objpoints, left_imgpoints, right_imgpoints, rejection_report = _match_stereo_pairs(
+    objpoints, left_imgpoints, right_imgpoints, rejection_report, pair_diagnostics = _match_stereo_pairs(
         left_detections, right_detections
     )
 
@@ -829,6 +884,8 @@ def _calibrate(
         "num_images_used": num_images,  # Alias for clarity
         "total_input_images": total_input,
         "per_image_errors": per_image_errors,
+        "pair_diagnostics": pair_diagnostics,
+        "rejection_report": rejection_report,
         "quality": quality,
         # Extract quality fields to top level for easier UI access
         "quality_rating": quality["rating"],
@@ -910,6 +967,8 @@ def _save_calibration_file(updates: dict) -> None:
         "image_size": list(updates.get("img_size", [])),
         "quality": quality,
         "per_image_errors": updates.get("per_image_errors", []),
+        "pair_diagnostics": updates.get("pair_diagnostics", []),
+        "rejection_report": updates.get("rejection_report", []),
         "recommendations": updates.get("recommendations", []),
     }
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")

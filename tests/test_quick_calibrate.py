@@ -59,7 +59,7 @@ def test_match_stereo_pairs_intersects_charuco_corner_ids():
     right_obj = np.array([[float(i), 0.0, 0.0] for i in right_ids], dtype=np.float32)
     right_img = np.array([[[float(i), 20.0]] for i in right_ids], dtype=np.float32)
 
-    objpoints, left_points, right_points, rejection_report = _match_stereo_pairs(
+    objpoints, left_points, right_points, rejection_report, pair_diagnostics = _match_stereo_pairs(
         [
             CornerDetection(
                 index=0,
@@ -83,6 +83,8 @@ def test_match_stereo_pairs_intersects_charuco_corner_ids():
     )
 
     assert rejection_report == []
+    assert pair_diagnostics[0]["status"] == "accepted"
+    assert pair_diagnostics[0]["shared_corners"] == 9
     assert len(objpoints) == 1
     assert objpoints[0][:, 0].tolist() == list(range(1, 10))
     assert left_points[0].reshape(-1, 2)[:, 0].tolist() == list(range(1, 10))
@@ -95,7 +97,7 @@ def test_match_stereo_pairs_rejects_too_few_shared_charuco_ids():
     points = np.zeros((7, 3), dtype=np.float32)
     image_points = np.zeros((7, 1, 2), dtype=np.float32)
 
-    objpoints, left_points, right_points, rejection_report = _match_stereo_pairs(
+    objpoints, left_points, right_points, rejection_report, pair_diagnostics = _match_stereo_pairs(
         [
             CornerDetection(
                 index=0,
@@ -122,6 +124,8 @@ def test_match_stereo_pairs_rejects_too_few_shared_charuco_ids():
     assert left_points == []
     assert right_points == []
     assert any("only 7 shared ChArUco corners" in msg for msg in rejection_report)
+    assert pair_diagnostics[0]["status"] == "rejected"
+    assert pair_diagnostics[0]["reason"] == "too_few_shared_charuco_corners:7"
 
 
 def test_quick_calibrate_with_5_images():
