@@ -18,6 +18,7 @@ from app.events.event_types import (
     ObservationDetectedEvent,
     PitchEndEvent,
     PitchStartEvent,
+    RayObservationDetectedEvent,
 )
 from app.pipeline.pitch_tracking_v2 import PitchConfig, PitchData, PitchStateMachineV2
 from app.pipeline.service_contracts import PipelineService
@@ -651,6 +652,36 @@ class PipelineOrchestrator(PipelineService):
         except Exception as e:
             logger.error(f"Error handling observation: {e}", exc_info=True)
 
+    def _ray_modes_enabled(self) -> bool:
+        if self._config is None or getattr(self._config, "trajectory", None) is None:
+            return False
+        modes = [self._config.trajectory.primary_mode, *self._config.trajectory.compare_modes]
+        return any(mode.startswith("ray_") for mode in modes)
+
+    def _ray_modes_drive_pitch(self) -> bool:
+        return bool(
+            self._config is not None
+            and getattr(self._config, "trajectory", None) is not None
+            and self._config.trajectory.primary_mode.startswith("ray_")
+        )
+
+    def _on_ray_observation_detected_internal(self, event: RayObservationDetectedEvent) -> None:
+        """Handle per-camera ray observations when ray trajectory modes are enabled."""
+        try:
+            if not self._ray_modes_enabled() or self._pitch_tracker is None:
+                return
+
+            self._pitch_tracker.add_ray_observation(event.observation)
+            if self._ray_modes_drive_pitch():
+                self._pitch_tracker.update(
+                    frame_ns=event.timestamp_ns,
+                    lane_count=1,
+                    plate_count=0,
+                    obs_count=1,
+                )
+        except Exception as e:
+            logger.error(f"Error handling ray observation: {e}", exc_info=True)
+
     def _on_pitch_start_internal(self, pitch_index: int, pitch_data: PitchData) -> None:
         """Handle pitch start from state machine.
 
@@ -693,6 +724,7 @@ class PipelineOrchestrator(PipelineService):
                 observations=pitch_data.observations,
                 timestamp_ns=pitch_data.end_ns,
                 duration_ns=pitch_data.duration_ns(),
+                ray_observations=pitch_data.ray_observations,
             )
             self._event_bus.publish(event)
 
@@ -706,11 +738,13 @@ class PipelineOrchestrator(PipelineService):
     def _subscribe_to_observations(self) -> None:
         """Subscribe to ObservationDetectedEvent from EventBus."""
         self._event_bus.subscribe(ObservationDetectedEvent, self._on_observation_detected_internal)
+        self._event_bus.subscribe(RayObservationDetectedEvent, self._on_ray_observation_detected_internal)
         logger.info("PipelineOrchestrator subscribed to ObservationDetectedEvent")
 
     def _unsubscribe_from_observations(self) -> None:
         """Unsubscribe from ObservationDetectedEvent."""
         self._event_bus.unsubscribe(ObservationDetectedEvent, self._on_observation_detected_internal)
+        self._event_bus.unsubscribe(RayObservationDetectedEvent, self._on_ray_observation_detected_internal)
         logger.info("PipelineOrchestrator unsubscribed from ObservationDetectedEvent")
 
     def subscribe_event(self, event_type: Type, handler: Callable) -> None:

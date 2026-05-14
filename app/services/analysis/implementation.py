@@ -201,7 +201,8 @@ class AnalysisServiceImpl(AnalysisService):
             pitch_id=f"pitch_{pitch_data.pitch_index:05d}",
             start_ns=pitch_data.start_ns,
             end_ns=pitch_data.end_ns,
-            observations=pitch_data.observations
+            observations=pitch_data.observations,
+            ray_observations=pitch_data.ray_observations,
         )
 
         return summary
@@ -464,7 +465,8 @@ class AnalysisServiceImpl(AnalysisService):
                 pitch_id=event.pitch_id,
                 start_ns=event.timestamp_ns - event.duration_ns,
                 end_ns=event.timestamp_ns,
-                observations=event.observations
+                observations=event.observations,
+                ray_observations=event.ray_observations,
             )
 
             # Update session summary

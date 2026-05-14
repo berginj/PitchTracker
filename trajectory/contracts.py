@@ -6,12 +6,13 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
-from contracts import StereoObservation, TrackSample
-from trajectory.camera_model import CameraModel
+from contracts import RayObservation, StereoObservation, TrackSample
+from trajectory.camera_model import CameraModel, RayCameraModel
 
 
 class FailureCode(str, Enum):
     INSUFFICIENT_POINTS = "INSUFFICIENT_POINTS"
+    INSUFFICIENT_RAYS = "INSUFFICIENT_RAYS"
     ILL_CONDITIONED = "ILL_CONDITIONED"
     TIME_SYNC_SUSPECT = "TIME_SYNC_SUSPECT"
     RADAR_OUTLIER = "RADAR_OUTLIER"
@@ -20,6 +21,7 @@ class FailureCode(str, Enum):
     OPT_DID_NOT_CONVERGE = "OPT_DID_NOT_CONVERGE"
     CAMERA_MODEL_MISSING = "CAMERA_MODEL_MISSING"
     REPROJECTION_FAILED = "REPROJECTION_FAILED"
+    UNKNOWN_TRAJECTORY_MODE = "UNKNOWN_TRAJECTORY_MODE"
 
 
 @dataclass(frozen=True)
@@ -42,6 +44,7 @@ class TrajectoryDiagnostics:
     max_gap_ms: Optional[float] = None
     radar_residual_mph: Optional[float] = None
     radar_inlier_probability: Optional[float] = None
+    estimated_camera_time_offset_ms: Optional[float] = None
     failure_codes: List[FailureCode] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
 
@@ -56,6 +59,7 @@ class TrajectoryDiagnostics:
             "max_gap_ms": self.max_gap_ms,
             "radar_residual_mph": self.radar_residual_mph,
             "radar_inlier_probability": self.radar_inlier_probability,
+            "estimated_camera_time_offset_ms": self.estimated_camera_time_offset_ms,
             "failure_codes": [code.value for code in self.failure_codes],
             "notes": list(self.notes),
         }
@@ -65,6 +69,9 @@ class TrajectoryDiagnostics:
 class TrajectoryFitRequest:
     observations: List[StereoObservation]
     plate_plane_z_ft: float
+    ray_observations: List[RayObservation] = field(default_factory=list)
+    camera_models: Dict[str, RayCameraModel] = field(default_factory=dict)
+    mode: str = "stereo_3d"
     realtime: bool = False
     radar_speed_mph: Optional[float] = None
     radar_speed_ref: Optional[str] = None
@@ -77,6 +84,12 @@ class TrajectoryFitRequest:
     camera_left: Optional[CameraModel] = None
     camera_right: Optional[CameraModel] = None
     wind_ft_s: Optional[Tuple[float, float, float]] = None
+    max_time_offset_ms: float = 20.0
+    time_offset_prior_ms: float = 0.0
+    min_rays_per_camera: int = 4
+    max_candidates_per_frame: int = 2
+    max_reprojection_px: float = 8.0
+    robust_loss: str = "huber"
 
 
 @dataclass(frozen=True)

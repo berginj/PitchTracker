@@ -3,7 +3,7 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator, validate
 
-from contracts import Detection, Frame, PitchMetrics, StereoObservation, TrackSample
+from contracts import Detection, Frame, PitchMetrics, RayObservation, StereoObservation, TrackSample
 from contracts.versioning import SCHEMA_VERSION
 
 
@@ -30,6 +30,15 @@ def test_contracts_instantiation() -> None:
         camera_id="left",
         frame_index=1,
         t_capture_monotonic_ns=123,
+        u=100.0,
+        v=200.0,
+        radius_px=5.0,
+        confidence=0.9,
+    )
+    ray = RayObservation(
+        camera_id="left",
+        frame_index=1,
+        t_ns=123,
         u=100.0,
         v=200.0,
         radius_px=5.0,
@@ -68,6 +77,7 @@ def test_contracts_instantiation() -> None:
 
     assert frame.camera_id == "left"
     assert detection.camera_id == "left"
+    assert ray.u == 100.0
     assert stereo.Z == 50.0
     assert track.Vz == -30.0
     assert metrics.pitch_id == "test"

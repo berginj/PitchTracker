@@ -13,6 +13,7 @@ from typing import List, Tuple
 
 import numpy as np
 import pytest
+import cv2
 
 from app.events.event_bus import EventBus
 from app.events.event_types import (
@@ -27,6 +28,29 @@ from contracts import Frame, StereoObservation
 
 
 # Test fixtures
+
+def has_video_writer_codec() -> bool:
+    """Return whether this environment can open an OpenCV video writer."""
+    temp_dir = Path(tempfile.mkdtemp())
+    try:
+        path = temp_dir / "codec_probe.avi"
+        for codec_name in ("H264", "avc1", "XVID", "MP4V", "MJPG"):
+            fourcc = cv2.VideoWriter_fourcc(*codec_name)
+            writer = cv2.VideoWriter(str(path), fourcc, 30.0, (64, 64), True)
+            try:
+                if writer.isOpened():
+                    return True
+            finally:
+                writer.release()
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+    return False
+
+
+requires_video_codec = pytest.mark.skipif(
+    not has_video_writer_codec(),
+    reason="OpenCV cannot open any configured video writer codec in this environment",
+)
 
 def create_test_config() -> AppConfig:
     """Create test configuration from default.yaml."""
@@ -61,6 +85,7 @@ def create_test_observation(timestamp_ns: int) -> StereoObservation:
     )
 
 
+@requires_video_codec
 class TestRecordingServiceBasics:
     """Test basic RecordingService functionality."""
 
@@ -129,6 +154,7 @@ class TestRecordingServiceBasics:
             service.stop_session()
 
 
+@requires_video_codec
 class TestRecordingServicePitch:
     """Test pitch recording functionality."""
 
@@ -188,6 +214,7 @@ class TestRecordingServicePitch:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+@requires_video_codec
 class TestRecordingServiceFrames:
     """Test frame recording functionality."""
 
@@ -330,6 +357,10 @@ class TestRecordingServiceEventBusIntegration:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+TestRecordingServiceEventBusIntegration = requires_video_codec(TestRecordingServiceEventBusIntegration)
+
+
+@requires_video_codec
 class TestRecordingServicePreRoll:
     """Test pre-roll buffer functionality."""
 
@@ -376,6 +407,7 @@ class TestRecordingServicePreRoll:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+@requires_video_codec
 class TestRecordingServiceCallbacks:
     """Test recording event callbacks."""
 
@@ -420,6 +452,7 @@ class TestRecordingServiceCallbacks:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+@requires_video_codec
 class TestRecordingServiceThreadSafety:
     """Test RecordingService thread safety."""
 

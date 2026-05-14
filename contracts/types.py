@@ -29,6 +29,17 @@ class Detection:
 
 
 @dataclass(frozen=True)
+class RayObservation:
+    camera_id: str
+    frame_index: int
+    t_ns: int
+    u: float
+    v: float
+    radius_px: float
+    confidence: float
+
+
+@dataclass(frozen=True)
 class StereoObservation:
     t_ns: int
     left: Tuple[float, float]

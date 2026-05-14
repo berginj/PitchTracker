@@ -3,10 +3,13 @@
 Tests the event-driven pipeline orchestrator that coordinates all services.
 """
 
+import shutil
+import tempfile
 import time
 from pathlib import Path
 from typing import List
 
+import cv2
 import pytest
 
 from app.events.event_types import (
@@ -25,6 +28,30 @@ def create_test_config():
     """Create test configuration from default.yaml."""
     config_path = Path(__file__).parent.parent.parent / "configs" / "default.yaml"
     return load_config(config_path)
+
+
+def has_video_writer_codec() -> bool:
+    """Return whether this environment can open an OpenCV video writer."""
+    temp_dir = Path(tempfile.mkdtemp())
+    try:
+        path = temp_dir / "codec_probe.avi"
+        for codec_name in ("H264", "avc1", "XVID", "MP4V", "MJPG"):
+            fourcc = cv2.VideoWriter_fourcc(*codec_name)
+            writer = cv2.VideoWriter(str(path), fourcc, 30.0, (64, 64), True)
+            try:
+                if writer.isOpened():
+                    return True
+            finally:
+                writer.release()
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+    return False
+
+
+requires_video_codec = pytest.mark.skipif(
+    not has_video_writer_codec(),
+    reason="OpenCV cannot open any configured video writer codec in this environment",
+)
 
 
 def create_test_observation(t_ns: int, x: float, y: float, z: float) -> StereoObservation:
@@ -123,6 +150,7 @@ class TestPipelineOrchestratorPreview:
 class TestPipelineOrchestratorRecording:
     """Test recording functionality."""
 
+    @requires_video_codec
     def test_start_stop_recording(self):
         """Test starting and stopping recording."""
         orchestrator = PipelineOrchestrator(backend="sim")
@@ -256,6 +284,7 @@ class TestPipelineOrchestratorDetectionConfig:
 class TestPipelineOrchestratorDetections:
     """Test detection retrieval."""
 
+    @requires_video_codec
     def test_get_latest_detections(self):
         """Test getting latest detections."""
         orchestrator = PipelineOrchestrator(backend="sim")
@@ -277,6 +306,7 @@ class TestPipelineOrchestratorDetections:
         orchestrator.stop_recording()
         orchestrator.stop_capture()
 
+    @requires_video_codec
     def test_get_latest_gated_detections(self):
         """Test getting latest gated detections."""
         orchestrator = PipelineOrchestrator(backend="sim")
@@ -380,6 +410,7 @@ class TestPipelineOrchestratorStrikeZone:
 class TestPipelineOrchestratorSessionSummary:
     """Test session summary functionality."""
 
+    @requires_video_codec
     def test_get_session_summary(self):
         """Test getting session summary."""
         orchestrator = PipelineOrchestrator(backend="sim")
@@ -417,6 +448,7 @@ class TestPipelineOrchestratorSessionSummary:
         assert summary.session_id == "none"
         assert summary.pitch_count == 0
 
+    @requires_video_codec
     def test_get_recent_pitch_paths(self):
         """Test getting recent pitch paths."""
         orchestrator = PipelineOrchestrator(backend="sim")
@@ -438,6 +470,7 @@ class TestPipelineOrchestratorSessionSummary:
         orchestrator.stop_recording()
         orchestrator.stop_capture()
 
+    @requires_video_codec
     def test_get_session_dir(self):
         """Test getting session directory."""
         orchestrator = PipelineOrchestrator(backend="sim")

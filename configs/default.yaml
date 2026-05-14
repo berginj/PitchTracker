@@ -49,6 +49,17 @@ metrics:
   online_refinement_enabled: true  # Enable automatic parameter refinement
   last_refinement_date: null  # ISO timestamp
   drag_k0_default: 0.1  # Default drag coefficient (refined online)
+trajectory:
+  primary_mode: stereo_3d        # stereo_3d | ray_reprojection | ray_graph
+  compare_modes: []              # e.g. [stereo_3d, ray_reprojection, ray_graph]
+  fallback_to_stereo: true
+  ray:
+    max_time_offset_ms: 20
+    time_offset_prior_ms: 0
+    min_rays_per_camera: 4
+    max_candidates_per_frame: 2
+    max_reprojection_px: 8
+    robust_loss: huber
 recording:
   pre_roll_ms: 500
   post_roll_ms: 500

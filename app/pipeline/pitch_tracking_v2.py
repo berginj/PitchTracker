@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable, List, Optional
 
-from contracts import Frame, StereoObservation
+from contracts import Frame, RayObservation, StereoObservation
 from app.events import publish_error, ErrorCategory, ErrorSeverity
 
 logger = logging.getLogger(__name__)
@@ -72,6 +72,7 @@ class PitchData:
     first_detection_ns: int
     last_detection_ns: int
     observations: List[StereoObservation] = field(default_factory=list)
+    ray_observations: List[RayObservation] = field(default_factory=list)
     pre_roll_frames: List[tuple[str, Frame]] = field(default_factory=list)
     active_frame_count: int = 0
     gap_frame_count: int = 0
@@ -82,14 +83,18 @@ class PitchData:
 
     def is_valid(self, config: PitchConfig) -> tuple[bool, str]:
         """Check if pitch data is valid for finalization."""
-        if len(self.observations) < config.min_observations:
-            return False, f"Too few observations: {len(self.observations)} < {config.min_observations}"
+        if len(self.observations) < config.min_observations and len(self.ray_observations) < config.min_observations:
+            return (
+                False,
+                f"Too few observations: stereo={len(self.observations)}, rays={len(self.ray_observations)} "
+                f"< {config.min_observations}",
+            )
 
         duration = self.duration_ns()
         if duration < config.min_duration_ns:
             return False, f"Too short: {duration / 1_000_000:.1f}ms < {config.min_duration_ms}ms"
 
-        if self.start_ns <= 0:
+        if self.start_ns < 0:
             return False, "Invalid start timestamp"
 
         return True, "Valid"
@@ -129,6 +134,8 @@ class PitchStateMachineV2:
         # Data collection
         self._observations: List[StereoObservation] = []
         self._ramp_up_observations: List[StereoObservation] = []
+        self._ray_observations: List[RayObservation] = []
+        self._ramp_up_ray_observations: List[RayObservation] = []
 
         # Pre-roll buffers (per camera)
         self._pre_roll_frames: dict[str, deque] = {
@@ -195,6 +202,14 @@ class PitchStateMachineV2:
                 self._ramp_up_observations.append(obs)
             # INACTIVE/ENDING/FINALIZED: observation is ignored
 
+    def add_ray_observation(self, obs: RayObservation) -> None:
+        """Add a per-camera ray observation to current pitch."""
+        with self._lock:
+            if self._phase == PitchPhase.ACTIVE:
+                self._ray_observations.append(obs)
+            elif self._phase == PitchPhase.RAMP_UP:
+                self._ramp_up_ray_observations.append(obs)
+
     def update(
         self,
         frame_ns: int,
@@ -254,6 +269,8 @@ class PitchStateMachineV2:
             self._gap_frame_count = 0
             self._observations.clear()
             self._ramp_up_observations.clear()
+            self._ray_observations.clear()
+            self._ramp_up_ray_observations.clear()
             for buffer in self._pre_roll_frames.values():
                 buffer.clear()
 
@@ -300,8 +317,9 @@ class PitchStateMachineV2:
         self._active_frame_count += 1
         self._last_detection_ns = frame_ns
 
-        # Track first detection
-        if self._first_detection_ns == 0:
+        # Track first detection. Timestamp 0 is valid in tests and simulated
+        # clocks, so use the active-frame counter instead of a sentinel value.
+        if self._active_frame_count == 1:
             self._first_detection_ns = frame_ns
 
         # State transitions
@@ -345,6 +363,7 @@ class PitchStateMachineV2:
             self._first_detection_ns = 0
             self._last_detection_ns = 0
             self._ramp_up_observations.clear()
+            self._ramp_up_ray_observations.clear()
 
         elif self._phase == PitchPhase.ACTIVE:
             # Start gap counting
@@ -370,6 +389,8 @@ class PitchStateMachineV2:
         # Promote ramp-up observations to main observations
         self._observations.extend(self._ramp_up_observations)
         self._ramp_up_observations.clear()
+        self._ray_observations.extend(self._ramp_up_ray_observations)
+        self._ramp_up_ray_observations.clear()
 
         # Calculate actual start time (backtrack to first detection)
         start_ns = self._first_detection_ns
@@ -386,6 +407,7 @@ class PitchStateMachineV2:
             first_detection_ns=self._first_detection_ns,
             last_detection_ns=self._last_detection_ns,
             observations=list(self._observations),
+            ray_observations=list(self._ray_observations),
             pre_roll_frames=pre_roll_frames,
             active_frame_count=self._active_frame_count,
             gap_frame_count=0,
@@ -413,6 +435,8 @@ class PitchStateMachineV2:
                 self._pitch_index -= 1
                 self._observations.clear()
                 self._observations.extend(pitch_data.observations)
+                self._ray_observations.clear()
+                self._ray_observations.extend(pitch_data.ray_observations)
                 return
 
     def _transition_to_finalized(self, frame_ns: int) -> None:
@@ -431,6 +455,7 @@ class PitchStateMachineV2:
             first_detection_ns=self._first_detection_ns,
             last_detection_ns=self._last_detection_ns,
             observations=list(self._observations),
+            ray_observations=list(self._ray_observations),
             pre_roll_frames=[],  # Already delivered at start
             active_frame_count=self._active_frame_count,
             gap_frame_count=self._gap_frame_count,
@@ -491,6 +516,8 @@ class PitchStateMachineV2:
         self._gap_frame_count = 0
         self._observations.clear()
         self._ramp_up_observations.clear()
+        self._ray_observations.clear()
+        self._ramp_up_ray_observations.clear()
         # Note: Don't reset pitch_index or pre-roll buffers
 
     def _log_event(self, event_type: str, data: dict) -> None:

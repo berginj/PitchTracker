@@ -8,7 +8,7 @@ from collections import deque
 from typing import Callable, Dict, List, Optional, Tuple
 
 from configs.settings import AppConfig
-from contracts import Detection, Frame, StereoObservation
+from contracts import Detection, Frame, RayObservation, StereoObservation
 from detect.lane import LaneGate
 from metrics.simple_metrics import (
     PlateMetricsStub,
@@ -102,6 +102,9 @@ class DetectionProcessor:
                 None,
             ]
         ] = None
+        self._on_ray_observations: Optional[
+            Callable[[str, Frame, List[RayObservation], int, int], None]
+        ] = None
 
         # Cached strike zone (rebuilt only when config changes)
         self._cached_strike_zone = None
@@ -131,6 +134,13 @@ class DetectionProcessor:
         """
         self._on_stereo_pair = callback
 
+    def set_ray_observation_callback(
+        self,
+        callback: Callable[[str, Frame, List[RayObservation], int, int], None],
+    ) -> None:
+        """Set callback for lane-gated per-camera ray observations."""
+        self._on_ray_observations = callback
+
     def process_detection_result(self, label: str, frame: Frame, detections: list[Detection]) -> None:
         """Process detection result.
 
@@ -144,6 +154,8 @@ class DetectionProcessor:
         # Update latest detections
         with self._detect_lock:
             self._last_detections[frame.camera_id] = detections
+
+        self._emit_ray_observations(label, frame, detections)
 
         # Buffer for stereo matching
         if label == "left":
@@ -213,6 +225,40 @@ class DetectionProcessor:
         self._plate_gate = plate_gate
         self._stereo_gate = stereo_gate
         self._plate_stereo_gate = plate_stereo_gate
+
+    def _emit_ray_observations(self, label: str, frame: Frame, detections: list[Detection]) -> None:
+        """Emit lane-gated per-camera ray observations before stereo pairing."""
+        if self._on_ray_observations is None:
+            return
+
+        lane_gated = gate_detections(self._lane_gate, detections)
+        plate_gated = gate_detections(self._plate_gate, lane_gated) if self._plate_gate is not None else []
+
+        max_candidates = 2
+        if self._config is not None and getattr(self._config, "trajectory", None) is not None:
+            max_candidates = int(self._config.trajectory.ray.max_candidates_per_frame)
+
+        lane_gated = sorted(lane_gated, key=lambda det: det.confidence, reverse=True)[:max_candidates]
+        rays = [
+            RayObservation(
+                camera_id=label,
+                frame_index=det.frame_index,
+                t_ns=det.t_capture_monotonic_ns,
+                u=float(det.u),
+                v=float(det.v),
+                radius_px=float(det.radius_px),
+                confidence=float(det.confidence),
+            )
+            for det in lane_gated
+        ]
+
+        with self._detect_lock:
+            current = dict(self._last_gated.get(frame.camera_id, {}))
+            current["lane"] = lane_gated
+            current["plate"] = plate_gated
+            self._last_gated[frame.camera_id] = current
+
+        self._on_ray_observations(label, frame, rays, len(lane_gated), len(plate_gated))
 
     def _get_or_build_strike_zone(self):
         """Get cached strike zone or build new one if config changed.

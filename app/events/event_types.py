@@ -7,11 +7,11 @@ subscribe to react to those events.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List
 
 from app.contracts import PitchSummary, SessionSummary
-from contracts import Frame, StereoObservation
+from contracts import Frame, RayObservation, StereoObservation
 
 
 @dataclass(frozen=True)
@@ -48,6 +48,15 @@ class ObservationDetectedEvent:
         confidence: Detection confidence score (0.0-1.0)
     """
     observation: StereoObservation
+    timestamp_ns: int
+    confidence: float = 1.0
+
+
+@dataclass(frozen=True)
+class RayObservationDetectedEvent:
+    """Published when a per-camera calibrated ray observation is generated."""
+
+    observation: RayObservation
     timestamp_ns: int
     confidence: float = 1.0
 
@@ -90,6 +99,7 @@ class PitchEndEvent:
     observations: List[StereoObservation]
     timestamp_ns: int
     duration_ns: int
+    ray_observations: List[RayObservation] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

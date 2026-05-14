@@ -36,6 +36,11 @@ class PitchSummary:
     trajectory_drag_param: Optional[float] = None
     trajectory_rmse_px: Optional[float] = None
     trajectory_rmse_3d_ft: Optional[float] = None
+    trajectory_mode: Optional[str] = None
+    trajectory_comparison: dict[str, Any] | None = None
+    ray_rmse_px: Optional[float] = None
+    estimated_camera_time_offset_ms: Optional[float] = None
+    ray_failure_codes: list[str] | None = None
     observation_duration_ms: Optional[float] = None
     observation_rate_hz: Optional[float] = None
     observation_max_gap_ms: Optional[float] = None

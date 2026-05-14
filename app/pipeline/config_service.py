@@ -100,6 +100,8 @@ class ConfigService:
                 strike_zone=updated_zone,
                 ball=self._config.ball,
                 upload=self._config.upload,
+                trajectory=self._config.trajectory,
+                calibration_validation=self._config.calibration_validation,
             )
 
     def update_strike_zone_ratios(self, top_ratio: float, bottom_ratio: float) -> None:
@@ -137,6 +139,8 @@ class ConfigService:
                 strike_zone=updated_zone,
                 ball=self._config.ball,
                 upload=self._config.upload,
+                trajectory=self._config.trajectory,
+                calibration_validation=self._config.calibration_validation,
             )
 
     def update_mound_distance(self, distance_ft: float) -> None:
@@ -176,4 +180,6 @@ class ConfigService:
                 strike_zone=self._config.strike_zone,
                 ball=self._config.ball,
                 upload=self._config.upload,
+                trajectory=self._config.trajectory,
+                calibration_validation=self._config.calibration_validation,
             )

@@ -89,6 +89,35 @@ CONFIG_SCHEMA = {
                 },
             },
         },
+        "trajectory": {
+            "type": "object",
+            "properties": {
+                "primary_mode": {
+                    "type": "string",
+                    "enum": ["stereo_3d", "ray_reprojection", "ray_graph"],
+                },
+                "compare_modes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": ["stereo_3d", "ray_reprojection", "ray_graph"],
+                    },
+                    "uniqueItems": True,
+                },
+                "fallback_to_stereo": {"type": "boolean"},
+                "ray": {
+                    "type": "object",
+                    "properties": {
+                        "max_time_offset_ms": {"type": "number", "minimum": 0.0, "maximum": 100.0},
+                        "time_offset_prior_ms": {"type": "number", "minimum": -100.0, "maximum": 100.0},
+                        "min_rays_per_camera": {"type": "integer", "minimum": 1, "maximum": 100},
+                        "max_candidates_per_frame": {"type": "integer", "minimum": 1, "maximum": 20},
+                        "max_reprojection_px": {"type": "number", "minimum": 0.1, "maximum": 100.0},
+                        "robust_loss": {"type": "string", "enum": ["linear", "soft_l1", "huber", "cauchy", "arctan"]},
+                    },
+                },
+            },
+        },
         "recording": {
             "type": "object",
             "properties": {

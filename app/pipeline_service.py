@@ -232,6 +232,7 @@ class InProcessPipelineService(
                     get_ball_radius_fn=lambda: self._config_service.get_ball_radius_in() if self._config_service else 1.45,
                 )
                 self._detection_processor.set_stereo_pair_callback(self._on_stereo_pair)
+                self._detection_processor.set_ray_observation_callback(self._on_ray_observations)
             except Exception as exc:
                 logger.error(f"Failed to create detection processor: {exc}")
                 self._camera_mgr.stop_capture()

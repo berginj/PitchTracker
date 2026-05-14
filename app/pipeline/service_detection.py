@@ -7,7 +7,7 @@ from typing import List
 from app.events import ErrorCategory, ErrorSeverity, publish_error
 from app.pipeline.pitch_tracking_v2 import PitchData
 from app.pipeline.recording.pitch_recorder import PitchRecorder
-from contracts import Detection, Frame, StereoObservation
+from contracts import Detection, Frame, RayObservation, StereoObservation
 from log_config.logger import get_logger
 
 logger = get_logger(__name__)
@@ -83,6 +83,36 @@ class PipelineServiceDetectionMixin:
         if self._detection_processor:
             self._detection_processor.process_detection_result(label, frame, detections)
 
+    def _ray_modes_enabled(self) -> bool:
+        if self._config is None or getattr(self._config, "trajectory", None) is None:
+            return False
+        modes = [self._config.trajectory.primary_mode, *self._config.trajectory.compare_modes]
+        return any(mode.startswith("ray_") for mode in modes)
+
+    def _ray_modes_drive_pitch(self) -> bool:
+        return bool(
+            self._config is not None
+            and getattr(self._config, "trajectory", None) is not None
+            and self._config.trajectory.primary_mode.startswith("ray_")
+        )
+
+    def _on_ray_observations(
+        self,
+        camera_id: str,
+        frame: Frame,
+        observations: list[RayObservation],
+        lane_count: int,
+        plate_count: int,
+    ) -> None:
+        del camera_id
+        if not observations or not self._ray_modes_enabled():
+            return
+        if self._pitch_tracker:
+            for obs in observations:
+                self._pitch_tracker.add_ray_observation(obs)
+            if self._ray_modes_drive_pitch():
+                self._pitch_tracker.update(frame.t_capture_monotonic_ns, lane_count, plate_count, len(observations))
+
     def _on_stereo_pair(
         self,
         left_frame: Frame,
@@ -123,6 +153,7 @@ class PipelineServiceDetectionMixin:
             return
 
         observations = pitch_data.observations
+        ray_observations = pitch_data.ray_observations
         start_ns = pitch_data.start_ns
         end_ns = pitch_data.end_ns
 
@@ -131,6 +162,7 @@ class PipelineServiceDetectionMixin:
             start_ns=start_ns,
             end_ns=end_ns,
             observations=observations,
+            ray_observations=ray_observations,
         )
 
         self._session_manager.add_pitch(summary, observations)

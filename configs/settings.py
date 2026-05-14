@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
@@ -73,6 +73,24 @@ class MetricsConfig:
     # Online calibration refinement (from hybrid calibration plan - optional)
     online_refinement_enabled: bool = False
     last_refinement_date: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class RayTrajectoryConfig:
+    max_time_offset_ms: float = 20.0
+    time_offset_prior_ms: float = 0.0
+    min_rays_per_camera: int = 4
+    max_candidates_per_frame: int = 2
+    max_reprojection_px: float = 8.0
+    robust_loss: str = "huber"
+
+
+@dataclass(frozen=True)
+class TrajectoryConfig:
+    primary_mode: str = "stereo_3d"
+    compare_modes: Tuple[str, ...] = ()
+    fallback_to_stereo: bool = True
+    ray: RayTrajectoryConfig = field(default_factory=RayTrajectoryConfig)
 
 
 @dataclass(frozen=True)
@@ -172,7 +190,8 @@ class AppConfig:
     strike_zone: StrikeZoneConfig
     ball: BallConfig
     upload: UploadConfig
-    calibration_validation: CalibrationValidationConfig = CalibrationValidationConfig()
+    trajectory: TrajectoryConfig = field(default_factory=TrajectoryConfig)
+    calibration_validation: CalibrationValidationConfig = field(default_factory=CalibrationValidationConfig)
 
 
 def load_config(path: Path) -> AppConfig:
@@ -236,6 +255,21 @@ def load_config(path: Path) -> AppConfig:
             ivb_bounds_in=tuple(data["metrics"]["ivb_bounds_in"]),
             release_height_bounds_ft=tuple(data["metrics"]["release_height_bounds_ft"]),
         )
+        trajectory_data = data.get("trajectory", {})
+        ray_data = trajectory_data.get("ray", {})
+        trajectory = TrajectoryConfig(
+            primary_mode=trajectory_data.get("primary_mode", "stereo_3d"),
+            compare_modes=tuple(trajectory_data.get("compare_modes", [])),
+            fallback_to_stereo=bool(trajectory_data.get("fallback_to_stereo", True)),
+            ray=RayTrajectoryConfig(
+                max_time_offset_ms=float(ray_data.get("max_time_offset_ms", 20.0)),
+                time_offset_prior_ms=float(ray_data.get("time_offset_prior_ms", 0.0)),
+                min_rays_per_camera=int(ray_data.get("min_rays_per_camera", 4)),
+                max_candidates_per_frame=int(ray_data.get("max_candidates_per_frame", 2)),
+                max_reprojection_px=float(ray_data.get("max_reprojection_px", 8.0)),
+                robust_loss=ray_data.get("robust_loss", "huber"),
+            ),
+        )
         recording = RecordingConfig(**data["recording"])
         ui = UiConfig(**data["ui"])
         telemetry = TelemetryConfig(**data["telemetry"])
@@ -286,6 +320,7 @@ def load_config(path: Path) -> AppConfig:
             strike_zone=strike_zone,
             ball=ball,
             upload=upload,
+            trajectory=trajectory,
             calibration_validation=calibration_validation,
         )
 

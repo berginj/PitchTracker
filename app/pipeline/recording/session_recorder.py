@@ -522,8 +522,11 @@ class SessionRecorder:
                     "trajectory_plate_z_ft",
                     "trajectory_plate_t_ns",
                     "trajectory_model",
+                    "trajectory_mode",
                     "trajectory_expected_error_ft",
                     "trajectory_confidence",
+                    "ray_rmse_px",
+                    "estimated_camera_time_offset_ms",
                 ]
             )
             for pitch in summary.pitches:
@@ -545,9 +548,14 @@ class SessionRecorder:
                         f"{pitch.trajectory_plate_z_ft:.4f}" if pitch.trajectory_plate_z_ft is not None else "",
                         pitch.trajectory_plate_t_ns if pitch.trajectory_plate_t_ns is not None else "",
                         pitch.trajectory_model if pitch.trajectory_model is not None else "",
+                        pitch.trajectory_mode if pitch.trajectory_mode is not None else "",
                         f"{pitch.trajectory_expected_error_ft:.4f}"
                         if pitch.trajectory_expected_error_ft is not None
                         else "",
                         f"{pitch.trajectory_confidence:.3f}" if pitch.trajectory_confidence is not None else "",
+                        f"{pitch.ray_rmse_px:.3f}" if pitch.ray_rmse_px is not None else "",
+                        f"{pitch.estimated_camera_time_offset_ms:.3f}"
+                        if pitch.estimated_camera_time_offset_ms is not None
+                        else "",
                     ]
                 )

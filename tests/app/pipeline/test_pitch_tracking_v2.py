@@ -32,6 +32,9 @@ def create_test_frame(timestamp_ns: int, camera_id: str = "test_cam") -> Frame:
         frame_index=0,
         t_capture_monotonic_ns=timestamp_ns,
         image=None,  # Not needed for state machine tests
+        width=1280,
+        height=720,
+        pixfmt="BGR8",
     )
 
 
@@ -39,12 +42,25 @@ def create_test_observation(timestamp_ns: int) -> StereoObservation:
     """Create test observation."""
     return StereoObservation(
         t_ns=timestamp_ns,
-        x_ft=0.0,
-        y_ft=0.0,
-        z_ft=0.0,
-        left_detection_id="",
-        right_detection_id="",
+        left=(640.0, 360.0),
+        right=(638.0, 360.0),
+        X=0.0,
+        Y=0.0,
+        Z=float(timestamp_ns) / 33_000_000.0,
+        quality=1.0,
+        confidence=0.9,
     )
+
+
+def add_detection_with_observation(state_machine: PitchStateMachineV2, i: int, step_ns: int = 33_000_000) -> None:
+    """Advance detection state and retain the same-frame observation."""
+    t_ns = i * step_ns
+    if state_machine.get_phase() == PitchPhase.INACTIVE:
+        state_machine.update(t_ns, 1, 1, 1)
+        state_machine.add_observation(create_test_observation(t_ns))
+    else:
+        state_machine.add_observation(create_test_observation(t_ns))
+        state_machine.update(t_ns, 1, 1, 1)
 
 
 @pytest.fixture
@@ -168,9 +184,7 @@ def test_ramp_up_observations_captured(state_machine):
 
     # Add observations during ramp-up (before pitch confirmed)
     for i in range(5):
-        obs = create_test_observation(i * 33_000_000)
-        state_machine.add_observation(obs)
-        state_machine.update(i * 33_000_000, 1, 1, 1)
+        add_detection_with_observation(state_machine, i)
 
     # All ramp-up observations should be captured
     assert len(captured_observations) == 5, f"Expected 5 ramp-up observations, got {len(captured_observations)}"
@@ -187,14 +201,10 @@ def test_observation_at_trigger_frame_captured(state_machine):
 
     # Frames 0-3: ramp-up
     for i in range(4):
-        obs = create_test_observation(i * 33_000_000)
-        state_machine.add_observation(obs)
-        state_machine.update(i * 33_000_000, 1, 1, 1)
+        add_detection_with_observation(state_machine, i)
 
     # Frame 4: trigger frame (min_active_frames=5 met)
-    trigger_obs = create_test_observation(4 * 33_000_000)
-    state_machine.add_observation(trigger_obs)
-    state_machine.update(4 * 33_000_000, 1, 1, 1)
+    add_detection_with_observation(state_machine, 4)
 
     # All 5 observations should be captured (including trigger frame)
     assert len(captured_observations) == 5, f"Trigger frame observation lost: got {len(captured_observations)}"
@@ -215,15 +225,11 @@ def test_observations_after_activation_captured(state_machine):
 
     # Ramp-up
     for i in range(5):
-        obs = create_test_observation(i * 33_000_000)
-        state_machine.add_observation(obs)
-        state_machine.update(i * 33_000_000, 1, 1, 1)
+        add_detection_with_observation(state_machine, i)
 
     # Active pitch
     for i in range(5, 15):
-        obs = create_test_observation(i * 33_000_000)
-        state_machine.add_observation(obs)
-        state_machine.update(i * 33_000_000, 1, 1, 1)
+        add_detection_with_observation(state_machine, i)
 
     # End pitch
     for i in range(15, 26):
@@ -248,7 +254,7 @@ def test_concurrent_updates_thread_safe(state_machine):
     def update_thread():
         try:
             for i in range(200):
-                state_machine.update(i * 1_000_000, 1 if i < 100 else 0, 1 if i < 100 else 0, 1 if i < 100 else 0)
+                state_machine.update(i * 2_000_000, 1 if i < 100 else 0, 1 if i < 100 else 0, 1 if i < 100 else 0)
                 time.sleep(0.0001)
         except Exception as e:
             errors.append(("update", e))
@@ -256,7 +262,7 @@ def test_concurrent_updates_thread_safe(state_machine):
     def observation_thread():
         try:
             for i in range(200):
-                obs = create_test_observation(i * 1_000_000)
+                obs = create_test_observation(i * 2_000_000)
                 state_machine.add_observation(obs)
                 time.sleep(0.0001)
         except Exception as e:
@@ -265,7 +271,7 @@ def test_concurrent_updates_thread_safe(state_machine):
     def buffer_thread():
         try:
             for i in range(200):
-                frame = create_test_frame(i * 1_000_000)
+                frame = create_test_frame(i * 2_000_000)
                 state_machine.buffer_frame("left", frame)
                 time.sleep(0.0001)
         except Exception as e:
@@ -326,7 +332,7 @@ def test_end_time_is_last_detection(state_machine):
 
     # Start pitch
     for i in range(10):
-        state_machine.update(i * 33_000_000, 1, 1, 1)
+        add_detection_with_observation(state_machine, i)
 
     last_detection_ns = 9 * 33_000_000
 
@@ -399,9 +405,7 @@ def test_valid_pitch_passes_validation(state_machine):
 
     # Valid pitch: 10 observations over 300ms
     for i in range(10):
-        obs = create_test_observation(i * 33_000_000)
-        state_machine.add_observation(obs)
-        state_machine.update(i * 33_000_000, 1, 1, 1)
+        add_detection_with_observation(state_machine, i)
 
     # End pitch
     for i in range(10, 21):
@@ -427,8 +431,8 @@ def test_callback_exception_recovery(state_machine):
 
     state_machine.set_callbacks(on_pitch_start=failing_callback)
 
-    # First pitch (callback fails)
-    for i in range(10):
+    # First activation attempt fails and should roll back cleanly.
+    for i in range(5):
         state_machine.update(i * 33_000_000, 1, 1, 1)
 
     # Should recover and not be in broken state
@@ -539,9 +543,7 @@ def test_force_end_during_active_pitch(state_machine):
 
     # Start pitch
     for i in range(10):
-        obs = create_test_observation(i * 33_000_000)
-        state_machine.add_observation(obs)
-        state_machine.update(i * 33_000_000, 1, 1, 1)
+        add_detection_with_observation(state_machine, i)
 
     assert state_machine.get_phase() == PitchPhase.ACTIVE
 
@@ -556,11 +558,9 @@ def test_reset_clears_state(state_machine):
     """Verify reset properly clears all state."""
     # Start pitch
     for i in range(10):
-        obs = create_test_observation(i * 33_000_000)
         frame = create_test_frame(i * 33_000_000)
-        state_machine.add_observation(obs)
         state_machine.buffer_frame("left", frame)
-        state_machine.update(i * 33_000_000, 1, 1, 1)
+        add_detection_with_observation(state_machine, i)
 
     # Reset
     state_machine.reset()
