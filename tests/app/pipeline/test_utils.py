@@ -15,6 +15,19 @@ from contracts import Detection
 from detect.lane import LaneGate, LaneRoi
 
 
+def _detection(camera_id: str, u: float, v: float) -> Detection:
+    """Build a Detection at a pixel location for the given camera."""
+    return Detection(
+        camera_id=camera_id,
+        frame_index=0,
+        t_capture_monotonic_ns=1000,
+        u=u,
+        v=v,
+        radius_px=10.0,
+        confidence=0.9,
+    )
+
+
 class TestStatsToDict:
     """Tests for stats_to_dict()."""
 
@@ -23,49 +36,45 @@ class TestStatsToDict:
         stats = CameraStats(
             fps_avg=30.0,
             fps_instant=29.5,
-            frames=1000,
-            dropped=5,
-            last_frame_ns=123456789,
+            jitter_p95_ms=2.0,
+            dropped_frames=5,
+            queue_depth=1,
+            capture_latency_ms=8.0,
         )
         result = stats_to_dict(stats)
 
         assert result == {
             "fps_avg": 30.0,
             "fps_instant": 29.5,
-            "frames": 1000,
-            "dropped": 5,
-            "last_frame_ns": 123456789,
+            "jitter_p95_ms": 2.0,
+            "dropped_frames": 5.0,
+            "queue_depth": 1.0,
+            "capture_latency_ms": 8.0,
         }
 
 
 class TestGateDetections:
     """Tests for gate_detections()."""
 
-    def test_returns_empty_when_no_gate(self):
-        """Test returns empty list when gate is None."""
-        detections = [Detection(x=100, y=100, r=10, conf=0.9, t_capture_monotonic_ns=1000)]
+    def test_returns_all_when_no_gate(self):
+        """With no gate, detections pass through unfiltered."""
+        detections = [_detection("left", 100, 100)]
         result = gate_detections(None, detections)
-        assert result == []
+        assert result == detections
 
     def test_filters_detections_through_gate(self):
         """Test filters detections through lane gate."""
-        gate = LaneGate(
-            roi=LaneRoi(
-                cx=320.0,
-                cy=240.0,
-                width_px=100.0,
-                height_px=100.0,
-                angle_deg=0.0,
-            )
-        )
+        roi = LaneRoi(polygon=[(0.0, 0.0), (640.0, 0.0), (640.0, 480.0), (0.0, 480.0)])
+        gate = LaneGate(roi_by_camera={"left": roi})
 
-        # Detection inside gate
-        inside = Detection(x=320, y=240, r=10, conf=0.9, t_capture_monotonic_ns=1000)
-        # Detection outside gate
-        outside = Detection(x=0, y=0, r=10, conf=0.9, t_capture_monotonic_ns=1000)
+        # Detection inside the ROI polygon
+        inside = _detection("left", 320, 240)
+        # Detection outside the ROI polygon
+        outside = _detection("left", 1000, 1000)
 
         result = gate_detections(gate, [inside, outside])
-        assert len(result) >= 0  # Gate filtering is complex, just verify it runs
+        assert inside in result
+        assert outside not in result
 
 
 class TestBuildStereoMatches:
@@ -73,13 +82,13 @@ class TestBuildStereoMatches:
 
     def test_builds_matches_from_detections(self):
         """Test builds stereo matches from left and right detections."""
-        left_dets = [Detection(x=100, y=100, r=10, conf=0.9, t_capture_monotonic_ns=1000)]
-        right_dets = [Detection(x=90, y=100, r=10, conf=0.9, t_capture_monotonic_ns=1000)]
+        left_dets = [_detection("left", 100, 100)]
+        right_dets = [_detection("right", 90, 100)]
 
-        # build_stereo_matches expects pre-gated detections, returns empty if not matched
+        # Equal v-coordinates fall within the epipolar tolerance -> one match.
         result = build_stereo_matches(left_dets, right_dets)
         assert isinstance(result, list)
-        # Matching logic is complex, just verify structure
+        assert len(result) == 1
 
 
 class TestBuildSessionSummary:

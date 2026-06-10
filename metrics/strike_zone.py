@@ -136,22 +136,24 @@ def _zone_cell(
     y_top_ft: float,
     polygon_xz: List[Point2D],
 ) -> Tuple[int | None, int | None]:
-    x, y, z = crossing
+    x, y, _z = crossing
     width_ft = _plate_width_ft(polygon_xz)
     if width_ft <= 0:
         return None, None
     if y < y_bottom_ft or y > y_top_ft:
         return None, None
-    if not point_in_polygon((x, z), polygon_xz):
-        return None, None
     x_min = -width_ft / 2.0
     x_max = width_ft / 2.0
+    if x < x_min or x > x_max:
+        return None, None
     x_third = (x_max - x_min) / 3.0
     y_third = (y_top_ft - y_bottom_ft) / 3.0
-    col = int((x - x_min) / x_third) + 1
-    row = int((y - y_bottom_ft) / y_third) + 1
-    col = max(1, min(3, col))
-    row = max(1, min(3, row))
+    # 0-indexed 3x3 grid: row/col in {0, 1, 2}. Consumers index 3x3
+    # arrays directly (heatmaps, scoring games), so indices must start at 0.
+    col = int((x - x_min) / x_third)
+    row = int((y - y_bottom_ft) / y_third)
+    col = max(0, min(2, col))
+    row = max(0, min(2, row))
     return row, col
 
 

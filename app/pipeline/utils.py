@@ -137,10 +137,9 @@ def build_session_summary(session_id: str, pitches: List) -> Dict:
             strikes += 1
         else:
             balls += 1
-        if pitch.zone_row and pitch.zone_col:
-            row = max(1, min(3, pitch.zone_row))
-            row = 3 - row  # Flip Y-axis for display
-            col = max(1, min(3, pitch.zone_col)) - 1
+        if pitch.zone_row is not None and pitch.zone_col is not None:
+            row = max(0, min(2, pitch.zone_row))
+            col = max(0, min(2, pitch.zone_col))
             heatmap[row][col] += 1
 
     return SessionSummary(
