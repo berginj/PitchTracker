@@ -47,6 +47,7 @@ from app.pipeline.pitch_tracking_v2 import PitchStateMachineV2
 
 logger = get_logger(__name__)
 
+
 class InProcessPipelineService(
     PipelineServiceDetectionMixin,
     PipelineServiceRecordingMixin,
@@ -172,9 +173,7 @@ class InProcessPipelineService(
             try:
                 logger.debug("Initializing detector")
                 self._initializer.initialize_detector_config(config)
-                self._detectors_by_camera = self._initializer.build_detectors(
-                    left_id, right_id, self._lane_polygon
-                )
+                self._detectors_by_camera = self._initializer.build_detectors(left_id, right_id, self._lane_polygon)
                 if self._initializer._detector_type == "ml":
                     self._initializer.warmup_detectors(self._detectors_by_camera, config)
             except Exception as exc:
@@ -229,7 +228,9 @@ class InProcessPipelineService(
                     plate_gate=self._plate_gate,
                     stereo_gate=self._stereo_gate,
                     plate_stereo_gate=self._plate_stereo_gate,
-                    get_ball_radius_fn=lambda: self._config_service.get_ball_radius_in() if self._config_service else 1.45,
+                    get_ball_radius_fn=lambda: self._config_service.get_ball_radius_in()
+                    if self._config_service
+                    else 1.45,
                 )
                 self._detection_processor.set_stereo_pair_callback(self._on_stereo_pair)
                 self._detection_processor.set_ray_observation_callback(self._on_ray_observations)
@@ -269,8 +270,14 @@ class InProcessPipelineService(
 
             logger.info("Capture started successfully")
 
-        except (CameraNotFoundError, CameraConnectionError, CameraConfigurationError,
-                InvalidROIError, ModelLoadError, DetectionError) as exc:
+        except (
+            CameraNotFoundError,
+            CameraConnectionError,
+            CameraConfigurationError,
+            InvalidROIError,
+            ModelLoadError,
+            DetectionError,
+        ) as exc:
             # Re-raise our custom exceptions
             raise
         except Exception as exc:
@@ -421,5 +428,3 @@ class InProcessPipelineService(
         if self._detection_processor:
             return self._detection_processor.get_plate_metrics()
         return PlateMetricsStub(run_in=0.0, rise_in=0.0, sample_count=0)
-
-

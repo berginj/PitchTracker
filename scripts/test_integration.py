@@ -2,6 +2,7 @@
 
 import sys
 
+
 def test_imports():
     """Test that all hardening components can be imported."""
     print("Testing imports...")
@@ -28,6 +29,7 @@ def test_imports():
     except Exception as e:
         print(f"\nFAIL Import failed: {e}")
         return False
+
 
 def test_initialization():
     """Test that hardening components can be initialized."""
@@ -78,7 +80,7 @@ def test_initialization():
             category=ErrorCategory.SYSTEM,
             severity=ErrorSeverity.INFO,
             message="Integration test successful",
-            source="test_integration.py"
+            source="test_integration.py",
         )
         print("  OK Error publishing works")
 
@@ -90,15 +92,17 @@ def test_initialization():
         return True
     except Exception as e:
         import traceback
+
         print(f"\nFAIL Initialization failed: {e}")
         traceback.print_exc()
         return False
 
+
 def main():
     """Run all tests."""
-    print("="*60)
+    print("=" * 60)
     print("PitchTracker Hardening Integration Test")
-    print("="*60)
+    print("=" * 60)
 
     success = True
 
@@ -108,15 +112,16 @@ def main():
     if not test_initialization():
         success = False
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     if success:
         print("ALL TESTS PASSED OK")
-        print("="*60)
+        print("=" * 60)
         return 0
     else:
         print("SOME TESTS FAILED FAIL")
-        print("="*60)
+        print("=" * 60)
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

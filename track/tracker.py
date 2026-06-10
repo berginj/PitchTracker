@@ -19,7 +19,5 @@ class TrackState:
 
 class Tracker(ABC):
     @abstractmethod
-    def update(
-        self, observation: Optional[StereoObservation]
-    ) -> TrackState:
+    def update(self, observation: Optional[StereoObservation]) -> TrackState:
         """Update tracker with a new observation (or None if missing)."""

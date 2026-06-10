@@ -123,7 +123,7 @@ def sort_cameras_prefer_arducam(devices: list[dict[str, str]]) -> list[dict[str,
     other_devices = []
 
     for device in devices:
-        name = device.get('friendly_name', '')
+        name = device.get("friendly_name", "")
         if is_arducam_device(name):
             arducam_devices.append(device)
         else:
@@ -132,9 +132,7 @@ def sort_cameras_prefer_arducam(devices: list[dict[str, str]]) -> list[dict[str,
     return arducam_devices + other_devices
 
 
-def probe_opencv_indices(
-    max_index: int = 4, parallel: bool = False, use_cache: bool = True
-) -> list[int]:
+def probe_opencv_indices(max_index: int = 4, parallel: bool = False, use_cache: bool = True) -> list[int]:
     """Probe for available OpenCV camera indices.
 
     Args:
@@ -168,10 +166,7 @@ def probe_opencv_indices(
         # Probe all indices in parallel for speed
         indices: list[int] = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_index) as executor:
-            futures = {
-                executor.submit(_probe_single_index, i, 1.0): i
-                for i in range(max_index)
-            }
+            futures = {executor.submit(_probe_single_index, i, 1.0): i for i in range(max_index)}
 
             for future in concurrent.futures.as_completed(futures):
                 try:
@@ -247,15 +242,37 @@ def probe_uvc_devices(use_cache: bool = True) -> list[dict[str, str]]:
         name_lower = name.lower()
         skip_terms = [
             # Virtual cameras
-            "obs", "snap", "virtual", "screen", "desktop", "display",
+            "obs",
+            "snap",
+            "virtual",
+            "screen",
+            "desktop",
+            "display",
             # Printers and scanners (common brands and types)
-            "printer", "scanner", "scan", "print", "mfp", "multifunction",
-            "brother", "hp ", "epson", "canon printer", "xerox",
-            "konica", "ricoh", "sharp mfp", "kyocera",
+            "printer",
+            "scanner",
+            "scan",
+            "print",
+            "mfp",
+            "multifunction",
+            "brother",
+            "hp ",
+            "epson",
+            "canon printer",
+            "xerox",
+            "konica",
+            "ricoh",
+            "sharp mfp",
+            "kyocera",
             # Document cameras (often printers with scanner)
-            "document camera", "doc camera", "document scanner",
+            "document camera",
+            "doc camera",
+            "document scanner",
             # Other non-camera devices
-            "audio", "microphone", "mic", "speaker"
+            "audio",
+            "microphone",
+            "mic",
+            "speaker",
         ]
 
         # Check if device name contains any skip terms

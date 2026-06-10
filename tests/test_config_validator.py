@@ -161,11 +161,7 @@ class TestValidationError(unittest.TestCase):
 
     def test_validation_error_creation(self):
         """Test creating ValidationError."""
-        error = ValidationError(
-            field="test.field",
-            message="Test error message",
-            severity="error"
-        )
+        error = ValidationError(field="test.field", message="Test error message", severity="error")
 
         self.assertEqual(error.field, "test.field")
         self.assertEqual(error.message, "Test error message")
@@ -173,10 +169,7 @@ class TestValidationError(unittest.TestCase):
 
     def test_validation_error_default_severity(self):
         """Test that default severity is 'error'."""
-        error = ValidationError(
-            field="test",
-            message="Test"
-        )
+        error = ValidationError(field="test", message="Test")
 
         self.assertEqual(error.severity, "error")
 

@@ -95,11 +95,7 @@ def upload_session(
 
     # Show progress dialog during upload
     progress = QtWidgets.QProgressDialog(
-        f"Uploading session to {api_base}...",
-        "Cancel",
-        0,
-        0,  # Indeterminate progress
-        parent
+        f"Uploading session to {api_base}...", "Cancel", 0, 0, parent  # Indeterminate progress
     )
     progress.setWindowTitle("Upload Progress")
     progress.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
@@ -171,7 +167,7 @@ def save_session_export(
             None,  # No cancel button for now
             0,
             0,  # Indeterminate
-            parent
+            parent,
         )
         progress.setWindowTitle("Export Progress")
         progress.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
@@ -313,13 +309,27 @@ def write_session_summary_csv(path: Path, summary) -> None:
                     f"{pitch.speed_mph:.3f}" if pitch.speed_mph is not None else "",
                     f"{pitch.rotation_rpm:.3f}" if pitch.rotation_rpm is not None else "",
                     pitch.sample_count,
-                    f"{pitch.trajectory_plate_x_ft:.4f}" if getattr(pitch, "trajectory_plate_x_ft", None) is not None else "",
-                    f"{pitch.trajectory_plate_y_ft:.4f}" if getattr(pitch, "trajectory_plate_y_ft", None) is not None else "",
-                    f"{pitch.trajectory_plate_z_ft:.4f}" if getattr(pitch, "trajectory_plate_z_ft", None) is not None else "",
-                    getattr(pitch, "trajectory_plate_t_ns", "") if getattr(pitch, "trajectory_plate_t_ns", None) is not None else "",
-                    getattr(pitch, "trajectory_model", "") if getattr(pitch, "trajectory_model", None) is not None else "",
-                    f"{getattr(pitch, 'trajectory_expected_error_ft', None):.4f}" if getattr(pitch, "trajectory_expected_error_ft", None) is not None else "",
-                    f"{getattr(pitch, 'trajectory_confidence', None):.3f}" if getattr(pitch, "trajectory_confidence", None) is not None else "",
+                    f"{pitch.trajectory_plate_x_ft:.4f}"
+                    if getattr(pitch, "trajectory_plate_x_ft", None) is not None
+                    else "",
+                    f"{pitch.trajectory_plate_y_ft:.4f}"
+                    if getattr(pitch, "trajectory_plate_y_ft", None) is not None
+                    else "",
+                    f"{pitch.trajectory_plate_z_ft:.4f}"
+                    if getattr(pitch, "trajectory_plate_z_ft", None) is not None
+                    else "",
+                    getattr(pitch, "trajectory_plate_t_ns", "")
+                    if getattr(pitch, "trajectory_plate_t_ns", None) is not None
+                    else "",
+                    getattr(pitch, "trajectory_model", "")
+                    if getattr(pitch, "trajectory_model", None) is not None
+                    else "",
+                    f"{getattr(pitch, 'trajectory_expected_error_ft', None):.4f}"
+                    if getattr(pitch, "trajectory_expected_error_ft", None) is not None
+                    else "",
+                    f"{getattr(pitch, 'trajectory_confidence', None):.3f}"
+                    if getattr(pitch, "trajectory_confidence", None) is not None
+                    else "",
                 ]
             )
 
@@ -406,13 +416,7 @@ def export_manifests_zip(
         raise RuntimeError("No manifest files found to export.")
 
     # Show progress dialog for larger exports
-    progress = QtWidgets.QProgressDialog(
-        "Exporting manifest files...",
-        "Cancel",
-        0,
-        len(files),
-        parent
-    )
+    progress = QtWidgets.QProgressDialog("Exporting manifest files...", "Cancel", 0, len(files), parent)
     progress.setWindowTitle("Export Progress")
     progress.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
     progress.setMinimumDuration(500)  # Only show if takes > 500ms
@@ -447,6 +451,7 @@ def _resolve_api_key(config: AppConfig) -> str:
     """
     try:
         import keyring
+
         stored = keyring.get_password("PitchTracker", "upload_api_key")
         if stored:
             return stored

@@ -45,9 +45,7 @@ def run_preview(
     if left_id in lane_rois:
         state.points = [(int(x), int(y)) for x, y in lane_rois[left_id].polygon]
     elif right_id in lane_rois:
-        state.points = [
-            (int(x + left_width), int(y)) for x, y in lane_rois[right_id].polygon
-        ]
+        state.points = [(int(x + left_width), int(y)) for x, y in lane_rois[right_id].polygon]
 
     cv2.namedWindow(window_name)
     cv2.setMouseCallback(window_name, _mouse_callback, state)
@@ -61,9 +59,7 @@ def run_preview(
             if len(state.points) >= 3:
                 right_count = sum(1 for x, _ in state.points if x >= left_width)
                 if right_count >= len(state.points) / 2:
-                    base_points = [
-                        (int(x - left_width), int(y)) for x, y in state.points
-                    ]
+                    base_points = [(int(x - left_width), int(y)) for x, y in state.points]
                 else:
                     base_points = [(int(x), int(y)) for x, y in state.points]
                 lane_rois[left_id] = LaneRoi(polygon=base_points)

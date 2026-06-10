@@ -15,8 +15,8 @@ from configs.settings import load_config
 
 # Skip if running in CI without display
 pytestmark = pytest.mark.skipif(
-    not hasattr(QtWidgets.QApplication, 'instance') or QtWidgets.QApplication.instance() is None,
-    reason="Requires Qt GUI environment"
+    not hasattr(QtWidgets.QApplication, "instance") or QtWidgets.QApplication.instance() is None,
+    reason="Requires Qt GUI environment",
 )
 
 

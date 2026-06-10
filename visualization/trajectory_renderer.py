@@ -16,6 +16,7 @@ import cv2
 import numpy as np
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from contracts import StereoObservation
     from stereo.simple_stereo import StereoGeometry
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
 
 class RenderStyle(Enum):
     """Trajectory rendering styles."""
+
     SOLID = "solid"  # Solid line
     GRADIENT = "gradient"  # Color gradient from start to end
     DOTTED = "dotted"  # Dotted line
@@ -32,6 +34,7 @@ class RenderStyle(Enum):
 @dataclass(frozen=True)
 class ProjectedPoint:
     """A 3D point projected to 2D image coordinates."""
+
     u: float  # X coordinate in pixels
     v: float  # Y coordinate in pixels
     z_ft: float  # Original depth for size scaling
@@ -41,6 +44,7 @@ class ProjectedPoint:
 @dataclass(frozen=True)
 class TrajectoryRenderConfig:
     """Configuration for trajectory rendering."""
+
     style: RenderStyle = RenderStyle.GRADIENT
     line_thickness: int = 2
     show_release_point: bool = True
@@ -266,10 +270,7 @@ class TrajectoryRenderer:
 
         # Label
         label_pos = (center[0] + cfg.marker_radius + 4, center[1] + 4)
-        cv2.putText(
-            frame, label, label_pos,
-            cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1, cv2.LINE_AA
-        )
+        cv2.putText(frame, label, label_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1, cv2.LINE_AA)
 
     def _interpolate_color(
         self,

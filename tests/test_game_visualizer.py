@@ -173,9 +173,7 @@ class TestTargetMode:
         game_visualizer.set_target_mode(True)
 
         assert game_visualizer.target_mode is True
-        game_visualizer._status_label.setText.assert_called_with(
-            "Hit the highlighted target."
-        )
+        game_visualizer._status_label.setText.assert_called_with("Hit the highlighted target.")
         game_visualizer._plate_map.set_target_cell.assert_called()
 
     def test_disable_target_mode(self, game_visualizer):
@@ -315,9 +313,7 @@ class TestApplyPitchToTicTacToe:
         game_visualizer._apply_pitch_to_tic_tac_toe(pitch)
 
         # AI should have marked a cell
-        o_count = sum(
-            1 for row in game_visualizer._board for cell in row if cell == "O"
-        )
+        o_count = sum(1 for row in game_visualizer._board for cell in row if cell == "O")
         assert o_count == 1
 
     def test_occupied_cell_marks_ai(self, game_visualizer):
@@ -331,9 +327,7 @@ class TestApplyPitchToTicTacToe:
         game_visualizer._apply_pitch_to_tic_tac_toe(pitch)
 
         # AI should have marked another cell
-        o_count = sum(
-            1 for row in game_visualizer._board for cell in row if cell == "O"
-        )
+        o_count = sum(1 for row in game_visualizer._board for cell in row if cell == "O")
         assert o_count == 1
 
 

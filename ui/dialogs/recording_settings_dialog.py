@@ -59,8 +59,7 @@ class RecordingSettingsDialog(QtWidgets.QDialog):
 
         # Header
         header = build_dialog_header(
-            "Recording Settings",
-            "Configure session name, output location, and reference speed"
+            "Recording Settings", "Configure session name, output location, and reference speed"
         )
         layout.addWidget(header)
 

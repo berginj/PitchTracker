@@ -51,13 +51,9 @@ class PipelineServiceRecordingMixin:
 
         self._pitch_analyzer = PitchAnalyzer(
             config=self._config,
-            get_ball_radius_fn=lambda: (
-                self._config_service.get_ball_radius_in() if self._config_service else 1.45
-            ),
+            get_ball_radius_fn=lambda: (self._config_service.get_ball_radius_in() if self._config_service else 1.45),
             radar_speed_fn=lambda: (
-                self._radar_client.latest_speed_mph()
-                if self._manual_speed_mph is None
-                else self._manual_speed_mph
+                self._radar_client.latest_speed_mph() if self._manual_speed_mph is None else self._manual_speed_mph
             ),
         )
 

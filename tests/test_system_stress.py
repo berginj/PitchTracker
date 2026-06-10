@@ -14,6 +14,7 @@ from pathlib import Path
 
 try:
     import psutil
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
@@ -47,12 +48,12 @@ class TestSystemStressTests(unittest.TestCase):
         from detect.config import DetectorConfig, FilterConfig
         import numpy as np
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print(" " * 20 + "MARATHON TEST: 10 MINUTES")
-        print("="*70)
+        print("=" * 70)
         print("This test validates system stability over extended operation.")
         print("Watch for: memory growth, performance degradation, errors")
-        print("="*70)
+        print("=" * 70)
 
         # Create detector
         filter_config = FilterConfig()
@@ -99,7 +100,7 @@ class TestSystemStressTests(unittest.TestCase):
                     t_received_monotonic_ns=timestamp,
                     width=1280,
                     height=720,
-                    camera_id="marathon_test"
+                    camera_id="marathon_test",
                 )
 
                 try:
@@ -127,12 +128,14 @@ class TestSystemStressTests(unittest.TestCase):
                     growth_pct = (growth / initial_memory) * 100
                     avg_fps = sum(fps_samples) / len(fps_samples) if fps_samples else 0
 
-                    print(f"  [{elapsed_min:>5.1f}m] Memory: {current_memory:>7.1f} MB "
-                          f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%) | "
-                          f"Threads: {current_threads} | "
-                          f"Avg FPS: {avg_fps:>6.1f} | "
-                          f"Frames: {frame_count:>7,} | "
-                          f"Errors: {error_count}")
+                    print(
+                        f"  [{elapsed_min:>5.1f}m] Memory: {current_memory:>7.1f} MB "
+                        f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%) | "
+                        f"Threads: {current_threads} | "
+                        f"Avg FPS: {avg_fps:>6.1f} | "
+                        f"Frames: {frame_count:>7,} | "
+                        f"Errors: {error_count}"
+                    )
 
                 # Throttle to ~60 FPS
                 time.sleep(0.016)
@@ -155,8 +158,10 @@ class TestSystemStressTests(unittest.TestCase):
             print(f"\n  Memory:")
             print(f"    Initial: {initial_memory:.1f} MB")
             print(f"    Final: {final_memory:.1f} MB")
-            print(f"    Growth: +{final_memory - initial_memory:.1f} MB "
-                  f"(+{(final_memory - initial_memory)/initial_memory*100:.1f}%)")
+            print(
+                f"    Growth: +{final_memory - initial_memory:.1f} MB "
+                f"(+{(final_memory - initial_memory)/initial_memory*100:.1f}%)"
+            )
             print(f"\n  Threads:")
             print(f"    Initial: {initial_threads}")
             print(f"    Final: {final_threads}")
@@ -167,22 +172,16 @@ class TestSystemStressTests(unittest.TestCase):
 
             # Assertions
             memory_growth_pct = (final_memory - initial_memory) / initial_memory * 100
-            self.assertLess(
-                memory_growth_pct,
-                20.0,
-                f"Memory grew {memory_growth_pct:.1f}% over 10 minutes"
-            )
+            self.assertLess(memory_growth_pct, 20.0, f"Memory grew {memory_growth_pct:.1f}% over 10 minutes")
 
             self.assertLessEqual(
-                final_threads - initial_threads,
-                5,
-                f"Thread count increased by {final_threads - initial_threads}"
+                final_threads - initial_threads, 5, f"Thread count increased by {final_threads - initial_threads}"
             )
 
             self.assertLess(
                 error_count / frame_count if frame_count > 0 else 1.0,
                 0.01,  # <1% error rate
-                f"High error rate: {error_count}/{frame_count}"
+                f"High error rate: {error_count}/{frame_count}",
             )
 
             print(f"\n✅ PASS: System stable over 10-minute marathon")
@@ -195,11 +194,11 @@ class TestSystemStressTests(unittest.TestCase):
         from detect.config import DetectorConfig, FilterConfig
         import numpy as np
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print(" " * 20 + "HIGH FRAME RATE STRESS TEST")
-        print("="*70)
+        print("=" * 70)
         print("Simulating 120 FPS input to test backpressure handling.")
-        print("="*70)
+        print("=" * 70)
 
         # Create detector
         filter_config = FilterConfig()
@@ -237,7 +236,7 @@ class TestSystemStressTests(unittest.TestCase):
                 t_received_monotonic_ns=timestamp,
                 width=1280,
                 height=720,
-                camera_id="high_fps_test"
+                camera_id="high_fps_test",
             )
 
             try:
@@ -254,9 +253,11 @@ class TestSystemStressTests(unittest.TestCase):
                 elapsed = time.time() - start_time
                 actual_fps = frame_count / elapsed
                 drop_rate = dropped_frames / (frame_count + dropped_frames) * 100
-                print(f"  [{elapsed:>5.0f}s] Sent: {frame_count:>6,} frames | "
-                      f"Dropped: {dropped_frames:>4} ({drop_rate:.1f}%) | "
-                      f"Actual: {actual_fps:.1f} FPS")
+                print(
+                    f"  [{elapsed:>5.0f}s] Sent: {frame_count:>6,} frames | "
+                    f"Dropped: {dropped_frames:>4} ({drop_rate:.1f}%) | "
+                    f"Actual: {actual_fps:.1f} FPS"
+                )
 
         # Final check
         elapsed = time.time() - start_time
@@ -273,18 +274,15 @@ class TestSystemStressTests(unittest.TestCase):
         print(f"  Frames Dropped: {dropped_frames}")
         print(f"  Drop Rate: {dropped_frames/(frame_count+dropped_frames)*100:.2f}%")
         print(f"  Actual FPS: {frame_count/elapsed:.1f}")
-        print(f"\n  Memory: {initial_memory:.1f} MB → {final_memory:.1f} MB "
-              f"(+{final_memory-initial_memory:.1f} MB)")
+        print(
+            f"\n  Memory: {initial_memory:.1f} MB → {final_memory:.1f} MB " f"(+{final_memory-initial_memory:.1f} MB)"
+        )
 
         pool.stop()
 
         # System should handle backpressure gracefully
         memory_growth_pct = (final_memory - initial_memory) / initial_memory * 100
-        self.assertLess(
-            memory_growth_pct,
-            25.0,
-            f"Memory grew {memory_growth_pct:.1f}% under high frame rate"
-        )
+        self.assertLess(memory_growth_pct, 25.0, f"Memory grew {memory_growth_pct:.1f}% under high frame rate")
 
         print(f"\n✅ PASS: System handles high frame rate with backpressure")
 
@@ -294,11 +292,11 @@ class TestSystemStressTests(unittest.TestCase):
         from app.config import AppConfig
         import numpy as np
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print(" " * 20 + "MULTI-SESSION MARATHON TEST")
-        print("="*70)
+        print("=" * 70)
         print("Recording 50 sessions back-to-back to test session lifecycle.")
-        print("="*70)
+        print("=" * 70)
 
         config = AppConfig()
         config.video_fps = 60
@@ -320,9 +318,7 @@ class TestSystemStressTests(unittest.TestCase):
 
             # Start session
             session_dir, _ = recorder.start_session(
-                session_name=f"marathon_{session_num:03d}",
-                pitch_id=f"pitch_{session_num:03d}",
-                mode="test"
+                session_name=f"marathon_{session_num:03d}", pitch_id=f"pitch_{session_num:03d}", mode="test"
             )
 
             # Record frames
@@ -341,8 +337,10 @@ class TestSystemStressTests(unittest.TestCase):
                 current_memory = self.get_memory_mb()
                 growth = current_memory - initial_memory
                 growth_pct = (growth / initial_memory) * 100
-                print(f"  Session {session_num+1:>2}/{num_sessions}: "
-                      f"{current_memory:>7.1f} MB (+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)")
+                print(
+                    f"  Session {session_num+1:>2}/{num_sessions}: "
+                    f"{current_memory:>7.1f} MB (+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)"
+                )
 
         # Final check
         gc.collect()
@@ -354,16 +352,14 @@ class TestSystemStressTests(unittest.TestCase):
         print(f"{'='*70}")
         print(f"  Sessions: {num_sessions}")
         print(f"  Total Frames: {num_sessions * frames_per_session * 2:,}")
-        print(f"  Memory: {initial_memory:.1f} MB → {final_memory:.1f} MB "
-              f"(+{final_memory-initial_memory:.1f} MB, "
-              f"+{(final_memory-initial_memory)/initial_memory*100:.1f}%)")
+        print(
+            f"  Memory: {initial_memory:.1f} MB → {final_memory:.1f} MB "
+            f"(+{final_memory-initial_memory:.1f} MB, "
+            f"+{(final_memory-initial_memory)/initial_memory*100:.1f}%)"
+        )
 
         memory_growth_pct = (final_memory - initial_memory) / initial_memory * 100
-        self.assertLess(
-            memory_growth_pct,
-            25.0,
-            f"Memory grew {memory_growth_pct:.1f}% after {num_sessions} sessions"
-        )
+        self.assertLess(memory_growth_pct, 25.0, f"Memory grew {memory_growth_pct:.1f}% after {num_sessions} sessions")
 
         print(f"\n✅ PASS: System stable across {num_sessions} sessions")
 
@@ -375,11 +371,11 @@ class TestSystemStressTests(unittest.TestCase):
         from detect.config import DetectorConfig, FilterConfig
         import numpy as np
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print(" " * 20 + "CONCURRENT POOLS STRESS TEST")
-        print("="*70)
+        print("=" * 70)
         print("Running 5 detection pools simultaneously.")
-        print("="*70)
+        print("=" * 70)
 
         gc.collect()
         initial_memory = self.get_memory_mb()
@@ -418,7 +414,7 @@ class TestSystemStressTests(unittest.TestCase):
                 t_received_monotonic_ns=timestamp,
                 width=640,
                 height=480,
-                camera_id="concurrent_test"
+                camera_id="concurrent_test",
             )
 
             # Send to all pools
@@ -456,19 +452,11 @@ class TestSystemStressTests(unittest.TestCase):
         print(f"\nFrames processed per pool: {[f'{c:,}' for c in frame_counts]}")
 
         # Threads should return to near-initial
-        self.assertLessEqual(
-            final_threads - initial_threads,
-            10,
-            f"Thread leak: {initial_threads} → {final_threads}"
-        )
+        self.assertLessEqual(final_threads - initial_threads, 10, f"Thread leak: {initial_threads} → {final_threads}")
 
         # Memory should be reasonable
         memory_growth_pct = (final_memory - initial_memory) / initial_memory * 100
-        self.assertLess(
-            memory_growth_pct,
-            30.0,
-            f"High memory growth: {memory_growth_pct:.1f}%"
-        )
+        self.assertLess(memory_growth_pct, 30.0, f"High memory growth: {memory_growth_pct:.1f}%")
 
         print(f"\n✅ PASS: Concurrent pools handled successfully")
 
@@ -476,11 +464,11 @@ class TestSystemStressTests(unittest.TestCase):
         """Test system behavior approaching resource limits."""
         import numpy as np
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print(" " * 20 + "SYSTEM RESOURCE LIMITS TEST")
-        print("="*70)
+        print("=" * 70)
         print("Testing behavior as system approaches resource limits.")
-        print("="*70)
+        print("=" * 70)
 
         gc.collect()
         initial_memory = self.get_memory_mb()
@@ -501,9 +489,11 @@ class TestSystemStressTests(unittest.TestCase):
                 large_arrays.append(arr)
 
                 current_memory = self.get_memory_mb()
-                print(f"  Array {i+1:>2}/{max_arrays}: "
-                      f"Memory = {current_memory:>8.1f} MB "
-                      f"(+{current_memory-initial_memory:>6.1f} MB)")
+                print(
+                    f"  Array {i+1:>2}/{max_arrays}: "
+                    f"Memory = {current_memory:>8.1f} MB "
+                    f"(+{current_memory-initial_memory:>6.1f} MB)"
+                )
 
                 # Check system memory
                 system_memory = psutil.virtual_memory()
@@ -544,7 +534,7 @@ class TestSystemStressTests(unittest.TestCase):
                     t_received_monotonic_ns=timestamp,
                     width=640,
                     height=480,
-                    camera_id="limit_test"
+                    camera_id="limit_test",
                 )
                 pool.enqueue_frame("left", frame)
             except Exception as e:

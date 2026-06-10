@@ -10,10 +10,7 @@ class TestAnomalyDetection:
 
     def test_no_anomalies_normal_pitches(self):
         """Test that normal pitches don't trigger anomalies."""
-        pitches = [
-            {'pitch_id': f'p{i}', 'speed_mph': 85.0 + i * 0.5} 
-            for i in range(10)
-        ]
+        pitches = [{"pitch_id": f"p{i}", "speed_mph": 85.0 + i * 0.5} for i in range(10)]
 
         anomalies = detect_anomalies(pitches)
 
@@ -23,53 +20,49 @@ class TestAnomalyDetection:
 
     def test_speed_outlier_detection_high(self):
         """Test detection of unusually fast pitch."""
-        pitches = [
-            {'pitch_id': f'p{i}', 'speed_mph': 85.0}
-            for i in range(10)
-        ]
-        pitches.append({'pitch_id': 'outlier', 'speed_mph': 105.0})  # Way too fast
+        pitches = [{"pitch_id": f"p{i}", "speed_mph": 85.0} for i in range(10)]
+        pitches.append({"pitch_id": "outlier", "speed_mph": 105.0})  # Way too fast
 
         anomalies = detect_anomalies(pitches)
 
         speed_anomalies = [a for a in anomalies if a.anomaly_type == "speed_outlier"]
         assert len(speed_anomalies) > 0
-        assert speed_anomalies[0].pitch_id == 'outlier'
+        assert speed_anomalies[0].pitch_id == "outlier"
         assert speed_anomalies[0].severity in ["medium", "high"]
 
     def test_speed_outlier_detection_low(self):
         """Test detection of unusually slow pitch."""
-        pitches = [
-            {'pitch_id': f'p{i}', 'speed_mph': 85.0}
-            for i in range(10)
-        ]
-        pitches.append({'pitch_id': 'outlier', 'speed_mph': 50.0})  # Way too slow
+        pitches = [{"pitch_id": f"p{i}", "speed_mph": 85.0} for i in range(10)]
+        pitches.append({"pitch_id": "outlier", "speed_mph": 50.0})  # Way too slow
 
         anomalies = detect_anomalies(pitches)
 
         speed_anomalies = [a for a in anomalies if a.anomaly_type == "speed_outlier"]
         assert len(speed_anomalies) > 0
-        assert speed_anomalies[0].pitch_id == 'outlier'
+        assert speed_anomalies[0].pitch_id == "outlier"
 
     def test_trajectory_quality_high_rmse(self):
         """Test detection of poor trajectory quality (high RMSE)."""
         pitches = [
             {
-                'pitch_id': f'p{i}',
-                'speed_mph': 85.0,
-                'trajectory_expected_error_ft': 0.2,
-                'trajectory_confidence': 0.9,
-                'sample_count': 20
+                "pitch_id": f"p{i}",
+                "speed_mph": 85.0,
+                "trajectory_expected_error_ft": 0.2,
+                "trajectory_confidence": 0.9,
+                "sample_count": 20,
             }
             for i in range(5)
         ]
         # Add one with high RMSE
-        pitches.append({
-            'pitch_id': 'bad_traj',
-            'speed_mph': 85.0,
-            'trajectory_expected_error_ft': 1.5,  # High error
-            'trajectory_confidence': 0.9,
-            'sample_count': 20
-        })
+        pitches.append(
+            {
+                "pitch_id": "bad_traj",
+                "speed_mph": 85.0,
+                "trajectory_expected_error_ft": 1.5,  # High error
+                "trajectory_confidence": 0.9,
+                "sample_count": 20,
+            }
+        )
 
         anomalies = detect_anomalies(pitches)
 
@@ -82,22 +75,24 @@ class TestAnomalyDetection:
         """Test detection of low inlier ratio."""
         pitches = [
             {
-                'pitch_id': f'p{i}',
-                'speed_mph': 85.0,
-                'trajectory_expected_error_ft': 0.2,
-                'trajectory_confidence': 0.9,
-                'sample_count': 20
+                "pitch_id": f"p{i}",
+                "speed_mph": 85.0,
+                "trajectory_expected_error_ft": 0.2,
+                "trajectory_confidence": 0.9,
+                "sample_count": 20,
             }
             for i in range(5)
         ]
         # Add one with low inlier ratio
-        pitches.append({
-            'pitch_id': 'bad_inlier',
-            'speed_mph': 85.0,
-            'trajectory_expected_error_ft': 0.2,
-            'trajectory_confidence': 0.5,  # Low inlier ratio
-            'sample_count': 20
-        })
+        pitches.append(
+            {
+                "pitch_id": "bad_inlier",
+                "speed_mph": 85.0,
+                "trajectory_expected_error_ft": 0.2,
+                "trajectory_confidence": 0.5,  # Low inlier ratio
+                "sample_count": 20,
+            }
+        )
 
         anomalies = detect_anomalies(pitches)
 
@@ -109,22 +104,24 @@ class TestAnomalyDetection:
         """Test detection of insufficient sample count."""
         pitches = [
             {
-                'pitch_id': f'p{i}',
-                'speed_mph': 85.0,
-                'trajectory_expected_error_ft': 0.2,
-                'trajectory_confidence': 0.9,
-                'sample_count': 20
+                "pitch_id": f"p{i}",
+                "speed_mph": 85.0,
+                "trajectory_expected_error_ft": 0.2,
+                "trajectory_confidence": 0.9,
+                "sample_count": 20,
             }
             for i in range(5)
         ]
         # Add one with too few samples
-        pitches.append({
-            'pitch_id': 'bad_samples',
-            'speed_mph': 85.0,
-            'trajectory_expected_error_ft': 0.2,
-            'trajectory_confidence': 0.9,
-            'sample_count': 5  # Too few samples
-        })
+        pitches.append(
+            {
+                "pitch_id": "bad_samples",
+                "speed_mph": 85.0,
+                "trajectory_expected_error_ft": 0.2,
+                "trajectory_confidence": 0.9,
+                "sample_count": 5,  # Too few samples
+            }
+        )
 
         anomalies = detect_anomalies(pitches)
 
@@ -134,10 +131,7 @@ class TestAnomalyDetection:
 
     def test_insufficient_data(self):
         """Test that insufficient data returns no anomalies."""
-        pitches = [
-            {'pitch_id': 'p1', 'speed_mph': 85.0},
-            {'pitch_id': 'p2', 'speed_mph': 90.0}
-        ]
+        pitches = [{"pitch_id": "p1", "speed_mph": 85.0}, {"pitch_id": "p2", "speed_mph": 90.0}]
 
         anomalies = detect_anomalies(pitches)
 
@@ -147,11 +141,11 @@ class TestAnomalyDetection:
     def test_missing_speed_data(self):
         """Test handling of missing speed data."""
         pitches = [
-            {'pitch_id': 'p1'},  # No speed
-            {'pitch_id': 'p2'},
-            {'pitch_id': 'p3'},
-            {'pitch_id': 'p4'},
-            {'pitch_id': 'p5'}
+            {"pitch_id": "p1"},  # No speed
+            {"pitch_id": "p2"},
+            {"pitch_id": "p3"},
+            {"pitch_id": "p4"},
+            {"pitch_id": "p5"},
         ]
 
         anomalies = detect_anomalies(pitches)

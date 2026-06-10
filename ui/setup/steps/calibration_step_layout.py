@@ -25,9 +25,7 @@ class CalibrationStepLayoutMixin:
         apply_standard_layout(layout)
 
         # Simple instruction at top
-        self._instruction_label = QtWidgets.QLabel(
-            "<b style='font-size: 14pt;'>📷 Capture 10+ ChArUco Board Poses</b>"
-        )
+        self._instruction_label = QtWidgets.QLabel("<b style='font-size: 14pt;'>📷 Capture 10+ ChArUco Board Poses</b>")
         self._instruction_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._instruction_label.setText("Capture 10+ ChArUco Board Poses")
         style_message_panel(self._instruction_label, "info")

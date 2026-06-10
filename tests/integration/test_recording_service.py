@@ -14,17 +14,14 @@ import pytest
 import cv2
 
 from app.events.event_bus import EventBus
-from app.events.event_types import (
-    FrameCapturedEvent,
-    ObservationDetectedEvent,
-    PitchStartEvent
-)
+from app.events.event_types import FrameCapturedEvent, ObservationDetectedEvent, PitchStartEvent
 from app.services.recording import RecordingServiceImpl
 from configs.settings import AppConfig, load_config
 from contracts import Frame, StereoObservation
 
 
 # Test fixtures
+
 
 def has_video_writer_codec() -> bool:
     """Return whether this environment can open an OpenCV video writer."""
@@ -49,6 +46,7 @@ requires_video_codec = pytest.mark.skipif(
     reason="OpenCV cannot open any configured video writer codec in this environment",
 )
 
+
 def create_test_config() -> AppConfig:
     """Create test configuration from default.yaml."""
     config_path = Path(__file__).parent.parent.parent / "configs" / "default.yaml"
@@ -64,7 +62,7 @@ def create_test_frame(camera_id: str, frame_index: int, timestamp_ns: int) -> Fr
         image=np.zeros((480, 640, 3), dtype=np.uint8),
         width=640,
         height=480,
-        pixfmt="BGR3"
+        pixfmt="BGR3",
     )
 
 
@@ -78,7 +76,7 @@ def create_test_observation(timestamp_ns: int) -> StereoObservation:
         Y=2.0,
         Z=5.0,
         quality=0.95,
-        confidence=0.9
+        confidence=0.9,
     )
 
 
@@ -273,14 +271,10 @@ class TestRecordingServiceEventBusIntegration:
             # Publish FrameCapturedEvent
             for i in range(5):
                 event_left = FrameCapturedEvent(
-                    camera_id="left",
-                    frame=create_test_frame("left", i, i * 1000000),
-                    timestamp_ns=i * 1000000
+                    camera_id="left", frame=create_test_frame("left", i, i * 1000000), timestamp_ns=i * 1000000
                 )
                 event_right = FrameCapturedEvent(
-                    camera_id="right",
-                    frame=create_test_frame("right", i, i * 1000000),
-                    timestamp_ns=i * 1000000
+                    camera_id="right", frame=create_test_frame("right", i, i * 1000000), timestamp_ns=i * 1000000
                 )
                 bus.publish(event_left)
                 bus.publish(event_right)
@@ -308,11 +302,7 @@ class TestRecordingServiceEventBusIntegration:
             service.start_session("test_session", config)
 
             # Publish PitchStartEvent
-            event = PitchStartEvent(
-                pitch_id="pitch_001",
-                pitch_index=1,
-                timestamp_ns=1000000000
-            )
+            event = PitchStartEvent(pitch_id="pitch_001", pitch_index=1, timestamp_ns=1000000000)
             bus.publish(event)
 
             # Verify pitch recording started
@@ -339,11 +329,7 @@ class TestRecordingServiceEventBusIntegration:
 
             # Publish ObservationDetectedEvent
             obs = create_test_observation(1000000000)
-            event = ObservationDetectedEvent(
-                observation=obs,
-                timestamp_ns=1000000000,
-                confidence=0.9
-            )
+            event = ObservationDetectedEvent(observation=obs, timestamp_ns=1000000000, confidence=0.9)
             bus.publish(event)
 
             # Stop pitch and session

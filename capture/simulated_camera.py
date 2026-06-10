@@ -70,6 +70,7 @@ class SimulatedCamera(CameraDevice):
         # Apply 180° rotation if camera mounted upside down
         if self._flip_180:
             import cv2
+
             image = cv2.rotate(image, cv2.ROTATE_180)
 
         return Frame(

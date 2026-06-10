@@ -358,12 +358,8 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._device_left = left_combo
         self._device_right = right_combo
         self._sync_device_dropdowns()
-        left_combo.currentTextChanged.connect(
-            lambda text: self._parent._left_input.setCurrentText(text)
-        )
-        right_combo.currentTextChanged.connect(
-            lambda text: self._parent._right_input.setCurrentText(text)
-        )
+        left_combo.currentTextChanged.connect(lambda text: self._parent._left_input.setCurrentText(text))
+        right_combo.currentTextChanged.connect(lambda text: self._parent._right_input.setCurrentText(text))
         form = QtWidgets.QFormLayout()
         form.addRow("Left camera", left_combo)
         form.addRow("Right camera", right_combo)
@@ -467,9 +463,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         error_scroll.setVisible(False)  # Hidden by default
         self._fiducial_error_scroll = error_scroll
 
-        hint = QtWidgets.QLabel(
-            f"Required IDs: plate={plate_id}, rubber={rubber_id} (AprilTag 36h11, 100mm)."
-        )
+        hint = QtWidgets.QLabel(f"Required IDs: plate={plate_id}, rubber={rubber_id} (AprilTag 36h11, 100mm).")
         hint.setWordWrap(True)
         form = QtWidgets.QFormLayout()
         form.addRow(hint)
@@ -487,9 +481,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         widget = QtWidgets.QGroupBox("Lane Helper")
         propose_button = QtWidgets.QPushButton("Propose Right Lane")
         propose_button.clicked.connect(self._parent._propose_right_lane)
-        hint = QtWidgets.QLabel(
-            "Draw the lane on the left preview, then propose the right lane."
-        )
+        hint = QtWidgets.QLabel("Draw the lane on the left preview, then propose the right lane.")
         hint.setWordWrap(True)
         form = QtWidgets.QFormLayout()
         form.addRow(hint)
@@ -550,7 +542,9 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
             self._baseline_inches_label.setText(f"({baseline_inches:.1f} inches)")
 
         # Show feedback
-        self._parent._status_label.setText(f"Baseline updated to {value_ft:.3f} ft ({baseline_inches:.1f} inches). Run calibration to refine.")
+        self._parent._status_label.setText(
+            f"Baseline updated to {value_ft:.3f} ft ({baseline_inches:.1f} inches). Run calibration to refine."
+        )
 
     def _update_live_status(self) -> None:
         """Update live status indicators (called by timer)."""
@@ -593,10 +587,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         Returns:
             True if both lane ROIs set
         """
-        return (
-            self._parent._lane_rect is not None
-            and self._parent._lane_rect_right is not None
-        )
+        return self._parent._lane_rect is not None and self._parent._lane_rect_right is not None
 
     def _validate_plate_roi(self) -> bool:
         """Validate that plate ROI is set.

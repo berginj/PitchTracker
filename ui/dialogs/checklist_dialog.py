@@ -33,10 +33,7 @@ class ChecklistDialog(QtWidgets.QDialog):
         apply_standard_layout(layout)
 
         # Header
-        header = build_dialog_header(
-            "Pre-Recording Checklist",
-            "Verify all items before starting recording"
-        )
+        header = build_dialog_header("Pre-Recording Checklist", "Verify all items before starting recording")
         layout.addWidget(header)
 
         # Checklist content

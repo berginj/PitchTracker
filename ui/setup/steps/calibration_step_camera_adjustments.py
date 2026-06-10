@@ -170,8 +170,7 @@ class CalibrationStepCameraAdjustmentsMixin:
                 show_message_dialog(
                     self,
                     "Frame Capture Failed",
-                    "Could not capture frames from cameras.\n\n"
-                    "Please ensure both cameras are working properly.",
+                    "Could not capture frames from cameras.\n\n" "Please ensure both cameras are working properly.",
                     tone="warning",
                 )
                 return
@@ -271,7 +270,6 @@ class CalibrationStepCameraAdjustmentsMixin:
             show_message_dialog(
                 self,
                 "Auto-Swap Error",
-                f"Error during auto-swap detection:\n{str(e)}\n\n"
-                "Please try manual swap if needed.",
+                f"Error during auto-swap detection:\n{str(e)}\n\n" "Please try manual swap if needed.",
                 tone="error",
             )

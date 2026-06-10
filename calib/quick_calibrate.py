@@ -67,20 +67,11 @@ def _collect_corners(
     try:
         # Try newer API first (OpenCV 4.7+)
         board = cv2.aruco.CharucoBoard(
-            (pattern_size[0], pattern_size[1]),
-            square_mm,
-            square_mm * 0.75,  # Marker size is 75% of square
-            aruco_dict
+            (pattern_size[0], pattern_size[1]), square_mm, square_mm * 0.75, aruco_dict  # Marker size is 75% of square
         )
     except (AttributeError, TypeError):
         # Fall back to older API
-        board = cv2.aruco.CharucoBoard_create(
-            pattern_size[0],
-            pattern_size[1],
-            square_mm,
-            square_mm * 0.75,
-            aruco_dict
-        )
+        board = cv2.aruco.CharucoBoard_create(pattern_size[0], pattern_size[1], square_mm, square_mm * 0.75, aruco_dict)
 
     # Get detector parameters
     try:
@@ -188,7 +179,7 @@ def _collect_corners(
                 # Create object points for plain checkerboard
                 # Object points are just a grid in 3D space (z=0)
                 objp = np.zeros((board_size[0] * board_size[1], 3), np.float32)
-                objp[:, :2] = np.mgrid[0:board_size[0], 0:board_size[1]].T.reshape(-1, 2)
+                objp[:, :2] = np.mgrid[0 : board_size[0], 0 : board_size[1]].T.reshape(-1, 2)
                 objp *= square_mm  # Scale by square size
 
                 detections.append(
@@ -242,15 +233,17 @@ def _match_stereo_pairs(
             + ("..." if len(rejected_names) > 5 else "")
         )
         for i in sorted(left_only):
-            pair_diagnostics.append({
-                "index": i,
-                "status": "rejected",
-                "reason": "right_detection_failed",
-                "left_image": left_by_index[i].path.name,
-                "right_image": None,
-                "left_corners": int(len(left_by_index[i].imgpoints)),
-                "right_corners": 0,
-            })
+            pair_diagnostics.append(
+                {
+                    "index": i,
+                    "status": "rejected",
+                    "reason": "right_detection_failed",
+                    "left_image": left_by_index[i].path.name,
+                    "right_image": None,
+                    "left_corners": int(len(left_by_index[i].imgpoints)),
+                    "right_corners": 0,
+                }
+            )
 
     if right_only:
         rejected_names = [right_by_index[i].path.name for i in sorted(right_only)]
@@ -259,15 +252,17 @@ def _match_stereo_pairs(
             + ("..." if len(rejected_names) > 5 else "")
         )
         for i in sorted(right_only):
-            pair_diagnostics.append({
-                "index": i,
-                "status": "rejected",
-                "reason": "left_detection_failed",
-                "left_image": None,
-                "right_image": right_by_index[i].path.name,
-                "left_corners": 0,
-                "right_corners": int(len(right_by_index[i].imgpoints)),
-            })
+            pair_diagnostics.append(
+                {
+                    "index": i,
+                    "status": "rejected",
+                    "reason": "left_detection_failed",
+                    "left_image": None,
+                    "right_image": right_by_index[i].path.name,
+                    "left_corners": 0,
+                    "right_corners": int(len(right_by_index[i].imgpoints)),
+                }
+            )
 
     # Build matched lists
     matched_obj = []
@@ -289,9 +284,7 @@ def _match_stereo_pairs(
         if left.kind == "charuco":
             if left.corner_ids is None or right.corner_ids is None:
                 reason = "missing_charuco_corner_ids"
-                rejection_report.append(
-                    f"Rejected pair {left.path.name}/{right.path.name}: missing ChArUco corner IDs"
-                )
+                rejection_report.append(f"Rejected pair {left.path.name}/{right.path.name}: missing ChArUco corner IDs")
                 pair_diagnostics.append(_pair_diag(idx, left, right, "rejected", reason, 0))
                 continue
             left_id_to_pos = {int(corner_id): pos for pos, corner_id in enumerate(left.corner_ids)}
@@ -323,7 +316,9 @@ def _match_stereo_pairs(
         matched_obj.append(left.objpoints)
         matched_left.append(left.imgpoints)
         matched_right.append(right.imgpoints)
-        pair_diagnostics.append(_pair_diag(idx, left, right, "accepted", "checkerboard_index_order", len(left.imgpoints)))
+        pair_diagnostics.append(
+            _pair_diag(idx, left, right, "accepted", "checkerboard_index_order", len(left.imgpoints))
+        )
 
     return matched_obj, matched_left, matched_right, rejection_report, pair_diagnostics
 
@@ -377,17 +372,17 @@ def _compute_per_image_errors(
             flags=cv2.SOLVEPNP_ITERATIVE,
         )
         if not ok:
-            errors.append({
-                "left_rms": float("inf"),
-                "right_rms": float("inf"),
-                "combined_rms": float("inf"),
-            })
+            errors.append(
+                {
+                    "left_rms": float("inf"),
+                    "right_rms": float("inf"),
+                    "combined_rms": float("inf"),
+                }
+            )
             continue
 
         # Project to left camera
-        left_projected, _ = cv2.projectPoints(
-            obj_pts, rvec_left, tvec_left, mtx_left, dist_left
-        )
+        left_projected, _ = cv2.projectPoints(obj_pts, rvec_left, tvec_left, mtx_left, dist_left)
         left_error = np.sqrt(np.mean((left_pts_2d - left_projected.reshape(-1, 2)) ** 2))
 
         # Project to right camera by transforming the board pose from left to right.
@@ -395,18 +390,18 @@ def _compute_per_image_errors(
         rmat_right = R @ rmat_left
         tvec_right = R @ tvec_left + T
         rvec_right, _ = cv2.Rodrigues(rmat_right)
-        right_projected, _ = cv2.projectPoints(
-            obj_pts, rvec_right, tvec_right, mtx_right, dist_right
-        )
+        right_projected, _ = cv2.projectPoints(obj_pts, rvec_right, tvec_right, mtx_right, dist_right)
         right_error = np.sqrt(np.mean((right_pts_2d - right_projected.reshape(-1, 2)) ** 2))
 
         combined_error = np.sqrt(left_error**2 + right_error**2)
 
-        errors.append({
-            "left_rms": float(left_error),
-            "right_rms": float(right_error),
-            "combined_rms": float(combined_error),
-        })
+        errors.append(
+            {
+                "left_rms": float(left_error),
+                "right_rms": float(right_error),
+                "combined_rms": float(combined_error),
+            }
+        )
 
     return errors
 
@@ -453,12 +448,14 @@ def _rate_calibration_quality(rms_error: float, num_images: int) -> dict:
 
     # Add specific recommendations based on metrics
     if rms_error > 1.0:
-        recommendations.extend([
-            "• Hold ChArUco board steadier during capture",
-            "• Ensure ChArUco board is perfectly flat (no warping)",
-            "• Check camera focus is sharp",
-            "• Improve lighting (even, no shadows or glare)",
-        ])
+        recommendations.extend(
+            [
+                "• Hold ChArUco board steadier during capture",
+                "• Ensure ChArUco board is perfectly flat (no warping)",
+                "• Check camera focus is sharp",
+                "• Improve lighting (even, no shadows or glare)",
+            ]
+        )
 
     if num_images < MIN_IMAGES_ACCEPTABLE:
         recommendations.append(f"⚠️  Critical: Need at least {MIN_IMAGES_ACCEPTABLE} images (have {num_images})")
@@ -467,12 +464,14 @@ def _rate_calibration_quality(rms_error: float, num_images: int) -> dict:
         recommendations.append(f"• Capture {MIN_IMAGES_GOOD - num_images} more images for better quality")
 
     if rms_error > 2.0:
-        recommendations.extend([
-            "• Try recalibrating from scratch",
-            "• Verify ChArUco board dimensions are correct (measure square size)",
-            "• Check for lens distortion or damage",
-            "• Ensure ChArUco board pattern size matches actual board (count squares)",
-        ])
+        recommendations.extend(
+            [
+                "• Try recalibrating from scratch",
+                "• Verify ChArUco board dimensions are correct (measure square size)",
+                "• Check for lens distortion or damage",
+                "• Ensure ChArUco board pattern size matches actual board (count squares)",
+            ]
+        )
 
     # Add positional coverage recommendations if borderline
     if MIN_IMAGES_ACCEPTABLE <= num_images < MIN_IMAGES_GOOD or rms_error > GOOD_RMS:
@@ -548,9 +547,7 @@ def quick_calibrate(
     print(f"\nMatched pairs: {num_pairs}/{len(left_paths)}")
 
     if num_pairs == 0:
-        raise RuntimeError(
-            "No matching image pairs found. Ensure ChArUco board is visible in BOTH cameras."
-        )
+        raise RuntimeError("No matching image pairs found. Ensure ChArUco board is visible in BOTH cameras.")
 
     if num_pairs < MIN_PAIRS:
         raise RuntimeError(
@@ -575,11 +572,7 @@ def quick_calibrate(
     cx = img_size[0] / 2.0
     cy = img_size[1] / 2.0
 
-    mtx_left_init = np.array([
-        [fx_init, 0, cx],
-        [0, fx_init, cy],
-        [0, 0, 1]
-    ], dtype=np.float64)
+    mtx_left_init = np.array([[fx_init, 0, cx], [0, fx_init, cy], [0, 0, 1]], dtype=np.float64)
 
     # Zero distortion
     dist_left = np.zeros(5, dtype=np.float64)
@@ -592,12 +585,16 @@ def quick_calibrate(
         mtx_left_init,
         dist_left,
         flags=(
-            cv2.CALIB_USE_INTRINSIC_GUESS |
-            cv2.CALIB_FIX_PRINCIPAL_POINT |
-            cv2.CALIB_FIX_K1 | cv2.CALIB_FIX_K2 | cv2.CALIB_FIX_K3 |
-            cv2.CALIB_FIX_K4 | cv2.CALIB_FIX_K5 | cv2.CALIB_FIX_K6 |
-            cv2.CALIB_ZERO_TANGENT_DIST
-        )
+            cv2.CALIB_USE_INTRINSIC_GUESS
+            | cv2.CALIB_FIX_PRINCIPAL_POINT
+            | cv2.CALIB_FIX_K1
+            | cv2.CALIB_FIX_K2
+            | cv2.CALIB_FIX_K3
+            | cv2.CALIB_FIX_K4
+            | cv2.CALIB_FIX_K5
+            | cv2.CALIB_FIX_K6
+            | cv2.CALIB_ZERO_TANGENT_DIST
+        ),
     )
     print("✓ Left camera calibrated (quick mode)")
 
@@ -614,12 +611,16 @@ def quick_calibrate(
         mtx_right_init,
         dist_right,
         flags=(
-            cv2.CALIB_USE_INTRINSIC_GUESS |
-            cv2.CALIB_FIX_PRINCIPAL_POINT |
-            cv2.CALIB_FIX_K1 | cv2.CALIB_FIX_K2 | cv2.CALIB_FIX_K3 |
-            cv2.CALIB_FIX_K4 | cv2.CALIB_FIX_K5 | cv2.CALIB_FIX_K6 |
-            cv2.CALIB_ZERO_TANGENT_DIST
-        )
+            cv2.CALIB_USE_INTRINSIC_GUESS
+            | cv2.CALIB_FIX_PRINCIPAL_POINT
+            | cv2.CALIB_FIX_K1
+            | cv2.CALIB_FIX_K2
+            | cv2.CALIB_FIX_K3
+            | cv2.CALIB_FIX_K4
+            | cv2.CALIB_FIX_K5
+            | cv2.CALIB_FIX_K6
+            | cv2.CALIB_ZERO_TANGENT_DIST
+        ),
     )
     print("✓ Right camera calibrated (quick mode)")
 
@@ -647,9 +648,7 @@ def quick_calibrate(
 
     # Compute per-image errors
     per_image_errors = _compute_per_image_errors(
-        objpoints_scaled, left_imgpoints, right_imgpoints,
-        mtx_left, dist_left, mtx_right, dist_right,
-        R, T
+        objpoints_scaled, left_imgpoints, right_imgpoints, mtx_left, dist_left, mtx_right, dist_right, R, T
     )
 
     # Quality rating with adjusted thresholds for quick mode
@@ -658,9 +657,9 @@ def quick_calibrate(
     # Print quality assessment
     print(f"\n{quality['emoji']} Quick Calibration Quality: {quality['rating']}")
     print(f"   {quality['description']}")
-    if quality['recommendations']:
+    if quality["recommendations"]:
         print("\nRecommendations:")
-        for rec in quality['recommendations']:
+        for rec in quality["recommendations"]:
             print(f"   {rec}")
 
     return {
@@ -813,15 +812,11 @@ def _calibrate(
     objpoints_scaled = objpoints
 
     print("Calibrating left camera intrinsics...", flush=True)
-    _, mtx_left, dist_left, _, _ = cv2.calibrateCamera(
-        objpoints_scaled, left_imgpoints, img_size, None, None
-    )
+    _, mtx_left, dist_left, _, _ = cv2.calibrateCamera(objpoints_scaled, left_imgpoints, img_size, None, None)
     print("✓ Left camera calibrated")
 
     print("Calibrating right camera intrinsics...", flush=True)
-    _, mtx_right, dist_right, _, _ = cv2.calibrateCamera(
-        objpoints_scaled, right_imgpoints, img_size, None, None
-    )
+    _, mtx_right, dist_right, _, _ = cv2.calibrateCamera(objpoints_scaled, right_imgpoints, img_size, None, None)
     print("✓ Right camera calibrated")
 
     print("Computing stereo calibration...", flush=True)
@@ -847,9 +842,7 @@ def _calibrate(
     # Compute per-image reprojection errors
     print("Computing per-image reprojection errors...", flush=True)
     per_image_errors = _compute_per_image_errors(
-        objpoints_scaled, left_imgpoints, right_imgpoints,
-        mtx_left, dist_left, mtx_right, dist_right,
-        R, T
+        objpoints_scaled, left_imgpoints, right_imgpoints, mtx_left, dist_left, mtx_right, dist_right, R, T
     )
 
     # Calculate quality rating
@@ -859,9 +852,9 @@ def _calibrate(
     # Print quality assessment
     print(f"\n{quality['emoji']} Calibration Quality: {quality['rating']}")
     print(f"   {quality['description']}")
-    if quality['recommendations']:
+    if quality["recommendations"]:
         print("\nRecommendations:")
-        for rec in quality['recommendations']:
+        for rec in quality["recommendations"]:
             print(f"   {rec}")
 
     # Print summary

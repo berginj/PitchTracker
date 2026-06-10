@@ -8,6 +8,7 @@ import cv2
 
 # Import the quick calibration functions
 import sys
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from calib.quick_calibrate import (
     CornerDetection,
@@ -27,23 +28,12 @@ def create_charuco_board_image(
 
     try:
         # Try newer API first (OpenCV 4.7+)
-        board = cv2.aruco.CharucoBoard(
-            (pattern_size[0], pattern_size[1]),
-            square_mm,
-            square_mm * 0.75,
-            aruco_dict
-        )
+        board = cv2.aruco.CharucoBoard((pattern_size[0], pattern_size[1]), square_mm, square_mm * 0.75, aruco_dict)
         img_size = (pattern_size[0] * square_px, pattern_size[1] * square_px)
         image = board.generateImage(img_size)
     except (AttributeError, TypeError):
         # Fall back to older API
-        board = cv2.aruco.CharucoBoard_create(
-            pattern_size[0],
-            pattern_size[1],
-            square_mm,
-            square_mm * 0.75,
-            aruco_dict
-        )
+        board = cv2.aruco.CharucoBoard_create(pattern_size[0], pattern_size[1], square_mm, square_mm * 0.75, aruco_dict)
         img_size = (pattern_size[0] * square_px, pattern_size[1] * square_px)
         image = board.draw(img_size)
 

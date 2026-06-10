@@ -23,9 +23,7 @@ class LaneRoi:
         for i in range(len(self.polygon)):
             xi, yi = self.polygon[i]
             xj, yj = self.polygon[j]
-            intersects = (yi > y) != (yj > y) and (
-                x < (xj - xi) * (y - yi) / (yj - yi + 1e-9) + xi
-            )
+            intersects = (yi > y) != (yj > y) and (x < (xj - xi) * (y - yi) / (yj - yi + 1e-9) + xi)
             if intersects:
                 inside = not inside
             j = i

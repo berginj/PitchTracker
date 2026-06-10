@@ -60,9 +60,7 @@ def validate_python_version() -> tuple[bool, Optional[str]]:
     current_major = sys.version_info.major
     current_minor = sys.version_info.minor
 
-    if current_major < required_major or (
-        current_major == required_major and current_minor < required_minor
-    ):
+    if current_major < required_major or (current_major == required_major and current_minor < required_minor):
         return False, (
             f"Python {required_major}.{required_minor}+ is required.\n"
             f"Current version: Python {current_major}.{current_minor}\n\n"
@@ -110,7 +108,7 @@ def validate_dependencies() -> tuple[bool, Optional[str]]:
         missing_packages = _find_missing_dependency_packages()
 
         if missing_packages:
-            packages_str = ', '.join(missing_packages)
+            packages_str = ", ".join(missing_packages)
             return False, (
                 f"Missing required packages: {packages_str}\n\n"
                 "Please install dependencies:\n"
@@ -148,8 +146,7 @@ def check_cameras() -> tuple[list[str], list[str]]:
     except Exception as e:
         logger.warning(f"Camera check failed: {e}")
         warnings.append(
-            "Could not check for cameras.\n\n"
-            "This may not be an issue, but verify cameras are connected."
+            "Could not check for cameras.\n\n" "This may not be an issue, but verify cameras are connected."
         )
 
     return warnings, info
@@ -168,8 +165,7 @@ def check_configuration() -> tuple[list[str], list[str]]:
     config_path = Path("configs/default.yaml")
     if not config_path.exists():
         warnings.append(
-            "Configuration file missing: configs/default.yaml\n\n"
-            "Run the Setup Wizard to configure the system."
+            "Configuration file missing: configs/default.yaml\n\n" "Run the Setup Wizard to configure the system."
         )
     else:
         info.append(f"Configuration found: {config_path}")

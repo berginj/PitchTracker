@@ -47,9 +47,7 @@ def main() -> None:
         right_frame = right.read_frame(timeout_ms=50)
         detections = detector.detect(left_frame) + detector.detect(right_frame)
         gated = lane_gate.filter_detections(detections)
-        print(
-            f"frame={left_frame.frame_index} detections={len(detections)} gated={len(gated)}"
-        )
+        print(f"frame={left_frame.frame_index} detections={len(detections)} gated={len(gated)}")
 
     left.close()
     right.close()

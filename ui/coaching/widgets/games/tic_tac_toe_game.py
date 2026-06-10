@@ -18,11 +18,7 @@ if TYPE_CHECKING:
 class TicTacToeGame(BaseGame):
     """3x3 Tic-Tac-Toe game - pitcher vs AI or solo patterns."""
 
-    def __init__(
-        self,
-        game_state_manager: "GameStateManager",
-        parent: Optional[QtWidgets.QWidget] = None
-    ):
+    def __init__(self, game_state_manager: "GameStateManager", parent: Optional[QtWidgets.QWidget] = None):
         """Initialize tic-tac-toe game.
 
         Args:
@@ -31,7 +27,7 @@ class TicTacToeGame(BaseGame):
         """
         super().__init__(game_state_manager, parent)
         self._style_manager = get_style_manager()
-        self._grid = [[None]*3 for _ in range(3)]  # None, 'X', or 'O'
+        self._grid = [[None] * 3 for _ in range(3)]  # None, 'X', or 'O'
         self._wins = 0
         self._losses = 0
         self._build_ui()
@@ -100,11 +96,11 @@ class TicTacToeGame(BaseGame):
                 y = row * cell_height
                 mark = self._grid[row][col]
 
-                if mark == 'X':
+                if mark == "X":
                     painter.setPen(QtGui.QPen(QtGui.QColor(theme.accent_info), 4))
                     painter.drawLine(x + 20, y + 20, x + cell_width - 20, y + cell_height - 20)
                     painter.drawLine(x + cell_width - 20, y + 20, x + 20, y + cell_height - 20)
-                elif mark == 'O':
+                elif mark == "O":
                     painter.setPen(QtGui.QPen(QtGui.QColor(theme.accent_error), 4))
                     painter.drawEllipse(x + 20, y + 20, cell_width - 40, cell_height - 40)
 
@@ -119,11 +115,11 @@ class TicTacToeGame(BaseGame):
 
         # Place X if empty
         if self._grid[row][col] is None:
-            self._grid[row][col] = 'X'
+            self._grid[row][col] = "X"
             self.update()
 
             # Check win
-            if self._check_win('X'):
+            if self._check_win("X"):
                 self._wins += 1
                 self.save_score(self._wins)
                 self._update_score()
@@ -141,10 +137,10 @@ class TicTacToeGame(BaseGame):
         empty_cells = [(r, c) for r in range(3) for c in range(3) if self._grid[r][c] is None]
         if empty_cells:
             row, col = random.choice(empty_cells)
-            self._grid[row][col] = 'O'
+            self._grid[row][col] = "O"
             self.update()
 
-            if self._check_win('O'):
+            if self._check_win("O"):
                 self._losses += 1
                 self._update_score()
                 show_message_dialog(self, "Loss", "AI wins!", tone="warning")
@@ -166,7 +162,7 @@ class TicTacToeGame(BaseGame):
         # Diagonals
         if all(self._grid[i][i] == mark for i in range(3)):
             return True
-        if all(self._grid[i][2-i] == mark for i in range(3)):
+        if all(self._grid[i][2 - i] == mark for i in range(3)):
             return True
         return False
 
@@ -180,7 +176,7 @@ class TicTacToeGame(BaseGame):
 
     def reset_game(self) -> None:
         """Reset game."""
-        self._grid = [[None]*3 for _ in range(3)]
+        self._grid = [[None] * 3 for _ in range(3)]
         self.update()
 
     def get_game_name(self) -> str:

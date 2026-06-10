@@ -6,7 +6,8 @@ from pathlib import Path
 import json
 
 import matplotlib
-matplotlib.use('Agg')  # Non-interactive backend
+
+matplotlib.use("Agg")  # Non-interactive backend
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -22,7 +23,7 @@ def generate_json_report(report: PatternAnalysisReport, output_path: Path) -> No
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         json.dump(report.to_dict(), f, indent=2)
 
 
@@ -31,23 +32,23 @@ def _create_velocity_chart(report: PatternAnalysisReport) -> str:
     fig, ax = plt.subplots(figsize=(8, 5))
 
     # Extract velocity data from classifications
-    velocities = [c.features.get('speed_mph', 0) for c in report.pitch_classifications]
+    velocities = [c.features.get("speed_mph", 0) for c in report.pitch_classifications]
     pitch_numbers = list(range(1, len(velocities) + 1))
 
-    ax.plot(pitch_numbers, velocities, marker='o', linewidth=2, markersize=6)
-    ax.set_xlabel('Pitch Number', fontsize=12)
-    ax.set_ylabel('Velocity (mph)', fontsize=12)
-    ax.set_title('Velocity Analysis', fontsize=14, fontweight='bold')
+    ax.plot(pitch_numbers, velocities, marker="o", linewidth=2, markersize=6)
+    ax.set_xlabel("Pitch Number", fontsize=12)
+    ax.set_ylabel("Velocity (mph)", fontsize=12)
+    ax.set_title("Velocity Analysis", fontsize=14, fontweight="bold")
     ax.grid(True, alpha=0.3)
 
     # Save to base64
     buf = BytesIO()
-    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+    fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
     buf.seek(0)
-    img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+    img_base64 = base64.b64encode(buf.read()).decode("utf-8")
     plt.close(fig)
 
-    return f'data:image/png;base64,{img_base64}'
+    return f"data:image/png;base64,{img_base64}"
 
 
 def _create_movement_chart(report: PatternAnalysisReport) -> str:
@@ -58,37 +59,36 @@ def _create_movement_chart(report: PatternAnalysisReport) -> str:
     pitch_types = {}
     for i, classification in enumerate(report.pitch_classifications):
         pitch_type = classification.heuristic_type
-        run_in = classification.features.get('run_in', 0)
-        rise_in = classification.features.get('rise_in', 0)
+        run_in = classification.features.get("run_in", 0)
+        rise_in = classification.features.get("rise_in", 0)
 
         if pitch_type not in pitch_types:
-            pitch_types[pitch_type] = {'run': [], 'rise': []}
+            pitch_types[pitch_type] = {"run": [], "rise": []}
 
-        pitch_types[pitch_type]['run'].append(run_in)
-        pitch_types[pitch_type]['rise'].append(rise_in)
+        pitch_types[pitch_type]["run"].append(run_in)
+        pitch_types[pitch_type]["rise"].append(rise_in)
 
     # Plot each pitch type with different color
     colors = plt.cm.tab10.colors
     for idx, (pitch_type, data) in enumerate(pitch_types.items()):
-        ax.scatter(data['run'], data['rise'], label=pitch_type,
-                  s=100, alpha=0.6, color=colors[idx % len(colors)])
+        ax.scatter(data["run"], data["rise"], label=pitch_type, s=100, alpha=0.6, color=colors[idx % len(colors)])
 
-    ax.set_xlabel('Horizontal Break (in)', fontsize=12)
-    ax.set_ylabel('Vertical Break (in)', fontsize=12)
-    ax.set_title('Movement Profile', fontsize=14, fontweight='bold')
-    ax.axhline(y=0, color='k', linestyle='--', alpha=0.3)
-    ax.axvline(x=0, color='k', linestyle='--', alpha=0.3)
+    ax.set_xlabel("Horizontal Break (in)", fontsize=12)
+    ax.set_ylabel("Vertical Break (in)", fontsize=12)
+    ax.set_title("Movement Profile", fontsize=14, fontweight="bold")
+    ax.axhline(y=0, color="k", linestyle="--", alpha=0.3)
+    ax.axvline(x=0, color="k", linestyle="--", alpha=0.3)
     ax.legend()
     ax.grid(True, alpha=0.3)
 
     # Save to base64
     buf = BytesIO()
-    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+    fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
     buf.seek(0)
-    img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+    img_base64 = base64.b64encode(buf.read()).decode("utf-8")
     plt.close(fig)
 
-    return f'data:image/png;base64,{img_base64}'
+    return f"data:image/png;base64,{img_base64}"
 
 
 def _create_strike_zone_heatmap(report: PatternAnalysisReport) -> str:
@@ -100,8 +100,8 @@ def _create_strike_zone_heatmap(report: PatternAnalysisReport) -> str:
 
     # Extract zone data from pitch classifications
     for classification in report.pitch_classifications:
-        zone_row = classification.features.get('zone_row', None)
-        zone_col = classification.features.get('zone_col', None)
+        zone_row = classification.features.get("zone_row", None)
+        zone_col = classification.features.get("zone_col", None)
 
         # If zone data is available, increment the corresponding cell
         if zone_row is not None and zone_col is not None:
@@ -111,32 +111,31 @@ def _create_strike_zone_heatmap(report: PatternAnalysisReport) -> str:
             if 0 <= row_idx < 3 and 0 <= col_idx < 3:
                 heatmap_data[row_idx, col_idx] += 1
 
-    im = ax.imshow(heatmap_data, cmap='YlOrRd', interpolation='nearest', vmin=0, vmax=max(1, heatmap_data.max()))
+    im = ax.imshow(heatmap_data, cmap="YlOrRd", interpolation="nearest", vmin=0, vmax=max(1, heatmap_data.max()))
 
     # Add text annotations
     for i in range(3):
         for j in range(3):
-            text = ax.text(j, i, int(heatmap_data[i, j]),
-                          ha="center", va="center", color="black", fontsize=14)
+            text = ax.text(j, i, int(heatmap_data[i, j]), ha="center", va="center", color="black", fontsize=14)
 
     ax.set_xticks([0, 1, 2])
     ax.set_yticks([0, 1, 2])
-    ax.set_xticklabels(['Outside', 'Middle', 'Inside'])
-    ax.set_yticklabels(['High', 'Middle', 'Low'])
-    ax.set_title('Strike Zone Distribution', fontsize=14, fontweight='bold')
+    ax.set_xticklabels(["Outside", "Middle", "Inside"])
+    ax.set_yticklabels(["High", "Middle", "Low"])
+    ax.set_title("Strike Zone Distribution", fontsize=14, fontweight="bold")
 
     # Add colorbar
     cbar = plt.colorbar(im, ax=ax)
-    cbar.set_label('Pitch Count', rotation=270, labelpad=15)
+    cbar.set_label("Pitch Count", rotation=270, labelpad=15)
 
     # Save to base64
     buf = BytesIO()
-    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+    fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
     buf.seek(0)
-    img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+    img_base64 = base64.b64encode(buf.read()).decode("utf-8")
     plt.close(fig)
 
-    return f'data:image/png;base64,{img_base64}'
+    return f"data:image/png;base64,{img_base64}"
 
 
 def generate_html_report(report: PatternAnalysisReport, output_path: Path) -> None:
@@ -180,11 +179,7 @@ def generate_html_report(report: PatternAnalysisReport, output_path: Path) -> No
     anomalies_html = ""
     if report.anomalies:
         for anomaly in report.anomalies:
-            severity_color = {
-                "low": "#FFC107",
-                "medium": "#FF9800",
-                "high": "#F44336"
-            }.get(anomaly.severity, "#9E9E9E")
+            severity_color = {"low": "#FFC107", "medium": "#FF9800", "high": "#F44336"}.get(anomaly.severity, "#9E9E9E")
 
             anomalies_html += f"""
             <div style='background: {severity_color}20; border-left: 4px solid {severity_color};
@@ -365,4 +360,4 @@ def generate_html_report(report: PatternAnalysisReport, output_path: Path) -> No
 </html>"""
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(html, encoding='utf-8')
+    output_path.write_text(html, encoding="utf-8")

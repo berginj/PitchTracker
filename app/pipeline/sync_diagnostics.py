@@ -70,4 +70,7 @@ def _classify_sync(p95_motion_in: float, max_motion_in: float, drop_rate_pct: fl
         return "GOOD", "Timing skew is within the practical software tolerance for 30-60 mph tracking."
     if p95_motion_in <= 8.0 and max_motion_in <= 12.0 and drop_rate_pct <= 10.0:
         return "WARN", "Timing skew can affect plate location; prefer frame-index pairing or lower exposure latency."
-    return "POOR", "Timing skew is large enough to corrupt stereo geometry; use hardware sync/global shutter if possible."
+    return (
+        "POOR",
+        "Timing skew is large enough to corrupt stereo geometry; use hardware sync/global shutter if possible.",
+    )

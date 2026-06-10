@@ -182,6 +182,4 @@ def test_analyzer_falls_back_to_stereo_when_ray_calibration_missing() -> None:
     assert summary.trajectory_mode == "stereo_3d"
     assert summary.trajectory_plate_z_ft is not None
     assert summary.trajectory_comparison is not None
-    assert summary.trajectory_comparison["ray_reprojection"]["diagnostics"]["failure_codes"] == [
-        "CAMERA_MODEL_MISSING"
-    ]
+    assert summary.trajectory_comparison["ray_reprojection"]["diagnostics"]["failure_codes"] == ["CAMERA_MODEL_MISSING"]

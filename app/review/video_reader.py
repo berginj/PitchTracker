@@ -17,6 +17,7 @@ logger = get_logger(__name__)
 
 class PlaybackState(Enum):
     """Video playback state."""
+
     STOPPED = "stopped"
     PLAYING = "playing"
     PAUSED = "paused"
@@ -35,6 +36,7 @@ class VideoInfo:
         duration_ms: Video duration in milliseconds
         fourcc: Video codec FourCC code
     """
+
     path: Path
     width: int
     height: int
@@ -117,8 +119,7 @@ class VideoReader:
         # Verify videos have same frame count (approximately)
         if abs(self._left_info.total_frames - self._right_info.total_frames) > 5:
             logger.warning(
-                f"Frame count mismatch: left={self._left_info.total_frames}, "
-                f"right={self._right_info.total_frames}"
+                f"Frame count mismatch: left={self._left_info.total_frames}, " f"right={self._right_info.total_frames}"
             )
 
         # Use minimum frame count for safety

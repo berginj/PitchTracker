@@ -168,7 +168,9 @@ class SetupWindow(QtWidgets.QMainWindow):
         indicator_widget.setLayout(indicator_layout)
         return indicator_widget
 
-    def _apply_step_style(self, label: QtWidgets.QLabel, index: int, is_current: bool, is_complete: bool = False) -> None:
+    def _apply_step_style(
+        self, label: QtWidgets.QLabel, index: int, is_current: bool, is_complete: bool = False
+    ) -> None:
         """Apply glass-themed style to step indicator label."""
         label.setProperty("role", "panelMessage")
         if is_current:
@@ -277,7 +279,7 @@ class SetupWindow(QtWidgets.QMainWindow):
                         "Cameras Not Selected",
                         "Please select both left and right cameras in Step 1 before proceeding to calibration.\n\n"
                         f"Left camera: {'✓ Selected' if left_serial else '✗ Not selected'}\n"
-                        f"Right camera: {'✓ Selected' if right_serial else '✗ Not selected'}"
+                        f"Right camera: {'✓ Selected' if right_serial else '✗ Not selected'}",
                     )
 
         elif index == 2 and isinstance(current_step, RoiStep):

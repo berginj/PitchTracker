@@ -44,20 +44,10 @@ def export_calibration_metadata(
             "fy": float(stereo.camera_matrix_left[1, 1]),
             "cx": float(stereo.camera_matrix_left[0, 2]),
             "cy": float(stereo.camera_matrix_left[1, 2]),
-            "distortion_k1": (
-                float(stereo.dist_coeffs_left[0])
-                if stereo.dist_coeffs_left is not None
-                else 0.0
-            ),
-            "distortion_k2": (
-                float(stereo.dist_coeffs_left[1])
-                if stereo.dist_coeffs_left is not None
-                else 0.0
-            ),
+            "distortion_k1": (float(stereo.dist_coeffs_left[0]) if stereo.dist_coeffs_left is not None else 0.0),
+            "distortion_k2": (float(stereo.dist_coeffs_left[1]) if stereo.dist_coeffs_left is not None else 0.0),
         }
-        (calib_dir / "intrinsics_left.json").write_text(
-            json.dumps(intrinsics_left, indent=2)
-        )
+        (calib_dir / "intrinsics_left.json").write_text(json.dumps(intrinsics_left, indent=2))
 
     if hasattr(stereo, "camera_matrix_right") and stereo.camera_matrix_right is not None:
         intrinsics_right = {
@@ -66,35 +56,19 @@ def export_calibration_metadata(
             "fy": float(stereo.camera_matrix_right[1, 1]),
             "cx": float(stereo.camera_matrix_right[0, 2]),
             "cy": float(stereo.camera_matrix_right[1, 2]),
-            "distortion_k1": (
-                float(stereo.dist_coeffs_right[0])
-                if stereo.dist_coeffs_right is not None
-                else 0.0
-            ),
-            "distortion_k2": (
-                float(stereo.dist_coeffs_right[1])
-                if stereo.dist_coeffs_right is not None
-                else 0.0
-            ),
+            "distortion_k1": (float(stereo.dist_coeffs_right[0]) if stereo.dist_coeffs_right is not None else 0.0),
+            "distortion_k2": (float(stereo.dist_coeffs_right[1]) if stereo.dist_coeffs_right is not None else 0.0),
         }
-        (calib_dir / "intrinsics_right.json").write_text(
-            json.dumps(intrinsics_right, indent=2)
-        )
+        (calib_dir / "intrinsics_right.json").write_text(json.dumps(intrinsics_right, indent=2))
 
     # ROI annotations
     roi_annotations = {}
 
     if lane_gate and hasattr(lane_gate, "polygon") and lane_gate.polygon is not None:
-        roi_annotations["lane_gate_polygon"] = [
-            [float(x), float(y)] for x, y in lane_gate.polygon
-        ]
+        roi_annotations["lane_gate_polygon"] = [[float(x), float(y)] for x, y in lane_gate.polygon]
 
     if plate_gate and hasattr(plate_gate, "polygon") and plate_gate.polygon is not None:
-        roi_annotations["plate_gate_polygon"] = [
-            [float(x), float(y)] for x, y in plate_gate.polygon
-        ]
+        roi_annotations["plate_gate_polygon"] = [[float(x), float(y)] for x, y in plate_gate.polygon]
 
     if roi_annotations:
-        (calib_dir / "roi_annotations.json").write_text(
-            json.dumps(roi_annotations, indent=2)
-        )
+        (calib_dir / "roi_annotations.json").write_text(json.dumps(roi_annotations, indent=2))

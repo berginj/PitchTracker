@@ -154,10 +154,7 @@ class FatiguePanel(QtWidgets.QFrame):
             metrics.recommendation.upper(),
         )
 
-        if (
-            metrics.contributing_factors
-            and metrics.contributing_factors[0] != "Insufficient data for analysis"
-        ):
+        if metrics.contributing_factors and metrics.contributing_factors[0] != "Insufficient data for analysis":
             self._factors_label.setText("\n".join(f"- {factor}" for factor in metrics.contributing_factors))
             self._factors_label.show()
         else:

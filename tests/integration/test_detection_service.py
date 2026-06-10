@@ -20,6 +20,7 @@ from detect.config import Mode
 
 # Test fixtures
 
+
 def create_test_config():
     """Create test configuration from default.yaml."""
     config_path = Path(__file__).parent.parent.parent / "configs" / "default.yaml"
@@ -35,7 +36,7 @@ def create_test_frame(camera_id: str, frame_index: int, timestamp_ns: int) -> Fr
         image=np.zeros((480, 640, 3), dtype=np.uint8),
         width=640,
         height=480,
-        pixfmt="BGR3"
+        pixfmt="BGR3",
     )
 
 
@@ -57,11 +58,7 @@ class TestDetectionServiceBasics:
         service = DetectionServiceImpl(bus, config)
 
         # Configure with classical detector
-        service.configure_detectors(
-            config=config.detector,
-            mode=Mode.MODE_A,
-            detector_type="classical"
-        )
+        service.configure_detectors(config=config.detector, mode=Mode.MODE_A, detector_type="classical")
 
         # Should not raise
 
@@ -112,11 +109,7 @@ class TestDetectionServiceBasics:
         service = DetectionServiceImpl(bus, config)
 
         # Configure
-        service.configure_detectors(
-            config=config.detector,
-            mode=Mode.MODE_A,
-            detector_type="classical"
-        )
+        service.configure_detectors(config=config.detector, mode=Mode.MODE_A, detector_type="classical")
         service.configure_threading(mode="per_camera", worker_count=2)
 
         # Start detection
@@ -150,11 +143,7 @@ class TestDetectionServiceStats:
         service = DetectionServiceImpl(bus, config)
 
         # Configure and start
-        service.configure_detectors(
-            config=config.detector,
-            mode=Mode.MODE_A,
-            detector_type="classical"
-        )
+        service.configure_detectors(config=config.detector, mode=Mode.MODE_A, detector_type="classical")
         service.configure_threading(mode="per_camera", worker_count=2)
         service.start_detection()
 
@@ -217,11 +206,7 @@ class TestDetectionServiceEventBusIntegration:
         bus.subscribe(ObservationDetectedEvent, handle_observation)
 
         # Configure and start detection
-        service.configure_detectors(
-            config=config.detector,
-            mode=Mode.MODE_A,
-            detector_type="classical"
-        )
+        service.configure_detectors(config=config.detector, mode=Mode.MODE_A, detector_type="classical")
         service.configure_threading(mode="per_camera", worker_count=2)
         service.start_detection()
 
@@ -230,16 +215,8 @@ class TestDetectionServiceEventBusIntegration:
             left_frame = create_test_frame("left", i, i * 1000000)
             right_frame = create_test_frame("right", i, i * 1000000)
 
-            left_event = FrameCapturedEvent(
-                camera_id="left",
-                frame=left_frame,
-                timestamp_ns=i * 1000000
-            )
-            right_event = FrameCapturedEvent(
-                camera_id="right",
-                frame=right_frame,
-                timestamp_ns=i * 1000000
-            )
+            left_event = FrameCapturedEvent(camera_id="left", frame=left_frame, timestamp_ns=i * 1000000)
+            right_event = FrameCapturedEvent(camera_id="right", frame=right_frame, timestamp_ns=i * 1000000)
 
             bus.publish(left_event)
             bus.publish(right_event)
@@ -273,11 +250,7 @@ class TestDetectionServiceCallbacks:
         service.on_observation_detected(observation_callback)
 
         # Configure and start
-        service.configure_detectors(
-            config=config.detector,
-            mode=Mode.MODE_A,
-            detector_type="classical"
-        )
+        service.configure_detectors(config=config.detector, mode=Mode.MODE_A, detector_type="classical")
         service.configure_threading(mode="per_camera", worker_count=2)
         service.start_detection()
 
@@ -336,11 +309,7 @@ class TestDetectionServiceProcessFrame:
         service = DetectionServiceImpl(bus, config)
 
         # Configure and start
-        service.configure_detectors(
-            config=config.detector,
-            mode=Mode.MODE_A,
-            detector_type="classical"
-        )
+        service.configure_detectors(config=config.detector, mode=Mode.MODE_A, detector_type="classical")
         service.configure_threading(mode="per_camera", worker_count=2)
         service.start_detection()
 

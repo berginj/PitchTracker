@@ -14,6 +14,7 @@ from calib.camera_capabilities import (
 @dataclass
 class MockFrame:
     """Mock camera frame."""
+
     image: np.ndarray
     timestamp_ns: int = 0
 
@@ -62,7 +63,7 @@ def create_stable_focus_frames(index: int) -> MockFrame:
     for i in range(0, 480, 40):
         for j in range(0, 640, 40):
             if (i // 40 + j // 40) % 2 == 0:
-                image[i:i+40, j:j+40] = 255
+                image[i : i + 40, j : j + 40] = 255
     # Add consistent fixed pattern noise (same for all frames = no drift)
     np.random.seed(42)  # Fixed seed for consistency
     noise = np.random.normal(0, 2, image.shape).astype(np.uint8)
@@ -77,11 +78,12 @@ def create_varying_focus_frames(index: int) -> MockFrame:
     for i in range(0, 480, 40):
         for j in range(0, 640, 40):
             if (i // 40 + j // 40) % 2 == 0:
-                image[i:i+40, j:j+40] = 255
+                image[i : i + 40, j : j + 40] = 255
 
     # Simulate autofocus hunting - alternate blur levels
     blur_amount = 5 if index % 3 == 0 else 15  # Varies significantly
     import cv2
+
     image = cv2.GaussianBlur(image, (blur_amount, blur_amount), 0)
 
     return MockFrame(image=image)
@@ -95,10 +97,8 @@ def test_detect_industrial_camera():
     detector = CameraCapabilityDetector()
 
     # Patch time.sleep to speed up tests
-    with patch('time.sleep'):
-        capabilities = detector.detect_capabilities(
-            mock_camera, num_test_frames=30, test_duration_s=3.0
-        )
+    with patch("time.sleep"):
+        capabilities = detector.detect_capabilities(mock_camera, num_test_frames=30, test_duration_s=3.0)
 
     # Should detect as industrial (fixed focus)
     assert capabilities.camera_type in ["industrial", "unknown"]  # May be unknown due to feature matching
@@ -114,10 +114,8 @@ def test_detect_webcam():
 
     detector = CameraCapabilityDetector()
 
-    with patch('time.sleep'):
-        capabilities = detector.detect_capabilities(
-            mock_camera, num_test_frames=30, test_duration_s=3.0
-        )
+    with patch("time.sleep"):
+        capabilities = detector.detect_capabilities(mock_camera, num_test_frames=30, test_duration_s=3.0)
 
     # Should detect high focus variation
     assert capabilities.focus_cv > 0.1  # Significant focus variation
@@ -131,7 +129,7 @@ def test_warmup_stability_check_stable():
     mock_camera = MockCameraDevice(create_stable_brightness_frames)
     detector = CameraCapabilityDetector()
 
-    with patch('time.sleep'):
+    with patch("time.sleep"):
         is_stable, variance = detector._check_warmup_stability(mock_camera, num_frames=20)
 
     assert is_stable is True
@@ -143,7 +141,7 @@ def test_warmup_stability_check_unstable():
     mock_camera = MockCameraDevice(create_drifting_brightness_frames)
     detector = CameraCapabilityDetector()
 
-    with patch('time.sleep'):
+    with patch("time.sleep"):
         is_stable, variance = detector._check_warmup_stability(mock_camera, num_frames=20)
 
     assert is_stable is False
@@ -172,9 +170,7 @@ def test_classify_camera_industrial():
     detector = CameraCapabilityDetector()
 
     camera_type, has_autofocus = detector._classify_camera(
-        focus_cv=0.02,  # Very stable
-        focal_drift=0.5,  # Minimal drift
-        uvc_autofocus=None
+        focus_cv=0.02, focal_drift=0.5, uvc_autofocus=None  # Very stable  # Minimal drift
     )
 
     assert camera_type == "industrial"
@@ -186,9 +182,7 @@ def test_classify_camera_webcam():
     detector = CameraCapabilityDetector()
 
     camera_type, has_autofocus = detector._classify_camera(
-        focus_cv=0.20,  # High variation
-        focal_drift=8.0,  # Significant drift
-        uvc_autofocus=None
+        focus_cv=0.20, focal_drift=8.0, uvc_autofocus=None  # High variation  # Significant drift
     )
 
     assert camera_type == "webcam"
@@ -200,9 +194,7 @@ def test_classify_camera_unknown():
     detector = CameraCapabilityDetector()
 
     camera_type, has_autofocus = detector._classify_camera(
-        focus_cv=0.08,  # Medium variation
-        focal_drift=3.0,  # Medium drift
-        uvc_autofocus=None
+        focus_cv=0.08, focal_drift=3.0, uvc_autofocus=None  # Medium variation  # Medium drift
     )
 
     assert camera_type == "unknown"
@@ -215,9 +207,7 @@ def test_classify_camera_uvc_override():
 
     # Even with stable metrics, UVC autofocus=True should classify as webcam
     camera_type, has_autofocus = detector._classify_camera(
-        focus_cv=0.01,  # Very stable
-        focal_drift=0.1,  # No drift
-        uvc_autofocus=True  # But UVC says autofocus
+        focus_cv=0.01, focal_drift=0.1, uvc_autofocus=True  # Very stable  # No drift  # But UVC says autofocus
     )
 
     assert camera_type == "webcam"
@@ -229,10 +219,7 @@ def test_generate_recommendations_industrial():
     detector = CameraCapabilityDetector()
 
     recommendations = detector._generate_recommendations(
-        camera_type="industrial",
-        has_autofocus=False,
-        stability_score=95.0,
-        warmup_stable=True
+        camera_type="industrial", has_autofocus=False, stability_score=95.0, warmup_stable=True
     )
 
     # Should recommend full calibration
@@ -246,10 +233,7 @@ def test_generate_recommendations_webcam():
     detector = CameraCapabilityDetector()
 
     recommendations = detector._generate_recommendations(
-        camera_type="webcam",
-        has_autofocus=True,
-        stability_score=60.0,
-        warmup_stable=True
+        camera_type="webcam", has_autofocus=True, stability_score=60.0, warmup_stable=True
     )
 
     # Should warn about autofocus
@@ -263,10 +247,7 @@ def test_generate_recommendations_low_stability():
     detector = CameraCapabilityDetector()
 
     recommendations = detector._generate_recommendations(
-        camera_type="unknown",
-        has_autofocus=None,
-        stability_score=30.0,
-        warmup_stable=False
+        camera_type="unknown", has_autofocus=None, stability_score=30.0, warmup_stable=False
     )
 
     # Should warn about low stability and warmup
@@ -285,8 +266,8 @@ def test_feature_matching_with_real_images():
     for i in range(0, 480, 40):
         for j in range(0, 640, 40):
             if (i // 40 + j // 40) % 2 == 0:
-                img1[i:i+40, j:j+40] = 255
-                img2[i:i+40, j:j+40] = 255
+                img1[i : i + 40, j : j + 40] = 255
+                img2[i : i + 40, j : j + 40] = 255
 
     pts1, pts2 = detector._find_feature_matches(img1, img2, max_features=500)
 
@@ -332,7 +313,7 @@ def test_camera_capabilities_str():
         warmup_stable=True,
         focus_cv=0.02,
         focal_drift_percent=0.5,
-        recommendations=["Test recommendation 1", "Test recommendation 2"]
+        recommendations=["Test recommendation 1", "Test recommendation 2"],
     )
 
     str_repr = str(capabilities)

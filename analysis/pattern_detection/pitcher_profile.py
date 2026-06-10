@@ -72,7 +72,7 @@ class PitcherProfile:
 
         # Convert ProfileMetrics to dict if present
         if self.baseline_metrics:
-            result['baseline_metrics'] = asdict(self.baseline_metrics)
+            result["baseline_metrics"] = asdict(self.baseline_metrics)
 
         return result
 
@@ -80,8 +80,8 @@ class PitcherProfile:
     def from_dict(cls, data: Dict) -> "PitcherProfile":
         """Create profile from dictionary."""
         # Handle baseline_metrics conversion
-        if data.get('baseline_metrics'):
-            data['baseline_metrics'] = ProfileMetrics(**data['baseline_metrics'])
+        if data.get("baseline_metrics"):
+            data["baseline_metrics"] = ProfileMetrics(**data["baseline_metrics"])
 
         return cls(**data)
 
@@ -147,10 +147,7 @@ class PitcherProfileManager:
             raise
 
     def create_or_update_profile(
-        self,
-        pitcher_id: str,
-        pitches: List["PitchSummary"],
-        num_sessions: int = 1
+        self, pitcher_id: str, pitches: List["PitchSummary"], num_sessions: int = 1
     ) -> PitcherProfile:
         """Create new profile or update existing with new pitches.
 
@@ -190,11 +187,7 @@ class PitcherProfileManager:
 
         return profile
 
-    def compare_to_baseline(
-        self,
-        pitcher_id: str,
-        current_pitches: List["PitchSummary"]
-    ) -> Dict:
+    def compare_to_baseline(self, pitcher_id: str, current_pitches: List["PitchSummary"]) -> Dict:
         """Compare current session pitches to baseline profile.
 
         Args:
@@ -217,16 +210,12 @@ class PitcherProfileManager:
 
         # Compare velocity
         velocity_comparison = self._compare_metric(
-            current_metrics.velocity,
-            profile.baseline_metrics.velocity,
-            "velocity",
-            "mph"
+            current_metrics.velocity, profile.baseline_metrics.velocity, "velocity", "mph"
         )
 
         # Compare strike percentage
         strike_comparison = self._compare_strike_percentage(
-            current_metrics.strike_percentage,
-            profile.baseline_metrics.strike_percentage
+            current_metrics.strike_percentage, profile.baseline_metrics.strike_percentage
         )
 
         # Compare movement
@@ -234,14 +223,11 @@ class PitcherProfileManager:
             current_metrics.horizontal_movement,
             profile.baseline_metrics.horizontal_movement,
             "horizontal_movement",
-            "in"
+            "in",
         )
 
         v_movement_comparison = self._compare_metric(
-            current_metrics.vertical_movement,
-            profile.baseline_metrics.vertical_movement,
-            "vertical_movement",
-            "in"
+            current_metrics.vertical_movement, profile.baseline_metrics.vertical_movement, "vertical_movement", "in"
         )
 
         return {
@@ -249,13 +235,10 @@ class PitcherProfileManager:
             "velocity_vs_baseline": velocity_comparison,
             "strike_percentage_vs_baseline": strike_comparison,
             "horizontal_movement_vs_baseline": h_movement_comparison,
-            "vertical_movement_vs_baseline": v_movement_comparison
+            "vertical_movement_vs_baseline": v_movement_comparison,
         }
 
-    def _compute_baseline_metrics(
-        self,
-        pitches: List["PitchSummary"]
-    ) -> ProfileMetrics:
+    def _compute_baseline_metrics(self, pitches: List["PitchSummary"]) -> ProfileMetrics:
         """Compute baseline metrics from pitches.
 
         Args:
@@ -276,15 +259,15 @@ class PitcherProfileManager:
         v_movement_stats = compute_statistics(v_movements)
 
         # Add range for movement
-        h_movement_stats['range'] = [h_movement_stats['min'], h_movement_stats['max']]
-        v_movement_stats['range'] = [v_movement_stats['min'], v_movement_stats['max']]
+        h_movement_stats["range"] = [h_movement_stats["min"], h_movement_stats["max"]]
+        v_movement_stats["range"] = [v_movement_stats["min"], v_movement_stats["max"]]
 
         # Compute strike percentage
         strikes = sum(1 for p in pitches if p.is_strike)
         strike_pct = strikes / len(pitches) if pitches else 0.0
 
         # Compute consistency score (inverse of coefficient of variation)
-        velocity_cv = velocity_stats['std'] / velocity_stats['mean'] if velocity_stats['mean'] > 0 else 1.0
+        velocity_cv = velocity_stats["std"] / velocity_stats["mean"] if velocity_stats["mean"] > 0 else 1.0
         consistency_score = max(0.0, 1.0 - velocity_cv)
 
         return ProfileMetrics(
@@ -292,15 +275,11 @@ class PitcherProfileManager:
             horizontal_movement=h_movement_stats,
             vertical_movement=v_movement_stats,
             strike_percentage=strike_pct,
-            consistency_score=consistency_score
+            consistency_score=consistency_score,
         )
 
     def _compare_metric(
-        self,
-        current: Dict[str, float],
-        baseline: Dict[str, float],
-        metric_name: str,
-        unit: str
+        self, current: Dict[str, float], baseline: Dict[str, float], metric_name: str, unit: str
     ) -> Dict:
         """Compare current metric to baseline.
 
@@ -313,12 +292,12 @@ class PitcherProfileManager:
         Returns:
             Comparison dictionary
         """
-        current_mean = current['mean']
-        baseline_mean = baseline['mean']
+        current_mean = current["mean"]
+        baseline_mean = baseline["mean"]
         delta = current_mean - baseline_mean
 
         # Determine status based on delta and std
-        baseline_std = baseline['std']
+        baseline_std = baseline["std"]
         if abs(delta) < baseline_std:
             status = "normal"
         elif abs(delta) < 2 * baseline_std:
@@ -331,14 +310,10 @@ class PitcherProfileManager:
             "baseline": baseline_mean,
             f"delta_{unit}": delta,
             "status": status,
-            "baseline_std": baseline_std
+            "baseline_std": baseline_std,
         }
 
-    def _compare_strike_percentage(
-        self,
-        current: float,
-        baseline: float
-    ) -> Dict:
+    def _compare_strike_percentage(self, current: float, baseline: float) -> Dict:
         """Compare strike percentage to baseline.
 
         Args:
@@ -358,12 +333,7 @@ class PitcherProfileManager:
         else:
             status = "significantly_above" if delta > 0 else "significantly_below"
 
-        return {
-            "current": current,
-            "baseline": baseline,
-            "delta": delta,
-            "status": status
-        }
+        return {"current": current, "baseline": baseline, "delta": delta, "status": status}
 
     def _get_profile_path(self, pitcher_id: str) -> Path:
         """Get file path for pitcher profile.
@@ -375,7 +345,7 @@ class PitcherProfileManager:
             Path to profile JSON file
         """
         # Sanitize pitcher_id for filename
-        safe_id = "".join(c if c.isalnum() or c in ('-', '_') else '_' for c in pitcher_id)
+        safe_id = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in pitcher_id)
         return self.profiles_dir / f"{safe_id}.json"
 
     def list_profiles(self) -> List[str]:

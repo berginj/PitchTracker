@@ -29,10 +29,7 @@ def compute_z_score(value: float, values: List[float]) -> float:
     return float((value - mean) / std)
 
 
-def detect_outliers_zscore(
-    values: List[float],
-    threshold: float = 3.0
-) -> List[Tuple[int, float, float]]:
+def detect_outliers_zscore(values: List[float], threshold: float = 3.0) -> List[Tuple[int, float, float]]:
     """Detect outliers using Z-score method.
 
     Args:
@@ -60,10 +57,7 @@ def detect_outliers_zscore(
     return outliers
 
 
-def detect_outliers_iqr(
-    values: List[float],
-    iqr_multiplier: float = 1.5
-) -> List[Tuple[int, float, float, float]]:
+def detect_outliers_iqr(values: List[float], iqr_multiplier: float = 1.5) -> List[Tuple[int, float, float, float]]:
     """Detect outliers using IQR (Interquartile Range) method.
 
     Args:
@@ -90,10 +84,7 @@ def detect_outliers_iqr(
     return outliers
 
 
-def compute_percentiles(
-    values: List[float],
-    percentiles: List[int] = [25, 50, 75]
-) -> dict:
+def compute_percentiles(values: List[float], percentiles: List[int] = [25, 50, 75]) -> dict:
     """Compute percentiles for a list of values.
 
     Args:

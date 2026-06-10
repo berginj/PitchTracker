@@ -24,6 +24,7 @@ from contracts import Frame, StereoObservation
 
 # Test fixtures
 
+
 def create_test_frame(timestamp_ns: int, camera_id: str = "test_cam") -> Frame:
     """Create test frame with minimal data."""
     return Frame(
@@ -83,6 +84,7 @@ def state_machine(default_config):
 
 
 # Test pre-roll capture
+
 
 def test_pre_roll_buffered_before_pitch_start(state_machine):
     """Verify pre-roll frames are buffered before pitch detection."""
@@ -172,6 +174,7 @@ def test_pre_roll_trimmed_to_window(state_machine):
 
 # Test ramp-up observations
 
+
 def test_ramp_up_observations_captured(state_machine):
     """Verify observations during ramp-up are not lost."""
     captured_observations = []
@@ -240,6 +243,7 @@ def test_observations_after_activation_captured(state_machine):
 
 # Test thread safety
 
+
 def test_concurrent_updates_thread_safe(state_machine):
     """Verify concurrent updates don't cause crashes or corruption."""
     errors = []
@@ -294,6 +298,7 @@ def test_concurrent_updates_thread_safe(state_machine):
 
 # Test accurate timing
 
+
 def test_start_time_is_first_detection(state_machine):
     """Verify start time is first detection, not trigger frame."""
     start_data = None
@@ -346,6 +351,7 @@ def test_end_time_is_last_detection(state_machine):
 
 
 # Test data validation
+
 
 def test_minimum_observations_filter(state_machine):
     """Verify pitches with too few observations are rejected."""
@@ -418,6 +424,7 @@ def test_valid_pitch_passes_validation(state_machine):
 
 # Test error handling
 
+
 def test_callback_exception_recovery(state_machine):
     """Verify state machine recovers from callback exceptions."""
     call_count = [0]
@@ -446,6 +453,7 @@ def test_callback_exception_recovery(state_machine):
 
 
 # Test state transitions
+
 
 def test_state_transition_flow(state_machine):
     """Verify state transitions follow expected flow."""
@@ -503,6 +511,7 @@ def test_false_start_during_ramp_up(state_machine):
 
 # Test configuration
 
+
 def test_config_update_when_inactive(state_machine):
     """Verify configuration can be updated when inactive."""
     new_config = PitchConfig(min_active_frames=10)
@@ -529,6 +538,7 @@ def test_config_update_rejected_when_active(state_machine):
 
 
 # Test force_end
+
 
 def test_force_end_during_active_pitch(state_machine):
     """Verify force_end properly finalizes active pitch."""

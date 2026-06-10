@@ -132,11 +132,7 @@ class DetectionServiceImpl(DetectionService):
             self._initializer._detector_model_format = model_format
 
             # Build detectors (returns dict with "left" and "right" keys)
-            detectors = self._initializer.build_detectors(
-                left_id="left",
-                right_id="right",
-                lane_polygon=None
-            )
+            detectors = self._initializer.build_detectors(left_id="left", right_id="right", lane_polygon=None)
             self._left_detector = detectors["left"]
             self._right_detector = detectors["right"]
 
@@ -198,7 +194,7 @@ class DetectionServiceImpl(DetectionService):
                 plate_gate=plate_gate,
                 stereo_gate=stereo_gate,
                 plate_stereo_gate=plate_stereo_gate,
-                get_ball_radius_fn=lambda: 1.45  # Default ball radius
+                get_ball_radius_fn=lambda: 1.45,  # Default ball radius
             )
 
             # Set callbacks on thread pool
@@ -216,7 +212,7 @@ class DetectionServiceImpl(DetectionService):
             self._subscribe_to_events()
 
             self._running = True
-            self._detection_start_time = __import__('time').time()
+            self._detection_start_time = __import__("time").time()
             self._latest_observations.clear()
 
             logger.info("Detection started")
@@ -345,7 +341,7 @@ class DetectionServiceImpl(DetectionService):
                     "stereo_match_rate": 0.0,
                 }
 
-            elapsed = __import__('time').time() - self._detection_start_time
+            elapsed = __import__("time").time() - self._detection_start_time
             if elapsed == 0:
                 elapsed = 0.001  # Avoid division by zero
 
@@ -354,16 +350,14 @@ class DetectionServiceImpl(DetectionService):
                 "observations_per_sec": self._observation_count / elapsed,
                 "avg_detection_ms": 0.0,  # Future: Track detection timing metrics
                 "stereo_match_rate": (
-                    (self._observation_count / self._detection_count * 100)
-                    if self._detection_count > 0
-                    else 0.0
+                    (self._observation_count / self._detection_count * 100) if self._detection_count > 0 else 0.0
                 ),
             }
 
     def set_lane_rois(
         self,
         lane_rois: Dict[str, List[Tuple[float, float]]],
-        plate_rois: Optional[Dict[str, List[Tuple[float, float]]]] = None
+        plate_rois: Optional[Dict[str, List[Tuple[float, float]]]] = None,
     ) -> None:
         """Set ROI polygons for lane gating.
 
@@ -499,11 +493,7 @@ class DetectionServiceImpl(DetectionService):
             for obs in observations:
                 with self._lock:
                     self._latest_observations.append(obs)
-                event = ObservationDetectedEvent(
-                    observation=obs,
-                    timestamp_ns=obs.t_ns,
-                    confidence=obs.confidence
-                )
+                event = ObservationDetectedEvent(observation=obs, timestamp_ns=obs.t_ns, confidence=obs.confidence)
                 self._event_bus.publish(event)
 
                 # Invoke registered callbacks (backward compatibility)
@@ -572,10 +562,7 @@ class DetectionServiceImpl(DetectionService):
             return None
 
         return LaneGate(
-            roi_by_camera={
-                camera_id: LaneRoi(polygon=list(points))
-                for camera_id, points in roi_map.items()
-            }
+            roi_by_camera={camera_id: LaneRoi(polygon=list(points)) for camera_id, points in roi_map.items()}
         )
 
     def _unsubscribe_from_events(self) -> None:

@@ -28,7 +28,7 @@ class TestOpenCVCameraInitialization:
         camera = OpenCVCamera()
 
         # Should accept numeric string
-        with patch('cv2.VideoCapture') as mock_cap:
+        with patch("cv2.VideoCapture") as mock_cap:
             mock_cap.return_value.isOpened.return_value = True
             camera.open("0")  # Should work
 
@@ -39,7 +39,7 @@ class TestOpenCVCameraInitialization:
 
     def test_opencv_camera_api_sequence(self):
         """Test correct API call sequence: create -> open -> set_mode -> read_frame."""
-        with patch('cv2.VideoCapture') as mock_cap:
+        with patch("cv2.VideoCapture") as mock_cap:
             mock_instance = MagicMock()
             mock_cap.return_value = mock_instance
             mock_instance.isOpened.return_value = True
@@ -74,15 +74,13 @@ class TestUVCCameraInitialization:
 
     def test_uvc_camera_api_sequence(self):
         """Test correct API call sequence: create -> open -> set_mode -> read_frame."""
-        with patch('capture.uvc_backend._list_camera_devices') as mock_list:
+        with patch("capture.uvc_backend._list_camera_devices") as mock_list:
             # Mock device list
-            mock_list.return_value = [{
-                'serial': 'TEST123',
-                'friendly_name': 'Test Camera',
-                'instance_id': 'USB\\VID_1234&PID_5678\\TEST123'
-            }]
+            mock_list.return_value = [
+                {"serial": "TEST123", "friendly_name": "Test Camera", "instance_id": "USB\\VID_1234&PID_5678\\TEST123"}
+            ]
 
-            with patch('cv2.VideoCapture') as mock_cap:
+            with patch("cv2.VideoCapture") as mock_cap:
                 mock_instance = MagicMock()
                 mock_cap.return_value = mock_instance
                 mock_instance.isOpened.return_value = True
@@ -111,7 +109,7 @@ class TestCameraSetupWorkflow:
 
     def test_opencv_backend_workflow(self):
         """Test setup wizard workflow with OpenCV backend."""
-        with patch('cv2.VideoCapture') as mock_cap:
+        with patch("cv2.VideoCapture") as mock_cap:
             mock_instance = MagicMock()
             mock_cap.return_value = mock_instance
             mock_instance.isOpened.return_value = True
@@ -143,21 +141,17 @@ class TestCameraSetupWorkflow:
 
     def test_uvc_backend_workflow(self):
         """Test setup wizard workflow with UVC backend."""
-        with patch('capture.uvc_backend._list_camera_devices') as mock_list:
+        with patch("capture.uvc_backend._list_camera_devices") as mock_list:
             mock_list.return_value = [
+                {"serial": "LEFT123", "friendly_name": "Left Camera", "instance_id": "USB\\VID_1234&PID_5678\\LEFT123"},
                 {
-                    'serial': 'LEFT123',
-                    'friendly_name': 'Left Camera',
-                    'instance_id': 'USB\\VID_1234&PID_5678\\LEFT123'
+                    "serial": "RIGHT456",
+                    "friendly_name": "Right Camera",
+                    "instance_id": "USB\\VID_1234&PID_5678\\RIGHT456",
                 },
-                {
-                    'serial': 'RIGHT456',
-                    'friendly_name': 'Right Camera',
-                    'instance_id': 'USB\\VID_1234&PID_5678\\RIGHT456'
-                }
             ]
 
-            with patch('cv2.VideoCapture') as mock_cap:
+            with patch("cv2.VideoCapture") as mock_cap:
                 mock_instance = MagicMock()
                 mock_cap.return_value = mock_instance
                 mock_instance.isOpened.return_value = True
@@ -222,13 +216,13 @@ class TestVideoFrameReading:
             image=mock_image,
             width=640,
             height=480,
-            pixfmt="GRAY8"
+            pixfmt="GRAY8",
         )
 
         # These attributes are required by UI rendering code
-        assert hasattr(frame, 'image')
-        assert hasattr(frame, 'width')
-        assert hasattr(frame, 'height')
+        assert hasattr(frame, "image")
+        assert hasattr(frame, "width")
+        assert hasattr(frame, "height")
         assert frame.image.shape == (480, 640)
         assert frame.width == 640
         assert frame.height == 480

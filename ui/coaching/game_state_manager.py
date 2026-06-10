@@ -36,26 +36,10 @@ class GameStateManager:
         if not self._scores_file.exists():
             # Create default structure
             return {
-                "tic_tac_toe": {
-                    "high_score_wins": 0,
-                    "total_games": 0,
-                    "history": []
-                },
-                "target_scoring": {
-                    "high_score": 0,
-                    "total_games": 0,
-                    "history": []
-                },
-                "around_world": {
-                    "best_pitches": 999,  # Lower is better
-                    "total_games": 0,
-                    "history": []
-                },
-                "speed_challenge": {
-                    "high_score_targets": 0,
-                    "total_games": 0,
-                    "history": []
-                }
+                "tic_tac_toe": {"high_score_wins": 0, "total_games": 0, "history": []},
+                "target_scoring": {"high_score": 0, "total_games": 0, "history": []},
+                "around_world": {"best_pitches": 999, "total_games": 0, "history": []},  # Lower is better
+                "speed_challenge": {"high_score_targets": 0, "total_games": 0, "history": []},
             }
 
         try:
@@ -79,12 +63,7 @@ class GameStateManager:
         except Exception as e:
             logger.error(f"Failed to save game scores: {e}")
 
-    def save_game_score(
-        self,
-        game_name: str,
-        score: int,
-        timestamp: float = None
-    ) -> None:
+    def save_game_score(self, game_name: str, score: int, timestamp: float = None) -> None:
         """Save score for a game.
 
         Args:
@@ -102,10 +81,7 @@ class GameStateManager:
         game_data = self._scores[game_name]
 
         # Add to history
-        game_data["history"].append({
-            "score": score,
-            "timestamp": timestamp
-        })
+        game_data["history"].append({"score": score, "timestamp": timestamp})
 
         # Increment total games
         game_data["total_games"] = game_data.get("total_games", 0) + 1
@@ -155,11 +131,7 @@ class GameStateManager:
         else:
             return game_data.get("high_score", 0)
 
-    def get_session_scores(
-        self,
-        game_name: str,
-        session_start: float
-    ) -> List[int]:
+    def get_session_scores(self, game_name: str, session_start: float) -> List[int]:
         """Get scores from current session.
 
         Args:
@@ -173,11 +145,7 @@ class GameStateManager:
             return []
 
         history = self._scores[game_name].get("history", [])
-        return [
-            s["score"]
-            for s in history
-            if s["timestamp"] >= session_start
-        ]
+        return [s["score"] for s in history if s["timestamp"] >= session_start]
 
     def get_total_games(self, game_name: str) -> int:
         """Get total games played.

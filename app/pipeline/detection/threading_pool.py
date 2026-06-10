@@ -388,7 +388,7 @@ class DetectionThreadPool:
             if should_log:
                 logger.error(
                     f"Detection failed for {label} camera (error #{error_count}): {e.__class__.__name__}: {e}",
-                    exc_info=True
+                    exc_info=True,
                 )
 
                 # Publish error event to bus (outside lock)

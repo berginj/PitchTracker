@@ -124,7 +124,7 @@ class AnalysisServiceImpl(AnalysisService):
                 strikes=0,
                 balls=0,
                 heatmap=[[0] * 3 for _ in range(3)],  # 3x3 grid
-                pitches=[]
+                pitches=[],
             )
             self._pitch_summaries = []
             self._recent_pitch_paths.clear()
@@ -277,11 +277,7 @@ class AnalysisServiceImpl(AnalysisService):
         )
         return report.to_dict()
 
-    def calculate_strike_result(
-        self,
-        obs: StereoObservation,
-        config: AppConfig
-    ) -> StrikeResult:
+    def calculate_strike_result(self, obs: StereoObservation, config: AppConfig) -> StrikeResult:
         """Calculate strike/ball result for an observation.
 
         Uses plate crossing estimation and strike zone boundaries.
@@ -336,7 +332,7 @@ class AnalysisServiceImpl(AnalysisService):
                     strikes=0,
                     balls=0,
                     heatmap=[[0] * 3 for _ in range(3)],
-                    pitches=[]
+                    pitches=[],
                 )
             return self._session_summary
 
@@ -492,7 +488,7 @@ class AnalysisServiceImpl(AnalysisService):
                         strikes=self._session_summary.strikes + (1 if summary.is_strike else 0),
                         balls=self._session_summary.balls + (0 if summary.is_strike else 1),
                         heatmap=new_heatmap,
-                        pitches=new_pitches
+                        pitches=new_pitches,
                     )
 
             logger.info(f"Pitch analyzed: {event.pitch_id}, strike={summary.is_strike}")
@@ -516,11 +512,7 @@ class AnalysisServiceImpl(AnalysisService):
         except Exception as e:
             logger.error(f"Error analyzing pitch: {e}", exc_info=True)
 
-    def _accumulate_trajectory_for_refinement(
-        self,
-        summary: PitchSummary,
-        event: PitchEndEvent
-    ) -> None:
+    def _accumulate_trajectory_for_refinement(self, summary: PitchSummary, event: PitchEndEvent) -> None:
         """Accumulate trajectory for online calibration refinement.
 
         Converts PitchSummary to refinement format and checks if refinement should occur.
@@ -537,28 +529,30 @@ class AnalysisServiceImpl(AnalysisService):
 
         # Convert PitchSummary to refinement format
         trajectory_data = {
-            'timestamp_ns': summary.t_end_ns,
-            'drag_k0_fit': summary.trajectory_drag_param or 0.1,
-            'time_sync_residual_ns': 0,  # Not currently extracted from trajectory fitting
-            'plate_crossing_z_ft': summary.trajectory_plate_z_ft or 0.0,
-            'mean_epipolar_error_px': summary.trajectory_rmse_px or 1.0,
-            'max_epipolar_error_px': (summary.trajectory_rmse_px * 1.5) if summary.trajectory_rmse_px else 1.5,
-            'num_observations': summary.sample_count,
-            'confidence_score': summary.trajectory_confidence or 0.0,
+            "timestamp_ns": summary.t_end_ns,
+            "drag_k0_fit": summary.trajectory_drag_param or 0.1,
+            "time_sync_residual_ns": 0,  # Not currently extracted from trajectory fitting
+            "plate_crossing_z_ft": summary.trajectory_plate_z_ft or 0.0,
+            "mean_epipolar_error_px": summary.trajectory_rmse_px or 1.0,
+            "max_epipolar_error_px": (summary.trajectory_rmse_px * 1.5) if summary.trajectory_rmse_px else 1.5,
+            "num_observations": summary.sample_count,
+            "confidence_score": summary.trajectory_confidence or 0.0,
         }
 
         # Accumulate trajectory
         accepted = self._refiner.accumulate_trajectory(trajectory_data)
 
         if accepted:
-            logger.debug(f"Trajectory {summary.pitch_id} accumulated for refinement "
-                        f"({self._refiner.state.num_trajectories_accumulated} total)")
+            logger.debug(
+                f"Trajectory {summary.pitch_id} accumulated for refinement "
+                f"({self._refiner.state.num_trajectories_accumulated} total)"
+            )
 
             # Check if we should refine parameters
             if self._refiner.should_refine():
                 result = self._refiner.refine_parameters()
 
-                if result['refined']:
+                if result["refined"]:
                     logger.info(f"Calibration parameters refined: {'; '.join(result['changes'])}")
                     logger.info(f"Refinement confidence: {result['confidence']:.2f}")
                 else:
@@ -566,7 +560,7 @@ class AnalysisServiceImpl(AnalysisService):
 
                 # Check calibration health
                 health = self._refiner.validate_calibration_health()
-                if health['alert']:
+                if health["alert"]:
                     logger.warning(f"Calibration health alert: {health['reason']}")
                 else:
                     logger.debug(f"Calibration health: {health['reason']}")

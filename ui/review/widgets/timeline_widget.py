@@ -43,8 +43,7 @@ class TimelineWidget(QtWidgets.QWidget):
         self.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self.setAccessibleName("Video Timeline")
         self.setAccessibleDescription(
-            "Timeline scrubber showing playback position. "
-            "Click or drag to seek. Blue bar shows progress."
+            "Timeline scrubber showing playback position. " "Click or drag to seek. Blue bar shows progress."
         )
 
     def set_current_frame(self, frame_index: int) -> None:

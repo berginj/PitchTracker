@@ -64,9 +64,7 @@ class TestResourceLimits(unittest.TestCase):
 
     def test_validate_disk_thresholds_ordered(self):
         """Test that disk thresholds must be properly ordered."""
-        limits = ResourceLimits(
-            critical_disk_gb=30.0, warning_disk_gb=20.0, recommended_disk_gb=50.0
-        )
+        limits = ResourceLimits(critical_disk_gb=30.0, warning_disk_gb=20.0, recommended_disk_gb=50.0)
         errors = limits.validate()
         self.assertTrue(any("critical_disk_gb must be less than warning_disk_gb" in e for e in errors))
 

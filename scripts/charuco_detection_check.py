@@ -32,16 +32,16 @@ def test_all_dictionaries(image: np.ndarray):
         gray = image.copy()
 
     DICTIONARIES = [
-        ('DICT_6X6_250', cv2.aruco.DICT_6X6_250),
-        ('DICT_5X5_250', cv2.aruco.DICT_5X5_250),
-        ('DICT_4X4_250', cv2.aruco.DICT_4X4_250),
-        ('DICT_6X6_100', cv2.aruco.DICT_6X6_100),
-        ('DICT_5X5_100', cv2.aruco.DICT_5X5_100),
-        ('DICT_4X4_100', cv2.aruco.DICT_4X4_100),
-        ('DICT_6X6_50', cv2.aruco.DICT_6X6_50),      # Calib.io boards
-        ('DICT_5X5_50', cv2.aruco.DICT_5X5_50),      # Calib.io boards
-        ('DICT_4X4_50', cv2.aruco.DICT_4X4_50),
-        ('DICT_ARUCO_ORIGINAL', cv2.aruco.DICT_ARUCO_ORIGINAL),
+        ("DICT_6X6_250", cv2.aruco.DICT_6X6_250),
+        ("DICT_5X5_250", cv2.aruco.DICT_5X5_250),
+        ("DICT_4X4_250", cv2.aruco.DICT_4X4_250),
+        ("DICT_6X6_100", cv2.aruco.DICT_6X6_100),
+        ("DICT_5X5_100", cv2.aruco.DICT_5X5_100),
+        ("DICT_4X4_100", cv2.aruco.DICT_4X4_100),
+        ("DICT_6X6_50", cv2.aruco.DICT_6X6_50),  # Calib.io boards
+        ("DICT_5X5_50", cv2.aruco.DICT_5X5_50),  # Calib.io boards
+        ("DICT_4X4_50", cv2.aruco.DICT_4X4_50),
+        ("DICT_ARUCO_ORIGINAL", cv2.aruco.DICT_ARUCO_ORIGINAL),
     ]
 
     results = []
@@ -85,9 +85,7 @@ def test_all_dictionaries(image: np.ndarray):
             detector_params.cornerRefinementMaxIterations = 30
             detector_params.cornerRefinementMinAccuracy = 0.1
 
-            marker_corners, marker_ids, rejected = cv2.aruco.detectMarkers(
-                gray, aruco_dict, parameters=detector_params
-            )
+            marker_corners, marker_ids, rejected = cv2.aruco.detectMarkers(gray, aruco_dict, parameters=detector_params)
 
         num_found = len(marker_ids) if marker_ids is not None else 0
         results.append((dict_name, num_found, marker_ids))
@@ -108,11 +106,11 @@ def infer_pattern_from_markers(marker_ids: np.ndarray):
 
     # Common ChArUco patterns
     COMMON_PATTERNS = [
-        (5, 6, 20),   # 5x6, 20mm (4x5=20 markers)
-        (5, 6, 30),   # 5x6, 30mm (4x5=20 markers)
-        (5, 7, 30),   # 5x7, 30mm (4x6=24 markers)
-        (7, 5, 25),   # 7x5, 25mm (6x4=24 markers)
-        (6, 8, 25),   # 6x8, 25mm (5x7=35 markers)
+        (5, 6, 20),  # 5x6, 20mm (4x5=20 markers)
+        (5, 6, 30),  # 5x6, 30mm (4x5=20 markers)
+        (5, 7, 30),  # 5x7, 30mm (4x6=24 markers)
+        (7, 5, 25),  # 7x5, 25mm (6x4=24 markers)
+        (6, 8, 25),  # 6x8, 25mm (5x7=35 markers)
     ]
 
     for cols, rows, square_mm in COMMON_PATTERNS:
@@ -124,20 +122,9 @@ def infer_pattern_from_markers(marker_ids: np.ndarray):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Test ChArUco detection and identify dictionary/pattern"
-    )
-    parser.add_argument(
-        '--camera',
-        type=int,
-        default=0,
-        help='Camera index (default: 0)'
-    )
-    parser.add_argument(
-        '--image',
-        type=str,
-        help='Test with image file instead of camera'
-    )
+    parser = argparse.ArgumentParser(description="Test ChArUco detection and identify dictionary/pattern")
+    parser.add_argument("--camera", type=int, default=0, help="Camera index (default: 0)")
+    parser.add_argument("--image", type=str, help="Test with image file instead of camera")
 
     args = parser.parse_args()
 
@@ -196,12 +183,12 @@ def main():
                 break
 
             # Show preview
-            cv2.imshow('ChArUco Test - Press SPACE to test, Q to quit', frame)
+            cv2.imshow("ChArUco Test - Press SPACE to test, Q to quit", frame)
 
             key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):
+            if key == ord("q"):
                 break
-            elif key == ord(' '):
+            elif key == ord(" "):
                 # Test all dictionaries
                 print("\nTesting all dictionaries...")
                 print("-" * 70)
@@ -228,5 +215,5 @@ def main():
         cv2.destroyAllWindows()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

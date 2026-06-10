@@ -53,4 +53,5 @@ _clear_import_caches_before_launcher_import(project_root)
 # Import and run launcher
 if __name__ == "__main__":
     from launcher import main
+
     sys.exit(main())

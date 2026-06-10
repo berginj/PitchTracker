@@ -29,7 +29,7 @@ def generate_charuco_board(
     square_mm: float = 30.0,
     output: str = "charuco_board.png",
     paper_size: str = "letter",
-    dict_name: str = "6x6_250"
+    dict_name: str = "6x6_250",
 ) -> None:
     """Generate ChArUco board for calibration.
 
@@ -63,12 +63,7 @@ def generate_charuco_board(
     marker_mm = square_mm * 0.73
 
     # Create board (sizes in meters for OpenCV)
-    board = cv2.aruco.CharucoBoard(
-        (cols, rows),
-        square_mm / 1000,  # Convert mm to meters
-        marker_mm / 1000,
-        dictionary
-    )
+    board = cv2.aruco.CharucoBoard((cols, rows), square_mm / 1000, marker_mm / 1000, dictionary)  # Convert mm to meters
 
     dpi = 300
     px_per_mm = dpi / 25.4
@@ -81,22 +76,20 @@ def generate_charuco_board(
     else:
         # US Letter: 8.5" × 11" = 2550 × 3300 pixels at 300 DPI
         img_size = (2550, 3300)
-        paper_name = "US Letter (8.5\" × 11\")"
+        paper_name = 'US Letter (8.5" × 11")'
 
     board_size_px = (
         int(round(cols * square_mm * px_per_mm)),
         int(round(rows * square_mm * px_per_mm)),
     )
     if board_size_px[0] > img_size[0] or board_size_px[1] > img_size[1]:
-        raise ValueError(
-            f"Board {cols}x{rows} at {square_mm}mm squares is too large for {paper_name} at 100% scale"
-        )
+        raise ValueError(f"Board {cols}x{rows} at {square_mm}mm squares is too large for {paper_name} at 100% scale")
 
     board_img = board.generateImage(board_size_px, marginSize=0, borderBits=1)
     img = np.full((img_size[1], img_size[0]), 255, dtype=np.uint8)
     x0 = (img_size[0] - board_size_px[0]) // 2
     y0 = (img_size[1] - board_size_px[1]) // 2
-    img[y0:y0 + board_size_px[1], x0:x0 + board_size_px[0]] = board_img
+    img[y0 : y0 + board_size_px[1], x0 : x0 + board_size_px[0]] = board_img
 
     # Save
     cv2.imwrite(output, img)
@@ -201,45 +194,27 @@ Examples:
 Available dictionaries:
   6x6_250, 5x5_250, 4x4_250 (recommended)
   6x6_100, 5x5_100, 4x4_100, 4x4_50 (less common)
-        """
+        """,
     )
 
+    parser.add_argument("--cols", type=int, default=5, help="Number of columns (default: 5)")
+    parser.add_argument("--rows", type=int, default=6, help="Number of rows (default: 6)")
+    parser.add_argument("--size", type=float, default=30.0, help="Square size in millimeters (default: 30.0)")
     parser.add_argument(
-        "--cols",
-        type=int,
-        default=5,
-        help="Number of columns (default: 5)"
-    )
-    parser.add_argument(
-        "--rows",
-        type=int,
-        default=6,
-        help="Number of rows (default: 6)"
-    )
-    parser.add_argument(
-        "--size",
-        type=float,
-        default=30.0,
-        help="Square size in millimeters (default: 30.0)"
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        default="charuco_board.png",
-        help="Output filename (default: charuco_board.png)"
+        "--output", type=str, default="charuco_board.png", help="Output filename (default: charuco_board.png)"
     )
     parser.add_argument(
         "--paper",
         type=str,
         choices=["letter", "a4"],
         default="letter",
-        help="Paper size: 'letter' (8.5x11) or 'a4' (210x297mm) (default: letter)"
+        help="Paper size: 'letter' (8.5x11) or 'a4' (210x297mm) (default: letter)",
     )
     parser.add_argument(
         "--dict",
         type=str,
         default="6x6_250",
-        help="ArUco dictionary: 6x6_250, 5x5_250, 4x4_250, 6x6_100, 5x5_100, 4x4_100, 4x4_50 (default: 6x6_250)"
+        help="ArUco dictionary: 6x6_250, 5x5_250, 4x4_250, 6x6_100, 5x5_100, 4x4_100, 4x4_50 (default: 6x6_250)",
     )
 
     args = parser.parse_args()
@@ -261,7 +236,7 @@ Available dictionaries:
             square_mm=args.size,
             output=args.output,
             paper_size=args.paper,
-            dict_name=args.dict
+            dict_name=args.dict,
         )
     except Exception as e:
         print(f"Error generating board: {e}", file=sys.stderr)

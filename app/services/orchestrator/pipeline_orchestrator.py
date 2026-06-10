@@ -496,6 +496,7 @@ class PipelineOrchestrator(PipelineService):
             if self._analysis_service is None or self._latest_observation is None:
                 # Return default "ball" result
                 from metrics.strike_zone import StrikeResult
+
                 return StrikeResult(is_strike=False, sample_count=0, zone_row=None, zone_col=None)
 
             return self._analysis_service.calculate_strike_result(

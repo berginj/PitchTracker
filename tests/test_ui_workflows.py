@@ -17,6 +17,7 @@ import pytest
 # Try to import pytest-qt, skip Qt tests if not available
 try:
     from pytest_qt.plugin import QtBot
+
     HAS_PYTEST_QT = True
 except ImportError:
     HAS_PYTEST_QT = False
@@ -34,10 +35,7 @@ from ui.export import write_session_summary_csv
 from ui.widgets import RoiLabel
 
 # Skip all Qt-dependent tests if pytest-qt not available
-requires_pytest_qt = pytest.mark.skipif(
-    not HAS_PYTEST_QT,
-    reason="pytest-qt not installed"
-)
+requires_pytest_qt = pytest.mark.skipif(not HAS_PYTEST_QT, reason="pytest-qt not installed")
 
 
 class TestRecordingSettingsWorkflow:

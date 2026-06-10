@@ -39,7 +39,7 @@ def validate_name(name: str, existing_names: list[str]) -> tuple[bool, str]:
         return False, "Name too long (max 100 characters)."
 
     # Allow alphanumeric, spaces, hyphens, underscores
-    if not re.match(r'^[a-zA-Z0-9 _-]+$', name):
+    if not re.match(r"^[a-zA-Z0-9 _-]+$", name):
         return False, "Name contains invalid characters.\n\nAllowed: letters, numbers, spaces, hyphens, underscores."
 
     # Check for conflicts
@@ -181,7 +181,7 @@ class ProfileManager:
                 parent,
                 "Load Profile",
                 f"Profile '{name}' not found.\n\n"
-                f"Available profiles:\n• " + "\n• ".join(list_profiles() or ["(none)"])
+                f"Available profiles:\n• " + "\n• ".join(list_profiles() or ["(none)"]),
             )
             return False
         except Exception as exc:
@@ -189,9 +189,7 @@ class ProfileManager:
             show_message_dialog(
                 parent,
                 "Load Profile",
-                f"Failed to load profile '{name}'.\n\n"
-                f"Error: {exc}\n\n"
-                f"Check logs for details.",
+                f"Failed to load profile '{name}'.\n\n" f"Error: {exc}\n\n" f"Check logs for details.",
                 tone="error",
             )
             return False

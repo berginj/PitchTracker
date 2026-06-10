@@ -16,9 +16,7 @@ class TimingRecord:
 
 
 def log_timing(camera_id: str, mode: str, elapsed_ms: float, budget_ms: float) -> None:
-    record = TimingRecord(
-        camera_id=camera_id, mode=mode, elapsed_ms=elapsed_ms, budget_ms=budget_ms
-    )
+    record = TimingRecord(camera_id=camera_id, mode=mode, elapsed_ms=elapsed_ms, budget_ms=budget_ms)
     LOGGER.info(
         "detect.timing camera=%s mode=%s elapsed_ms=%.3f budget_ms=%.3f",
         record.camera_id,

@@ -99,6 +99,7 @@ class CalibrationStepPanelsMixin:
 
         # Load current flip state from config
         import yaml
+
         try:
             config_data = yaml.safe_load(self._config_path.read_text())
             self._flip_left_btn.setChecked(config_data.get("camera", {}).get("flip_left", False))
@@ -123,7 +124,9 @@ class CalibrationStepPanelsMixin:
         self._rotate_left_spin.setSingleStep(0.5)
         self._rotate_left_spin.setDecimals(1)
         self._rotate_left_spin.setSuffix("°")
-        self._rotate_left_spin.setToolTip("Manually rotate left camera (positive = clockwise, negative = counter-clockwise)")
+        self._rotate_left_spin.setToolTip(
+            "Manually rotate left camera (positive = clockwise, negative = counter-clockwise)"
+        )
 
         rotate_right_label = QtWidgets.QLabel("Rotate R:")
         self._rotate_right_spin = QtWidgets.QDoubleSpinBox()
@@ -132,7 +135,9 @@ class CalibrationStepPanelsMixin:
         self._rotate_right_spin.setSingleStep(0.5)
         self._rotate_right_spin.setDecimals(1)
         self._rotate_right_spin.setSuffix("°")
-        self._rotate_right_spin.setToolTip("Manually rotate right camera (positive = clockwise, negative = counter-clockwise)")
+        self._rotate_right_spin.setToolTip(
+            "Manually rotate right camera (positive = clockwise, negative = counter-clockwise)"
+        )
 
         # Load current rotation values from config
         try:

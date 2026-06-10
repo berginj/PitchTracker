@@ -90,21 +90,15 @@ class TestCameraManagerStartCapture:
             # Should be capturing
             assert camera_manager.is_capturing()
 
-    def test_start_capture_configures_cameras(
-        self, camera_manager, mock_config, mock_initializer
-    ):
+    def test_start_capture_configures_cameras(self, camera_manager, mock_config, mock_initializer):
         """start_capture should configure cameras via initializer."""
         with patch.object(camera_manager, "_build_camera") as mock_build:
             mock_left = MagicMock()
             mock_right = MagicMock()
             mock_build.side_effect = [mock_left, mock_right]
 
-            with patch.object(
-                PipelineInitializer, "configure_camera"
-            ) as mock_configure:
-                camera_manager.start_capture(
-                    mock_config, "left_serial", "right_serial"
-                )
+            with patch.object(PipelineInitializer, "configure_camera") as mock_configure:
+                camera_manager.start_capture(mock_config, "left_serial", "right_serial")
 
                 # Should have configured both cameras
                 assert mock_configure.call_count == 2
@@ -137,9 +131,7 @@ class TestCameraManagerStartCapture:
             # Cleanup
             camera_manager.stop_capture()
 
-    def test_start_capture_failure_cleans_up(
-        self, camera_manager, mock_config, mock_initializer
-    ):
+    def test_start_capture_failure_cleans_up(self, camera_manager, mock_config, mock_initializer):
         """Failed start_capture should clean up cameras."""
         with patch.object(camera_manager, "_build_camera") as mock_build:
             mock_left = MagicMock()
@@ -147,14 +139,10 @@ class TestCameraManagerStartCapture:
             mock_build.side_effect = [mock_left, mock_right]
 
             # Make right camera fail to open
-            mock_right.open.side_effect = CameraConnectionError(
-                "Failed", camera_id="right"
-            )
+            mock_right.open.side_effect = CameraConnectionError("Failed", camera_id="right")
 
             with pytest.raises(CameraConnectionError):
-                camera_manager.start_capture(
-                    mock_config, "left_serial", "right_serial"
-                )
+                camera_manager.start_capture(mock_config, "left_serial", "right_serial")
 
             # Should have closed left camera during cleanup
             mock_left.close.assert_called()

@@ -28,6 +28,7 @@ class FrameCapturedEvent:
         frame: Captured frame data
         timestamp_ns: Capture timestamp in nanoseconds
     """
+
     camera_id: str
     frame: Frame
     timestamp_ns: int
@@ -47,6 +48,7 @@ class ObservationDetectedEvent:
         timestamp_ns: Detection timestamp in nanoseconds
         confidence: Detection confidence score (0.0-1.0)
     """
+
     observation: StereoObservation
     timestamp_ns: int
     confidence: float = 1.0
@@ -75,6 +77,7 @@ class PitchStartEvent:
         pitch_index: Sequential pitch number in session
         timestamp_ns: When pitch started (first detection)
     """
+
     pitch_id: str
     pitch_index: int
     timestamp_ns: int
@@ -95,6 +98,7 @@ class PitchEndEvent:
         timestamp_ns: When pitch ended (last detection + post-roll)
         duration_ns: Total duration of pitch in nanoseconds
     """
+
     pitch_id: str
     observations: List[StereoObservation]
     timestamp_ns: int
@@ -114,6 +118,7 @@ class PitchAnalyzedEvent:
         summary: Computed pitch summary
         session_summary: Latest aggregate session summary after this pitch
     """
+
     pitch_id: str
     summary: PitchSummary
     session_summary: SessionSummary
@@ -134,6 +139,7 @@ class ConfigUpdateEvent:
         config_value: New value (as string, services cast as needed)
         timestamp_ns: When config changed
     """
+
     config_key: str
     config_value: str
     timestamp_ns: int
@@ -153,6 +159,7 @@ class ErrorEvent:
         details: Optional additional context
         timestamp_ns: When error occurred
     """
+
     service_name: str
     error_type: str
     message: str

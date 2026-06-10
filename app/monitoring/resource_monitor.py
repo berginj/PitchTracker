@@ -65,11 +65,7 @@ class ResourceMonitor:
             return
 
         self._monitoring = True
-        self._monitor_thread = threading.Thread(
-            target=self._monitor_loop,
-            name="ResourceMonitor",
-            daemon=False
-        )
+        self._monitor_thread = threading.Thread(target=self._monitor_loop, name="ResourceMonitor", daemon=False)
         self._monitor_thread.start()
         logger.info("Resource monitor started")
 

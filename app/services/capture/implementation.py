@@ -241,11 +241,7 @@ class CaptureServiceImpl(CaptureService):
         """
         try:
             # Publish to EventBus (PRIMARY path for event-driven architecture)
-            event = FrameCapturedEvent(
-                camera_id=camera_id,
-                frame=frame,
-                timestamp_ns=frame.t_capture_monotonic_ns
-            )
+            event = FrameCapturedEvent(camera_id=camera_id, frame=frame, timestamp_ns=frame.t_capture_monotonic_ns)
             self._event_bus.publish(event)
 
             # Invoke registered callbacks (for backward compatibility)

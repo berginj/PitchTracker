@@ -6,7 +6,8 @@ from datetime import datetime
 
 # Fix Windows console encoding
 if sys.platform == "win32":
-    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stdout.reconfigure(encoding="utf-8")
+
 
 def check_recordings():
     """Check for any recordings in the recordings directory."""
@@ -103,6 +104,7 @@ def check_recordings():
 
     return True
 
+
 if __name__ == "__main__":
     try:
         has_recordings = check_recordings()
@@ -110,5 +112,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n[X] Error checking recordings: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(2)

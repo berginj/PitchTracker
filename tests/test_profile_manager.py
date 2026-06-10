@@ -168,9 +168,7 @@ class TestRefreshProfiles:
         profile_manager.refresh_profiles()
 
         profile_manager._profile_combo.clear.assert_called_once()
-        profile_manager._profile_combo.addItems.assert_called_once_with(
-            ["Home", "Field1", "Field2"]
-        )
+        profile_manager._profile_combo.addItems.assert_called_once_with(["Home", "Field1", "Field2"])
 
     @patch("ui.controllers.profile_manager.list_profiles")
     def test_refresh_profiles_handles_empty(self, mock_list, profile_manager):
@@ -211,9 +209,7 @@ class TestRefreshPitchers:
         profile_manager.refresh_pitchers()
 
         profile_manager._pitcher_combo.clear.assert_called_once()
-        profile_manager._pitcher_combo.addItems.assert_called_once_with(
-            ["John", "Jane", "Bob"]
-        )
+        profile_manager._pitcher_combo.addItems.assert_called_once_with(["John", "Jane", "Bob"])
 
     @patch("ui.controllers.profile_manager.load_state")
     @patch("ui.controllers.profile_manager.load_pitchers")

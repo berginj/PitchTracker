@@ -370,6 +370,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
             if self._service.detector_config:
                 cfg = self._service.detector_config
                 from detect.config import Mode
+
                 self._parameter_panel.load_parameters(
                     mode=Mode(cfg.mode),
                     frame_diff_threshold=cfg.frame_diff_threshold,
@@ -453,6 +454,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         # Get all session directories (sorted by name)
         from app.review import SessionLoader
+
         self._session_list = SessionLoader.get_available_sessions()
 
         if not self._session_list:
@@ -527,6 +529,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
             # Delete the directory
             import shutil
+
             shutil.rmtree(session_dir)
 
             logger.info(f"Deleted session: {session_dir}")
@@ -644,9 +647,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         if self._service.step_forward():
             self._update_video_displays()
             self._timeline.set_current_frame(self._service.current_frame_index)
-            self._status_bar.showMessage(
-                f"Frame {self._service.current_frame_index + 1}/{self._service.total_frames}"
-            )
+            self._status_bar.showMessage(f"Frame {self._service.current_frame_index + 1}/{self._service.total_frames}")
 
     def _step_backward(self) -> None:
         """Step backward one frame."""
@@ -656,9 +657,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         if self._service.step_backward():
             self._update_video_displays()
             self._timeline.set_current_frame(self._service.current_frame_index)
-            self._status_bar.showMessage(
-                f"Frame {self._service.current_frame_index + 1}/{self._service.total_frames}"
-            )
+            self._status_bar.showMessage(f"Frame {self._service.current_frame_index + 1}/{self._service.total_frames}")
 
     def _seek_to_start(self) -> None:
         """Seek to start of video."""
@@ -691,9 +690,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         self._service.seek_to_frame(frame_index)
         self._update_video_displays()
-        self._status_bar.showMessage(
-            f"Seeked to frame {frame_index + 1}/{self._service.total_frames}"
-        )
+        self._status_bar.showMessage(f"Seeked to frame {frame_index + 1}/{self._service.total_frames}")
 
     def _on_speed_changed(self, speed: float) -> None:
         """Handle playback speed change.
@@ -876,11 +873,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         Returns:
             Frame with trajectory overlay
         """
-        renderer = (
-            self._trajectory_renderer_left
-            if camera == "left"
-            else self._trajectory_renderer_right
-        )
+        renderer = self._trajectory_renderer_left if camera == "left" else self._trajectory_renderer_right
 
         if renderer is None or not self._current_observations:
             return frame
@@ -951,12 +944,8 @@ class ReviewWindow(QtWidgets.QMainWindow):
                 show_plate_crossing=True,
             )
 
-            self._trajectory_renderer_left = TrajectoryRenderer(
-                geometry, camera="left", config=config
-            )
-            self._trajectory_renderer_right = TrajectoryRenderer(
-                geometry, camera="right", config=config
-            )
+            self._trajectory_renderer_left = TrajectoryRenderer(geometry, camera="left", config=config)
+            self._trajectory_renderer_right = TrajectoryRenderer(geometry, camera="right", config=config)
 
             logger.info("Trajectory renderers initialized")
 
@@ -1108,9 +1097,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         frame_index = self._service.current_frame_index
         self._service.add_annotation(frame_index, camera, x, y)
 
-        self._status_bar.showMessage(
-            f"Added annotation: {camera} camera at ({x:.1f}, {y:.1f}) frame {frame_index}"
-        )
+        self._status_bar.showMessage(f"Added annotation: {camera} camera at ({x:.1f}, {y:.1f}) frame {frame_index}")
         logger.info(f"Annotation added: {camera} ({x:.1f}, {y:.1f}) at frame {frame_index}")
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:

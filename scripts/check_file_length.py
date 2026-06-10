@@ -56,6 +56,8 @@ ALLOWLIST = {
     "app/pipeline/pitch_tracking_v2.py",
     "tests/test_online_refinement.py",
     "app/pipeline/detection/threading_pool.py",
+    "app/review/session_loader.py",
+    "ui/setup/steps/calibration_step_charuco_detection.py",
 }
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -24,6 +24,7 @@ from contracts import StereoObservation
 
 # Test fixtures
 
+
 def create_test_config():
     """Create test configuration from default.yaml."""
     config_path = Path(__file__).parent.parent.parent / "configs" / "default.yaml"
@@ -158,6 +159,7 @@ class TestPipelineOrchestratorRecording:
 
         # Set record directory to temp location
         import tempfile
+
         test_dir = Path(tempfile.mkdtemp())
         orchestrator.set_record_directory(test_dir)
 
@@ -197,6 +199,7 @@ class TestPipelineOrchestratorRecording:
 
         # Set record directory before starting capture
         import tempfile
+
         test_dir = Path(tempfile.mkdtemp())
         orchestrator.set_record_directory(test_dir)
 
@@ -260,6 +263,7 @@ class TestPipelineOrchestratorDetectionConfig:
 
         # Set detector config
         from detect.config import Mode
+
         orchestrator.set_detector_config(
             config=config.detector,
             mode=Mode.MODE_A,
@@ -292,6 +296,7 @@ class TestPipelineOrchestratorDetections:
 
         orchestrator.start_capture(config, left_serial="left", right_serial="right")
         import tempfile
+
         test_dir = Path(tempfile.mkdtemp())
         orchestrator.set_record_directory(test_dir)
         orchestrator.start_recording(session_name="test_session")
@@ -314,6 +319,7 @@ class TestPipelineOrchestratorDetections:
 
         orchestrator.start_capture(config, left_serial="left", right_serial="right")
         import tempfile
+
         test_dir = Path(tempfile.mkdtemp())
         orchestrator.set_record_directory(test_dir)
         orchestrator.start_recording(session_name="test_session")
@@ -417,11 +423,13 @@ class TestPipelineOrchestratorSessionSummary:
         config = create_test_config()
 
         import tempfile
+
         test_dir = Path(tempfile.mkdtemp())
         orchestrator.set_record_directory(test_dir)
 
         orchestrator.start_capture(config, left_serial="left", right_serial="right")
         import tempfile
+
         test_dir = Path(tempfile.mkdtemp())
         orchestrator.set_record_directory(test_dir)
         orchestrator.start_recording(session_name="test_session")
@@ -456,6 +464,7 @@ class TestPipelineOrchestratorSessionSummary:
 
         orchestrator.start_capture(config, left_serial="left", right_serial="right")
         import tempfile
+
         test_dir = Path(tempfile.mkdtemp())
         orchestrator.set_record_directory(test_dir)
         orchestrator.start_recording(session_name="test_session")
@@ -478,6 +487,7 @@ class TestPipelineOrchestratorSessionSummary:
 
         orchestrator.start_capture(config, left_serial="left", right_serial="right")
         import tempfile
+
         test_dir = Path(tempfile.mkdtemp())
         orchestrator.set_record_directory(test_dir)
         orchestrator.start_recording(session_name="test_session")

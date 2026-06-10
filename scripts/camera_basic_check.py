@@ -8,18 +8,20 @@ If this also fails, the issue is with imports or camera drivers.
 
 from datetime import datetime
 
-print("\n" + "="*70)
+print("\n" + "=" * 70)
 print("MINIMAL CAMERA TEST")
-print("="*70)
+print("=" * 70)
 print(f"Started: {datetime.now()}\n")
 
 try:
     print("Step 1: Importing cv2...")
     import cv2
+
     print(f"  SUCCESS - OpenCV version: {cv2.__version__}")
 
     print("\nStep 2: Importing numpy...")
     import numpy as np
+
     print(f"  SUCCESS - NumPy version: {np.__version__}")
 
     print("\nStep 3: Listing available cameras...")
@@ -49,9 +51,9 @@ try:
     else:
         print("  ERROR - Could not open camera 0")
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST COMPLETE - All basic functions working!")
-    print("="*70)
+    print("=" * 70)
     print("\nIf this test works but alignment checker fails,")
     print("check alignment_check_log.txt for detailed error messages.")
 
@@ -65,8 +67,9 @@ except ImportError as e:
 except Exception as e:
     print(f"\nUNEXPECTED ERROR: {e}")
     import traceback
+
     traceback.print_exc()
 
 finally:
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     input("Press ENTER to exit...")

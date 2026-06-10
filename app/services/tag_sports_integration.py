@@ -148,8 +148,7 @@ class TagSportsIntegrationService:
 
             self._import_history.append(file_path)
             logger.info(
-                f"Successfully imported {len(sessions)} sessions ({total_pitches} pitches) "
-                f"for {athlete_data.name}"
+                f"Successfully imported {len(sessions)} sessions ({total_pitches} pitches) " f"for {athlete_data.name}"
             )
 
             return TagSportsImportResult(
@@ -212,9 +211,7 @@ class TagSportsIntegrationService:
             email=athlete_dict.get("email"),
         )
 
-    def _parse_sessions(
-        self, sessions_list: List[dict]
-    ) -> tuple[List[TagSportsSession], List[str]]:
+    def _parse_sessions(self, sessions_list: List[dict]) -> tuple[List[TagSportsSession], List[str]]:
         sessions: List[TagSportsSession] = []
         warnings: List[str] = []
 
@@ -225,9 +222,7 @@ class TagSportsIntegrationService:
                     pitches.append(
                         TagSportsPitch(
                             pitch_number=pitch_dict["pitch_number"],
-                            timestamp=datetime.fromisoformat(
-                                pitch_dict["timestamp"].replace("Z", "+00:00")
-                            ),
+                            timestamp=datetime.fromisoformat(pitch_dict["timestamp"].replace("Z", "+00:00")),
                             speed_mph=pitch_dict["speed_mph"],
                             pitch_type=pitch_dict.get("pitch_type", ""),
                             notes=pitch_dict.get("notes", ""),
@@ -285,9 +280,7 @@ class TagSportsIntegrationService:
         if session.pitches:
             timestamps = [pitch.timestamp for pitch in session.pitches]
             if timestamps != sorted(timestamps):
-                warnings.append(
-                    f"Session {session.session_id}: Pitch timestamps not in chronological order"
-                )
+                warnings.append(f"Session {session.session_id}: Pitch timestamps not in chronological order")
 
         return warnings
 
@@ -330,9 +323,7 @@ class TagSportsCloudAPIClient:
                 "TAG cloud sync is disabled. Enable PITCHTRACKER_TAG_CLOUD_SYNC_ENABLED to use it."
             )
         if self._adapter is None:
-            raise TagSportsConfigurationError(
-                "TAG cloud sync is enabled, but no cloud adapter is configured."
-            )
+            raise TagSportsConfigurationError("TAG cloud sync is enabled, but no cloud adapter is configured.")
 
     def _require_authenticated(self) -> None:
         self._require_enabled()

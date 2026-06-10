@@ -43,9 +43,7 @@ class TestGateDetections:
 
     def test_returns_empty_when_no_gate(self):
         """Test returns empty list when gate is None."""
-        detections = [
-            Detection(x=100, y=100, r=10, conf=0.9, t_capture_monotonic_ns=1000)
-        ]
+        detections = [Detection(x=100, y=100, r=10, conf=0.9, t_capture_monotonic_ns=1000)]
         result = gate_detections(None, detections)
         assert result == []
 
@@ -75,12 +73,8 @@ class TestBuildStereoMatches:
 
     def test_builds_matches_from_detections(self):
         """Test builds stereo matches from left and right detections."""
-        left_dets = [
-            Detection(x=100, y=100, r=10, conf=0.9, t_capture_monotonic_ns=1000)
-        ]
-        right_dets = [
-            Detection(x=90, y=100, r=10, conf=0.9, t_capture_monotonic_ns=1000)
-        ]
+        left_dets = [Detection(x=100, y=100, r=10, conf=0.9, t_capture_monotonic_ns=1000)]
+        right_dets = [Detection(x=90, y=100, r=10, conf=0.9, t_capture_monotonic_ns=1000)]
 
         # build_stereo_matches expects pre-gated detections, returns empty if not matched
         result = build_stereo_matches(left_dets, right_dets)

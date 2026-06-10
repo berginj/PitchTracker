@@ -18,17 +18,9 @@ class TargetScoringGame(BaseGame):
     """Zone-based scoring with corner multipliers and streak bonuses."""
 
     # Point values per zone (corners worth more)
-    ZONE_POINTS = [
-        [5, 3, 5],  # Top row
-        [3, 1, 3],  # Middle row
-        [5, 3, 5]   # Bottom row
-    ]
+    ZONE_POINTS = [[5, 3, 5], [3, 1, 3], [5, 3, 5]]  # Top row  # Middle row  # Bottom row
 
-    def __init__(
-        self,
-        game_state_manager: "GameStateManager",
-        parent: Optional[QtWidgets.QWidget] = None
-    ):
+    def __init__(self, game_state_manager: "GameStateManager", parent: Optional[QtWidgets.QWidget] = None):
         """Initialize target scoring game."""
         super().__init__(game_state_manager, parent)
         self._style_manager = get_style_manager()
@@ -64,7 +56,9 @@ class TargetScoringGame(BaseGame):
         layout.addWidget(self._grid_widget, 1)
 
         # Instructions
-        instructions = QtWidgets.QLabel("Corners = 5pts, Edges = 3pts, Middle = 1pt\nStreak bonus: +1pt per consecutive strike")
+        instructions = QtWidgets.QLabel(
+            "Corners = 5pts, Edges = 3pts, Middle = 1pt\nStreak bonus: +1pt per consecutive strike"
+        )
         instructions.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         instructions.setWordWrap(True)
         self._style_manager.style_label(instructions, "muted")
@@ -116,9 +110,7 @@ class TargetScoringGame(BaseGame):
                     painter.setPen(QtGui.QColor(theme.accent_success))
 
                 painter.drawText(
-                    QtCore.QRect(x, y, cell_width, cell_height),
-                    QtCore.Qt.AlignmentFlag.AlignCenter,
-                    f"{points}"
+                    QtCore.QRect(x, y, cell_width, cell_height), QtCore.Qt.AlignmentFlag.AlignCenter, f"{points}"
                 )
 
     def process_pitch(self, pitch: "PitchSummary") -> None:

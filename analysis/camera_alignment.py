@@ -42,8 +42,7 @@ from analysis.camera_alignment_presets import (  # noqa: F401
 )
 
 
-def analyze_alignment(left_img: np.ndarray, right_img: np.ndarray,
-                      max_features: int = 1000) -> AlignmentResults:
+def analyze_alignment(left_img: np.ndarray, right_img: np.ndarray, max_features: int = 1000) -> AlignmentResults:
     """Automatically analyze stereo camera alignment from frame pair.
 
     This function runs the complete alignment analysis and returns both
@@ -91,8 +90,14 @@ def analyze_alignment(left_img: np.ndarray, right_img: np.ndarray,
 
         # Build user messages
         status_message, warnings, corrections_applied = _build_messages(
-            quality, vertical, horizontal, rotation, scale,  # Added scale
-            rotation_correction_needed, rotation_deg, vertical_offset_px
+            quality,
+            vertical,
+            horizontal,
+            rotation,
+            scale,  # Added scale
+            rotation_correction_needed,
+            rotation_deg,
+            vertical_offset_px,
         )
 
         return AlignmentResults(
@@ -115,14 +120,18 @@ def analyze_alignment(left_img: np.ndarray, right_img: np.ndarray,
             vertical_offset_px=vertical_offset_px,
             status_message=status_message,
             warnings=warnings,
-            corrections_applied=corrections_applied
+            corrections_applied=corrections_applied,
         )
 
     except Exception as e:
         # If anything fails, return error result
         return AlignmentResults(
-            vertical_mean_px=0, vertical_max_px=0,
-            convergence_std_px=0, correlation=0, rotation_deg=0, num_matches=0,
+            vertical_mean_px=0,
+            vertical_max_px=0,
+            convergence_std_px=0,
+            correlation=0,
+            rotation_deg=0,
+            num_matches=0,
             scale_difference_percent=0.0,  # NEW
             scale_ratio=1.0,  # NEW
             quality="CRITICAL",
@@ -131,10 +140,12 @@ def analyze_alignment(left_img: np.ndarray, right_img: np.ndarray,
             rotation_status="UNKNOWN",
             scale_status="UNKNOWN",  # NEW
             rotation_correction_needed=False,
-            rotation_left=0, rotation_right=0, vertical_offset_px=0,
+            rotation_left=0,
+            rotation_right=0,
+            vertical_offset_px=0,
             status_message=f"Alignment check failed: {str(e)}",
             warnings=[f"Could not analyze alignment: {str(e)}"],
-            corrections_applied=[]
+            corrections_applied=[],
         )
 
 
@@ -170,7 +181,7 @@ def apply_corrections(config_path: Path, results: AlignmentResults) -> None:
             "correlation": float(results.correlation),
             "quality": results.quality,
             "last_checked": datetime.now().isoformat(),
-            "num_matches": results.num_matches
+            "num_matches": results.num_matches,
         }
 
         config_path.write_text(yaml.safe_dump(config_data))
@@ -179,8 +190,9 @@ def apply_corrections(config_path: Path, results: AlignmentResults) -> None:
         raise RuntimeError(f"Failed to apply alignment corrections: {e}")
 
 
-def analyze_alignment_averaged(left_camera, right_camera, num_frames: int = 10,
-                               interval_ms: int = 100) -> AlignmentResults:
+def analyze_alignment_averaged(
+    left_camera, right_camera, num_frames: int = 10, interval_ms: int = 100
+) -> AlignmentResults:
     """Analyze alignment averaged over multiple frames for stability.
 
     This provides more robust measurements by averaging over multiple frames,
@@ -240,8 +252,7 @@ def analyze_alignment_averaged(left_camera, right_camera, num_frames: int = 10,
     total_matches = sum(r.num_matches for r in results_list) // len(results_list)
 
     # Re-assess quality with averaged metrics
-    quality = _assess_quality(avg_vertical_mean, avg_convergence_std, avg_rotation,
-                             avg_correlation, avg_scale_diff)
+    quality = _assess_quality(avg_vertical_mean, avg_convergence_std, avg_rotation, avg_correlation, avg_scale_diff)
 
     # Use first result's status assessments (will be similar)
     first = results_list[0]
@@ -253,14 +264,36 @@ def analyze_alignment_averaged(left_camera, right_camera, num_frames: int = 10,
     vertical_offset_px = int(round(avg_vertical_mean))
 
     # Build messages with averaged data
-    vertical_dict = {"status": first.vertical_status, "severity": "ok" if avg_vertical_mean < 10 else "warning", "message": f"Vertical offset {avg_vertical_mean:.1f}px"}
-    horizontal_dict = {"status": first.horizontal_status, "severity": "ok" if avg_convergence_std < 10 else "warning", "message": f"Convergence {avg_convergence_std:.1f}px"}
-    rotation_dict = {"status": first.rotation_status, "severity": "ok" if abs(avg_rotation) < 2 else "warning", "message": f"Rotation {avg_rotation:.1f}°"}
-    scale_dict = {"status": first.scale_status, "severity": "ok" if avg_scale_diff < 5 else "warning", "message": f"Scale {avg_scale_diff:.1f}%"}
+    vertical_dict = {
+        "status": first.vertical_status,
+        "severity": "ok" if avg_vertical_mean < 10 else "warning",
+        "message": f"Vertical offset {avg_vertical_mean:.1f}px",
+    }
+    horizontal_dict = {
+        "status": first.horizontal_status,
+        "severity": "ok" if avg_convergence_std < 10 else "warning",
+        "message": f"Convergence {avg_convergence_std:.1f}px",
+    }
+    rotation_dict = {
+        "status": first.rotation_status,
+        "severity": "ok" if abs(avg_rotation) < 2 else "warning",
+        "message": f"Rotation {avg_rotation:.1f}°",
+    }
+    scale_dict = {
+        "status": first.scale_status,
+        "severity": "ok" if avg_scale_diff < 5 else "warning",
+        "message": f"Scale {avg_scale_diff:.1f}%",
+    }
 
     status_message, warnings, corrections_applied = _build_messages(
-        quality, vertical_dict, horizontal_dict, rotation_dict, scale_dict,
-        rotation_correction_needed, avg_rotation, vertical_offset_px
+        quality,
+        vertical_dict,
+        horizontal_dict,
+        rotation_dict,
+        scale_dict,
+        rotation_correction_needed,
+        avg_rotation,
+        vertical_offset_px,
     )
 
     # Create result with averaged metrics
@@ -284,12 +317,11 @@ def analyze_alignment_averaged(left_camera, right_camera, num_frames: int = 10,
         vertical_offset_px=vertical_offset_px,
         status_message=f"{status_message} (averaged over {successful_frames} frames)",
         warnings=warnings,
-        corrections_applied=corrections_applied
+        corrections_applied=corrections_applied,
     )
 
 
-def check_camera_warmup(camera_device, num_frames: int = 20,
-                        variance_threshold: float = 0.02) -> Tuple[bool, float]:
+def check_camera_warmup(camera_device, num_frames: int = 20, variance_threshold: float = 0.02) -> Tuple[bool, float]:
     """Check if camera has warmed up and stabilized.
 
     Monitors frame variance over multiple frames to detect when camera
@@ -359,8 +391,16 @@ def predict_calibration_quality(results: AlignmentResults) -> dict:
     scale_contribution = results.scale_difference_percent * 0.15
 
     # Estimate RMS error
-    estimated_rms_min = base_error + vertical_contribution + (toin_contribution * 0.5) + rotation_contribution + scale_contribution
-    estimated_rms_max = base_error + (vertical_contribution * 1.5) + (toin_contribution * 1.5) + (rotation_contribution * 1.5) + (scale_contribution * 1.5)
+    estimated_rms_min = (
+        base_error + vertical_contribution + (toin_contribution * 0.5) + rotation_contribution + scale_contribution
+    )
+    estimated_rms_max = (
+        base_error
+        + (vertical_contribution * 1.5)
+        + (toin_contribution * 1.5)
+        + (rotation_contribution * 1.5)
+        + (scale_contribution * 1.5)
+    )
 
     # Determine predicted quality
     if estimated_rms_max < 0.5:

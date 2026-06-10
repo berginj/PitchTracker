@@ -121,9 +121,7 @@ class CalibrationStepLifecycleMixin:
         else:
             self._calibration_mode = "FULL"
             self._min_captures = 10
-            self._instruction_label.setText(
-                "<b style='font-size: 14pt;'>📷 Capture 10+ ChArUco Board Poses</b>"
-            )
+            self._instruction_label.setText("<b style='font-size: 14pt;'>📷 Capture 10+ ChArUco Board Poses</b>")
             self._capture_progress_bar.setMaximum(10)
             self._instruction_label.setText("Capture 10+ ChArUco Board Poses")
             style_message_panel(self._instruction_label, "info")
@@ -190,9 +188,9 @@ class CalibrationStepLifecycleMixin:
 
         self._camera_type_label.setText(type_text)
         self._set_camera_type_state(
-            "Industrial (Fixed Focus)" if caps.camera_type == "industrial" else (
-                "Webcam (Autofocus)" if caps.camera_type == "webcam" else "Unknown Camera Type"
-            ),
+            "Industrial (Fixed Focus)"
+            if caps.camera_type == "industrial"
+            else ("Webcam (Autofocus)" if caps.camera_type == "webcam" else "Unknown Camera Type"),
             "success" if caps.camera_type == "industrial" else ("warning" if caps.camera_type == "webcam" else "info"),
         )
 
@@ -218,14 +216,14 @@ class CalibrationStepLifecycleMixin:
 
             # Suggest quick mode for webcams
             if self._calibration_mode == "FULL" and ask_confirmation(
-                    self,
-                    "Quick Calibration Recommended",
-                    "Webcam detected with autofocus.\n\n"
-                    "Quick calibration mode is recommended for cameras with autofocus "
-                    "as it's less sensitive to focal drift.\n\n"
-                    "Switch to Quick mode?",
-                    tone="warning",
-                ):
+                self,
+                "Quick Calibration Recommended",
+                "Webcam detected with autofocus.\n\n"
+                "Quick calibration mode is recommended for cameras with autofocus "
+                "as it's less sensitive to focal drift.\n\n"
+                "Switch to Quick mode?",
+                tone="warning",
+            ):
                 self._quick_radio.setChecked(True)
         else:
             self._set_webcam_warning(None)
@@ -269,13 +267,11 @@ class CalibrationStepLifecycleMixin:
 
         # Update pattern info label with current detection
         if self._pattern_locked and self._cached_dict_name:
-            dict_display = self._cached_dict_name.replace('DICT_', '').replace('_', ' ')
-            self._pattern_info_label.setText(
-                f"Detected: {self._pattern_cols}×{self._pattern_rows} ({dict_display})"
-            )
+            dict_display = self._cached_dict_name.replace("DICT_", "").replace("_", " ")
+            self._pattern_info_label.setText(f"Detected: {self._pattern_cols}×{self._pattern_rows} ({dict_display})")
             self._set_pattern_info_state(self._pattern_info_label.text(), "success")
         elif self._cached_dict_name:
-            dict_display = self._cached_dict_name.replace('DICT_', '').replace('_', ' ')
+            dict_display = self._cached_dict_name.replace("DICT_", "").replace("_", " ")
             self._pattern_info_label.setText(f"Scanning... ({dict_display})")
             self._set_pattern_info_state(self._pattern_info_label.text(), "warning")
         else:

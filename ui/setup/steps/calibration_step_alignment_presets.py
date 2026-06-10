@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 class CalibrationStepAlignmentPresetsMixin:
     def _save_alignment_preset(self) -> None:
         """Save current alignment as a preset."""
-        if not hasattr(self, '_alignment_results') or self._alignment_results is None:
+        if not hasattr(self, "_alignment_results") or self._alignment_results is None:
             show_message_dialog(
                 self,
                 "No Alignment Available",
@@ -36,7 +36,7 @@ class CalibrationStepAlignmentPresetsMixin:
                 "Save Alignment Preset",
                 "Enter a name for this preset:\n(e.g., 'baseline_good', 'after_adjustment')",
                 QtWidgets.QLineEdit.EchoMode.Normal,
-                default_name
+                default_name,
             )
 
             if ok and preset_name:
@@ -45,7 +45,7 @@ class CalibrationStepAlignmentPresetsMixin:
                     self._alignment_results,
                     preset_name,
                     self._left_serial or "Unknown",
-                    self._right_serial or "Unknown"
+                    self._right_serial or "Unknown",
                 )
 
                 show_message_dialog(
@@ -85,16 +85,10 @@ class CalibrationStepAlignmentPresetsMixin:
                 return
 
             # Show selection dialog
-            preset_names = [f"{p['name']} ({p['quality_score']}% - {p['saved_at'][:10]})"
-                           for p in presets]
+            preset_names = [f"{p['name']} ({p['quality_score']}% - {p['saved_at'][:10]})" for p in presets]
 
             preset_choice, ok = QtWidgets.QInputDialog.getItem(
-                self,
-                "Load Alignment Preset",
-                "Select a preset to view:",
-                preset_names,
-                0,
-                False
+                self, "Load Alignment Preset", "Select a preset to view:", preset_names, 0, False
             )
 
             if ok and preset_choice:

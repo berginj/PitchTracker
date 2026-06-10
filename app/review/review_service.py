@@ -33,6 +33,7 @@ class Annotation:
         confidence: Confidence score (0.0-1.0)
         note: Optional note or description
     """
+
     frame_index: int
     camera: str
     x: float
@@ -44,9 +45,10 @@ class Annotation:
 
 class PitchScore(Enum):
     """Quality score for pitch detection."""
-    GOOD = "good"        # Detection worked perfectly
+
+    GOOD = "good"  # Detection worked perfectly
     PARTIAL = "partial"  # Some frames detected, some missed
-    MISSED = "missed"    # Detection completely failed
+    MISSED = "missed"  # Detection completely failed
     UNSCORED = "unscored"  # Not yet scored
 
 
@@ -111,10 +113,7 @@ class ReviewService:
         if not self._session.right_video_path.exists():
             raise FileNotFoundError(f"Right video not found: {self._session.right_video_path}")
 
-        self._video_reader.open_videos(
-            self._session.left_video_path,
-            self._session.right_video_path
-        )
+        self._video_reader.open_videos(self._session.left_video_path, self._session.right_video_path)
 
         # Initialize detector config from original config if available
         if self._session.original_config:
@@ -282,8 +281,12 @@ class ReviewService:
             model_class_id=self._detector_config.model_class_id,
             model_format=self._detector_config.model_format,
             mode=mode.value if mode is not None else self._detector_config.mode,
-            frame_diff_threshold=frame_diff_threshold if frame_diff_threshold is not None else self._detector_config.frame_diff_threshold,
-            bg_diff_threshold=bg_diff_threshold if bg_diff_threshold is not None else self._detector_config.bg_diff_threshold,
+            frame_diff_threshold=frame_diff_threshold
+            if frame_diff_threshold is not None
+            else self._detector_config.frame_diff_threshold,
+            bg_diff_threshold=bg_diff_threshold
+            if bg_diff_threshold is not None
+            else self._detector_config.bg_diff_threshold,
             bg_alpha=self._detector_config.bg_alpha,
             edge_threshold=self._detector_config.edge_threshold,
             blob_threshold=self._detector_config.blob_threshold,
@@ -341,6 +344,7 @@ class ReviewService:
             try:
                 # Convert to grayscale if needed
                 import cv2
+
                 if len(left_frame.shape) == 3:
                     gray_left = cv2.cvtColor(left_frame, cv2.COLOR_BGR2GRAY)
                 else:
@@ -366,6 +370,7 @@ class ReviewService:
             try:
                 # Convert to grayscale if needed
                 import cv2
+
                 if len(right_frame.shape) == 3:
                     gray_right = cv2.cvtColor(right_frame, cv2.COLOR_BGR2GRAY)
                 else:
@@ -436,7 +441,7 @@ class ReviewService:
 
         # Future Enhancement: Convert DetectorConfig to YAML format for consistency
         # For now, just save as JSON
-        output_json = output_path.with_suffix('.json')
+        output_json = output_path.with_suffix(".json")
 
         config_dict = {
             "detector": {
@@ -461,7 +466,7 @@ class ReviewService:
             }
         }
 
-        with open(output_json, 'w') as f:
+        with open(output_json, "w") as f:
             json.dump(config_dict, f, indent=2)
 
         logger.info(f"Exported detector config to {output_json}")
@@ -484,7 +489,7 @@ class ReviewService:
             "pitch_scores": {pid: score.value for pid, score in self._pitch_scores.items()},
         }
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(data, f, indent=2)
 
         logger.info(f"Exported {len(annotations_list)} annotations to {output_path}")

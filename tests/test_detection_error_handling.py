@@ -34,7 +34,7 @@ class TestDetectionErrorHandling(unittest.TestCase):
         frame.camera_id = "test"
 
         # Should log error but not crash
-        with self.assertLogs(level='ERROR') as log_context:
+        with self.assertLogs(level="ERROR") as log_context:
             detections = self.pool._detect_frame("left", frame)
 
         # Should return empty list
@@ -84,7 +84,7 @@ class TestDetectionErrorHandling(unittest.TestCase):
         self.assertEqual(stats["left"], 3)
 
         # Succeed once
-        with self.assertLogs(level='INFO') as log_context:
+        with self.assertLogs(level="INFO") as log_context:
             self.pool._detect_frame("left", frame)
 
         # Counter should reset
@@ -113,7 +113,7 @@ class TestDetectionErrorHandling(unittest.TestCase):
         error_callback.assert_not_called()
 
         # 10th failure should trigger callback
-        with self.assertLogs(level='CRITICAL'):
+        with self.assertLogs(level="CRITICAL"):
             self.pool._detect_frame("left", frame)
 
         error_callback.assert_called_once()
@@ -131,7 +131,7 @@ class TestDetectionErrorHandling(unittest.TestCase):
         frame = Mock(spec=Frame)
 
         # Call many times in quick succession
-        with self.assertLogs(level='ERROR') as log_context:
+        with self.assertLogs(level="ERROR") as log_context:
             for _ in range(10):
                 self.pool._detect_frame("left", frame)
                 time.sleep(0.1)  # 100ms between calls
@@ -209,5 +209,5 @@ class TestDetectionErrorHandling(unittest.TestCase):
         self.pool.stop()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

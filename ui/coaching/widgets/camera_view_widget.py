@@ -27,12 +27,7 @@ class CameraViewWidget(QtWidgets.QWidget):
     # Signal emitted when camera selection changes
     camera_changed = QtCore.Signal(str)  # "left" or "right"
 
-    def __init__(
-        self,
-        parent: Optional[QtWidgets.QWidget] = None,
-        min_width: int = 640,
-        min_height: int = 480
-    ):
+    def __init__(self, parent: Optional[QtWidgets.QWidget] = None, min_width: int = 640, min_height: int = 480):
         """Initialize camera view widget.
 
         Args:
@@ -144,11 +139,7 @@ class CameraViewWidget(QtWidgets.QWidget):
         """
         return self._active_camera
 
-    def update_frames(
-        self,
-        left_frame: Optional[Frame],
-        right_frame: Optional[Frame]
-    ) -> None:
+    def update_frames(self, left_frame: Optional[Frame], right_frame: Optional[Frame]) -> None:
         """Update both camera frames.
 
         Args:
@@ -192,7 +183,7 @@ class CameraViewWidget(QtWidgets.QWidget):
                 scaled = pixmap.scaled(
                     self._camera_label.size(),
                     QtCore.Qt.AspectRatioMode.KeepAspectRatio,
-                    QtCore.Qt.TransformationMode.SmoothTransformation
+                    QtCore.Qt.TransformationMode.SmoothTransformation,
                 )
                 self._camera_label.setPixmap(scaled)
 
@@ -222,13 +213,7 @@ class CameraViewWidget(QtWidgets.QWidget):
 
             # Create QImage
             bytes_per_line = ch * w
-            q_image = QtGui.QImage(
-                rgb_image.data,
-                w,
-                h,
-                bytes_per_line,
-                QtGui.QImage.Format.Format_RGB888
-            )
+            q_image = QtGui.QImage(rgb_image.data, w, h, bytes_per_line, QtGui.QImage.Format.Format_RGB888)
 
             # Convert to QPixmap
             return QtGui.QPixmap.fromImage(q_image)

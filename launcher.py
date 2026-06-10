@@ -51,7 +51,7 @@ def clear_python_cache(verbose: bool = False, clear_memory: bool = True) -> None
     modules_cleared = 0
 
     # Remove all .pyc files
-    for p in Path('.').rglob('*.pyc'):
+    for p in Path(".").rglob("*.pyc"):
         try:
             p.unlink()
             pyc_count += 1
@@ -61,7 +61,7 @@ def clear_python_cache(verbose: bool = False, clear_memory: bool = True) -> None
                 logger.warning(f"Failed to remove .pyc file {p}: {e}")
 
     # Remove all __pycache__ directories
-    for p in Path('.').rglob('__pycache__'):
+    for p in Path(".").rglob("__pycache__"):
         try:
             shutil.rmtree(p)
             cache_count += 1
@@ -72,12 +72,12 @@ def clear_python_cache(verbose: bool = False, clear_memory: bool = True) -> None
 
     # Clear project modules from sys.modules to force reimport
     if clear_memory:
-        project_root = Path('.').resolve()
+        project_root = Path(".").resolve()
         modules_to_clear = []
 
         for module_name, module in list(sys.modules.items()):
             # Skip built-in modules and None entries
-            if module is None or not hasattr(module, '__file__'):
+            if module is None or not hasattr(module, "__file__"):
                 continue
 
             # Skip if module has no file path (built-in)
@@ -88,9 +88,9 @@ def clear_python_cache(verbose: bool = False, clear_memory: bool = True) -> None
                 module_path = Path(module.__file__).resolve()
                 # Only clear modules that are from our project directory
                 # Exclude stdlib and site-packages
-                if (project_root in module_path.parents or module_path.parent == project_root):
+                if project_root in module_path.parents or module_path.parent == project_root:
                     # Don't clear the launcher module itself or critical startup modules
-                    if module_name not in ('__main__', '__mp_main__', 'launcher', 'startup_validator', 'updater'):
+                    if module_name not in ("__main__", "__mp_main__", "launcher", "startup_validator", "updater"):
                         modules_to_clear.append(module_name)
             except (ValueError, OSError):
                 # Skip modules with invalid paths
@@ -108,8 +108,8 @@ def clear_python_cache(verbose: bool = False, clear_memory: bool = True) -> None
     # Verify cache clearing succeeded
     if verbose or pyc_failures or cache_failures:
         # Count remaining cache files
-        remaining_pyc = sum(1 for _ in Path('.').rglob('*.pyc'))
-        remaining_cache = sum(1 for _ in Path('.').rglob('__pycache__'))
+        remaining_pyc = sum(1 for _ in Path(".").rglob("*.pyc"))
+        remaining_cache = sum(1 for _ in Path(".").rglob("__pycache__"))
 
         if verbose:
             if pyc_count > 0 or cache_count > 0:
@@ -119,7 +119,9 @@ def clear_python_cache(verbose: bool = False, clear_memory: bool = True) -> None
 
             # Verification results
             if remaining_pyc > 0 or remaining_cache > 0:
-                print(f"[Cache] Verification: {remaining_pyc} .pyc files and {remaining_cache} __pycache__ directories remain")
+                print(
+                    f"[Cache] Verification: {remaining_pyc} .pyc files and {remaining_cache} __pycache__ directories remain"
+                )
                 if remaining_pyc > 0 or remaining_cache > 0:
                     print(f"[Cache] Note: Remaining files may be in use by Python or other processes")
             else:
@@ -129,8 +131,10 @@ def clear_python_cache(verbose: bool = False, clear_memory: bool = True) -> None
             total_failures = len(pyc_failures) + len(cache_failures)
             print(f"[Cache] Warning: {total_failures} items could not be cleared (may be in use)")
             if verbose:
-                print(f"[Cache] Failed items: {', '.join(f[0] for f in (pyc_failures + cache_failures)[:5])}"
-                      + (" ..." if total_failures > 5 else ""))
+                print(
+                    f"[Cache] Failed items: {', '.join(f[0] for f in (pyc_failures + cache_failures)[:5])}"
+                    + (" ..." if total_failures > 5 else "")
+                )
 
 
 class AboutDialog(QtWidgets.QDialog):
@@ -346,9 +350,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
         widget.setLayout(layout)
         return widget
 
-    def _create_role_button(
-        self, title: str, description: str, color: str, callback
-    ) -> QtWidgets.QPushButton:
+    def _create_role_button(self, title: str, description: str, color: str, callback) -> QtWidgets.QPushButton:
         """Create a styled role selection button."""
         accent = "success" if color.lower() == "#4caf50" else "primary"
 
@@ -517,8 +519,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(
                 self,
                 "Launch Error",
-                f"Failed to launch Setup Wizard:\n{str(e)}\n\n"
-                "Make sure all dependencies are installed.",
+                f"Failed to launch Setup Wizard:\n{str(e)}\n\n" "Make sure all dependencies are installed.",
             )
             self.show()
 
@@ -567,11 +568,12 @@ class LauncherWindow(QtWidgets.QMainWindow):
             update_info: Update information from check_for_updates()
         """
         # Check if user previously skipped this version
-        if self._is_version_skipped(update_info['version']):
+        if self._is_version_skipped(update_info["version"]):
             return
 
         # Show update dialog
         from ui.update_dialog import UpdateDialog
+
         dialog = UpdateDialog(update_info, parent=self)
         dialog.exec()
 
@@ -592,7 +594,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
             with open(settings_file) as f:
                 settings = json.load(f)
 
-            return settings.get('skipped_version') == version
+            return settings.get("skipped_version") == version
 
         except Exception:
             return False
@@ -612,7 +614,7 @@ class UpdateCheckThread(QtCore.QThread):
         """Check for updates in background."""
         try:
             update_info = check_for_updates(timeout=5)
-            if update_info['available']:
+            if update_info["available"]:
                 self.update_available.emit(update_info)
         except Exception:
             # Silently fail - don't bother user with update check errors

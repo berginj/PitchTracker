@@ -107,9 +107,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def collect_files_to_package(
-    session_dir: Path, submission_type: str
-) -> Dict[str, List[Path]]:
+def collect_files_to_package(session_dir: Path, submission_type: str) -> Dict[str, List[Path]]:
     """Collect files to include in submission package.
 
     Args:
@@ -348,9 +346,7 @@ def create_ml_submission(
 
     # Create ZIP package
     print(f"Creating ZIP package: {output_path}")
-    with zipfile.ZipFile(
-        output_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6
-    ) as archive:
+    with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
         # Add all files
         file_count = 0
         for category, file_list in files.items():

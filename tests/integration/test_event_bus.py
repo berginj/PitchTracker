@@ -11,16 +11,14 @@ from dataclasses import dataclass
 import pytest
 
 from app.events.event_bus import EventBus
-from app.events.event_types import (
-    PitchStartEvent,
-    PitchEndEvent
-)
+from app.events.event_types import PitchStartEvent, PitchEndEvent
 
 
 # Test fixtures for Frame and StereoObservation
 @dataclass
 class MockFrame:
     """Mock Frame for testing."""
+
     data: bytes
     width: int
     height: int
@@ -30,6 +28,7 @@ class MockFrame:
 @dataclass
 class MockObservation:
     """Mock StereoObservation for testing."""
+
     timestamp_ns: int
     x: float
     y: float
@@ -49,11 +48,7 @@ class TestEventBusBasics:
 
         bus.subscribe(PitchStartEvent, handler)
 
-        event = PitchStartEvent(
-            pitch_id="test_001",
-            pitch_index=1,
-            timestamp_ns=123456789
-        )
+        event = PitchStartEvent(pitch_id="test_001", pitch_index=1, timestamp_ns=123456789)
         bus.publish(event)
 
         assert len(events_received) == 1
@@ -80,11 +75,7 @@ class TestEventBusBasics:
         bus.subscribe(PitchStartEvent, handler2)
         bus.subscribe(PitchStartEvent, handler3)
 
-        event = PitchStartEvent(
-            pitch_id="test_002",
-            pitch_index=2,
-            timestamp_ns=987654321
-        )
+        event = PitchStartEvent(pitch_id="test_002", pitch_index=2, timestamp_ns=987654321)
         bus.publish(event)
 
         # All handlers should receive the event
@@ -106,11 +97,7 @@ class TestEventBusBasics:
         bus.subscribe(PitchStartEvent, handler)
 
         # Publish first event - should be received
-        event1 = PitchStartEvent(
-            pitch_id="test_003",
-            pitch_index=1,
-            timestamp_ns=111
-        )
+        event1 = PitchStartEvent(pitch_id="test_003", pitch_index=1, timestamp_ns=111)
         bus.publish(event1)
         assert len(events_received) == 1
 
@@ -119,11 +106,7 @@ class TestEventBusBasics:
         assert success is True
 
         # Publish second event - should NOT be received
-        event2 = PitchStartEvent(
-            pitch_id="test_004",
-            pitch_index=2,
-            timestamp_ns=222
-        )
+        event2 = PitchStartEvent(pitch_id="test_004", pitch_index=2, timestamp_ns=222)
         bus.publish(event2)
         assert len(events_received) == 1  # Still 1, not 2
 
@@ -142,11 +125,7 @@ class TestEventBusBasics:
         """Test publishing when no one is listening."""
         bus = EventBus()
 
-        event = PitchStartEvent(
-            pitch_id="test_005",
-            pitch_index=1,
-            timestamp_ns=333
-        )
+        event = PitchStartEvent(pitch_id="test_005", pitch_index=1, timestamp_ns=333)
 
         # Should not raise exception
         bus.publish(event)
@@ -167,17 +146,8 @@ class TestEventBusBasics:
         bus.subscribe(PitchEndEvent, handle_end)
 
         # Publish different event types
-        start_event = PitchStartEvent(
-            pitch_id="test_006",
-            pitch_index=1,
-            timestamp_ns=444
-        )
-        end_event = PitchEndEvent(
-            pitch_id="test_006",
-            observations=[],
-            timestamp_ns=555,
-            duration_ns=111
-        )
+        start_event = PitchStartEvent(pitch_id="test_006", pitch_index=1, timestamp_ns=444)
+        end_event = PitchEndEvent(pitch_id="test_006", observations=[], timestamp_ns=555, duration_ns=111)
 
         bus.publish(start_event)
         bus.publish(end_event)
@@ -206,9 +176,7 @@ class TestEventBusThreadSafety:
         def publish_events(thread_id: int, count: int):
             for i in range(count):
                 event = PitchStartEvent(
-                    pitch_id=f"thread_{thread_id}_pitch_{i}",
-                    pitch_index=i,
-                    timestamp_ns=time.time_ns()
+                    pitch_id=f"thread_{thread_id}_pitch_{i}", pitch_index=i, timestamp_ns=time.time_ns()
                 )
                 bus.publish(event)
 
@@ -236,6 +204,7 @@ class TestEventBusThreadSafety:
             def handler(event: PitchStartEvent):
                 with lock:
                     events_received.append((handler_id, event))
+
             return handler
 
         def subscribe_handler(handler_id: int):
@@ -254,11 +223,7 @@ class TestEventBusThreadSafety:
             t.join()
 
         # Publish one event
-        event = PitchStartEvent(
-            pitch_id="test_007",
-            pitch_index=1,
-            timestamp_ns=666
-        )
+        event = PitchStartEvent(pitch_id="test_007", pitch_index=1, timestamp_ns=666)
         bus.publish(event)
 
         # Should be received by all 10 handlers
@@ -279,11 +244,7 @@ class TestEventBusThreadSafety:
         def publisher():
             nonlocal published
             for i in range(publish_count):
-                event = PitchStartEvent(
-                    pitch_id=f"test_pub_{i}",
-                    pitch_index=i,
-                    timestamp_ns=time.time_ns()
-                )
+                event = PitchStartEvent(pitch_id=f"test_pub_{i}", pitch_index=i, timestamp_ns=time.time_ns())
                 bus.publish(event)
                 published = i + 1
                 time.sleep(0.001)  # Small delay
@@ -331,11 +292,7 @@ class TestEventBusErrorHandling:
         bus.subscribe(PitchStartEvent, handler2)
         bus.subscribe(PitchStartEvent, handler3)
 
-        event = PitchStartEvent(
-            pitch_id="test_008",
-            pitch_index=1,
-            timestamp_ns=777
-        )
+        event = PitchStartEvent(pitch_id="test_008", pitch_index=1, timestamp_ns=777)
 
         # Should not raise exception
         bus.publish(event)
@@ -364,11 +321,7 @@ class TestEventBusErrorHandling:
         bus.subscribe(PitchStartEvent, bad_handler2)
         bus.subscribe(PitchStartEvent, good_handler)
 
-        event = PitchStartEvent(
-            pitch_id="test_009",
-            pitch_index=1,
-            timestamp_ns=888
-        )
+        event = PitchStartEvent(pitch_id="test_009", pitch_index=1, timestamp_ns=888)
 
         # Should not raise exception
         bus.publish(event)

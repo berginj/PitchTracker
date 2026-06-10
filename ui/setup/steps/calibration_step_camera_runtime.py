@@ -27,7 +27,7 @@ class CalibrationStepCameraRuntimeMixin:
             return {}
 
         try:
-            with open(self._camera_history_file, 'r') as f:
+            with open(self._camera_history_file, "r") as f:
                 return json.load(f)
         except Exception:
             return {}
@@ -40,14 +40,14 @@ class CalibrationStepCameraRuntimeMixin:
 
         # Update with current assignments
         if self._left_serial:
-            history[self._left_serial] = 'left'
+            history[self._left_serial] = "left"
         if self._right_serial:
-            history[self._right_serial] = 'right'
+            history[self._right_serial] = "right"
 
         # Save
         try:
             self._camera_history_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(self._camera_history_file, 'w') as f:
+            with open(self._camera_history_file, "w") as f:
                 json.dump(history, f, indent=2)
             logger.debug(
                 "Saved camera history with left_serial={!r} and right_serial={!r}",
@@ -74,7 +74,7 @@ class CalibrationStepCameraRuntimeMixin:
 
         # If both cameras have history, check if they're swapped
         if left_history and right_history:
-            if left_history == 'right' and right_history == 'left':
+            if left_history == "right" and right_history == "left":
                 logger.info(
                     "Camera history indicates swapped positions: left_serial={!r} was previously right, right_serial={!r} was previously left",
                     self._left_serial,
@@ -198,6 +198,7 @@ class CalibrationStepCameraRuntimeMixin:
 
             # Read camera settings from config
             import yaml
+
             config_data = yaml.safe_load(self._config_path.read_text())
 
             # Resolution and framerate from config
@@ -278,7 +279,9 @@ class CalibrationStepCameraRuntimeMixin:
                         fps,
                         pixfmt,
                     )
-                    self._left_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_left, rotation_correction=rotation_left)
+                    self._left_camera.set_mode(
+                        width, height, fps, pixfmt, flip_180=flip_left, rotation_correction=rotation_left
+                    )
                     logger.debug("Configured left OpenCV camera successfully")
                 except Exception as e:
                     logger.exception("Failed to configure left OpenCV camera")
@@ -292,7 +295,9 @@ class CalibrationStepCameraRuntimeMixin:
                         fps,
                         pixfmt,
                     )
-                    self._right_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_right, rotation_correction=rotation_right)
+                    self._right_camera.set_mode(
+                        width, height, fps, pixfmt, flip_180=flip_right, rotation_correction=rotation_right
+                    )
                     logger.debug("Configured right OpenCV camera successfully")
                 except Exception as e:
                     logger.exception("Failed to configure right OpenCV camera")
@@ -336,8 +341,12 @@ class CalibrationStepCameraRuntimeMixin:
                             raise
 
                 # Configure cameras with settings from config including flip and rotation correction
-                self._left_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_left, rotation_correction=rotation_left)
-                self._right_camera.set_mode(width, height, fps, pixfmt, flip_180=flip_right, rotation_correction=rotation_right)
+                self._left_camera.set_mode(
+                    width, height, fps, pixfmt, flip_180=flip_left, rotation_correction=rotation_left
+                )
+                self._right_camera.set_mode(
+                    width, height, fps, pixfmt, flip_180=flip_right, rotation_correction=rotation_right
+                )
 
             # Update status labels to show which camera is assigned to which position
             self._left_status.setText(f"● {self._left_serial}")
@@ -404,6 +413,7 @@ class CalibrationStepCameraRuntimeMixin:
 
         # Force garbage collection to release any lingering handles
         import gc
+
         gc.collect()
 
     def _force_release_cameras(self) -> None:
@@ -419,6 +429,7 @@ class CalibrationStepCameraRuntimeMixin:
 
         # Get list of camera device names
         from capture.uvc_backend import list_uvc_devices
+
         devices = list_uvc_devices()
 
         # Build list of device friendly names to try

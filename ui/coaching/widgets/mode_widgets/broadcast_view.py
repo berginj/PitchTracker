@@ -91,10 +91,7 @@ class BroadcastViewWidget(BaseModeWidget):
         self._stats_panel.update_latest_pitch(latest_pitch)
         self._stats_panel.update_recent_list(recent_pitches)
 
-        if (
-            latest_pitch.trajectory_plate_x_ft is not None
-            and latest_pitch.trajectory_plate_y_ft is not None
-        ):
+        if latest_pitch.trajectory_plate_x_ft is not None and latest_pitch.trajectory_plate_y_ft is not None:
             layout = calculate_overlay_layout(
                 self._overlay_config,
                 plate_x_ft=latest_pitch.trajectory_plate_x_ft,
@@ -108,11 +105,7 @@ class BroadcastViewWidget(BaseModeWidget):
             )
             self._camera_widget.update_pitch_location(layout.pitch_x, layout.pitch_y)
 
-    def update_camera_frames(
-        self,
-        left_frame: Optional["Frame"],
-        right_frame: Optional["Frame"]
-    ) -> None:
+    def update_camera_frames(self, left_frame: Optional["Frame"], right_frame: Optional["Frame"]) -> None:
         """Update camera preview frames.
 
         Args:

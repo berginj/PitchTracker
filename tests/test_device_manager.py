@@ -84,9 +84,7 @@ class TestRefreshUvcDevices:
 
     @patch("ui.controllers.device_manager.probe_uvc_devices")
     @patch("ui.controllers.device_manager.is_arducam_device")
-    def test_refresh_uvc_devices_found(
-        self, mock_is_arducam, mock_probe, device_manager
-    ):
+    def test_refresh_uvc_devices_found(self, mock_is_arducam, mock_probe, device_manager):
         """refresh_devices should populate dropdowns for UVC devices."""
         mock_probe.return_value = [
             {"serial": "SN001", "friendly_name": "ArduCam B0299"},
@@ -109,9 +107,7 @@ class TestRefreshUvcDevices:
         count = device_manager.refresh_devices()
 
         assert count == 0
-        device_manager._status_label.setText.assert_called_with(
-            "No UVC devices found."
-        )
+        device_manager._status_label.setText.assert_called_with("No UVC devices found.")
 
     @patch("ui.controllers.device_manager.probe_uvc_devices")
     @patch("ui.controllers.device_manager.is_arducam_device")
@@ -148,9 +144,7 @@ class TestRefreshOpencvDevices:
     @patch("ui.controllers.device_manager.probe_opencv_indices")
     @patch("ui.controllers.device_manager.probe_uvc_devices")
     @patch("ui.controllers.device_manager.is_arducam_device")
-    def test_refresh_opencv_devices_found(
-        self, mock_is_arducam, mock_probe_uvc, mock_probe_cv, device_manager
-    ):
+    def test_refresh_opencv_devices_found(self, mock_is_arducam, mock_probe_uvc, mock_probe_cv, device_manager):
         """refresh_devices should populate dropdowns for OpenCV indices."""
         mock_probe_cv.return_value = [0, 1]
         mock_probe_uvc.return_value = [
@@ -167,9 +161,7 @@ class TestRefreshOpencvDevices:
 
     @patch("ui.controllers.device_manager.probe_opencv_indices")
     @patch("ui.controllers.device_manager.probe_uvc_devices")
-    def test_refresh_opencv_devices_none(
-        self, mock_probe_uvc, mock_probe_cv, device_manager
-    ):
+    def test_refresh_opencv_devices_none(self, mock_probe_uvc, mock_probe_cv, device_manager):
         """refresh_devices should show message when no OpenCV indices found."""
         mock_probe_cv.return_value = []
         mock_probe_uvc.return_value = []
@@ -177,16 +169,12 @@ class TestRefreshOpencvDevices:
         count = device_manager.refresh_devices()
 
         assert count == 0
-        device_manager._status_label.setText.assert_called_with(
-            "No OpenCV camera indices available."
-        )
+        device_manager._status_label.setText.assert_called_with("No OpenCV camera indices available.")
 
     @patch("ui.controllers.device_manager.probe_opencv_indices")
     @patch("ui.controllers.device_manager.probe_uvc_devices")
     @patch("ui.controllers.device_manager.is_arducam_device")
-    def test_refresh_opencv_with_unknown_device(
-        self, mock_is_arducam, mock_probe_uvc, mock_probe_cv, device_manager
-    ):
+    def test_refresh_opencv_with_unknown_device(self, mock_is_arducam, mock_probe_uvc, mock_probe_cv, device_manager):
         """refresh_devices should handle indices without UVC info."""
         mock_probe_cv.return_value = [0, 1, 2]
         mock_probe_uvc.return_value = [

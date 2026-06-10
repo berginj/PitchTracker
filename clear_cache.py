@@ -15,7 +15,7 @@ import shutil
 
 # Remove all .pyc files
 pyc_count = 0
-for p in pathlib.Path('.').rglob('*.pyc'):
+for p in pathlib.Path(".").rglob("*.pyc"):
     try:
         p.unlink()
         pyc_count += 1
@@ -24,7 +24,7 @@ for p in pathlib.Path('.').rglob('*.pyc'):
 
 # Remove all __pycache__ directories
 cache_count = 0
-for p in pathlib.Path('.').rglob('__pycache__'):
+for p in pathlib.Path(".").rglob("__pycache__"):
     try:
         shutil.rmtree(p)
         cache_count += 1

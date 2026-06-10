@@ -95,17 +95,17 @@ class OnlineCalibrationRefiner:
     def _load_state(self) -> RefinementState:
         """Load refinement state from config."""
         try:
-            with open(self.config_path, 'r') as f:
+            with open(self.config_path, "r") as f:
                 config = yaml.safe_load(f)
 
-            metrics = config.get('metrics', {})
-            stereo = config.get('stereo', {})
+            metrics = config.get("metrics", {})
+            stereo = config.get("stereo", {})
 
             return RefinementState(
-                drag_k0=metrics.get('drag_k0_default', 0.1),
-                time_sync_offset_ns=stereo.get('time_sync_offset_ns', 0),
-                plate_plane_z_ft=metrics.get('plate_plane_z_ft', 0.0),
-                last_refinement_date=metrics.get('last_refinement_date'),
+                drag_k0=metrics.get("drag_k0_default", 0.1),
+                time_sync_offset_ns=stereo.get("time_sync_offset_ns", 0),
+                plate_plane_z_ft=metrics.get("plate_plane_z_ft", 0.0),
+                last_refinement_date=metrics.get("last_refinement_date"),
             )
         except Exception as e:
             logger.warning(f"Failed to load refinement state: {e}. Using defaults.")
@@ -114,22 +114,24 @@ class OnlineCalibrationRefiner:
     def _save_state(self) -> None:
         """Save refinement state to config."""
         try:
-            with open(self.config_path, 'r') as f:
+            with open(self.config_path, "r") as f:
                 config = yaml.safe_load(f)
 
             # Update refinement parameters
-            config.setdefault('metrics', {})['drag_k0_default'] = float(self.state.drag_k0)
-            config['metrics']['last_refinement_date'] = self.state.last_refinement_date
-            config.setdefault('metrics', {})['plate_plane_z_ft'] = float(self.state.plate_plane_z_ft)
+            config.setdefault("metrics", {})["drag_k0_default"] = float(self.state.drag_k0)
+            config["metrics"]["last_refinement_date"] = self.state.last_refinement_date
+            config.setdefault("metrics", {})["plate_plane_z_ft"] = float(self.state.plate_plane_z_ft)
 
-            config.setdefault('stereo', {})['time_sync_offset_ns'] = int(self.state.time_sync_offset_ns)
+            config.setdefault("stereo", {})["time_sync_offset_ns"] = int(self.state.time_sync_offset_ns)
 
-            with open(self.config_path, 'w') as f:
+            with open(self.config_path, "w") as f:
                 yaml.dump(config, f, default_flow_style=False, sort_keys=False)
 
-            logger.info(f"Saved refinement state: drag_k0={self.state.drag_k0:.4f}, "
-                       f"time_sync_offset={self.state.time_sync_offset_ns}ns, "
-                       f"plate_z={self.state.plate_plane_z_ft:.2f}ft")
+            logger.info(
+                f"Saved refinement state: drag_k0={self.state.drag_k0:.4f}, "
+                f"time_sync_offset={self.state.time_sync_offset_ns}ns, "
+                f"plate_z={self.state.plate_plane_z_ft:.2f}ft"
+            )
         except Exception as e:
             logger.error(f"Failed to save refinement state: {e}")
 
@@ -152,14 +154,14 @@ class OnlineCalibrationRefiner:
         """
         # Extract statistics
         stats = TrajectoryStats(
-            timestamp_ns=trajectory_result.get('timestamp_ns', 0),
-            drag_k0_fit=trajectory_result.get('drag_k0_fit', 0.1),
-            time_sync_residual_ns=trajectory_result.get('time_sync_residual_ns', 0),
-            plate_crossing_z_ft=trajectory_result.get('plate_crossing_z_ft', 0.0),
-            mean_epipolar_error_px=trajectory_result.get('mean_epipolar_error_px', 999.0),
-            max_epipolar_error_px=trajectory_result.get('max_epipolar_error_px', 999.0),
-            num_observations=trajectory_result.get('num_observations', 0),
-            confidence_score=trajectory_result.get('confidence_score', 0.0),
+            timestamp_ns=trajectory_result.get("timestamp_ns", 0),
+            drag_k0_fit=trajectory_result.get("drag_k0_fit", 0.1),
+            time_sync_residual_ns=trajectory_result.get("time_sync_residual_ns", 0),
+            plate_crossing_z_ft=trajectory_result.get("plate_crossing_z_ft", 0.0),
+            mean_epipolar_error_px=trajectory_result.get("mean_epipolar_error_px", 999.0),
+            max_epipolar_error_px=trajectory_result.get("max_epipolar_error_px", 999.0),
+            num_observations=trajectory_result.get("num_observations", 0),
+            confidence_score=trajectory_result.get("confidence_score", 0.0),
         )
 
         # Quality check
@@ -184,8 +186,10 @@ class OnlineCalibrationRefiner:
         if len(self.state.epipolar_error_trend) > 100:
             self.state.epipolar_error_trend = self.state.epipolar_error_trend[-100:]
 
-        logger.debug(f"Accumulated trajectory {self.state.num_trajectories_accumulated}: "
-                    f"drag={stats.drag_k0_fit:.4f}, epipolar_error={stats.mean_epipolar_error_px:.2f}px")
+        logger.debug(
+            f"Accumulated trajectory {self.state.num_trajectories_accumulated}: "
+            f"drag={stats.drag_k0_fit:.4f}, epipolar_error={stats.mean_epipolar_error_px:.2f}px"
+        )
 
         return True
 
@@ -207,16 +211,20 @@ class OnlineCalibrationRefiner:
         """
         if not self.should_refine():
             return {
-                'refined': False,
-                'reason': f'Insufficient trajectories ({self.state.num_trajectories_accumulated}/{self.MIN_TRAJECTORIES})',
+                "refined": False,
+                "reason": f"Insufficient trajectories ({self.state.num_trajectories_accumulated}/{self.MIN_TRAJECTORIES})",
             }
 
         logger.info(f"Refining parameters using {self.state.num_trajectories_accumulated} trajectories")
 
         # Extract statistics from buffer
-        drag_k0_values = [t['drag_k0_fit'] for t in self.state.trajectories_buffer if 'drag_k0_fit' in t]
-        time_sync_values = [t['time_sync_residual_ns'] for t in self.state.trajectories_buffer if 'time_sync_residual_ns' in t]
-        plate_z_values = [t['plate_crossing_z_ft'] for t in self.state.trajectories_buffer if 'plate_crossing_z_ft' in t]
+        drag_k0_values = [t["drag_k0_fit"] for t in self.state.trajectories_buffer if "drag_k0_fit" in t]
+        time_sync_values = [
+            t["time_sync_residual_ns"] for t in self.state.trajectories_buffer if "time_sync_residual_ns" in t
+        ]
+        plate_z_values = [
+            t["plate_crossing_z_ft"] for t in self.state.trajectories_buffer if "plate_crossing_z_ft" in t
+        ]
 
         # Store old values
         old_drag_k0 = self.state.drag_k0
@@ -245,7 +253,9 @@ class OnlineCalibrationRefiner:
             if abs(median_residual_ms) > self.TIME_SYNC_THRESHOLD_MS:
                 self.state.time_sync_offset_ns += int(median_residual_ns)
                 refined = True
-                changes.append(f"time_sync_offset: {old_time_sync}ns → {self.state.time_sync_offset_ns}ns ({median_residual_ms:.2f}ms bias)")
+                changes.append(
+                    f"time_sync_offset: {old_time_sync}ns → {self.state.time_sync_offset_ns}ns ({median_residual_ms:.2f}ms bias)"
+                )
                 logger.info(f"Refined time_sync_offset: {old_time_sync}ns → {self.state.time_sync_offset_ns}ns")
 
         # 3. Refine plate plane Z (if we have plate crossing data)
@@ -257,13 +267,14 @@ class OnlineCalibrationRefiner:
             if plate_change_ft > 1.0:
                 self.state.plate_plane_z_ft = new_plate_z
                 refined = True
-                changes.append(f"plate_plane_z: {old_plate_z:.2f}ft → {new_plate_z:.2f}ft ({plate_change_ft:.2f}ft change)")
+                changes.append(
+                    f"plate_plane_z: {old_plate_z:.2f}ft → {new_plate_z:.2f}ft ({plate_change_ft:.2f}ft change)"
+                )
                 logger.info(f"Refined plate_plane_z: {old_plate_z:.2f}ft → {new_plate_z:.2f}ft")
 
         # Calculate refinement confidence
         self.state.refinement_confidence = min(
-            1.0,
-            self.state.num_trajectories_accumulated / (self.MIN_TRAJECTORIES * 2)
+            1.0, self.state.num_trajectories_accumulated / (self.MIN_TRAJECTORIES * 2)
         )
 
         # Update metadata
@@ -277,16 +288,16 @@ class OnlineCalibrationRefiner:
         self.state.num_trajectories_accumulated = 0
 
         return {
-            'refined': refined,
-            'drag_k0_old': old_drag_k0,
-            'drag_k0_new': self.state.drag_k0,
-            'time_sync_offset_old': old_time_sync,
-            'time_sync_offset_new': self.state.time_sync_offset_ns,
-            'plate_z_old': old_plate_z,
-            'plate_z_new': self.state.plate_plane_z_ft,
-            'confidence': self.state.refinement_confidence,
-            'changes': changes,
-            'reason': '; '.join(changes) if changes else 'No significant biases detected',
+            "refined": refined,
+            "drag_k0_old": old_drag_k0,
+            "drag_k0_new": self.state.drag_k0,
+            "time_sync_offset_old": old_time_sync,
+            "time_sync_offset_new": self.state.time_sync_offset_ns,
+            "plate_z_old": old_plate_z,
+            "plate_z_new": self.state.plate_plane_z_ft,
+            "confidence": self.state.refinement_confidence,
+            "changes": changes,
+            "reason": "; ".join(changes) if changes else "No significant biases detected",
         }
 
     def validate_calibration_health(self) -> Dict[str, Any]:
@@ -302,11 +313,11 @@ class OnlineCalibrationRefiner:
         """
         if len(self.state.epipolar_error_trend) < 10:
             return {
-                'healthy': True,
-                'mean_error_px': 0.0,
-                'trend': 'unknown',
-                'alert': False,
-                'reason': 'Insufficient data for health assessment',
+                "healthy": True,
+                "mean_error_px": 0.0,
+                "trend": "unknown",
+                "alert": False,
+                "reason": "Insufficient data for health assessment",
             }
 
         # Calculate statistics
@@ -320,11 +331,11 @@ class OnlineCalibrationRefiner:
 
         # Classify trend
         if slope > 0.1:
-            trend = 'degrading'
+            trend = "degrading"
         elif slope < -0.1:
-            trend = 'improving'
+            trend = "improving"
         else:
-            trend = 'stable'
+            trend = "stable"
 
         # Check for alerts
         alert = mean_error > self.EPIPOLAR_ALERT_THRESHOLD
@@ -349,11 +360,11 @@ class OnlineCalibrationRefiner:
             reason = f"Alert: High epipolar error ({mean_error:.2f}px). Recalibration recommended."
 
         return {
-            'healthy': not alert,
-            'mean_error_px': mean_error,
-            'trend': trend,
-            'alert': alert,
-            'reason': reason,
+            "healthy": not alert,
+            "mean_error_px": mean_error,
+            "trend": trend,
+            "alert": alert,
+            "reason": reason,
         }
 
     def get_refinement_summary(self) -> Dict[str, Any]:
@@ -365,14 +376,14 @@ class OnlineCalibrationRefiner:
         health = self.validate_calibration_health()
 
         return {
-            'drag_k0': self.state.drag_k0,
-            'time_sync_offset_ns': self.state.time_sync_offset_ns,
-            'plate_plane_z_ft': self.state.plate_plane_z_ft,
-            'trajectories_accumulated': self.state.num_trajectories_accumulated,
-            'refinement_count': self.state.refinement_count,
-            'refinement_confidence': self.state.refinement_confidence,
-            'last_refinement_date': self.state.last_refinement_date,
-            'calibration_healthy': health['healthy'],
-            'mean_epipolar_error_px': health['mean_error_px'],
-            'error_trend': health['trend'],
+            "drag_k0": self.state.drag_k0,
+            "time_sync_offset_ns": self.state.time_sync_offset_ns,
+            "plate_plane_z_ft": self.state.plate_plane_z_ft,
+            "trajectories_accumulated": self.state.num_trajectories_accumulated,
+            "refinement_count": self.state.refinement_count,
+            "refinement_confidence": self.state.refinement_confidence,
+            "last_refinement_date": self.state.last_refinement_date,
+            "calibration_healthy": health["healthy"],
+            "mean_epipolar_error_px": health["mean_error_px"],
+            "error_trend": health["trend"],
         }

@@ -28,9 +28,7 @@ class CalibrationStepCharucoDetectionMixin:
             marker_corners, marker_ids, _ = detector.detectMarkers(gray)
         except AttributeError:
             detector_params = cv2.aruco.DetectorParameters_create()
-            marker_corners, marker_ids, _ = cv2.aruco.detectMarkers(
-                gray, aruco_dict, parameters=detector_params
-            )
+            marker_corners, marker_ids, _ = cv2.aruco.detectMarkers(gray, aruco_dict, parameters=detector_params)
 
         blur_score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
         if marker_ids is None or len(marker_ids) == 0:
@@ -52,13 +50,9 @@ class CalibrationStepCharucoDetectionMixin:
                 aruco_dict,
             )
         try:
-            num_corners, _, charuco_ids = cv2.aruco.interpolateCornersCharuco(
-                marker_corners, marker_ids, gray, board
-            )
+            num_corners, _, charuco_ids = cv2.aruco.interpolateCornersCharuco(marker_corners, marker_ids, gray, board)
         except TypeError:
-            num_corners, _, charuco_ids = cv2.aruco.interpolateCornersCharuco(
-                marker_corners, marker_ids, gray, board
-            )
+            num_corners, _, charuco_ids = cv2.aruco.interpolateCornersCharuco(marker_corners, marker_ids, gray, board)
         if num_corners is None or charuco_ids is None:
             return None, blur_score
         return np.asarray(charuco_ids, dtype=np.int32).reshape(-1), blur_score
@@ -83,16 +77,16 @@ class CalibrationStepCharucoDetectionMixin:
 
         # Dictionary detection with caching to prevent processing loop
         DICTIONARIES_TO_TRY = [
-            ('DICT_6X6_250', cv2.aruco.DICT_6X6_250),
-            ('DICT_5X5_250', cv2.aruco.DICT_5X5_250),
-            ('DICT_4X4_250', cv2.aruco.DICT_4X4_250),
-            ('DICT_6X6_100', cv2.aruco.DICT_6X6_100),
-            ('DICT_5X5_100', cv2.aruco.DICT_5X5_100),
-            ('DICT_4X4_100', cv2.aruco.DICT_4X4_100),
-            ('DICT_6X6_50', cv2.aruco.DICT_6X6_50),      # Calib.io might use this
-            ('DICT_5X5_50', cv2.aruco.DICT_5X5_50),      # Calib.io might use this
-            ('DICT_4X4_50', cv2.aruco.DICT_4X4_50),
-            ('DICT_ARUCO_ORIGINAL', cv2.aruco.DICT_ARUCO_ORIGINAL),
+            ("DICT_6X6_250", cv2.aruco.DICT_6X6_250),
+            ("DICT_5X5_250", cv2.aruco.DICT_5X5_250),
+            ("DICT_4X4_250", cv2.aruco.DICT_4X4_250),
+            ("DICT_6X6_100", cv2.aruco.DICT_6X6_100),
+            ("DICT_5X5_100", cv2.aruco.DICT_5X5_100),
+            ("DICT_4X4_100", cv2.aruco.DICT_4X4_100),
+            ("DICT_6X6_50", cv2.aruco.DICT_6X6_50),  # Calib.io might use this
+            ("DICT_5X5_50", cv2.aruco.DICT_5X5_50),  # Calib.io might use this
+            ("DICT_4X4_50", cv2.aruco.DICT_4X4_50),
+            ("DICT_ARUCO_ORIGINAL", cv2.aruco.DICT_ARUCO_ORIGINAL),
         ]
 
         # Increment frame counter
@@ -105,7 +99,7 @@ class CalibrationStepCharucoDetectionMixin:
             best_marker_corners = None
             best_marker_ids = None
             best_rejected = None
-            best_dict_name = 'DICT_6X6_250'
+            best_dict_name = "DICT_6X6_250"
             best_marker_count = 0
 
             # Log only on full scan
@@ -167,7 +161,7 @@ class CalibrationStepCharucoDetectionMixin:
 
             # Cache the best dictionary found
             # Log if dictionary changed
-            dict_changed = (self._cached_dict_name != best_dict_name)
+            dict_changed = self._cached_dict_name != best_dict_name
             if dict_changed and best_marker_count > 0:
                 logger.info(
                     "ChArUco dictionary changed from {} to {} after detecting {} markers",
@@ -237,7 +231,7 @@ class CalibrationStepCharucoDetectionMixin:
                 )
 
         # Get dict name for display (either from cache or from scan)
-        best_dict_name = self._cached_dict_name if self._cached_dict_name else 'DICT_6X6_250'
+        best_dict_name = self._cached_dict_name if self._cached_dict_name else "DICT_6X6_250"
 
         # Increment log counter
         self._detection_log_counter += 1
@@ -277,20 +271,48 @@ class CalibrationStepCharucoDetectionMixin:
             if num_rejected > 0:
                 hint_text = f"Found {num_rejected} marker-like shapes but ALL REJECTED (see red)"
                 cv2.putText(annotated, hint_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-                cv2.putText(annotated, "Tried all common ArUco dictionaries - none matched", (10, 90),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
-                cv2.putText(annotated, "Possible causes: Wrong print scale, damaged print, glare/shadows", (10, 115),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+                cv2.putText(
+                    annotated,
+                    "Tried all common ArUco dictionaries - none matched",
+                    (10, 90),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 165, 255),
+                    1,
+                )
+                cv2.putText(
+                    annotated,
+                    "Possible causes: Wrong print scale, damaged print, glare/shadows",
+                    (10, 115),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 165, 255),
+                    1,
+                )
             else:
                 hint_text = "Move ChArUco board into view"
                 cv2.putText(annotated, hint_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
             # Show blur warning if image is blurry
             if is_blurry:
-                cv2.putText(annotated, f"WARNING: Image blurry! (score={blur_score:.0f})", (10, 120),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
-                cv2.putText(annotated, "Try: Adjust camera focus, better lighting", (10, 150),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+                cv2.putText(
+                    annotated,
+                    f"WARNING: Image blurry! (score={blur_score:.0f})",
+                    (10, 120),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (0, 165, 255),
+                    2,
+                )
+                cv2.putText(
+                    annotated,
+                    "Try: Adjust camera focus, better lighting",
+                    (10, 150),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 165, 255),
+                    1,
+                )
 
             # FALLBACK: Try plain checkerboard detection if ChArUco markers failed
             if self._detection_log_counter % 30 == 0:
@@ -312,18 +334,24 @@ class CalibrationStepCharucoDetectionMixin:
         # AUTO-DETECT: Try to infer pattern size from detected markers
         # Only run if pattern not locked (user can unlock by manually changing settings)
         import time
+
         current_time = time.time()
 
         # Auto-detect pattern only if checkbox is enabled and pattern not locked
-        if (self._auto_detect_pattern_checkbox.isChecked() and
-            not self._pattern_locked and
-            current_time - self._last_auto_detect_time >= 3.0):
+        if (
+            self._auto_detect_pattern_checkbox.isChecked()
+            and not self._pattern_locked
+            and current_time - self._last_auto_detect_time >= 3.0
+        ):
             auto_detected_pattern = self._auto_detect_charuco_pattern(marker_ids)
             if auto_detected_pattern:
                 auto_cols, auto_rows, auto_square_mm = auto_detected_pattern
                 # Update if different from current settings
-                if (auto_cols != self._pattern_cols or auto_rows != self._pattern_rows or
-                    abs(auto_square_mm - self._square_mm) > 0.5):
+                if (
+                    auto_cols != self._pattern_cols
+                    or auto_rows != self._pattern_rows
+                    or abs(auto_square_mm - self._square_mm) > 0.5
+                ):
                     logger.info(
                         "Auto-detected ChArUco pattern {}x{} at {:.1f}mm; locking settings",
                         auto_cols,
@@ -351,10 +379,10 @@ class CalibrationStepCharucoDetectionMixin:
 
                     # Store detected pattern for multi-pattern support
                     pattern_info = {
-                        'cols': auto_cols,
-                        'rows': auto_rows,
-                        'square_mm': auto_square_mm,
-                        'dictionary': self._cached_dict_name or 'DICT_6X6_250'
+                        "cols": auto_cols,
+                        "rows": auto_rows,
+                        "square_mm": auto_square_mm,
+                        "dictionary": self._cached_dict_name or "DICT_6X6_250",
                     }
                     # Add to list if not already present
                     if pattern_info not in self._detected_patterns:
@@ -371,16 +399,12 @@ class CalibrationStepCharucoDetectionMixin:
                 (self._pattern_cols, self._pattern_rows),
                 self._square_mm,
                 self._square_mm * 0.75,  # Marker size is 75% of square
-                aruco_dict
+                aruco_dict,
             )
         except (AttributeError, TypeError):
             # Fall back to older API
             board = cv2.aruco.CharucoBoard_create(
-                self._pattern_cols,
-                self._pattern_rows,
-                self._square_mm,
-                self._square_mm * 0.75,
-                aruco_dict
+                self._pattern_cols, self._pattern_rows, self._square_mm, self._square_mm * 0.75, aruco_dict
             )
 
         # Interpolate ChArUco corners
@@ -411,7 +435,9 @@ class CalibrationStepCharucoDetectionMixin:
         # Add detection diagnostics at bottom with background
         num_markers = len(marker_ids) if marker_ids is not None else 0
         corner_count = num_corners if num_corners is not None else 0
-        diag_text = f"Markers: {num_markers} (Rejected: {num_rejected}) | Corners: {corner_count} | Blur: {blur_score:.0f}"
+        diag_text = (
+            f"Markers: {num_markers} (Rejected: {num_rejected}) | Corners: {corner_count} | Blur: {blur_score:.0f}"
+        )
         blur_status = " (BLURRY!)" if is_blurry else " (OK)"
         full_text = diag_text + blur_status
 
@@ -424,8 +450,7 @@ class CalibrationStepCharucoDetectionMixin:
 
         # Draw text on background
         text_color = (0, 0, 255) if is_blurry else (0, 255, 0)  # Red if blurry, green if OK
-        cv2.putText(annotated, full_text, (10, gray.shape[0] - 10),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_color, 2)
+        cv2.putText(annotated, full_text, (10, gray.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_color, 2)
 
         if num_corners is not None and num_corners >= MIN_CORNERS:
             # Draw ChArUco corners
@@ -436,13 +461,19 @@ class CalibrationStepCharucoDetectionMixin:
             text_size = cv2.getTextSize(success_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
             cv2.rectangle(annotated, (5, 50), (text_size[0] + 15, 85), (0, 128, 0), -1)
             cv2.rectangle(annotated, (5, 50), (text_size[0] + 15, 85), (0, 255, 0), 2)
-            cv2.putText(annotated, success_text, (10, 75),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+            cv2.putText(annotated, success_text, (10, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
             # Warn if blurry even though detected
             if is_blurry:
-                cv2.putText(annotated, "WARNING: Blurry - may affect calibration", (10, 110),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+                cv2.putText(
+                    annotated,
+                    "WARNING: Blurry - may affect calibration",
+                    (10, 110),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (0, 165, 255),
+                    2,
+                )
 
             return True, annotated, blur_score
         else:
@@ -452,26 +483,60 @@ class CalibrationStepCharucoDetectionMixin:
             text_size = cv2.getTextSize(error_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
             cv2.rectangle(annotated, (5, 50), (text_size[0] + 15, 85), (0, 0, 128), -1)
             cv2.rectangle(annotated, (5, 50), (text_size[0] + 15, 85), (0, 165, 255), 2)
-            cv2.putText(annotated, error_text, (10, 75),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+            cv2.putText(annotated, error_text, (10, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
             # Provide specific suggestions based on detection state
             y_offset = 105
             if is_blurry:
-                cv2.putText(annotated, "ISSUE: Image is blurry - adjust camera focus!", (10, y_offset),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                cv2.putText(
+                    annotated,
+                    "ISSUE: Image is blurry - adjust camera focus!",
+                    (10, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (0, 0, 255),
+                    2,
+                )
                 y_offset += 30
 
             if num_markers < 4:
-                cv2.putText(annotated, f"ISSUE: Only {num_markers} markers detected (need more)", (10, y_offset),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
-                cv2.putText(annotated, "Try: Move board closer, better lighting, sharper focus", (10, y_offset + 30),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+                cv2.putText(
+                    annotated,
+                    f"ISSUE: Only {num_markers} markers detected (need more)",
+                    (10, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (0, 165, 255),
+                    2,
+                )
+                cv2.putText(
+                    annotated,
+                    "Try: Move board closer, better lighting, sharper focus",
+                    (10, y_offset + 30),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 165, 255),
+                    1,
+                )
             else:
-                cv2.putText(annotated, f"Markers OK ({num_markers} found), but corners failed", (10, y_offset),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
-                cv2.putText(annotated, "Try: Ensure full board visible, check pattern size", (10, y_offset + 30),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+                cv2.putText(
+                    annotated,
+                    f"Markers OK ({num_markers} found), but corners failed",
+                    (10, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (0, 165, 255),
+                    2,
+                )
+                cv2.putText(
+                    annotated,
+                    "Try: Ensure full board visible, check pattern size",
+                    (10, y_offset + 30),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 165, 255),
+                    1,
+                )
 
             # FALLBACK: Try plain checkerboard detection if ChArUco corner interpolation failed
             if self._detection_log_counter % 30 == 0:

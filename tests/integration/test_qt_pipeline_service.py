@@ -58,7 +58,7 @@ class TestQtPipelineServiceBasics:
         # Should initialize without errors
         assert service is not None
         assert service._service is not None
-        assert hasattr(service._service, 'subscribe_event')
+        assert hasattr(service._service, "subscribe_event")
 
     def test_uses_pipeline_orchestrator(self, qapp):
         """Test QtPipelineService uses PipelineOrchestrator."""
@@ -190,11 +190,7 @@ class TestQtPipelineServiceSignals:
         service.pitch_started.connect(handle_pitch_started)
 
         # Publish PitchStartEvent to EventBus
-        event = PitchStartEvent(
-            pitch_id="pitch_00001",
-            pitch_index=1,
-            timestamp_ns=1000000000
-        )
+        event = PitchStartEvent(pitch_id="pitch_00001", pitch_index=1, timestamp_ns=1000000000)
         service._service._event_bus.publish(event)
 
         # Process Qt events to ensure signal delivery
@@ -220,10 +216,7 @@ class TestQtPipelineServiceSignals:
         service.pitch_ended.connect(handle_pitch_ended)
 
         # Create test observations
-        observations = [
-            create_test_observation(1000000000 + i * 10000000, 0.0, 3.0, 60.0 - i * 2.0)
-            for i in range(10)
-        ]
+        observations = [create_test_observation(1000000000 + i * 10000000, 0.0, 3.0, 60.0 - i * 2.0) for i in range(10)]
 
         # Publish PitchEndEvent to EventBus
         event = PitchEndEvent(
@@ -265,16 +258,12 @@ class TestQtPipelineServiceSignals:
         for i in range(3):
             # Start event
             start_event = PitchStartEvent(
-                pitch_id=f"pitch_{i:05d}",
-                pitch_index=i,
-                timestamp_ns=1000000000 + i * 1000000000
+                pitch_id=f"pitch_{i:05d}", pitch_index=i, timestamp_ns=1000000000 + i * 1000000000
             )
             service._service._event_bus.publish(start_event)
 
             # End event
-            observations = [
-                create_test_observation(1000000000 + i * 1000000000, 0.0, 3.0, 60.0)
-            ]
+            observations = [create_test_observation(1000000000 + i * 1000000000, 0.0, 3.0, 60.0)]
             end_event = PitchEndEvent(
                 pitch_id=f"pitch_{i:05d}",
                 observations=observations,
@@ -319,9 +308,7 @@ class TestQtPipelineServiceThreadSafety:
         def publish_events():
             for i in range(5):
                 event = PitchStartEvent(
-                    pitch_id=f"pitch_{i:05d}",
-                    pitch_index=i,
-                    timestamp_ns=1000000000 + i * 100000000
+                    pitch_id=f"pitch_{i:05d}", pitch_index=i, timestamp_ns=1000000000 + i * 100000000
                 )
                 service._service._event_bus.publish(event)
                 time.sleep(0.01)

@@ -126,17 +126,11 @@ class FatigueDetector:
         # Calculate individual fatigue metrics
         velocity_drop = self._compute_velocity_drop(baseline_stats, recent_stats)
         velocity_trend = self._compute_velocity_trend(session_pitches)
-        movement_variance = self._compute_movement_variance_change(
-            baseline_stats, recent_stats
-        )
-        trajectory_drop = self._compute_trajectory_quality_drop(
-            baseline_stats, recent_stats
-        )
+        movement_variance = self._compute_movement_variance_change(baseline_stats, recent_stats)
+        trajectory_drop = self._compute_trajectory_quality_drop(baseline_stats, recent_stats)
 
         # Calculate composite score and recommendation
-        score, factors = self._compute_fatigue_score(
-            velocity_drop, velocity_trend, movement_variance, trajectory_drop
-        )
+        score, factors = self._compute_fatigue_score(velocity_drop, velocity_trend, movement_variance, trajectory_drop)
         recommendation = self._get_recommendation(score)
 
         return FatigueMetrics(
@@ -149,9 +143,7 @@ class FatigueDetector:
             contributing_factors=factors,
         )
 
-    def _compute_window_stats(
-        self, pitches: List["PitchSummary"]
-    ) -> Dict[str, Dict[str, float]]:
+    def _compute_window_stats(self, pitches: List["PitchSummary"]) -> Dict[str, Dict[str, float]]:
         """Compute statistics for a window of pitches.
 
         Args:
@@ -164,11 +156,7 @@ class FatigueDetector:
         velocities = [p.speed_mph for p in pitches if p.speed_mph is not None]
         h_movements = [p.run_in for p in pitches]
         v_movements = [p.rise_in for p in pitches]
-        trajectory_confs = [
-            p.trajectory_confidence
-            for p in pitches
-            if p.trajectory_confidence is not None
-        ]
+        trajectory_confs = [p.trajectory_confidence for p in pitches if p.trajectory_confidence is not None]
 
         return {
             "velocity": compute_statistics(velocities),
@@ -203,9 +191,7 @@ class FatigueDetector:
         drop_pct = ((baseline_mean - recent_mean) / baseline_mean) * 100
         return max(0.0, drop_pct)  # Only positive drops indicate fatigue
 
-    def _compute_velocity_trend(
-        self, pitches: List["PitchSummary"]
-    ) -> float:
+    def _compute_velocity_trend(self, pitches: List["PitchSummary"]) -> float:
         """Compute velocity trend over session (mph per pitch).
 
         Args:
@@ -239,15 +225,9 @@ class FatigueDetector:
             Percentage increase in combined movement CV
         """
         # Combine horizontal and vertical CVs
-        baseline_cv = (
-            baseline_stats.get("h_movement_cv", 0)
-            + baseline_stats.get("v_movement_cv", 0)
-        ) / 2
+        baseline_cv = (baseline_stats.get("h_movement_cv", 0) + baseline_stats.get("v_movement_cv", 0)) / 2
 
-        recent_cv = (
-            recent_stats.get("h_movement_cv", 0)
-            + recent_stats.get("v_movement_cv", 0)
-        ) / 2
+        recent_cv = (recent_stats.get("h_movement_cv", 0) + recent_stats.get("v_movement_cv", 0)) / 2
 
         if baseline_cv <= 0:
             return 0.0
@@ -312,9 +292,7 @@ class FatigueDetector:
         if movement_variance >= self.MOVEMENT_VAR_YELLOW:
             factors.append(f"Movement variance up {movement_variance:.0f}%")
 
-        trajectory_score = min(
-            100, (trajectory_drop / self.TRAJECTORY_DROP_RED) * 100
-        )
+        trajectory_score = min(100, (trajectory_drop / self.TRAJECTORY_DROP_RED) * 100)
         if trajectory_drop >= self.TRAJECTORY_DROP_YELLOW:
             factors.append(f"Trajectory quality dropped {trajectory_drop:.2f}")
 

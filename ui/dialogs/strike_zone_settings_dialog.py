@@ -68,10 +68,7 @@ class StrikeZoneSettingsDialog(QtWidgets.QDialog):
         apply_standard_layout(layout)
 
         # Header
-        header = build_dialog_header(
-            "Strike Zone Settings",
-            "Configure strike zone dimensions and ball type"
-        )
+        header = build_dialog_header("Strike Zone Settings", "Configure strike zone dimensions and ball type")
         layout.addWidget(header)
 
         # Form layout

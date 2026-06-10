@@ -6,18 +6,19 @@ from importlib import import_module
 from importlib.metadata import version as get_version
 
 REQUIRED_PACKAGES = [
-    ('cv2', 'opencv-contrib-python'),
-    ('numpy', 'numpy'),
-    ('scipy', 'scipy'),
-    ('yaml', 'PyYAML'),
-    ('PySide6', 'PySide6'),
-    ('PIL', 'Pillow'),
-    ('sklearn', 'scikit-learn'),
-    ('matplotlib', 'matplotlib'),
-    ('loguru', 'loguru'),
-    ('jsonschema', 'jsonschema'),
-    ('psutil', 'psutil'),
+    ("cv2", "opencv-contrib-python"),
+    ("numpy", "numpy"),
+    ("scipy", "scipy"),
+    ("yaml", "PyYAML"),
+    ("PySide6", "PySide6"),
+    ("PIL", "Pillow"),
+    ("sklearn", "scikit-learn"),
+    ("matplotlib", "matplotlib"),
+    ("loguru", "loguru"),
+    ("jsonschema", "jsonschema"),
+    ("psutil", "psutil"),
 ]
+
 
 def check_dependencies():
     """Check if all required packages are installed."""
@@ -33,14 +34,14 @@ def check_dependencies():
             try:
                 version = get_version(package_name)
             except Exception:
-                version = 'unknown'
+                version = "unknown"
             installed.append((package_name, version))
             print(f"[OK] {package_name:25} {version}")
         except ImportError:
             missing.append(package_name)
             print(f"[MISSING] {package_name:25} NOT FOUND")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
 
     if missing:
         print(f"\n[ERROR] Missing {len(missing)} package(s):")
@@ -52,6 +53,7 @@ def check_dependencies():
     else:
         print(f"\n[SUCCESS] All {len(installed)} required packages are installed!")
         return True
+
 
 if __name__ == "__main__":
     success = check_dependencies()

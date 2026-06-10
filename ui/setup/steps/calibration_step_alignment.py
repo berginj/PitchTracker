@@ -59,10 +59,21 @@ class CalibrationStepAlignmentMixin:
             if len(recent_alignments) >= 3:
                 # Calculate standard deviation of recent measurements
                 import math
-                toin_std = math.sqrt(sum((a.convergence_std_px - avg_convergence) ** 2 for a in recent_alignments) / len(recent_alignments))
-                vertical_std = math.sqrt(sum((a.vertical_mean_px - avg_vertical) ** 2 for a in recent_alignments) / len(recent_alignments))
-                rotation_std = math.sqrt(sum((a.rotation_deg - avg_rotation) ** 2 for a in recent_alignments) / len(recent_alignments))
-                focal_std = math.sqrt(sum((a.scale_difference_percent - avg_focal) ** 2 for a in recent_alignments) / len(recent_alignments))
+
+                toin_std = math.sqrt(
+                    sum((a.convergence_std_px - avg_convergence) ** 2 for a in recent_alignments)
+                    / len(recent_alignments)
+                )
+                vertical_std = math.sqrt(
+                    sum((a.vertical_mean_px - avg_vertical) ** 2 for a in recent_alignments) / len(recent_alignments)
+                )
+                rotation_std = math.sqrt(
+                    sum((a.rotation_deg - avg_rotation) ** 2 for a in recent_alignments) / len(recent_alignments)
+                )
+                focal_std = math.sqrt(
+                    sum((a.scale_difference_percent - avg_focal) ** 2 for a in recent_alignments)
+                    / len(recent_alignments)
+                )
 
                 # Base thresholds for FIXED MOUNTS
                 base_toin_threshold = 15.0
@@ -85,10 +96,10 @@ class CalibrationStepAlignmentMixin:
 
             # Determine if drift is significant using dynamic thresholds
             significant_drift = (
-                toin_drift > toin_threshold or
-                vertical_drift > vertical_threshold or
-                rotation_drift > rotation_threshold or
-                focal_drift > focal_threshold
+                toin_drift > toin_threshold
+                or vertical_drift > vertical_threshold
+                or rotation_drift > rotation_threshold
+                or focal_drift > focal_threshold
             )
 
             if not significant_drift:
@@ -190,18 +201,9 @@ class CalibrationStepAlignmentMixin:
             self._set_alignment_state("Analyzing alignment (averaging 10 frames)...", "info")
 
             # Run alignment analysis with multi-frame averaging
-            from analysis.camera_alignment import (
-                analyze_alignment_averaged,
-                apply_corrections,
-                save_alignment_frames
-            )
+            from analysis.camera_alignment import analyze_alignment_averaged, apply_corrections, save_alignment_frames
 
-            results = analyze_alignment_averaged(
-                self._left_camera,
-                self._right_camera,
-                num_frames=10,
-                interval_ms=100
-            )
+            results = analyze_alignment_averaged(self._left_camera, self._right_camera, num_frames=10, interval_ms=100)
 
             # Store results for detail view
             self._alignment_results = results
@@ -360,7 +362,9 @@ class CalibrationStepAlignmentMixin:
         # Add badge if quick check
         if quick_check:
             status_html += f" <span style='background-color: {self._theme.accent_warning}; color: black; padding: 2px 6px; border-radius: 3px; font-size: 8pt;'>⚡ QUICK CHECK</span>"
-            status_html += "<br><i style='font-size: 9pt;'>Single-frame analysis - run Full Check for averaged results</i>"
+            status_html += (
+                "<br><i style='font-size: 9pt;'>Single-frame analysis - run Full Check for averaged results</i>"
+            )
 
         # Add corrections applied
         if results.corrections_applied:
@@ -390,12 +394,14 @@ class CalibrationStepAlignmentMixin:
 
         # NEW: Update quality gauge
         quality_score = results.get_quality_score()
-        issues_count = sum([
-            results.scale_difference_percent > 2.0,
-            results.convergence_std_px > 5.0,
-            abs(results.vertical_mean_px) > 5.0,
-            abs(results.rotation_deg) > 1.0 and not results.rotation_correction_needed
-        ])
+        issues_count = sum(
+            [
+                results.scale_difference_percent > 2.0,
+                results.convergence_std_px > 5.0,
+                abs(results.vertical_mean_px) > 5.0,
+                abs(results.rotation_deg) > 1.0 and not results.rotation_correction_needed,
+            ]
+        )
 
         # Choose gauge color based on score
         if quality_score >= 90:
@@ -441,6 +447,7 @@ class CalibrationStepAlignmentMixin:
 
         # NEW: Show calibration quality prediction
         from analysis.camera_alignment import predict_calibration_quality
+
         prediction = predict_calibration_quality(results)
         prediction_html = (
             f"<b>🎯 Predicted Calibration Quality:</b><br>"

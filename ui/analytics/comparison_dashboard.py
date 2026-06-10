@@ -80,9 +80,7 @@ class PitcherComparisonCard(QtWidgets.QFrame):
         remove_btn = QtWidgets.QPushButton("X")
         remove_btn.setObjectName("comparison_card_remove")
         remove_btn.setMaximumWidth(24)
-        remove_btn.clicked.connect(
-            lambda: self.remove_requested.emit(self._stats.pitcher_id)
-        )
+        remove_btn.clicked.connect(lambda: self.remove_requested.emit(self._stats.pitcher_id))
 
         header_layout.addWidget(name_label)
         header_layout.addStretch()
@@ -94,9 +92,7 @@ class PitcherComparisonCard(QtWidgets.QFrame):
         row = 0
 
         # Velocity stats
-        stats_layout.addWidget(
-            self._create_stat_label("Avg Velocity:"), row, 0
-        )
+        stats_layout.addWidget(self._create_stat_label("Avg Velocity:"), row, 0)
         stats_layout.addWidget(
             self._create_stat_value(f"{self._stats.avg_velocity:.1f} mph"),
             row,
@@ -104,9 +100,7 @@ class PitcherComparisonCard(QtWidgets.QFrame):
         )
         row += 1
 
-        stats_layout.addWidget(
-            self._create_stat_label("Max Velocity:"), row, 0
-        )
+        stats_layout.addWidget(self._create_stat_label("Max Velocity:"), row, 0)
         stats_layout.addWidget(
             self._create_stat_value(f"{self._stats.max_velocity:.1f} mph"),
             row,
@@ -115,9 +109,7 @@ class PitcherComparisonCard(QtWidgets.QFrame):
         row += 1
 
         # Accuracy stats
-        stats_layout.addWidget(
-            self._create_stat_label("Strike %:"), row, 0
-        )
+        stats_layout.addWidget(self._create_stat_label("Strike %:"), row, 0)
         stats_layout.addWidget(
             self._create_stat_value(f"{self._stats.avg_strike_pct * 100:.1f}%"),
             row,
@@ -126,9 +118,7 @@ class PitcherComparisonCard(QtWidgets.QFrame):
         row += 1
 
         # Consistency
-        stats_layout.addWidget(
-            self._create_stat_label("Consistency:"), row, 0
-        )
+        stats_layout.addWidget(self._create_stat_label("Consistency:"), row, 0)
         stats_layout.addWidget(
             self._create_stat_value(f"{self._stats.avg_consistency * 100:.0f}%"),
             row,
@@ -137,9 +127,7 @@ class PitcherComparisonCard(QtWidgets.QFrame):
         row += 1
 
         # Session info
-        stats_layout.addWidget(
-            self._create_stat_label("Sessions:"), row, 0
-        )
+        stats_layout.addWidget(self._create_stat_label("Sessions:"), row, 0)
         stats_layout.addWidget(
             self._create_stat_value(f"{self._stats.sessions_count}"),
             row,
@@ -147,9 +135,7 @@ class PitcherComparisonCard(QtWidgets.QFrame):
         )
         row += 1
 
-        stats_layout.addWidget(
-            self._create_stat_label("Total Pitches:"), row, 0
-        )
+        stats_layout.addWidget(self._create_stat_label("Total Pitches:"), row, 0)
         stats_layout.addWidget(
             self._create_stat_value(f"{self._stats.total_pitches}"),
             row,
@@ -184,7 +170,8 @@ class PitcherComparisonCard(QtWidgets.QFrame):
 
             theme = get_style_manager().theme
 
-            self.setStyleSheet(f"""
+            self.setStyleSheet(
+                f"""
                 PitcherComparisonCard {{
                     background-color: {theme.surface_glass};
                     border: 1px solid {theme.border_glass};
@@ -214,7 +201,8 @@ class PitcherComparisonCard(QtWidgets.QFrame):
                     font-weight: bold;
                     color: {theme.text_secondary};
                 }}
-            """)
+            """
+            )
 
         except ImportError:
             pass
@@ -242,6 +230,7 @@ class ComparisonDashboard(QtWidgets.QWidget):
         self._trend_analyzer = TrendAnalyzer()
 
         from ui.themes import get_style_manager
+
         self._theme = get_style_manager().theme
 
         self._build_ui()
@@ -265,12 +254,8 @@ class ComparisonDashboard(QtWidgets.QWidget):
         cards_scroll = QtWidgets.QScrollArea()
         cards_scroll.setWidget(self._cards_container)
         cards_scroll.setWidgetResizable(True)
-        cards_scroll.setHorizontalScrollBarPolicy(
-            QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded
-        )
-        cards_scroll.setVerticalScrollBarPolicy(
-            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
+        cards_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        cards_scroll.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         cards_scroll.setMaximumHeight(220)
         cards_scroll.setObjectName("comparison_cards_scroll")
 
@@ -347,9 +332,7 @@ class ComparisonDashboard(QtWidgets.QWidget):
             self._velocity_canvas.setMinimumHeight(200)
             layout.addWidget(self._velocity_canvas, 1)
         else:
-            placeholder = QtWidgets.QLabel(
-                "Velocity chart requires matplotlib"
-            )
+            placeholder = QtWidgets.QLabel("Velocity chart requires matplotlib")
             placeholder.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
             placeholder.setMinimumHeight(200)
             layout.addWidget(placeholder, 1)
@@ -375,9 +358,7 @@ class ComparisonDashboard(QtWidgets.QWidget):
             self._accuracy_canvas.setMinimumHeight(200)
             layout.addWidget(self._accuracy_canvas, 1)
         else:
-            placeholder = QtWidgets.QLabel(
-                "Accuracy chart requires matplotlib"
-            )
+            placeholder = QtWidgets.QLabel("Accuracy chart requires matplotlib")
             placeholder.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
             placeholder.setMinimumHeight(200)
             layout.addWidget(placeholder, 1)
@@ -410,7 +391,8 @@ class ComparisonDashboard(QtWidgets.QWidget):
 
             theme = get_style_manager().theme
 
-            self.setStyleSheet(f"""
+            self.setStyleSheet(
+                f"""
                 ComparisonDashboard {{
                     background-color: {theme.background_dark};
                 }}
@@ -469,7 +451,8 @@ class ComparisonDashboard(QtWidgets.QWidget):
                     padding: 6px;
                     color: {theme.text_primary};
                 }}
-            """)
+            """
+            )
 
         except ImportError:
             pass
@@ -557,9 +540,7 @@ class ComparisonDashboard(QtWidgets.QWidget):
                 break
 
         # Load session summaries
-        summaries = self._trend_analyzer._load_summaries_for_pitcher(
-            pitcher_id, days=365
-        )
+        summaries = self._trend_analyzer._load_summaries_for_pitcher(pitcher_id, days=365)
 
         if not summaries:
             # Create placeholder stats
@@ -758,47 +739,45 @@ class ComparisonDashboard(QtWidgets.QWidget):
                 writer = csv.writer(f)
 
                 # Header
-                writer.writerow([
-                    "Pitcher",
-                    "Sessions",
-                    "Total Pitches",
-                    "Avg Velocity (mph)",
-                    "Max Velocity (mph)",
-                    "Velocity Std",
-                    "Strike %",
-                    "Consistency %",
-                ])
+                writer.writerow(
+                    [
+                        "Pitcher",
+                        "Sessions",
+                        "Total Pitches",
+                        "Avg Velocity (mph)",
+                        "Max Velocity (mph)",
+                        "Velocity Std",
+                        "Strike %",
+                        "Consistency %",
+                    ]
+                )
 
                 # Data rows
                 for stats in self._pitcher_stats.values():
-                    writer.writerow([
-                        stats.display_name,
-                        stats.sessions_count,
-                        stats.total_pitches,
-                        f"{stats.avg_velocity:.1f}",
-                        f"{stats.max_velocity:.1f}",
-                        f"{stats.velocity_std:.2f}",
-                        f"{stats.avg_strike_pct * 100:.1f}",
-                        f"{stats.avg_consistency * 100:.1f}",
-                    ])
+                    writer.writerow(
+                        [
+                            stats.display_name,
+                            stats.sessions_count,
+                            stats.total_pitches,
+                            f"{stats.avg_velocity:.1f}",
+                            f"{stats.max_velocity:.1f}",
+                            f"{stats.velocity_std:.2f}",
+                            f"{stats.avg_strike_pct * 100:.1f}",
+                            f"{stats.avg_consistency * 100:.1f}",
+                        ]
+                    )
 
             logger.info(f"Exported comparison to {path}")
 
             # Show confirmation
             show_message_dialog(
-                parent=self,
-                title="Export Complete",
-                message=f"Comparison exported to:\n{path}",
-                level="info"
+                parent=self, title="Export Complete", message=f"Comparison exported to:\n{path}", level="info"
             )
 
         except Exception as e:
             logger.error(f"Failed to export comparison: {e}")
             show_message_dialog(
-                parent=self,
-                title="Export Failed",
-                message=f"Failed to export comparison:\n{e}",
-                level="warning"
+                parent=self, title="Export Failed", message=f"Failed to export comparison:\n{e}", level="warning"
             )
 
 

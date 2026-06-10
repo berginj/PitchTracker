@@ -15,6 +15,7 @@ from pathlib import Path
 
 try:
     import psutil
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
@@ -45,9 +46,9 @@ class TestVideoWriterLeaks(unittest.TestCase):
         import cv2
         import numpy as np
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("VideoWriter Create/Destroy Cycles Test")
-        print("="*60)
+        print("=" * 60)
 
         gc.collect()
         initial_memory = self.get_memory_mb()
@@ -63,13 +64,7 @@ class TestVideoWriterLeaks(unittest.TestCase):
             for cycle in range(num_cycles_per_codec):
                 # Create video writer
                 video_path = self.temp_dir / f"{codec}_{cycle:03d}.avi"
-                writer = cv2.VideoWriter(
-                    str(video_path),
-                    fourcc,
-                    60.0,  # FPS
-                    (640, 480),
-                    True
-                )
+                writer = cv2.VideoWriter(str(video_path), fourcc, 60.0, (640, 480), True)  # FPS
 
                 # Write 30 frames
                 frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
@@ -88,8 +83,10 @@ class TestVideoWriterLeaks(unittest.TestCase):
             current_memory = self.get_memory_mb()
             growth = current_memory - initial_memory
             growth_pct = (growth / initial_memory) * 100
-            print(f"  After {num_cycles_per_codec} cycles of {codec}: "
-                  f"{current_memory:>7.1f} MB (+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)")
+            print(
+                f"  After {num_cycles_per_codec} cycles of {codec}: "
+                f"{current_memory:>7.1f} MB (+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)"
+            )
 
         # Final check
         gc.collect()
@@ -98,14 +95,14 @@ class TestVideoWriterLeaks(unittest.TestCase):
         total_growth = final_memory - initial_memory
         growth_percent = (total_growth / initial_memory) * 100
 
-        print(f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
-              f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)")
+        print(
+            f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
+            f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)"
+        )
 
         # Memory should not grow more than 15%
         self.assertLess(
-            growth_percent,
-            15.0,
-            f"Memory grew {growth_percent:.1f}% after video writer cycles. Possible leak."
+            growth_percent, 15.0, f"Memory grew {growth_percent:.1f}% after video writer cycles. Possible leak."
         )
 
         print("✅ PASS: VideoWriter memory stable across cycles")
@@ -115,9 +112,9 @@ class TestVideoWriterLeaks(unittest.TestCase):
         import cv2
         import numpy as np
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("VideoWriter Large File Cycles Test")
-        print("="*60)
+        print("=" * 60)
 
         gc.collect()
         initial_memory = self.get_memory_mb()
@@ -133,13 +130,7 @@ class TestVideoWriterLeaks(unittest.TestCase):
             video_path = self.temp_dir / f"large_{file_num:03d}.avi"
 
             # Create writer
-            writer = cv2.VideoWriter(
-                str(video_path),
-                fourcc,
-                60.0,
-                (1280, 720),  # Higher resolution
-                True
-            )
+            writer = cv2.VideoWriter(str(video_path), fourcc, 60.0, (1280, 720), True)  # Higher resolution
 
             # Write frames
             for frame_num in range(frames_per_file):
@@ -160,8 +151,10 @@ class TestVideoWriterLeaks(unittest.TestCase):
                 current_memory = self.get_memory_mb()
                 growth = current_memory - initial_memory
                 growth_pct = (growth / initial_memory) * 100
-                print(f"  File {file_num+1:>2}/{num_files}: {current_memory:>7.1f} MB "
-                      f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)")
+                print(
+                    f"  File {file_num+1:>2}/{num_files}: {current_memory:>7.1f} MB "
+                    f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)"
+                )
 
         # Final check
         gc.collect()
@@ -170,15 +163,13 @@ class TestVideoWriterLeaks(unittest.TestCase):
         total_growth = final_memory - initial_memory
         growth_percent = (total_growth / initial_memory) * 100
 
-        print(f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
-              f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)")
+        print(
+            f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
+            f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)"
+        )
 
         # Memory should not grow more than 20% for larger files
-        self.assertLess(
-            growth_percent,
-            20.0,
-            f"Memory grew {growth_percent:.1f}% with large files. Possible leak."
-        )
+        self.assertLess(growth_percent, 20.0, f"Memory grew {growth_percent:.1f}% with large files. Possible leak.")
 
         print("✅ PASS: VideoWriter memory stable with large files")
 
@@ -186,9 +177,9 @@ class TestVideoWriterLeaks(unittest.TestCase):
         """Test simulated camera for memory leaks during start/stop cycles."""
         from capture.simulated_camera import SimulatedCamera
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Simulated Camera Lifecycle Test")
-        print("="*60)
+        print("=" * 60)
 
         gc.collect()
         initial_memory = self.get_memory_mb()
@@ -220,8 +211,10 @@ class TestVideoWriterLeaks(unittest.TestCase):
                 current_memory = self.get_memory_mb()
                 growth = current_memory - initial_memory
                 growth_pct = (growth / initial_memory) * 100
-                print(f"  Cycle {cycle+1:>2}/{num_cycles}: {current_memory:>7.1f} MB "
-                      f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)")
+                print(
+                    f"  Cycle {cycle+1:>2}/{num_cycles}: {current_memory:>7.1f} MB "
+                    f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)"
+                )
 
         # Final check
         gc.collect()
@@ -230,15 +223,13 @@ class TestVideoWriterLeaks(unittest.TestCase):
         total_growth = final_memory - initial_memory
         growth_percent = (total_growth / initial_memory) * 100
 
-        print(f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
-              f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)")
+        print(
+            f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
+            f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)"
+        )
 
         # Memory should not grow more than 10%
-        self.assertLess(
-            growth_percent,
-            10.0,
-            f"Memory grew {growth_percent:.1f}% during camera cycles. Possible leak."
-        )
+        self.assertLess(growth_percent, 10.0, f"Memory grew {growth_percent:.1f}% during camera cycles. Possible leak.")
 
         print("✅ PASS: SimulatedCamera memory stable during lifecycle")
 
@@ -247,9 +238,9 @@ class TestVideoWriterLeaks(unittest.TestCase):
         from contracts import Frame
         import numpy as np
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Frame Buffer Management Test")
-        print("="*60)
+        print("=" * 60)
 
         gc.collect()
         initial_memory = self.get_memory_mb()
@@ -270,7 +261,7 @@ class TestVideoWriterLeaks(unittest.TestCase):
                 t_received_monotonic_ns=timestamp,
                 width=1280,
                 height=720,
-                camera_id="buffer_test"
+                camera_id="buffer_test",
             )
 
             # Immediately discard (frame goes out of scope)
@@ -283,8 +274,10 @@ class TestVideoWriterLeaks(unittest.TestCase):
                 current_memory = self.get_memory_mb()
                 growth = current_memory - initial_memory
                 growth_pct = (growth / initial_memory) * 100
-                print(f"  Frame {i:>5}/{num_frames}: {current_memory:>7.1f} MB "
-                      f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)")
+                print(
+                    f"  Frame {i:>5}/{num_frames}: {current_memory:>7.1f} MB "
+                    f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)"
+                )
 
         # Final check
         gc.collect()
@@ -293,15 +286,13 @@ class TestVideoWriterLeaks(unittest.TestCase):
         total_growth = final_memory - initial_memory
         growth_percent = (total_growth / initial_memory) * 100
 
-        print(f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
-              f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)")
+        print(
+            f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
+            f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)"
+        )
 
         # Memory should return to near-initial (allow 10% for caching)
-        self.assertLess(
-            growth_percent,
-            10.0,
-            f"Memory grew {growth_percent:.1f}% after frame creation. Buffer leak?"
-        )
+        self.assertLess(growth_percent, 10.0, f"Memory grew {growth_percent:.1f}% after frame creation. Buffer leak?")
 
         print("✅ PASS: Frame buffers properly released")
 
@@ -311,9 +302,9 @@ class TestVideoWriterLeaks(unittest.TestCase):
         import numpy as np
         import threading
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Concurrent Video Writers Test")
-        print("="*60)
+        print("=" * 60)
 
         gc.collect()
         initial_memory = self.get_memory_mb()
@@ -324,13 +315,7 @@ class TestVideoWriterLeaks(unittest.TestCase):
             video_path = self.temp_dir / f"concurrent_{writer_id:03d}.avi"
             fourcc = cv2.VideoWriter_fourcc(*"MJPG")
 
-            writer = cv2.VideoWriter(
-                str(video_path),
-                fourcc,
-                60.0,
-                (640, 480),
-                True
-            )
+            writer = cv2.VideoWriter(str(video_path), fourcc, 60.0, (640, 480), True)
 
             frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
 
@@ -349,10 +334,7 @@ class TestVideoWriterLeaks(unittest.TestCase):
             threads = []
 
             for writer_id in range(5):
-                thread = threading.Thread(
-                    target=write_video,
-                    args=(batch * 5 + writer_id, 100)
-                )
+                thread = threading.Thread(target=write_video, args=(batch * 5 + writer_id, 100))
                 thread.start()
                 threads.append(thread)
 
@@ -365,8 +347,10 @@ class TestVideoWriterLeaks(unittest.TestCase):
             current_memory = self.get_memory_mb()
             growth = current_memory - initial_memory
             growth_pct = (growth / initial_memory) * 100
-            print(f"  Batch {batch+1}/4 (5 concurrent writers): "
-                  f"{current_memory:>7.1f} MB (+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)")
+            print(
+                f"  Batch {batch+1}/4 (5 concurrent writers): "
+                f"{current_memory:>7.1f} MB (+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)"
+            )
 
         # Final check
         gc.collect()
@@ -375,14 +359,14 @@ class TestVideoWriterLeaks(unittest.TestCase):
         total_growth = final_memory - initial_memory
         growth_percent = (total_growth / initial_memory) * 100
 
-        print(f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
-              f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)")
+        print(
+            f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
+            f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)"
+        )
 
         # Memory should not grow more than 20% with concurrent writers
         self.assertLess(
-            growth_percent,
-            20.0,
-            f"Memory grew {growth_percent:.1f}% with concurrent writers. Possible leak."
+            growth_percent, 20.0, f"Memory grew {growth_percent:.1f}% with concurrent writers. Possible leak."
         )
 
         print("✅ PASS: Memory stable with concurrent video writers")

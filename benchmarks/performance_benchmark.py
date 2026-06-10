@@ -87,43 +87,49 @@ class PerformanceMetrics:
                 "max_ms": max(self.capture_latency_ms) if self.capture_latency_ms else 0,
                 "avg_ms": sum(self.capture_latency_ms) / len(self.capture_latency_ms) if self.capture_latency_ms else 0,
                 "p95_ms": self._percentile(self.capture_latency_ms, 95),
-                "samples": len(self.capture_latency_ms)
+                "samples": len(self.capture_latency_ms),
             },
             "detection_latency": {
                 "min_ms": min(self.detection_latency_ms) if self.detection_latency_ms else 0,
                 "max_ms": max(self.detection_latency_ms) if self.detection_latency_ms else 0,
-                "avg_ms": sum(self.detection_latency_ms) / len(self.detection_latency_ms) if self.detection_latency_ms else 0,
+                "avg_ms": sum(self.detection_latency_ms) / len(self.detection_latency_ms)
+                if self.detection_latency_ms
+                else 0,
                 "p95_ms": self._percentile(self.detection_latency_ms, 95),
-                "samples": len(self.detection_latency_ms)
+                "samples": len(self.detection_latency_ms),
             },
             "recording_latency": {
                 "min_ms": min(self.recording_latency_ms) if self.recording_latency_ms else 0,
                 "max_ms": max(self.recording_latency_ms) if self.recording_latency_ms else 0,
-                "avg_ms": sum(self.recording_latency_ms) / len(self.recording_latency_ms) if self.recording_latency_ms else 0,
+                "avg_ms": sum(self.recording_latency_ms) / len(self.recording_latency_ms)
+                if self.recording_latency_ms
+                else 0,
                 "p95_ms": self._percentile(self.recording_latency_ms, 95),
-                "samples": len(self.recording_latency_ms)
+                "samples": len(self.recording_latency_ms),
             },
             "memory": {
                 "avg_mb": sum(self.memory_usage_mb) / len(self.memory_usage_mb) if self.memory_usage_mb else 0,
                 "peak_mb": self.peak_memory_mb,
-                "samples": len(self.memory_usage_mb)
+                "samples": len(self.memory_usage_mb),
             },
             "disk_io": {
                 "total_mb": self.disk_write_mb,
-                "avg_rate_mbps": sum(self.disk_write_rate_mbps) / len(self.disk_write_rate_mbps) if self.disk_write_rate_mbps else 0,
-                "peak_rate_mbps": max(self.disk_write_rate_mbps) if self.disk_write_rate_mbps else 0
+                "avg_rate_mbps": sum(self.disk_write_rate_mbps) / len(self.disk_write_rate_mbps)
+                if self.disk_write_rate_mbps
+                else 0,
+                "peak_rate_mbps": max(self.disk_write_rate_mbps) if self.disk_write_rate_mbps else 0,
             },
             "cpu": {
                 "avg_percent": sum(self.cpu_percent) / len(self.cpu_percent) if self.cpu_percent else 0,
                 "peak_percent": max(self.cpu_percent) if self.cpu_percent else 0,
-                "samples": len(self.cpu_percent)
+                "samples": len(self.cpu_percent),
             },
             "frames": {
                 "captured": self.frames_captured,
                 "detected": self.frames_detected,
                 "dropped": self.frames_dropped,
-                "drop_rate": self.frames_dropped / max(1, self.frames_captured)
-            }
+                "drop_rate": self.frames_dropped / max(1, self.frames_captured),
+            },
         }
 
     def _percentile(self, data: List[float], percentile: int) -> float:
@@ -190,9 +196,7 @@ class PerformanceMonitor:
 
 
 def run_benchmark(
-    duration_seconds: int = 30,
-    backend: str = "sim",
-    config_path: Optional[Path] = None
+    duration_seconds: int = 30, backend: str = "sim", config_path: Optional[Path] = None
 ) -> PerformanceMetrics:
     """Run performance benchmark.
 
@@ -263,10 +267,12 @@ def run_benchmark(
             if int(elapsed) % 5 == 0 and int(elapsed) != last_report:
                 last_report = int(elapsed)
                 current_metrics = metrics.to_dict()
-                print(f"  {int(elapsed)}s - "
-                      f"Memory: {current_metrics['memory']['peak_mb']:.1f}MB, "
-                      f"CPU: {current_metrics['cpu']['avg_percent']:.1f}%, "
-                      f"Disk I/O: {current_metrics['disk_io']['avg_rate_mbps']:.2f} MB/s")
+                print(
+                    f"  {int(elapsed)}s - "
+                    f"Memory: {current_metrics['memory']['peak_mb']:.1f}MB, "
+                    f"CPU: {current_metrics['cpu']['avg_percent']:.1f}%, "
+                    f"Disk I/O: {current_metrics['disk_io']['avg_rate_mbps']:.2f} MB/s"
+                )
 
         print("\nStopping capture...")
         orchestrator.stop_capture()
@@ -274,9 +280,9 @@ def run_benchmark(
     finally:
         monitor.stop()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Benchmark Complete")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
     return metrics
 
@@ -285,9 +291,9 @@ def print_metrics_report(metrics: PerformanceMetrics):
     """Print formatted metrics report."""
     data = metrics.to_dict()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("PERFORMANCE METRICS REPORT")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
     # Memory
     print("MEMORY USAGE:")
@@ -319,32 +325,31 @@ def print_metrics_report(metrics: PerformanceMetrics):
     print()
 
     # Latency (if available)
-    if data['capture_latency']['samples'] > 0:
+    if data["capture_latency"]["samples"] > 0:
         print("CAPTURE LATENCY:")
         print(f"  Average:     {data['capture_latency']['avg_ms']:.2f} ms")
         print(f"  P95:         {data['capture_latency']['p95_ms']:.2f} ms")
         print(f"  Min/Max:     {data['capture_latency']['min_ms']:.2f} / {data['capture_latency']['max_ms']:.2f} ms")
         print()
 
-    if data['detection_latency']['samples'] > 0:
+    if data["detection_latency"]["samples"] > 0:
         print("DETECTION LATENCY:")
         print(f"  Average:     {data['detection_latency']['avg_ms']:.2f} ms")
         print(f"  P95:         {data['detection_latency']['p95_ms']:.2f} ms")
-        print(f"  Min/Max:     {data['detection_latency']['min_ms']:.2f} / {data['detection_latency']['max_ms']:.2f} ms")
+        print(
+            f"  Min/Max:     {data['detection_latency']['min_ms']:.2f} / {data['detection_latency']['max_ms']:.2f} ms"
+        )
         print()
 
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
 
 def save_metrics(metrics: PerformanceMetrics, output_file: Path):
     """Save metrics to JSON file."""
-    data = {
-        "timestamp": datetime.now().isoformat(),
-        "metrics": metrics.to_dict()
-    }
+    data = {"timestamp": datetime.now().isoformat(), "metrics": metrics.to_dict()}
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(data, f, indent=2)
 
     print(f"Metrics saved to: {output_file}")
@@ -354,31 +359,18 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Run PitchTracker performance benchmark")
+    parser.add_argument("--duration", type=int, default=30, help="Benchmark duration in seconds (default: 30)")
     parser.add_argument(
-        "--duration",
-        type=int,
-        default=30,
-        help="Benchmark duration in seconds (default: 30)"
+        "--backend", default="sim", choices=["sim", "opencv", "uvc"], help="Camera backend to use (default: sim)"
     )
     parser.add_argument(
-        "--backend",
-        default="sim",
-        choices=["sim", "opencv", "uvc"],
-        help="Camera backend to use (default: sim)"
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        help="Output JSON file for metrics (default: benchmarks/results_TIMESTAMP.json)"
+        "--output", type=str, help="Output JSON file for metrics (default: benchmarks/results_TIMESTAMP.json)"
     )
 
     args = parser.parse_args()
 
     # Run benchmark
-    metrics = run_benchmark(
-        duration_seconds=args.duration,
-        backend=args.backend
-    )
+    metrics = run_benchmark(duration_seconds=args.duration, backend=args.backend)
 
     # Print report
     print_metrics_report(metrics)

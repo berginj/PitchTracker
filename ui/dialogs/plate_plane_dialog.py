@@ -47,10 +47,7 @@ class PlatePlaneDialog(QtWidgets.QDialog):
         apply_standard_layout(layout)
 
         # Header
-        header = build_dialog_header(
-            "Plate Plane Calibration",
-            "Select stereo image pair containing plate reference"
-        )
+        header = build_dialog_header("Plate Plane Calibration", "Select stereo image pair containing plate reference")
         layout.addWidget(header)
 
         # Form

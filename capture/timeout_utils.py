@@ -162,17 +162,13 @@ def retry_on_failure(
             for attempt in range(policy.max_attempts):
                 try:
                     if attempt > 0:
-                        logger.info(
-                            f"Retrying {func.__name__} (attempt {attempt + 1}/{policy.max_attempts})"
-                        )
+                        logger.info(f"Retrying {func.__name__} (attempt {attempt + 1}/{policy.max_attempts})")
 
                     return func(*args, **kwargs)
 
                 except Exception as e:
                     last_exception = e
-                    logger.warning(
-                        f"{func.__name__} failed on attempt {attempt + 1}/{policy.max_attempts}: {e}"
-                    )
+                    logger.warning(f"{func.__name__} failed on attempt {attempt + 1}/{policy.max_attempts}: {e}")
 
                     if not policy.should_retry(attempt, e):
                         raise

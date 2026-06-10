@@ -10,6 +10,7 @@ import numpy as np
 
 try:
     import psutil
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
@@ -190,9 +191,7 @@ def benchmark_memory_stability(
     return results
 
 
-def benchmark_memory_rapid_cycling(
-    num_cycles: int = 100, width: int = 1280, height: int = 720
-) -> dict:
+def benchmark_memory_rapid_cycling(num_cycles: int = 100, width: int = 1280, height: int = 720) -> dict:
     """Benchmark memory with rapid start/stop cycles.
 
     Tests for memory leaks during repeated initialization/cleanup.
@@ -303,12 +302,8 @@ if __name__ == "__main__":
         default=10,
         help="Memory sample interval in seconds (default: 10)",
     )
-    parser.add_argument(
-        "--width", type=int, default=1280, help="Frame width (default: 1280)"
-    )
-    parser.add_argument(
-        "--height", type=int, default=720, help="Frame height (default: 720)"
-    )
+    parser.add_argument("--width", type=int, default=1280, help="Frame width (default: 1280)")
+    parser.add_argument("--height", type=int, default=720, help="Frame height (default: 720)")
     parser.add_argument(
         "--rapid-cycling",
         action="store_true",

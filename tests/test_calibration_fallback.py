@@ -9,14 +9,13 @@ from typing import Tuple
 
 # Import the function we're testing
 import sys
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from calib.quick_calibrate import _collect_corners
 
 
 def create_checkerboard_image(
-    pattern_size: Tuple[int, int],
-    square_px: int = 50,
-    add_noise: bool = False
+    pattern_size: Tuple[int, int], square_px: int = 50, add_noise: bool = False
 ) -> np.ndarray:
     """Create a synthetic checkerboard pattern image.
 
@@ -35,10 +34,7 @@ def create_checkerboard_image(
     for i in range(pattern_size[1]):
         for j in range(pattern_size[0]):
             if (i + j) % 2 == 0:
-                image[
-                    i * square_px:(i + 1) * square_px,
-                    j * square_px:(j + 1) * square_px
-                ] = 255
+                image[i * square_px : (i + 1) * square_px, j * square_px : (j + 1) * square_px] = 255
 
     if add_noise:
         noise = np.random.normal(0, 10, image.shape).astype(np.int16)
@@ -47,10 +43,7 @@ def create_checkerboard_image(
     return image
 
 
-def create_charuco_board_image(
-    pattern_size: Tuple[int, int],
-    square_px: int = 50
-) -> np.ndarray:
+def create_charuco_board_image(pattern_size: Tuple[int, int], square_px: int = 50) -> np.ndarray:
     """Create a synthetic ChArUco board image.
 
     Args:
@@ -65,21 +58,14 @@ def create_charuco_board_image(
     try:
         # Try newer API first (OpenCV 4.7+)
         board = cv2.aruco.CharucoBoard(
-            (pattern_size[0], pattern_size[1]),
-            float(square_px),
-            float(square_px) * 0.75,
-            aruco_dict
+            (pattern_size[0], pattern_size[1]), float(square_px), float(square_px) * 0.75, aruco_dict
         )
         img_size = (pattern_size[0] * square_px, pattern_size[1] * square_px)
         image = board.generateImage(img_size)
     except (AttributeError, TypeError):
         # Fall back to older API
         board = cv2.aruco.CharucoBoard_create(
-            pattern_size[0],
-            pattern_size[1],
-            float(square_px),
-            float(square_px) * 0.75,
-            aruco_dict
+            pattern_size[0], pattern_size[1], float(square_px), float(square_px) * 0.75, aruco_dict
         )
         img_size = (pattern_size[0] * square_px, pattern_size[1] * square_px)
         image = board.draw(img_size)
@@ -106,9 +92,7 @@ def test_collect_corners_charuco_success():
         cv2.imwrite(str(path2), image2)
 
         # Test corner detection
-        detections, img_size = _collect_corners(
-            [path1, path2], pattern_size, square_mm
-        )
+        detections, img_size = _collect_corners([path1, path2], pattern_size, square_mm)
 
         # Verify results
         assert len(detections) == 2, "Should detect corners in both images"
@@ -145,9 +129,7 @@ def test_collect_corners_checkerboard_fallback():
         cv2.imwrite(str(path2), image2)
 
         # Test corner detection with fallback
-        detections, img_size = _collect_corners(
-            [path1, path2], pattern_size, square_mm
-        )
+        detections, img_size = _collect_corners([path1, path2], pattern_size, square_mm)
 
         # Verify results
         assert len(detections) == 2, "Should detect corners in both images using fallback"
@@ -187,9 +169,7 @@ def test_collect_corners_mixed_detection():
         cv2.imwrite(str(path2), checker_image)
 
         # Test corner detection
-        detections, img_size = _collect_corners(
-            [path1, path2], pattern_size, square_mm
-        )
+        detections, img_size = _collect_corners([path1, path2], pattern_size, square_mm)
 
         # Verify results
         assert len(detections) == 2, "Should detect corners in both images"
@@ -218,9 +198,7 @@ def test_collect_corners_complete_failure():
         cv2.imwrite(str(path), noise_image)
 
         # Test corner detection - should fail but not crash
-        detections, img_size = _collect_corners(
-            [path], pattern_size, square_mm
-        )
+        detections, img_size = _collect_corners([path], pattern_size, square_mm)
 
         # Verify failure handling
         assert len(detections) == 0, "Should not detect any corners in noise"
@@ -247,9 +225,7 @@ def test_collect_corners_partial_success():
         cv2.imwrite(str(path3), charuco_image)
 
         # Test corner detection
-        detections, img_size = _collect_corners(
-            [path1, path2, path3], pattern_size, square_mm
-        )
+        detections, img_size = _collect_corners([path1, path2, path3], pattern_size, square_mm)
 
         # Verify results
         assert len(detections) == 2, "Should detect corners in 2 out of 3 images"

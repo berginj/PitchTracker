@@ -181,9 +181,9 @@ class TestTimeoutCleanup(unittest.TestCase):
 
         # Check results
         self.assertEqual(len(results), 5)  # Even indices
-        self.assertEqual(len(errors), 5)   # Odd indices
+        self.assertEqual(len(errors), 5)  # Odd indices
 
-    @patch('capture.timeout_utils.logger')
+    @patch("capture.timeout_utils.logger")
     def test_timeout_logs_error(self, mock_logger):
         """Test that timeout is logged."""
 
@@ -255,10 +255,12 @@ class TestTimeoutVsOldImplementation(unittest.TestCase):
         # Thread count should NOT grow by 10
         # Old daemon thread approach would have +10 ghost threads here
         thread_growth = final_count - initial_count
-        self.assertLess(thread_growth, 3,
-                        msg=f"Thread count grew by {thread_growth}, expected <3. "
-                            f"Old implementation would have grown by 10.")
+        self.assertLess(
+            thread_growth,
+            3,
+            msg=f"Thread count grew by {thread_growth}, expected <3. " f"Old implementation would have grown by 10.",
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

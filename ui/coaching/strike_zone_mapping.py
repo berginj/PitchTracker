@@ -99,4 +99,3 @@ def calculate_overlay_layout(
 
 def _clamp(value: float) -> float:
     return max(0.0, min(1.0, value))
-

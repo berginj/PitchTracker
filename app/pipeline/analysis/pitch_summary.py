@@ -125,7 +125,9 @@ class PitchAnalyzer:
             trajectory_rmse_3d_ft=diagnostics.rmse_3d_ft if diagnostics else None,
             trajectory_mode=trajectory_mode,
             trajectory_comparison=comparison,
-            ray_rmse_px=diagnostics.rmse_px if diagnostics and trajectory_mode and trajectory_mode.startswith("ray_") else None,
+            ray_rmse_px=diagnostics.rmse_px
+            if diagnostics and trajectory_mode and trajectory_mode.startswith("ray_")
+            else None,
             estimated_camera_time_offset_ms=diagnostics.estimated_camera_time_offset_ms if diagnostics else None,
             ray_failure_codes=_ray_failure_codes(comparison),
             observation_duration_ms=observation_stats["observation_duration_ms"],
@@ -178,11 +180,7 @@ class PitchAnalyzer:
         if _result_is_usable(primary_result):
             return primary_result, primary_mode, comparison
 
-        if (
-            primary_mode.startswith("ray_")
-            and trajectory_config.fallback_to_stereo
-            and observations
-        ):
+        if primary_mode.startswith("ray_") and trajectory_config.fallback_to_stereo and observations:
             stereo_result = results.get("stereo_3d")
             if stereo_result is None:
                 stereo_request = self._build_trajectory_request(

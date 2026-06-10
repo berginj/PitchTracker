@@ -24,7 +24,13 @@ from ui.coaching.widgets.mode_widgets import (
     SessionProgressionWidget,
 )
 from ui.team import TeamManager
-from ui.themes import apply_standard_layout, ask_confirmation, get_style_manager, show_choice_dialog, show_message_dialog
+from ui.themes import (
+    apply_standard_layout,
+    ask_confirmation,
+    get_style_manager,
+    show_choice_dialog,
+    show_message_dialog,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -199,11 +205,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._mode_selector = QtWidgets.QComboBox()
         self._mode_selector.setAccessibleName("View Mode")
         self._style_manager.style_input(self._mode_selector)
-        self._mode_selector.addItems([
-            "Broadcast View",
-            "Session Progression",
-            "Game Mode"
-        ])
+        self._mode_selector.addItems(["Broadcast View", "Session Progression", "Game Mode"])
         self._mode_selector.currentIndexChanged.connect(self._on_mode_changed)
         mode_toolbar_layout.addWidget(self._mode_selector)
 
@@ -353,6 +355,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         This makes the session start dialog open instantly since the cache
         will already be warm by the time the user clicks "Setup Session".
         """
+
         def _warm_cache():
             try:
                 from ui.device_utils import probe_uvc_devices, probe_opencv_indices
@@ -422,6 +425,7 @@ class CoachWindow(QtWidgets.QMainWindow):
                 # Use configurable resolution for coaching app
                 # Create modified config with user-selected camera settings
                 from configs.settings import CameraConfig
+
                 coaching_camera_config = CameraConfig(
                     width=self._camera_width,
                     height=self._camera_height,
@@ -455,7 +459,9 @@ class CoachWindow(QtWidgets.QMainWindow):
                     right_serial,
                     str(self._config_path),
                 )
-                logger.info(f"Capture started successfully with {self._camera_width}x{self._camera_height}@{self._camera_fps}fps")
+                logger.info(
+                    f"Capture started successfully with {self._camera_width}x{self._camera_height}@{self._camera_fps}fps"
+                )
             else:
                 logger.info("Capture already running, skipping camera start")
 
@@ -650,8 +656,7 @@ class CoachWindow(QtWidgets.QMainWindow):
             show_message_dialog(
                 self,
                 "Session Active",
-                "Cannot change settings during an active session.\n"
-                "Please end the current session first.",
+                "Cannot change settings during an active session.\n" "Please end the current session first.",
                 tone="warning",
             )
             return
@@ -660,6 +665,7 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         # Get current camera assignments and settings from app state
         from configs.app_state import load_state
+
         state = load_state()
         current_left = state.get("last_left_camera", "0")
         current_right = state.get("last_right_camera", "1")
@@ -709,6 +715,7 @@ class CoachWindow(QtWidgets.QMainWindow):
 
                     # Create new camera config with updated settings
                     from configs.settings import CameraConfig
+
                     coaching_camera_config = CameraConfig(
                         width=self._camera_width,
                         height=self._camera_height,
@@ -942,7 +949,7 @@ class CoachWindow(QtWidgets.QMainWindow):
                 self._last_pitch_count = self._pitch_count
 
                 # Add new pitches to session tracker
-                for pitch in recent_pitches[self._last_pitch_count - 1:]:
+                for pitch in recent_pitches[self._last_pitch_count - 1 :]:
                     self._session_tracker.add_pitch(pitch)
 
             # Forward all recent pitches to current mode
@@ -959,8 +966,6 @@ class CoachWindow(QtWidgets.QMainWindow):
 
     def _apply_strike_zone_overlay_config(self, batter_height_in: float) -> None:
         """Push the active strike-zone configuration into overlay-capable modes."""
-        self._strike_zone_overlay_config = self._strike_zone_overlay_config.with_batter_height(
-            batter_height_in
-        )
+        self._strike_zone_overlay_config = self._strike_zone_overlay_config.with_batter_height(batter_height_in)
         for mode in (self._broadcast_mode, self._progression_mode, self._game_mode):
             mode.set_strike_zone_config(self._strike_zone_overlay_config)

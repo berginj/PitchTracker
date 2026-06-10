@@ -39,9 +39,7 @@ class PipelineServiceConfigMixin:
         )
         left_id, right_id = self._camera_mgr.get_camera_ids()
         if left_id and right_id:
-            self._detectors_by_camera = self._initializer.build_detectors(
-                left_id, right_id, self._lane_polygon
-            )
+            self._detectors_by_camera = self._initializer.build_detectors(left_id, right_id, self._lane_polygon)
 
     def set_detection_threading(self, mode: str, worker_count: int) -> None:
         if mode not in ("per_camera", "worker_pool"):

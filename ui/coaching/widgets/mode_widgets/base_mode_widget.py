@@ -49,11 +49,7 @@ class BaseModeWidget(QtWidgets.QWidget, metaclass=QABCMeta):
         """
 
     @abstractmethod
-    def update_camera_frames(
-        self,
-        left_frame: Optional["Frame"],
-        right_frame: Optional["Frame"]
-    ) -> None:
+    def update_camera_frames(self, left_frame: Optional["Frame"], right_frame: Optional["Frame"]) -> None:
         """Update camera preview frames.
 
         Called by CoachWindow on preview update timer (33ms).

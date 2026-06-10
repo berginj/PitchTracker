@@ -102,9 +102,7 @@ class DetectionProcessor:
                 None,
             ]
         ] = None
-        self._on_ray_observations: Optional[
-            Callable[[str, Frame, List[RayObservation], int, int], None]
-        ] = None
+        self._on_ray_observations: Optional[Callable[[str, Frame, List[RayObservation], int, int], None]] = None
 
         # Cached strike zone (rebuilt only when config changes)
         self._cached_strike_zone = None
@@ -392,14 +390,10 @@ class DetectionProcessor:
                 self._dropped_frames_sync += 1
                 if left_idx < right_idx:
                     self._left_buffer.popleft()
-                    logger.debug(
-                        f"Dropped left frame (index {left_idx} vs {right_idx}, diff={index_diff})"
-                    )
+                    logger.debug(f"Dropped left frame (index {left_idx} vs {right_idx}, diff={index_diff})")
                 else:
                     self._right_buffer.popleft()
-                    logger.debug(
-                        f"Dropped right frame (index {right_idx} vs {left_idx}, diff={index_diff})"
-                    )
+                    logger.debug(f"Dropped right frame (index {right_idx} vs {left_idx}, diff={index_diff})")
                 continue
 
             # Frames matched by index - still track timestamp delta for monitoring

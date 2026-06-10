@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 
 # Import the online refinement classes
 import sys
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from calib.online_refinement import (
     RefinementState,
@@ -20,19 +21,19 @@ from calib.online_refinement import (
 @pytest.fixture
 def temp_config():
     """Create a temporary config file for testing."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         config = {
-            'camera': {'width': 1280, 'height': 720},
-            'stereo': {
-                'baseline_ft': 1.625,
-                'focal_length_px': 1200.0,
-                'time_sync_offset_ns': 0,
+            "camera": {"width": 1280, "height": 720},
+            "stereo": {
+                "baseline_ft": 1.625,
+                "focal_length_px": 1200.0,
+                "time_sync_offset_ns": 0,
             },
-            'metrics': {
-                'drag_k0_default': 0.1,
-                'plate_plane_z_ft': 0.0,
-                'last_refinement_date': None,
-                'online_refinement_enabled': True,
+            "metrics": {
+                "drag_k0_default": 0.1,
+                "plate_plane_z_ft": 0.0,
+                "last_refinement_date": None,
+                "online_refinement_enabled": True,
             },
         }
         yaml.dump(config, f)
@@ -53,28 +54,28 @@ def create_high_quality_trajectory(
 ) -> dict:
     """Create a high-quality trajectory result for testing."""
     return {
-        'timestamp_ns': int(datetime.now().timestamp() * 1e9),
-        'drag_k0_fit': drag_k0,
-        'time_sync_residual_ns': time_sync_residual_ns,
-        'plate_crossing_z_ft': plate_z,
-        'mean_epipolar_error_px': epipolar_error,
-        'max_epipolar_error_px': epipolar_error * 1.5,
-        'num_observations': 15,
-        'confidence_score': 0.85,
+        "timestamp_ns": int(datetime.now().timestamp() * 1e9),
+        "drag_k0_fit": drag_k0,
+        "time_sync_residual_ns": time_sync_residual_ns,
+        "plate_crossing_z_ft": plate_z,
+        "mean_epipolar_error_px": epipolar_error,
+        "max_epipolar_error_px": epipolar_error * 1.5,
+        "num_observations": 15,
+        "confidence_score": 0.85,
     }
 
 
 def create_low_quality_trajectory() -> dict:
     """Create a low-quality trajectory that should be rejected."""
     return {
-        'timestamp_ns': int(datetime.now().timestamp() * 1e9),
-        'drag_k0_fit': 0.1,
-        'time_sync_residual_ns': 0.0,
-        'plate_crossing_z_ft': 0.0,
-        'mean_epipolar_error_px': 5.0,  # High error
-        'max_epipolar_error_px': 10.0,
-        'num_observations': 5,  # Too few observations
-        'confidence_score': 0.5,  # Low confidence
+        "timestamp_ns": int(datetime.now().timestamp() * 1e9),
+        "drag_k0_fit": 0.1,
+        "time_sync_residual_ns": 0.0,
+        "plate_crossing_z_ft": 0.0,
+        "mean_epipolar_error_px": 5.0,  # High error
+        "max_epipolar_error_px": 10.0,
+        "num_observations": 5,  # Too few observations
+        "confidence_score": 0.5,  # Low confidence
     }
 
 
@@ -199,8 +200,8 @@ def test_refine_drag_coefficient_no_bias(temp_config):
     result = refiner.refine_parameters()
 
     # Should not refine (bias < 10%)
-    assert result['refined'] is False or abs(result['drag_k0_new'] - result['drag_k0_old']) < 0.01
-    assert 'No significant biases' in result['reason'] or result['refined'] is False
+    assert result["refined"] is False or abs(result["drag_k0_new"] - result["drag_k0_old"]) < 0.01
+    assert "No significant biases" in result["reason"] or result["refined"] is False
 
 
 def test_refine_drag_coefficient_with_bias(temp_config):
@@ -215,10 +216,10 @@ def test_refine_drag_coefficient_with_bias(temp_config):
     result = refiner.refine_parameters()
 
     # Should refine (bias > 10%)
-    assert result['refined'] is True
-    assert result['drag_k0_old'] == 0.1
-    assert abs(result['drag_k0_new'] - 0.15) < 0.01
-    assert 'drag_k0' in result['reason']
+    assert result["refined"] is True
+    assert result["drag_k0_old"] == 0.1
+    assert abs(result["drag_k0_new"] - 0.15) < 0.01
+    assert "drag_k0" in result["reason"]
 
 
 def test_refine_time_sync_offset_no_bias(temp_config):
@@ -227,17 +228,15 @@ def test_refine_time_sync_offset_no_bias(temp_config):
 
     # Accumulate trajectories with small time sync residuals (< 5ms threshold)
     for i in range(50):
-        trajectory = create_high_quality_trajectory(
-            time_sync_residual_ns=np.random.normal(0, 1e6)  # ±1ms noise
-        )
+        trajectory = create_high_quality_trajectory(time_sync_residual_ns=np.random.normal(0, 1e6))  # ±1ms noise
         refiner.accumulate_trajectory(trajectory)
 
     result = refiner.refine_parameters()
 
     # Should not refine (bias < 5ms)
-    assert result['time_sync_offset_old'] == 0
+    assert result["time_sync_offset_old"] == 0
     # Time sync might change slightly, but should be small
-    assert abs(result['time_sync_offset_new']) < 5e6  # Less than 5ms
+    assert abs(result["time_sync_offset_new"]) < 5e6  # Less than 5ms
 
 
 def test_refine_time_sync_offset_with_bias(temp_config):
@@ -246,17 +245,15 @@ def test_refine_time_sync_offset_with_bias(temp_config):
 
     # Accumulate trajectories with systematic +10ms bias
     for i in range(50):
-        trajectory = create_high_quality_trajectory(
-            time_sync_residual_ns=10e6 + np.random.normal(0, 1e6)  # 10ms ± 1ms
-        )
+        trajectory = create_high_quality_trajectory(time_sync_residual_ns=10e6 + np.random.normal(0, 1e6))  # 10ms ± 1ms
         refiner.accumulate_trajectory(trajectory)
 
     result = refiner.refine_parameters()
 
     # Should refine (bias > 5ms)
-    assert result['refined'] is True
-    assert result['time_sync_offset_old'] == 0
-    assert abs(result['time_sync_offset_new'] - 10e6) < 2e6  # Within 2ms of expected
+    assert result["refined"] is True
+    assert result["time_sync_offset_old"] == 0
+    assert abs(result["time_sync_offset_new"] - 10e6) < 2e6  # Within 2ms of expected
 
 
 def test_refine_plate_plane_z_no_bias(temp_config):
@@ -265,15 +262,13 @@ def test_refine_plate_plane_z_no_bias(temp_config):
 
     # Accumulate trajectories with plate_z close to default (0.0)
     for i in range(50):
-        trajectory = create_high_quality_trajectory(
-            plate_z=0.0 + np.random.normal(0, 0.3)  # Small variation
-        )
+        trajectory = create_high_quality_trajectory(plate_z=0.0 + np.random.normal(0, 0.3))  # Small variation
         refiner.accumulate_trajectory(trajectory)
 
     result = refiner.refine_parameters()
 
     # Should not refine (change < 1 foot)
-    assert abs(result['plate_z_new'] - result['plate_z_old']) < 1.0
+    assert abs(result["plate_z_new"] - result["plate_z_old"]) < 1.0
 
 
 def test_refine_plate_plane_z_with_bias(temp_config):
@@ -282,17 +277,15 @@ def test_refine_plate_plane_z_with_bias(temp_config):
 
     # Accumulate trajectories with plate_z at 2.5 feet (vs 0.0 default)
     for i in range(50):
-        trajectory = create_high_quality_trajectory(
-            plate_z=2.5 + np.random.normal(0, 0.2)
-        )
+        trajectory = create_high_quality_trajectory(plate_z=2.5 + np.random.normal(0, 0.2))
         refiner.accumulate_trajectory(trajectory)
 
     result = refiner.refine_parameters()
 
     # Should refine (change > 1 foot)
-    assert result['refined'] is True
-    assert result['plate_z_old'] == 0.0
-    assert abs(result['plate_z_new'] - 2.5) < 0.5
+    assert result["refined"] is True
+    assert result["plate_z_old"] == 0.0
+    assert abs(result["plate_z_new"] - 2.5) < 0.5
 
 
 def test_refine_updates_metadata(temp_config):
@@ -343,10 +336,10 @@ def test_validate_calibration_health_insufficient_data(temp_config):
 
     health = refiner.validate_calibration_health()
 
-    assert health['healthy'] is True
-    assert health['trend'] == 'unknown'
-    assert health['alert'] is False
-    assert 'Insufficient data' in health['reason']
+    assert health["healthy"] is True
+    assert health["trend"] == "unknown"
+    assert health["alert"] is False
+    assert "Insufficient data" in health["reason"]
 
 
 def test_validate_calibration_health_stable(temp_config):
@@ -360,10 +353,10 @@ def test_validate_calibration_health_stable(temp_config):
 
     health = refiner.validate_calibration_health()
 
-    assert health['healthy'] is True
-    assert health['mean_error_px'] < 2.0
-    assert health['trend'] == 'stable'
-    assert health['alert'] is False
+    assert health["healthy"] is True
+    assert health["mean_error_px"] < 2.0
+    assert health["trend"] == "stable"
+    assert health["alert"] is False
 
 
 def test_validate_calibration_health_improving(temp_config):
@@ -379,7 +372,7 @@ def test_validate_calibration_health_improving(temp_config):
 
     health = refiner.validate_calibration_health()
 
-    assert health['trend'] == 'improving'
+    assert health["trend"] == "improving"
 
 
 def test_validate_calibration_health_degrading(temp_config):
@@ -394,7 +387,7 @@ def test_validate_calibration_health_degrading(temp_config):
 
     health = refiner.validate_calibration_health()
 
-    assert health['trend'] == 'degrading'
+    assert health["trend"] == "degrading"
 
 
 def test_validate_calibration_health_high_error_alert(temp_config):
@@ -405,18 +398,18 @@ def test_validate_calibration_health_high_error_alert(temp_config):
     for i in range(30):
         trajectory = create_high_quality_trajectory(epipolar_error=6.0)
         # Override quality check
-        trajectory['mean_epipolar_error_px'] = 6.0
-        trajectory['confidence_score'] = 0.75  # Still high enough
+        trajectory["mean_epipolar_error_px"] = 6.0
+        trajectory["confidence_score"] = 0.75  # Still high enough
         refiner.state.trajectories_buffer.append(trajectory)
         refiner.state.num_trajectories_accumulated += 1
         refiner.state.epipolar_error_trend.append(6.0)
 
     health = refiner.validate_calibration_health()
 
-    assert health['healthy'] is False
-    assert health['alert'] is True
-    assert health['mean_error_px'] > 5.0
-    assert 'Alert' in health['reason'] or 'Recalibration' in health['reason']
+    assert health["healthy"] is False
+    assert health["alert"] is True
+    assert health["mean_error_px"] > 5.0
+    assert "Alert" in health["reason"] or "Recalibration" in health["reason"]
 
 
 def test_validate_calibration_health_recalibration_interval(temp_config):
@@ -435,8 +428,8 @@ def test_validate_calibration_health_recalibration_interval(temp_config):
     health = refiner.validate_calibration_health()
 
     # Should alert due to interval, even with low error
-    assert health['alert'] is True
-    assert '40 days' in health['reason'] or 'Recalibration' in health['reason']
+    assert health["alert"] is True
+    assert "40 days" in health["reason"] or "Recalibration" in health["reason"]
 
 
 def test_get_refinement_summary(temp_config):
@@ -450,14 +443,14 @@ def test_get_refinement_summary(temp_config):
 
     summary = refiner.get_refinement_summary()
 
-    assert 'drag_k0' in summary
-    assert 'time_sync_offset_ns' in summary
-    assert 'plate_plane_z_ft' in summary
-    assert summary['trajectories_accumulated'] == 25
-    assert summary['refinement_count'] == 0
-    assert summary['calibration_healthy'] is True
-    assert 'mean_epipolar_error_px' in summary
-    assert 'error_trend' in summary
+    assert "drag_k0" in summary
+    assert "time_sync_offset_ns" in summary
+    assert "plate_plane_z_ft" in summary
+    assert summary["trajectories_accumulated"] == 25
+    assert summary["refinement_count"] == 0
+    assert summary["calibration_healthy"] is True
+    assert "mean_epipolar_error_px" in summary
+    assert "error_trend" in summary
 
 
 def test_epipolar_error_trend_limit(temp_config):
@@ -513,7 +506,7 @@ def test_refine_with_mixed_quality_trajectories(temp_config):
     assert refiner.state.num_trajectories_accumulated >= 50  # Enough for refinement
 
     result = refiner.refine_parameters()
-    assert result['refined'] is True
+    assert result["refined"] is True
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ Usage:
     python scripts/checkerboard_distance_calculator.py
 """
 
+
 def calculate_max_distance(focal_length_px: float, square_size_mm: float, min_pixels_per_square: float = 20) -> float:
     """Calculate maximum distance for reliable checkerboard detection.
 
@@ -19,7 +20,9 @@ def calculate_max_distance(focal_length_px: float, square_size_mm: float, min_pi
     return (focal_length_px * square_size_mm) / min_pixels_per_square
 
 
-def calculate_required_square_size(focal_length_px: float, distance_mm: float, min_pixels_per_square: float = 20) -> float:
+def calculate_required_square_size(
+    focal_length_px: float, distance_mm: float, min_pixels_per_square: float = 20
+) -> float:
     """Calculate required square size for given distance.
 
     Args:
@@ -102,7 +105,9 @@ if __name__ == "__main__":
 
     print(f"\nMAXIMUM DISTANCE FOR YOUR 30MM BOARD:")
     print(f"  Max distance (20 px/square): {max_distance_ft:.1f} ft ({max_distance_mm:.0f}mm)")
-    print(f"  Max distance (15 px/square): {mm_to_feet(calculate_max_distance(focal_length, square_size_mm, 15)):.1f} ft")
+    print(
+        f"  Max distance (15 px/square): {mm_to_feet(calculate_max_distance(focal_length, square_size_mm, 15)):.1f} ft"
+    )
 
     # Calculate required square size for target distance
     required_size_mm = calculate_required_square_size(focal_length, target_distance_mm, min_pixels_per_square=20)
@@ -110,11 +115,13 @@ if __name__ == "__main__":
 
     print(f"\nREQUIRED SQUARE SIZE FOR {target_distance_ft} FT:")
     print(f"  Required size (20 px/square): {required_size_mm:.0f}mm ({required_size_inches:.1f} inches)")
-    print(f"  Required size (15 px/square): {calculate_required_square_size(focal_length, target_distance_mm, 15):.0f}mm ({mm_to_inches(calculate_required_square_size(focal_length, target_distance_mm, 15)):.1f} inches)")
+    print(
+        f"  Required size (15 px/square): {calculate_required_square_size(focal_length, target_distance_mm, 15):.0f}mm ({mm_to_inches(calculate_required_square_size(focal_length, target_distance_mm, 15)):.1f} inches)"
+    )
 
     print(f"\nRECOMMENDATIONS:")
     print(f"  1. BEST: Use your 30mm board at {max_distance_ft:.0f} ft or closer")
-    print(f"  2. Build larger board with {required_size_inches:.0f}\" squares for {target_distance_ft} ft")
+    print(f'  2. Build larger board with {required_size_inches:.0f}" squares for {target_distance_ft} ft')
     print(f"  3. Two-stage calibration:")
     print(f"     - Stage 1: Calibrate at {max_distance_ft:.0f} ft with 30mm board")
     print(f"     - Stage 2: Plate plane calibration at {target_distance_ft} ft")

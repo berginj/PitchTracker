@@ -65,7 +65,7 @@ class ScreenshotCapture:
 
         # Save description to metadata file
         metadata_file = self.output_dir / "screenshots_metadata.txt"
-        with open(metadata_file, 'a', encoding='utf-8') as f:
+        with open(metadata_file, "a", encoding="utf-8") as f:
             f.write(f"{filename}: {description}\n")
 
     def wait(self, seconds: float = 1.0) -> None:
@@ -88,9 +88,9 @@ def capture_coach_window_screenshots(backend: str = "sim"):
 
     capturer = ScreenshotCapture()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Starting CoachWindow Screenshot Capture")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
     # Create main window with simulated backend (no cameras needed)
     print("Launching CoachWindow...")
@@ -100,11 +100,7 @@ def capture_coach_window_screenshots(backend: str = "sim"):
     capturer.wait(1.5)
 
     # 1. Main dashboard (initial state)
-    capturer.capture(
-        window,
-        "main_dashboard_initial",
-        "Main coaching dashboard - Initial state (no session active)"
-    )
+    capturer.capture(window, "main_dashboard_initial", "Main coaching dashboard - Initial state (no session active)")
 
     # 2. Try to capture session start dialog
     try:
@@ -116,7 +112,7 @@ def capture_coach_window_screenshots(backend: str = "sim"):
         capturer.capture(
             session_dialog,
             "session_start_dialog",
-            "Session Start Dialog - Configure new session with pitcher selection"
+            "Session Start Dialog - Configure new session with pitcher selection",
         )
 
         session_dialog.close()
@@ -132,9 +128,7 @@ def capture_coach_window_screenshots(backend: str = "sim"):
         capturer.wait(1.0)
 
         capturer.capture(
-            settings_dialog,
-            "settings_dialog",
-            "Settings Dialog - Application configuration and camera settings"
+            settings_dialog, "settings_dialog", "Settings Dialog - Application configuration and camera settings"
         )
 
         settings_dialog.close()
@@ -149,11 +143,7 @@ def capture_coach_window_screenshots(backend: str = "sim"):
         lane_dialog.show()
         capturer.wait(1.0)
 
-        capturer.capture(
-            lane_dialog,
-            "lane_adjust_dialog",
-            "Lane Adjust Dialog - Configure camera positioning and ROI"
-        )
+        capturer.capture(lane_dialog, "lane_adjust_dialog", "Lane Adjust Dialog - Configure camera positioning and ROI")
 
         lane_dialog.close()
         capturer.wait(0.5)
@@ -166,57 +156,43 @@ def capture_coach_window_screenshots(backend: str = "sim"):
     # Try to access different viewing modes if available
     try:
         # Check if window has mode widgets
-        if hasattr(window, '_mode_stack'):
+        if hasattr(window, "_mode_stack"):
             print("\nCapturing different viewing modes...")
 
             # Broadcast View
-            if hasattr(window, '_broadcast_mode'):
+            if hasattr(window, "_broadcast_mode"):
                 window._mode_stack.setCurrentWidget(window._broadcast_mode)
                 capturer.wait(0.8)
-                capturer.capture(
-                    window,
-                    "broadcast_view",
-                    "Broadcast View - Spectator-friendly display mode"
-                )
+                capturer.capture(window, "broadcast_view", "Broadcast View - Spectator-friendly display mode")
 
             # Session Progression View
-            if hasattr(window, '_progression_mode'):
+            if hasattr(window, "_progression_mode"):
                 window._mode_stack.setCurrentWidget(window._progression_mode)
                 capturer.wait(0.8)
                 capturer.capture(
-                    window,
-                    "session_progression_view",
-                    "Session Progression View - Track pitch count and progress"
+                    window, "session_progression_view", "Session Progression View - Track pitch count and progress"
                 )
 
             # Game Mode View
-            if hasattr(window, '_game_mode'):
+            if hasattr(window, "_game_mode"):
                 window._mode_stack.setCurrentWidget(window._game_mode)
                 capturer.wait(0.8)
-                capturer.capture(
-                    window,
-                    "game_mode_view",
-                    "Game Mode View - Interactive pitching games"
-                )
+                capturer.capture(window, "game_mode_view", "Game Mode View - Interactive pitching games")
 
                 # Try to capture individual games
-                if hasattr(window._game_mode, '_game_selector'):
+                if hasattr(window._game_mode, "_game_selector"):
                     games = [
                         ("Around the World", "around_world"),
                         ("Speed Challenge", "speed_challenge"),
                         ("Target Scoring", "target_scoring"),
-                        ("Tic Tac Toe", "tic_tac_toe")
+                        ("Tic Tac Toe", "tic_tac_toe"),
                     ]
                     for i, (game_title, game_name) in enumerate(games):
                         try:
                             # Select game from combo box
                             window._game_mode._game_selector.setCurrentIndex(i)
                             capturer.wait(0.8)
-                            capturer.capture(
-                                window,
-                                f"game_{game_name}",
-                                f"Game: {game_title}"
-                            )
+                            capturer.capture(window, f"game_{game_name}", f"Game: {game_title}")
                         except Exception as game_err:
                             print(f"  [WARNING] Could not capture {game_title}: {game_err}")
     except Exception as e:
@@ -226,37 +202,27 @@ def capture_coach_window_screenshots(backend: str = "sim"):
     print("\nCapturing individual widgets...")
 
     try:
-        if hasattr(window, '_heat_map'):
-            capturer.capture(
-                window._heat_map,
-                "widget_heatmap",
-                "Heat Map Widget - Shows pitch location distribution"
-            )
+        if hasattr(window, "_heat_map"):
+            capturer.capture(window._heat_map, "widget_heatmap", "Heat Map Widget - Shows pitch location distribution")
     except Exception as e:
         print(f"  [WARNING] Could not capture heat map: {e}")
 
     try:
-        if hasattr(window, '_trajectory_widget'):
+        if hasattr(window, "_trajectory_widget"):
             capturer.capture(
-                window._trajectory_widget,
-                "widget_trajectory",
-                "Trajectory Widget - Shows 3D pitch path visualization"
+                window._trajectory_widget, "widget_trajectory", "Trajectory Widget - Shows 3D pitch path visualization"
             )
     except Exception as e:
         print(f"  [WARNING] Could not capture trajectory widget: {e}")
 
     # 7. Final main window capture
-    capturer.capture(
-        window,
-        "main_dashboard_final",
-        "Main coaching dashboard - Final state"
-    )
+    capturer.capture(window, "main_dashboard_final", "Main coaching dashboard - Final state")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print(f"Screenshot capture complete!")
     print(f"Total screenshots: {capturer.screenshot_count}")
     print(f"Saved to: {capturer.output_dir}")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
     # Close window
     window.close()
@@ -328,10 +294,10 @@ def generate_screenshot_index(screenshot_dir: Path):
     metadata_file = screenshot_dir / "screenshots_metadata.txt"
     metadata = {}
     if metadata_file.exists():
-        with open(metadata_file, 'r', encoding='utf-8') as f:
+        with open(metadata_file, "r", encoding="utf-8") as f:
             for line in f:
-                if ':' in line:
-                    filename, description = line.strip().split(':', 1)
+                if ":" in line:
+                    filename, description = line.strip().split(":", 1)
                     metadata[filename.strip()] = description.strip()
 
     # Get all PNG files
@@ -342,10 +308,10 @@ def generate_screenshot_index(screenshot_dir: Path):
         description = metadata.get(filename, "No description available")
 
         # Clean up filename for display title
-        title = filename.replace('.png', '').replace('_', ' ').title()
+        title = filename.replace(".png", "").replace("_", " ").title()
         # Remove number prefix
-        if ' ' in title:
-            parts = title.split(' ', 1)
+        if " " in title:
+            parts = title.split(" ", 1)
             if parts[0].isdigit():
                 title = parts[1]
 
@@ -365,13 +331,10 @@ def generate_screenshot_index(screenshot_dir: Path):
 
     # Write HTML file
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    html_content = html_content.format(
-        timestamp=timestamp,
-        count=len(screenshots)
-    )
+    html_content = html_content.format(timestamp=timestamp, count=len(screenshots))
 
     index_file = screenshot_dir / "index.html"
-    with open(index_file, 'w', encoding='utf-8') as f:
+    with open(index_file, "w", encoding="utf-8") as f:
         f.write(html_content)
 
     print(f"\n[OK] Generated screenshot index: {index_file}")
@@ -386,27 +349,22 @@ if __name__ == "__main__":
         "--backend",
         default="sim",
         choices=["sim", "opencv", "uvc"],
-        help="Backend to use (sim=simulated, opencv=webcam, uvc=USB cameras)"
+        help="Backend to use (sim=simulated, opencv=webcam, uvc=USB cameras)",
     )
-    parser.add_argument(
-        "--output",
-        type=str,
-        help="Output directory for screenshots"
-    )
+    parser.add_argument("--output", type=str, help="Output directory for screenshots")
 
     args = parser.parse_args()
 
     output_dir = Path(args.output) if args.output else None
 
     try:
-        screenshot_dir = capture_coach_window_screenshots(
-            backend=args.backend
-        )
+        screenshot_dir = capture_coach_window_screenshots(backend=args.backend)
 
         print(f"\n[OK] Success! Open {screenshot_dir / 'index.html'} in your browser")
 
     except Exception as e:
         print(f"\n[ERROR] Error during screenshot capture: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

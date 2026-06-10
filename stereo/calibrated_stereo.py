@@ -44,8 +44,10 @@ class CalibratedStereoGeometry:
         mtx_right = np.asarray(data["mtx_right"], dtype=np.float64)
         rmat = np.asarray(data["R"], dtype=np.float64)
         tvec = np.asarray(data["T"], dtype=np.float64).reshape(3, 1)
-        fmat = np.asarray(data["F"], dtype=np.float64) if "F" in data else _fundamental_from_rt(
-            mtx_left, mtx_right, rmat, tvec
+        fmat = (
+            np.asarray(data["F"], dtype=np.float64)
+            if "F" in data
+            else _fundamental_from_rt(mtx_left, mtx_right, rmat, tvec)
         )
         return cls(
             mtx_left=mtx_left,

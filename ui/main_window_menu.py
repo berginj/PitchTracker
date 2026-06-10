@@ -248,9 +248,7 @@ class MainWindowMenuMixin:
         )
         if dialog.exec() == QtWidgets.QDialog.Accepted:
             ball_type, height, top_ratio, bottom_ratio = dialog.values()
-            self._settings_manager.update_strike_settings(
-                ball_type, height, top_ratio, bottom_ratio
-            )
+            self._settings_manager.update_strike_settings(ball_type, height, top_ratio, bottom_ratio)
             self._save_strike_zone()
 
     def _open_detector_settings(self) -> None:
@@ -285,8 +283,7 @@ class MainWindowMenuMixin:
             show_message_dialog(
                 self,
                 "Keyboard Shortcuts",
-                "Keyboard shortcuts documentation not found.\n\n"
-                "Expected location: docs/KEYBOARD_SHORTCUTS.md",
+                "Keyboard shortcuts documentation not found.\n\n" "Expected location: docs/KEYBOARD_SHORTCUTS.md",
                 tone="info",
             )
             return
@@ -302,8 +299,7 @@ class MainWindowMenuMixin:
             show_message_dialog(
                 self,
                 "Keyboard Shortcuts",
-                f"Failed to open shortcuts documentation: {exc}\n\n"
-                f"File location: {shortcuts_path.absolute()}",
+                f"Failed to open shortcuts documentation: {exc}\n\n" f"File location: {shortcuts_path.absolute()}",
                 tone="warning",
             )
 

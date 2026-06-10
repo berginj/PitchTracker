@@ -201,12 +201,7 @@ class GameVisualizer:
 
     def _mark_ai(self) -> None:
         """Mark a random empty cell for the AI."""
-        empty = [
-            (r, c)
-            for r in range(3)
-            for c in range(3)
-            if self._board[r][c] == ""
-        ]
+        empty = [(r, c) for r in range(3) for c in range(3) if self._board[r][c] == ""]
         if not empty:
             return
         r, c = random.choice(empty)
@@ -228,9 +223,7 @@ class GameVisualizer:
 
     def _update_game_labels(self) -> None:
         """Update game score and streak labels."""
-        self._score_label.setText(
-            f"Score X:{self._score_x}  O:{self._score_o}  R:{self._round}"
-        )
+        self._score_label.setText(f"Score X:{self._score_x}  O:{self._score_o}  R:{self._round}")
         self._streak_label.setText(f"Streak: {self._streak}")
 
     def set_target_mode(self, enabled: bool) -> None:

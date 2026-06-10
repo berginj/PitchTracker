@@ -53,8 +53,19 @@ def _list_camera_devices() -> list[dict[str, str]]:
 
         # Filter by manufacturer (common printer brands)
         mfg_lower = manufacturer.lower()
-        printer_mfgs = ["brother", "hp inc", "hewlett-packard", "epson", "canon",
-                       "xerox", "konica", "ricoh", "sharp", "kyocera", "lexmark"]
+        printer_mfgs = [
+            "brother",
+            "hp inc",
+            "hewlett-packard",
+            "epson",
+            "canon",
+            "xerox",
+            "konica",
+            "ricoh",
+            "sharp",
+            "kyocera",
+            "lexmark",
+        ]
         if any(brand in mfg_lower for brand in printer_mfgs):
             name_lower = friendly.lower()
             if any(term in name_lower for term in ["printer", "scanner", "scan", "mfp", "multifunction"]):

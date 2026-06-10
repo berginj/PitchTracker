@@ -38,7 +38,7 @@ class CalibrationStepCalibrationRunMixin:
 
         # Create and start worker thread
         pattern = f"{self._pattern_cols}x{self._pattern_rows}"
-        quick_mode = (self._calibration_mode == "QUICK")
+        quick_mode = self._calibration_mode == "QUICK"
 
         logger.info("Running stereo calibration in {} mode", self._calibration_mode)
 
@@ -62,17 +62,17 @@ class CalibrationStepCalibrationRunMixin:
         self._progress_bar.hide()
 
         # Extract quality metrics (with new field names from improved calibrate_and_write)
-        rating = result.get('quality_rating', 'UNKNOWN')
-        emoji = result.get('quality_emoji', '✅')
-        description = result.get('quality_description', 'Calibration complete')
-        rms_error = result.get('rms_error_px', 0.0)
-        num_images = result.get('num_images_used', result.get('num_images', 0))
-        total_input = result.get('total_input_images', num_images)
+        rating = result.get("quality_rating", "UNKNOWN")
+        emoji = result.get("quality_emoji", "✅")
+        description = result.get("quality_description", "Calibration complete")
+        rms_error = result.get("rms_error_px", 0.0)
+        num_images = result.get("num_images_used", result.get("num_images", 0))
+        total_input = result.get("total_input_images", num_images)
         rejected = total_input - num_images
-        recommendations = result.get('recommendations', [])
+        recommendations = result.get("recommendations", [])
 
         # Build results text with quality metrics
-        mode = result.get('calibration_mode', 'FULL')
+        mode = result.get("calibration_mode", "FULL")
         results_text = (
             f"{emoji} Calibration {rating}! (Mode: {mode})\n\n"
             f"Baseline: {result['baseline_ft']:.3f} ft\n"
@@ -100,7 +100,7 @@ class CalibrationStepCalibrationRunMixin:
         self._results_text.show()
 
         # Update baseline spinner with calibrated value
-        calibrated_baseline = result['baseline_ft']
+        calibrated_baseline = result["baseline_ft"]
         self._baseline_spin.blockSignals(True)  # Don't trigger valueChanged
         self._baseline_spin.setValue(calibrated_baseline)
         self._baseline_spin.blockSignals(False)
@@ -119,16 +119,15 @@ class CalibrationStepCalibrationRunMixin:
         self._calibrate_button.setEnabled(True)
 
         # Show appropriate message dialog based on quality
-        if rating == 'POOR':
+        if rating == "POOR":
             show_message_dialog(
                 self,
                 "Poor Calibration Quality",
                 f"Calibration quality is poor (RMS error: {rms_error:.2f} px).\n\n"
-                f"We strongly recommend recalibrating:\n\n"
-                + "\n".join(recommendations),
+                f"We strongly recommend recalibrating:\n\n" + "\n".join(recommendations),
                 tone="warning",
             )
-        elif rating in ['EXCELLENT', 'GOOD']:
+        elif rating in ["EXCELLENT", "GOOD"]:
             show_message_dialog(
                 self,
                 "Calibration Complete",
@@ -222,8 +221,7 @@ class CalibrationStepCalibrationRunMixin:
                     unstable_cameras.append(f"Right ({right_variance:.3f})")
 
                 self._alignment_status_label.setText(
-                    f"⏳ Cameras still warming up: {', '.join(unstable_cameras)}\n"
-                    f"Waiting 2 more seconds..."
+                    f"⏳ Cameras still warming up: {', '.join(unstable_cameras)}\n" f"Waiting 2 more seconds..."
                 )
 
                 self._set_alignment_state(
@@ -231,7 +229,7 @@ class CalibrationStepCalibrationRunMixin:
                     "warning",
                 )
                 # Wait another 2 seconds and check again (max 3 attempts)
-                if not hasattr(self, '_warmup_attempts'):
+                if not hasattr(self, "_warmup_attempts"):
                     self._warmup_attempts = 0
 
                 self._warmup_attempts += 1

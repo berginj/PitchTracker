@@ -89,8 +89,7 @@ class SettingsDialog(QtWidgets.QDialog):
         layout.addStretch()
 
         button_box = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.StandardButton.Ok
-            | QtWidgets.QDialogButtonBox.StandardButton.Cancel
+            QtWidgets.QDialogButtonBox.StandardButton.Ok | QtWidgets.QDialogButtonBox.StandardButton.Cancel
         )
         button_box.accepted.connect(self._accept)
         button_box.rejected.connect(self.reject)

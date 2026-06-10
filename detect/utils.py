@@ -74,9 +74,7 @@ def connected_components(mask: np.ndarray) -> list[Component]:
     mask_uint8 = mask.astype(np.uint8)
 
     # Find connected components (4-connectivity)
-    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
-        mask_uint8, connectivity=4
-    )
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask_uint8, connectivity=4)
 
     components: list[Component] = []
 
@@ -87,9 +85,7 @@ def connected_components(mask: np.ndarray) -> list[Component]:
 
         # Calculate perimeter (approximate using contour)
         component_mask = (labels == i).astype(np.uint8)
-        contours, _ = cv2.findContours(
-            component_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
-        )
+        contours, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         perimeter = cv2.arcLength(contours[0], closed=True) if contours else 0
 
         # Centroid from OpenCV (already computed)
@@ -98,9 +94,7 @@ def connected_components(mask: np.ndarray) -> list[Component]:
         # Bounding box (convert from x,y,w,h to min_x, min_y, max_x, max_y)
         bbox = (left, top, left + width - 1, top + height - 1)
 
-        components.append(
-            Component(area=area, perimeter=int(perimeter), centroid=centroid, bbox=bbox)
-        )
+        components.append(Component(area=area, perimeter=int(perimeter), centroid=centroid, bbox=bbox))
 
     return components
 

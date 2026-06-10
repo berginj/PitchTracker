@@ -48,9 +48,7 @@ class FrameExtractor:
     def save_first_detection(self, label: str, frame: Frame):
         """Save first detection frame."""
         if self._enabled and not self._saved_frames["first_detection"]:
-            self._save_frame(
-                label, frame, f"pitch_{self._frame_count[label]:05d}_first"
-            )
+            self._save_frame(label, frame, f"pitch_{self._frame_count[label]:05d}_first")
             self._saved_frames["first_detection"] = True
 
     def save_last_detection(self, label: str, frame: Frame):
@@ -77,9 +75,7 @@ class FrameExtractor:
         if self._enabled:
             self._frame_count[label] += 1
             if self._frame_count[label] % interval == 0:
-                self._save_frame(
-                    label, frame, f"uniform_{self._frame_count[label]:05d}"
-                )
+                self._save_frame(label, frame, f"uniform_{self._frame_count[label]:05d}")
 
     def _save_frame(self, label: str, frame: Frame, name: str):
         """Save frame as PNG.

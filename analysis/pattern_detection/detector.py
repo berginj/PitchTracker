@@ -34,11 +34,7 @@ class PatternDetector:
         self.profile_manager = PitcherProfileManager(profiles_dir)
 
     def analyze_session(
-        self,
-        session_path: Path,
-        pitcher_id: Optional[str] = None,
-        output_json: bool = False,
-        output_html: bool = False
+        self, session_path: Path, pitcher_id: Optional[str] = None, output_json: bool = False, output_html: bool = False
     ) -> PatternAnalysisReport:
         """Analyze a single session and generate report.
 
@@ -65,12 +61,7 @@ class PatternDetector:
         # Handle insufficient data
         if len(pitches) < 5:
             # Create error report
-            report = self._create_error_report(
-                session_path.name,
-                pitcher_id,
-                len(pitches),
-                "insufficient_data"
-            )
+            report = self._create_error_report(session_path.name, pitcher_id, len(pitches), "insufficient_data")
 
             # Save error report if requested
             if output_json:
@@ -80,9 +71,9 @@ class PatternDetector:
                     "pitch_count": len(pitches),
                     "minimum_required": 5,
                     "message": "At least 5 pitches required for pattern analysis.",
-                    "recommendations": ["Record more pitches", "Use cross-session analysis"]
+                    "recommendations": ["Record more pitches", "Use cross-session analysis"],
                 }
-                with open(json_path, 'w') as f:
+                with open(json_path, "w") as f:
                     json.dump(error_data, f, indent=2)
 
             return report
@@ -100,10 +91,10 @@ class PatternDetector:
         consistency = self._calculate_consistency(pitches)
 
         # Calculate summary stats
-        speeds = [p.get('speed_mph', 0) for p in pitches if p.get('speed_mph')]
+        speeds = [p.get("speed_mph", 0) for p in pitches if p.get("speed_mph")]
         avg_speed = np.mean(speeds) if speeds else 0.0
 
-        strikes = sum(1 for p in pitches if p.get('is_strike', False))
+        strikes = sum(1 for p in pitches if p.get("is_strike", False))
         strike_pct = (strikes / len(pitches)) if pitches else 0.0  # 0-1 range (UI multiplies by 100)
 
         # Baseline comparison if pitcher_id provided
@@ -114,7 +105,7 @@ class PatternDetector:
         # Build report
         report = PatternAnalysisReport(
             schema_version="1.0.0",
-            created_utc=datetime.now(UTC).isoformat().replace('+00:00', 'Z'),
+            created_utc=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             session_id=session_data.get("session_id", session_path.name),
             pitcher_id=pitcher_id,
             total_pitches=len(pitches),
@@ -126,7 +117,7 @@ class PatternDetector:
             anomalies=anomalies,
             pitch_repertoire=repertoire,
             consistency_metrics=consistency,
-            baseline_comparison=baseline_comparison
+            baseline_comparison=baseline_comparison,
         )
 
         # Save reports if requested
@@ -139,10 +130,10 @@ class PatternDetector:
             generate_html_report(report, html_path)
 
         return report
-    
+
     def save_reports(self, report: PatternAnalysisReport, session_path: Path) -> None:
         """Save analysis reports to session directory.
-        
+
         Args:
             report: PatternAnalysisReport to save
             session_path: Path to session directory
@@ -150,48 +141,51 @@ class PatternDetector:
         # Save JSON report
         json_path = session_path / "analysis_report.json"
         generate_json_report(report, json_path)
-        
+
         # Save HTML report
         html_path = session_path / "analysis_report.html"
         generate_html_report(report, html_path)
-    
+
     def _calculate_repertoire(self, classifications: list, pitches: list) -> List[PitchRepertoire]:
         """Calculate pitch repertoire statistics."""
         # Count pitch types
         type_counts = Counter(c.heuristic_type for c in classifications)
-        
+
         # Group pitches by type
         repertoire = []
         for pitch_type, count in type_counts.items():
             # Get pitches of this type
             type_pitches = [
-                p for i, p in enumerate(pitches) 
+                p
+                for i, p in enumerate(pitches)
                 if i < len(classifications) and classifications[i].heuristic_type == pitch_type
             ]
-            
+
             # Calculate averages
-            speeds = [p.get('speed_mph', 0) for p in type_pitches if p.get('speed_mph')]
-            runs = [p.get('run_in', 0) for p in type_pitches if 'run_in' in p]
-            rises = [p.get('rise_in', 0) for p in type_pitches if 'rise_in' in p]
-            
-            repertoire.append(PitchRepertoire(
-                pitch_type=pitch_type,
-                count=count,
-                percentage=count / len(classifications) * 100,
-                avg_speed_mph=np.mean(speeds) if speeds else 0.0,
-                avg_run_in=np.mean(runs) if runs else 0.0,
-                avg_rise_in=np.mean(rises) if rises else 0.0
-            ))
-        
+            speeds = [p.get("speed_mph", 0) for p in type_pitches if p.get("speed_mph")]
+            runs = [p.get("run_in", 0) for p in type_pitches if "run_in" in p]
+            rises = [p.get("rise_in", 0) for p in type_pitches if "rise_in" in p]
+
+            repertoire.append(
+                PitchRepertoire(
+                    pitch_type=pitch_type,
+                    count=count,
+                    percentage=count / len(classifications) * 100,
+                    avg_speed_mph=np.mean(speeds) if speeds else 0.0,
+                    avg_run_in=np.mean(runs) if runs else 0.0,
+                    avg_rise_in=np.mean(rises) if rises else 0.0,
+                )
+            )
+
         # Sort by count (most common first)
         repertoire.sort(key=lambda r: r.count, reverse=True)
         return repertoire
-    
+
     def _calculate_consistency(self, pitches: list) -> ConsistencyMetrics:
         """Calculate consistency metrics."""
-        speeds = [p.get('speed_mph', 0) for p in pitches if p.get('speed_mph')]
-        runs = [p.get('run_in', 0) for p in pitches if 'run_in' in p]
-        rises = [p.get('rise_in', 0) for p in pitches if 'rise_in' in p]
+        speeds = [p.get("speed_mph", 0) for p in pitches if p.get("speed_mph")]
+        runs = [p.get("run_in", 0) for p in pitches if "run_in" in p]
+        rises = [p.get("rise_in", 0) for p in pitches if "rise_in" in p]
 
         velocity_std = np.std(speeds) if len(speeds) > 1 else 0.0
 
@@ -210,17 +204,11 @@ class PatternDetector:
             movement_consistency = 0.0
 
         return ConsistencyMetrics(
-            velocity_std_mph=velocity_std,
-            movement_consistency_score=movement_consistency,
-            velocity_cv=velocity_cv
+            velocity_std_mph=velocity_std, movement_consistency_score=movement_consistency, velocity_cv=velocity_cv
         )
 
     def _compute_baseline_comparison(
-        self,
-        pitcher_id: str,
-        pitches: list,
-        avg_speed: float,
-        strike_pct: float
+        self, pitcher_id: str, pitches: list, avg_speed: float, strike_pct: float
     ) -> Optional[BaselineComparison]:
         """Compute baseline comparison if profile exists.
 
@@ -239,11 +227,11 @@ class PatternDetector:
             return BaselineComparison(profile_exists=False)
 
         # Calculate velocity delta
-        baseline_velocity = profile.baseline_metrics.velocity.get('mean', 0.0)
+        baseline_velocity = profile.baseline_metrics.velocity.get("mean", 0.0)
         velocity_delta = avg_speed - baseline_velocity
 
         # Determine velocity status
-        velocity_std = profile.baseline_metrics.velocity.get('std', 1.0)
+        velocity_std = profile.baseline_metrics.velocity.get("std", 1.0)
         if abs(velocity_delta) < velocity_std:
             velocity_status = "normal"
         elif velocity_delta > 0:
@@ -252,7 +240,7 @@ class PatternDetector:
             velocity_status = "below"
 
         # Calculate strike percentage delta (if baseline has strike data)
-        baseline_strike_pct = getattr(profile.baseline_metrics, 'strike_percentage', None)
+        baseline_strike_pct = getattr(profile.baseline_metrics, "strike_percentage", None)
         strike_delta = None
         strike_status = None
         if baseline_strike_pct is not None:
@@ -274,15 +262,11 @@ class PatternDetector:
             _current_velocity=avg_speed,
             _baseline_velocity=baseline_velocity,
             _current_strike_pct=strike_pct,
-            _baseline_strike_pct=baseline_strike_pct
+            _baseline_strike_pct=baseline_strike_pct,
         )
 
     def _create_error_report(
-        self,
-        session_id: str,
-        pitcher_id: Optional[str],
-        pitch_count: int,
-        error_type: str
+        self, session_id: str, pitcher_id: Optional[str], pitch_count: int, error_type: str
     ) -> PatternAnalysisReport:
         """Create an error report for insufficient data.
 
@@ -297,7 +281,7 @@ class PatternDetector:
         """
         return PatternAnalysisReport(
             schema_version="1.0.0",
-            created_utc=datetime.now(UTC).isoformat().replace('+00:00', 'Z'),
+            created_utc=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             session_id=session_id,
             pitcher_id=pitcher_id,
             total_pitches=pitch_count,
@@ -308,11 +292,8 @@ class PatternDetector:
             pitch_classifications=[],
             anomalies=[],
             pitch_repertoire=[],
-            consistency_metrics=ConsistencyMetrics(
-                velocity_std_mph=0.0,
-                movement_consistency_score=0.0
-            ),
-            baseline_comparison=None
+            consistency_metrics=ConsistencyMetrics(velocity_std_mph=0.0, movement_consistency_score=0.0),
+            baseline_comparison=None,
         )
 
     def create_pitcher_profile(self, pitcher_id: str, session_dirs: List[Path]) -> None:
@@ -346,16 +327,14 @@ class PatternDetector:
         pitch_objects = []
         for p in all_pitches:
             pitch_obj = SimpleNamespace(
-                speed_mph=p.get('speed_mph'),
-                run_in=p.get('run_in'),
-                rise_in=p.get('rise_in'),
-                is_strike=p.get('is_strike', False)
+                speed_mph=p.get("speed_mph"),
+                run_in=p.get("run_in"),
+                rise_in=p.get("rise_in"),
+                is_strike=p.get("is_strike", False),
             )
             pitch_objects.append(pitch_obj)
 
         # Create or update profile
         self.profile_manager.create_or_update_profile(
-            pitcher_id=pitcher_id,
-            pitches=pitch_objects,
-            num_sessions=len(session_dirs)
+            pitcher_id=pitcher_id, pitches=pitch_objects, num_sessions=len(session_dirs)
         )

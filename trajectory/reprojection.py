@@ -47,7 +47,7 @@ class ReprojectionEKF:
             P_pred = F @ state.P @ F.T + Q
             z = np.array([left_uv[0], left_uv[1], right_uv[0], right_uv[1]], dtype=float)
             z_pred, H = _project_measurement(self._left, self._right, x_pred[:3])
-            R = np.eye(4) * (self._meas_var ** 2)
+            R = np.eye(4) * (self._meas_var**2)
             y = z - z_pred
             S = H @ P_pred @ H.T + R
             K = P_pred @ H.T @ np.linalg.pinv(S)

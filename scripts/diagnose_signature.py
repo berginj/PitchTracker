@@ -34,7 +34,7 @@ print(f"Source file: {source_file}")
 print()
 
 # Check if config_path exists
-has_config_path = 'config_path' in params
+has_config_path = "config_path" in params
 
 print("=" * 70)
 if has_config_path:

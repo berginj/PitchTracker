@@ -186,9 +186,7 @@ class ExportStep(BaseStep):
                     report_lines.append("\nStereo Calibration:")
                     report_lines.append(f"  - Baseline: {stereo.get('baseline_ft', 'N/A')} ft")
                     report_lines.append(f"  - Focal Length: {stereo.get('focal_length_px', 'N/A')} px")
-                    report_lines.append(
-                        f"  - Principal Point: ({stereo.get('cx', 'N/A')}, {stereo.get('cy', 'N/A')})"
-                    )
+                    report_lines.append(f"  - Principal Point: ({stereo.get('cx', 'N/A')}, {stereo.get('cy', 'N/A')})")
 
                 detection = data.get("detection", {})
                 if detection:

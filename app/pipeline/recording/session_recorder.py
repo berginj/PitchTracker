@@ -93,8 +93,7 @@ class SessionRecorder:
         # Warn if less than 2x required (< 100GB for 100 pitches)
         if free_gb < required_gb * 2:
             logger.warning(
-                f"Moderate disk space: {free_gb:.1f}GB available. "
-                f"Recommended: {required_gb * 2:.0f}GB for safety."
+                f"Moderate disk space: {free_gb:.1f}GB available. " f"Recommended: {required_gb * 2:.0f}GB for safety."
             )
 
         return True, ""
@@ -140,10 +139,7 @@ class SessionRecorder:
 
                     if self._disk_error_callback:
                         try:
-                            self._disk_error_callback(
-                                free_gb,
-                                f"Critical: Only {free_gb:.1f}GB disk space remaining!"
-                            )
+                            self._disk_error_callback(free_gb, f"Critical: Only {free_gb:.1f}GB disk space remaining!")
                         except Exception as e:
                             logger.error(f"Disk error callback failed: {e}")
                     # Stop monitoring - callback should stop recording
@@ -153,10 +149,7 @@ class SessionRecorder:
                 elif free_gb < self._warning_disk_gb:
                     # Throttle warnings to once per minute
                     if current_time - last_warning_time > 60.0:
-                        logger.warning(
-                            f"Low disk space: {free_gb:.1f}GB remaining. "
-                            f"Consider ending session soon."
-                        )
+                        logger.warning(f"Low disk space: {free_gb:.1f}GB remaining. " f"Consider ending session soon.")
                         last_warning_time = current_time
 
                         # Publish warning event
@@ -207,9 +200,7 @@ class SessionRecorder:
         # Start background disk space monitoring
         self._monitoring_disk = True
         self._disk_monitor_thread = threading.Thread(
-            target=self._monitor_disk_space,
-            name="DiskSpaceMonitor",
-            daemon=False  # Non-daemon so we can join cleanly
+            target=self._monitor_disk_space, name="DiskSpaceMonitor", daemon=False  # Non-daemon so we can join cleanly
         )
         self._disk_monitor_thread.start()
         logger.info("Started disk space monitoring thread")
@@ -310,9 +301,7 @@ class SessionRecorder:
 
                 # Write CSV timestamp regardless
                 if self._left_csv is not None:
-                    self._left_csv[1].writerow(
-                        [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
-                    )
+                    self._left_csv[1].writerow([frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns])
 
             elif label == "right" and self._right_writer is not None:
                 # Write frame and check for failure
@@ -343,9 +332,7 @@ class SessionRecorder:
 
                 # Write CSV timestamp regardless
                 if self._right_csv is not None:
-                    self._right_csv[1].writerow(
-                        [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
-                    )
+                    self._right_csv[1].writerow([frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns])
 
     def write_session_summary(self, summary) -> None:
         """Write session summary to JSON and CSV files.
@@ -402,13 +389,7 @@ class SessionRecorder:
 
         for codec_name in codec_list:
             fourcc = cv2.VideoWriter_fourcc(*codec_name)
-            writer = cv2.VideoWriter(
-                str(path),
-                fourcc,
-                float(fps),
-                (width, height),
-                True
-            )
+            writer = cv2.VideoWriter(str(path), fourcc, float(fps), (width, height), True)
 
             if writer.isOpened():
                 logger.info(f"Video writer opened successfully: {path.name} with {codec_name} codec")

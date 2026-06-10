@@ -33,11 +33,7 @@ class GameModeWidget(BaseModeWidget):
     - Speed Challenge (velocity + location targets)
     """
 
-    def __init__(
-        self,
-        game_state_manager: "GameStateManager",
-        parent: Optional[QtWidgets.QWidget] = None
-    ):
+    def __init__(self, game_state_manager: "GameStateManager", parent: Optional[QtWidgets.QWidget] = None):
         """Initialize game mode.
 
         Args:
@@ -64,12 +60,7 @@ class GameModeWidget(BaseModeWidget):
 
         selector_layout.addWidget(QtWidgets.QLabel("Select Game:"))
         self._game_selector = QtWidgets.QComboBox()
-        self._game_selector.addItems([
-            "Tic-Tac-Toe",
-            "Target Scoring",
-            "Around the World",
-            "Speed Challenge"
-        ])
+        self._game_selector.addItems(["Tic-Tac-Toe", "Target Scoring", "Around the World", "Speed Challenge"])
         self._game_selector.currentIndexChanged.connect(self._on_game_selected)
         selector_layout.addWidget(self._game_selector)
 
@@ -120,11 +111,7 @@ class GameModeWidget(BaseModeWidget):
         if current_game:
             current_game.process_pitch(latest_pitch)
 
-    def update_camera_frames(
-        self,
-        left_frame: Optional["Frame"],
-        right_frame: Optional["Frame"]
-    ) -> None:
+    def update_camera_frames(self, left_frame: Optional["Frame"], right_frame: Optional["Frame"]) -> None:
         """Update camera preview frames.
 
         Game mode doesn't display camera (focus is on game).

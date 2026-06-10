@@ -39,11 +39,11 @@ def parse_version(version_str: str) -> tuple[int, ...]:
         Tuple of version numbers (e.g., (1, 0, 0))
     """
     # Remove 'v' prefix if present
-    version_str = version_str.lstrip('v')
+    version_str = version_str.lstrip("v")
 
     # Split on dots and convert to integers
     try:
-        return tuple(int(x) for x in version_str.split('.'))
+        return tuple(int(x) for x in version_str.split("."))
     except ValueError:
         logger.warning(f"Invalid version string: {version_str}")
         return (0, 0, 0)
@@ -81,12 +81,12 @@ def check_for_updates(timeout: int = 5) -> dict:
         }
     """
     result = {
-        'available': False,
-        'version': None,
-        'download_url': None,
-        'expected_sha256': None,
-        'release_notes': None,
-        'release_date': None,
+        "available": False,
+        "version": None,
+        "download_url": None,
+        "expected_sha256": None,
+        "release_notes": None,
+        "release_date": None,
     }
 
     try:
@@ -98,10 +98,10 @@ def check_for_updates(timeout: int = 5) -> dict:
                 logger.warning(f"Update check returned status {response.status}")
                 return result
 
-            data = json.loads(response.read().decode('utf-8'))
+            data = json.loads(response.read().decode("utf-8"))
 
         # Extract version information
-        latest_version = data.get('tag_name', '').lstrip('v')
+        latest_version = data.get("tag_name", "").lstrip("v")
         if not latest_version:
             logger.warning("No version tag found in latest release")
             return result
@@ -114,12 +114,12 @@ def check_for_updates(timeout: int = 5) -> dict:
             return result
 
         # Find installer asset
-        assets = data.get('assets', [])
+        assets = data.get("assets", [])
         installer_asset = None
 
         for asset in assets:
-            name = asset.get('name', '')
-            if name.endswith('.exe') and 'Setup' in name:
+            name = asset.get("name", "")
+            if name.endswith(".exe") and "Setup" in name:
                 installer_asset = asset
                 break
 
@@ -128,28 +128,28 @@ def check_for_updates(timeout: int = 5) -> dict:
             return result
 
         # Extract SHA-256 checksum from release body (format: "SHA256: <hex>")
-        release_body = data.get('body', '') or ''
+        release_body = data.get("body", "") or ""
         expected_sha256 = _parse_sha256_from_body(release_body)
 
         # Also check for a .sha256 asset file matching the installer
         if not expected_sha256:
-            installer_name = installer_asset.get('name', '')
+            installer_name = installer_asset.get("name", "")
             for asset in assets:
-                if asset.get('name', '') == f"{installer_name}.sha256":
+                if asset.get("name", "") == f"{installer_name}.sha256":
                     try:
-                        sha_url = asset.get('browser_download_url')
+                        sha_url = asset.get("browser_download_url")
                         with urlopen(sha_url, timeout=timeout, context=_default_ssl_context()) as sha_resp:
-                            expected_sha256 = sha_resp.read().decode('utf-8').strip().split()[0]
+                            expected_sha256 = sha_resp.read().decode("utf-8").strip().split()[0]
                     except Exception as e:
                         logger.debug(f"Failed to fetch .sha256 asset: {e}")
 
         # Update available!
-        result['available'] = True
-        result['version'] = latest_version
-        result['download_url'] = installer_asset.get('browser_download_url')
-        result['expected_sha256'] = expected_sha256
-        result['release_notes'] = release_body
-        result['release_date'] = data.get('published_at', '')
+        result["available"] = True
+        result["version"] = latest_version
+        result["download_url"] = installer_asset.get("browser_download_url")
+        result["expected_sha256"] = expected_sha256
+        result["release_notes"] = release_body
+        result["release_date"] = data.get("published_at", "")
 
         logger.info(f"Update available: v{latest_version}")
         return result
@@ -179,7 +179,7 @@ def _parse_sha256_from_body(body: str) -> Optional[str]:
     Returns:
         Hex digest string if found, None otherwise
     """
-    match = re.search(r'(?i)sha256[:\s]+([a-fA-F0-9]{64})', body)
+    match = re.search(r"(?i)sha256[:\s]+([a-fA-F0-9]{64})", body)
     return match.group(1).lower() if match else None
 
 
@@ -194,8 +194,8 @@ def _verify_sha256(file_path: Path, expected: str) -> bool:
         True if hash matches
     """
     sha256 = hashlib.sha256()
-    with open(file_path, 'rb') as f:
-        for chunk in iter(lambda: f.read(8192), b''):
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
             sha256.update(chunk)
     actual = sha256.hexdigest().lower()
     return actual == expected.lower()
@@ -222,10 +222,7 @@ def download_update(
         # Use temp file if no destination specified
         if dest_path is None:
             temp_file = tempfile.NamedTemporaryFile(
-                mode='wb',
-                suffix='.exe',
-                prefix='PitchTracker-Setup-',
-                delete=False
+                mode="wb", suffix=".exe", prefix="PitchTracker-Setup-", delete=False
             )
             dest_path = Path(temp_file.name)
             temp_file.close()
@@ -235,10 +232,10 @@ def download_update(
 
         # Download with progress tracking
         with urlopen(url, timeout=30, context=_default_ssl_context()) as response:
-            total_size = int(response.headers.get('Content-Length', 0))
+            total_size = int(response.headers.get("Content-Length", 0))
             bytes_downloaded = 0
 
-            with open(dest_path, 'wb') as f:
+            with open(dest_path, "wb") as f:
                 chunk_size = 8192
                 while True:
                     chunk = response.read(chunk_size)
@@ -299,8 +296,8 @@ def install_update(installer_path: Path, silent: bool = False) -> bool:
 
         if silent:
             # Inno Setup silent installation
-            args.append('/SILENT')
-            args.append('/NORESTART')
+            args.append("/SILENT")
+            args.append("/NORESTART")
 
         # Launch installer
         # Note: This will start the installer and return immediately
@@ -316,6 +313,7 @@ def install_update(installer_path: Path, silent: bool = False) -> bool:
 
 
 # Version-specific helpers
+
 
 def get_current_version() -> str:
     """Get current application version.
@@ -344,7 +342,7 @@ if __name__ == "__main__":
 
     update_info = check_for_updates()
 
-    if update_info['available']:
+    if update_info["available"]:
         print(f"\nUpdate available: v{update_info['version']}")
         print(f"Download: {update_info['download_url']}")
         print(f"Release date: {update_info['release_date']}")

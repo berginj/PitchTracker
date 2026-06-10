@@ -49,9 +49,7 @@ def calculate_percentiles(latencies: List[float]) -> dict:
     }
 
 
-def benchmark_detection_latency(
-    num_frames: int = 1000, width: int = 1280, height: int = 720
-) -> dict:
+def benchmark_detection_latency(num_frames: int = 1000, width: int = 1280, height: int = 720) -> dict:
     """Benchmark detection latency distribution.
 
     Args:
@@ -161,9 +159,7 @@ def benchmark_detection_latency(
     return results
 
 
-def benchmark_latency_under_load(
-    num_frames: int = 500, width: int = 1280, height: int = 720
-) -> dict:
+def benchmark_latency_under_load(num_frames: int = 500, width: int = 1280, height: int = 720) -> dict:
     """Benchmark latency under sustained high load."""
     print(f"\n{'='*60}")
     print(f"Latency Under Load Benchmark")
@@ -237,12 +233,8 @@ if __name__ == "__main__":
         default=1000,
         help="Number of frames to process (default: 1000)",
     )
-    parser.add_argument(
-        "--width", type=int, default=1280, help="Frame width (default: 1280)"
-    )
-    parser.add_argument(
-        "--height", type=int, default=720, help="Frame height (default: 720)"
-    )
+    parser.add_argument("--width", type=int, default=1280, help="Frame width (default: 1280)")
+    parser.add_argument("--height", type=int, default=720, help="Frame height (default: 720)")
     parser.add_argument(
         "--under-load",
         action="store_true",
@@ -252,12 +244,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Run normal latency benchmark
-    benchmark_detection_latency(
-        num_frames=args.frames, width=args.width, height=args.height
-    )
+    benchmark_detection_latency(num_frames=args.frames, width=args.width, height=args.height)
 
     # Optionally run under-load test
     if args.under_load:
-        benchmark_latency_under_load(
-            num_frames=args.frames // 2, width=args.width, height=args.height
-        )
+        benchmark_latency_under_load(num_frames=args.frames // 2, width=args.width, height=args.height)

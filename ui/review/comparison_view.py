@@ -369,7 +369,8 @@ class ComparisonView(QtWidgets.QWidget):
 
             theme = get_style_manager().theme
 
-            self.setStyleSheet(f"""
+            self.setStyleSheet(
+                f"""
                 ComparisonView {{
                     background-color: {theme.background_dark};
                 }}
@@ -429,7 +430,8 @@ class ComparisonView(QtWidgets.QWidget):
                     background: {theme.accent_primary};
                     border-radius: 7px;
                 }}
-            """)
+            """
+            )
 
         except ImportError:
             pass

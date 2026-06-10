@@ -21,14 +21,10 @@ class SpeedChallengeGame(BaseGame):
     DIFFICULTY_LEVELS = {
         "Easy": {"min_speed": 40, "tolerance": 3},
         "Medium": {"min_speed": 50, "tolerance": 2},
-        "Hard": {"min_speed": 60, "tolerance": 1}
+        "Hard": {"min_speed": 60, "tolerance": 1},
     }
 
-    def __init__(
-        self,
-        game_state_manager: "GameStateManager",
-        parent: Optional[QtWidgets.QWidget] = None
-    ):
+    def __init__(self, game_state_manager: "GameStateManager", parent: Optional[QtWidgets.QWidget] = None):
         """Initialize speed challenge game."""
         super().__init__(game_state_manager, parent)
         self._style_manager = get_style_manager()
@@ -124,7 +120,7 @@ class SpeedChallengeGame(BaseGame):
         self._current_target = {
             "speed": config["min_speed"] + random.randint(0, 20),
             "zone_row": random.randint(0, 2),
-            "zone_col": random.randint(0, 2)
+            "zone_col": random.randint(0, 2),
         }
         self._target_label.setText(
             f"Target: {self._current_target['speed']} mph, "
@@ -150,8 +146,7 @@ class SpeedChallengeGame(BaseGame):
 
         # Check zone
         zone_ok = (
-            pitch.zone_row == self._current_target["zone_row"] and
-            pitch.zone_col == self._current_target["zone_col"]
+            pitch.zone_row == self._current_target["zone_row"] and pitch.zone_col == self._current_target["zone_col"]
         )
 
         if speed_ok and zone_ok:

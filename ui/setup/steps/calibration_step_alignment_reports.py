@@ -34,6 +34,7 @@ class CalibrationStepAlignmentReportsMixin:
 
             # Create visualization
             from analysis.camera_alignment import visualize_features, _find_feature_matches
+
             pts1, pts2 = _find_feature_matches(left_frame.image, right_frame.image, max_features=1000)
             vis_img = visualize_features(left_frame.image, right_frame.image, pts1, pts2)
 
@@ -68,9 +69,7 @@ class CalibrationStepAlignmentReportsMixin:
             # Image display
             image_label = QtWidgets.QLabel()
             scaled_pixmap = pixmap.scaled(
-                1180, 440,
-                QtCore.Qt.AspectRatioMode.KeepAspectRatio,
-                QtCore.Qt.TransformationMode.SmoothTransformation
+                1180, 440, QtCore.Qt.AspectRatioMode.KeepAspectRatio, QtCore.Qt.TransformationMode.SmoothTransformation
             )
             image_label.setPixmap(scaled_pixmap)
             layout.addWidget(image_label)
@@ -93,7 +92,7 @@ class CalibrationStepAlignmentReportsMixin:
 
     def _show_alignment_details(self) -> None:
         """Show detailed alignment report dialog."""
-        if not hasattr(self, '_alignment_results') or self._alignment_results is None:
+        if not hasattr(self, "_alignment_results") or self._alignment_results is None:
             return
 
         results = self._alignment_results
@@ -160,7 +159,7 @@ class CalibrationStepAlignmentReportsMixin:
 
     def _export_alignment_report(self) -> None:
         """Export alignment report as HTML file."""
-        if not hasattr(self, '_alignment_results') or self._alignment_results is None:
+        if not hasattr(self, "_alignment_results") or self._alignment_results is None:
             show_message_dialog(
                 self,
                 "No Report Available",
@@ -175,9 +174,7 @@ class CalibrationStepAlignmentReportsMixin:
 
             # Generate HTML report
             html = generate_html_report(
-                self._alignment_results,
-                self._left_serial or "Unknown",
-                self._right_serial or "Unknown"
+                self._alignment_results, self._left_serial or "Unknown", self._right_serial or "Unknown"
             )
 
             # Prompt user for save location
@@ -188,24 +185,24 @@ class CalibrationStepAlignmentReportsMixin:
                 self,
                 "Export Alignment Report",
                 str(Path("alignment_checks") / default_filename),
-                "HTML Files (*.html);;All Files (*.*)"
+                "HTML Files (*.html);;All Files (*.*)",
             )
 
             if filename:
                 # Save HTML file
                 Path(filename).parent.mkdir(parents=True, exist_ok=True)
-                Path(filename).write_text(html, encoding='utf-8')
+                Path(filename).write_text(html, encoding="utf-8")
 
                 # Ask if user wants to open the report
                 if ask_confirmation(
                     self,
                     "Report Exported",
-                    f"Alignment report exported successfully to:\n{filename}\n\n"
-                    f"Would you like to open it now?",
+                    f"Alignment report exported successfully to:\n{filename}\n\n" f"Would you like to open it now?",
                     default_button=QtWidgets.QMessageBox.StandardButton.Yes,
                 ):
                     # Open in default browser
                     import webbrowser
+
                     webbrowser.open(f"file:///{Path(filename).absolute()}")
 
         except Exception as e:

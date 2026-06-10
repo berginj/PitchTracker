@@ -21,7 +21,7 @@ def generate_charuco_board(
     width_mm: float = 210,  # A4 width
     height_mm: float = 297,  # A4 height
     dpi: int = 300,
-    dictionary_id: int = cv2.aruco.DICT_6X6_250
+    dictionary_id: int = cv2.aruco.DICT_6X6_250,
 ) -> None:
     """Generate ChArUco board image for printing.
 
@@ -47,21 +47,10 @@ def generate_charuco_board(
     # Note: OpenCV 4.7+ uses different API
     try:
         # Try newer API first (OpenCV 4.7+)
-        board = cv2.aruco.CharucoBoard(
-            (squares_x, squares_y),
-            square_length,
-            marker_length,
-            aruco_dict
-        )
+        board = cv2.aruco.CharucoBoard((squares_x, squares_y), square_length, marker_length, aruco_dict)
     except (AttributeError, TypeError):
         # Fall back to older API
-        board = cv2.aruco.CharucoBoard_create(
-            squares_x,
-            squares_y,
-            square_length,
-            marker_length,
-            aruco_dict
-        )
+        board = cv2.aruco.CharucoBoard_create(squares_x, squares_y, square_length, marker_length, aruco_dict)
 
     # Calculate board dimensions in pixels
     board_width_mm = squares_x * square_length
@@ -101,7 +90,7 @@ def generate_charuco_board(
         y_offset = (height_px - board_height_px) // 2
 
     # Place board on page
-    full_page[y_offset:y_offset+board_height_px, x_offset:x_offset+board_width_px] = board_img
+    full_page[y_offset : y_offset + board_height_px, x_offset : x_offset + board_width_px] = board_img
 
     # Add title at top
     title_y = int(height_px * 0.08)
@@ -112,25 +101,17 @@ def generate_charuco_board(
         cv2.FONT_HERSHEY_SIMPLEX,
         1.8,
         0,
-        4
+        4,
     )
 
     # Add board specifications
     specs = [
         f"Squares: {squares_x}x{squares_y}  |  Square: {square_length}mm  |  Marker: {marker_length}mm",
-        f"Dictionary: DICT_6X6_250"
+        f"Dictionary: DICT_6X6_250",
     ]
     spec_y = title_y + 80
     for i, spec in enumerate(specs):
-        cv2.putText(
-            full_page,
-            spec,
-            (int(width_px * 0.15), spec_y + i * 50),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            0,
-            2
-        )
+        cv2.putText(full_page, spec, (int(width_px * 0.15), spec_y + i * 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, 0, 2)
 
     # Add instructions at bottom
     instructions = [
@@ -140,7 +121,7 @@ def generate_charuco_board(
         "3. Measure one square to verify print scale is correct",
         "4. Place in overlapping camera view for calibration",
         "5. Ensure good even lighting (no glare or shadows)",
-        "6. Board can be partially visible - ChArUco is robust to occlusion"
+        "6. Board can be partially visible - ChArUco is robust to occlusion",
     ]
 
     instruction_y = y_offset + board_height_px + int(height_px * 0.03)
@@ -149,13 +130,7 @@ def generate_charuco_board(
 
     for i, instruction in enumerate(instructions):
         cv2.putText(
-            full_page,
-            instruction,
-            (int(width_px * 0.08), instruction_y + i * 35),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.65,
-            0,
-            2
+            full_page, instruction, (int(width_px * 0.08), instruction_y + i * 35), cv2.FONT_HERSHEY_SIMPLEX, 0.65, 0, 2
         )
 
     # Save image
@@ -172,64 +147,29 @@ def generate_charuco_board(
 
 def main():
     """CLI entry point."""
-    parser = argparse.ArgumentParser(
-        description="Generate ChArUco calibration board for stereo camera calibration"
-    )
+    parser = argparse.ArgumentParser(description="Generate ChArUco calibration board for stereo camera calibration")
 
     parser.add_argument(
-        '--output',
-        default='alignment_checks/charuco_board.png',
-        help='Output path for board image (default: alignment_checks/charuco_board.png)'
+        "--output",
+        default="alignment_checks/charuco_board.png",
+        help="Output path for board image (default: alignment_checks/charuco_board.png)",
     )
 
-    parser.add_argument(
-        '--squares-x',
-        type=int,
-        default=9,
-        help='Number of squares in X direction (default: 9)'
-    )
+    parser.add_argument("--squares-x", type=int, default=9, help="Number of squares in X direction (default: 9)")
+
+    parser.add_argument("--squares-y", type=int, default=6, help="Number of squares in Y direction (default: 6)")
+
+    parser.add_argument("--square-mm", type=float, default=30.0, help="Square size in mm (default: 30.0)")
 
     parser.add_argument(
-        '--squares-y',
-        type=int,
-        default=6,
-        help='Number of squares in Y direction (default: 6)'
+        "--marker-mm", type=float, default=22.5, help="Marker size in mm (default: 22.5, should be < square-mm)"
     )
 
-    parser.add_argument(
-        '--square-mm',
-        type=float,
-        default=30.0,
-        help='Square size in mm (default: 30.0)'
-    )
+    parser.add_argument("--width-mm", type=float, default=210, help="Paper width in mm (default: 210 for A4)")
 
-    parser.add_argument(
-        '--marker-mm',
-        type=float,
-        default=22.5,
-        help='Marker size in mm (default: 22.5, should be < square-mm)'
-    )
+    parser.add_argument("--height-mm", type=float, default=297, help="Paper height in mm (default: 297 for A4)")
 
-    parser.add_argument(
-        '--width-mm',
-        type=float,
-        default=210,
-        help='Paper width in mm (default: 210 for A4)'
-    )
-
-    parser.add_argument(
-        '--height-mm',
-        type=float,
-        default=297,
-        help='Paper height in mm (default: 297 for A4)'
-    )
-
-    parser.add_argument(
-        '--dpi',
-        type=int,
-        default=300,
-        help='Print resolution in DPI (default: 300)'
-    )
+    parser.add_argument("--dpi", type=int, default=300, help="Print resolution in DPI (default: 300)")
 
     args = parser.parse_args()
 
@@ -248,15 +188,16 @@ def main():
             marker_length=args.marker_mm,
             width_mm=args.width_mm,
             height_mm=args.height_mm,
-            dpi=args.dpi
+            dpi=args.dpi,
         )
         return 0
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

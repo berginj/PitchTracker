@@ -33,9 +33,10 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
 
         # Clean up temp directory
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    @patch('shutil.disk_usage')
+    @patch("shutil.disk_usage")
     def test_critical_disk_space_triggers_callback(self, mock_disk_usage):
         """Test that critical disk space triggers emergency callback."""
 
@@ -54,6 +55,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         # Start monitoring in background
         self.recorder._monitoring_disk = True
         import threading
+
         monitor_thread = threading.Thread(target=self.recorder._monitor_disk_space)
         monitor_thread.start()
 
@@ -70,7 +72,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         self.assertLess(free_gb, 5.0)
         self.assertIn("Critical", message)
 
-    @patch('shutil.disk_usage')
+    @patch("shutil.disk_usage")
     def test_warning_disk_space_logs_warning(self, mock_disk_usage):
         """Test that warning level disk space logs warnings."""
 
@@ -82,9 +84,10 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         # Start monitoring
         self.recorder._monitoring_disk = True
         import threading
+
         monitor_thread = threading.Thread(target=self.recorder._monitor_disk_space)
 
-        with self.assertLogs(level='WARNING') as log_context:
+        with self.assertLogs(level="WARNING") as log_context:
             monitor_thread.start()
             time.sleep(1.0)
 
@@ -96,7 +99,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         self.assertTrue(any("Low disk space" in msg for msg in log_context.output))
         self.assertTrue(any("15." in msg for msg in log_context.output))
 
-    @patch('shutil.disk_usage')
+    @patch("shutil.disk_usage")
     def test_sufficient_disk_space_no_warnings(self, mock_disk_usage):
         """Test that sufficient disk space doesn't trigger warnings."""
 
@@ -115,6 +118,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         # Start monitoring
         self.recorder._monitoring_disk = True
         import threading
+
         monitor_thread = threading.Thread(target=self.recorder._monitor_disk_space)
         monitor_thread.start()
 
@@ -128,7 +132,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         # No callback should have been called
         self.assertEqual(len(callback_called), 0)
 
-    @patch('time.sleep')
+    @patch("time.sleep")
     def test_monitoring_stops_on_flag_change(self, mock_sleep):
         """Test that monitoring thread stops when flag is set to False."""
 
@@ -138,6 +142,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         # Start monitoring
         self.recorder._monitoring_disk = True
         import threading
+
         monitor_thread = threading.Thread(target=self.recorder._monitor_disk_space)
         monitor_thread.start()
 
@@ -152,8 +157,8 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         # Thread should be dead
         self.assertFalse(monitor_thread.is_alive())
 
-    @patch('shutil.disk_usage')
-    @patch('time.sleep')
+    @patch("shutil.disk_usage")
+    @patch("time.sleep")
     def test_warning_throttled_to_one_per_minute(self, mock_sleep, mock_disk_usage):
         """Test that warnings are throttled to once per minute."""
 
@@ -169,7 +174,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         self.recorder._monitoring_disk = True
         import threading
 
-        with self.assertLogs(level='WARNING') as log_context:
+        with self.assertLogs(level="WARNING") as log_context:
             monitor_thread = threading.Thread(target=self.recorder._monitor_disk_space)
             monitor_thread.start()
 
@@ -184,7 +189,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         warning_count = sum(1 for msg in log_context.output if "Low disk space" in msg)
         self.assertEqual(warning_count, 1)
 
-    @patch('shutil.disk_usage')
+    @patch("shutil.disk_usage")
     def test_disk_error_callback_exception_handled(self, mock_disk_usage):
         """Test that exception in disk error callback doesn't crash monitoring."""
 
@@ -201,9 +206,10 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         # Start monitoring - should not crash
         self.recorder._monitoring_disk = True
         import threading
+
         monitor_thread = threading.Thread(target=self.recorder._monitor_disk_space)
 
-        with self.assertLogs(level='ERROR') as log_context:
+        with self.assertLogs(level="ERROR") as log_context:
             monitor_thread.start()
             time.sleep(1.0)
 
@@ -214,7 +220,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         # Should have logged the callback error
         self.assertTrue(any("Disk error callback failed" in msg for msg in log_context.output))
 
-    @patch('shutil.disk_usage')
+    @patch("shutil.disk_usage")
     def test_check_disk_space_at_session_start(self, mock_disk_usage):
         """Test that disk space is checked at session start."""
 
@@ -224,16 +230,16 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         mock_disk_usage.return_value = mock_usage
 
         # Mock video writer to avoid actual file creation
-        with patch('cv2.VideoWriter'):
-            with patch.object(self.recorder, '_open_video_writer', return_value=Mock()):
-                with self.assertLogs(level='INFO'):
+        with patch("cv2.VideoWriter"):
+            with patch.object(self.recorder, "_open_video_writer", return_value=Mock()):
+                with self.assertLogs(level="INFO"):
                     session_dir, warning = self.recorder.start_session("test_session", "pitch-001")
 
         # Should return warning message since 30GB < 50GB recommended
         self.assertIn("Low disk space warning", warning)
         self.assertIn("30.0GB", warning)
 
-    @patch('shutil.disk_usage')
+    @patch("shutil.disk_usage")
     def test_monitoring_continues_after_exception(self, mock_disk_usage):
         """Test that monitoring continues even if disk_usage raises exception."""
 
@@ -244,9 +250,10 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
 
         self.recorder._monitoring_disk = True
         import threading
+
         monitor_thread = threading.Thread(target=self.recorder._monitor_disk_space)
 
-        with self.assertLogs(level='ERROR') as log_context:
+        with self.assertLogs(level="ERROR") as log_context:
             monitor_thread.start()
             time.sleep(6.0)  # Wait for 2 check cycles
 
@@ -258,5 +265,5 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         self.assertTrue(any("Error monitoring disk space" in msg for msg in log_context.output))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

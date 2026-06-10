@@ -72,8 +72,7 @@ class OpenCVCamera(CameraDevice):
         if not serial_str.isdigit():
             logger.error(f"Invalid camera index: {serial_str}")
             raise ValueError(
-                "OpenCVCamera only supports index-based devices. "
-                "Use UvcCamera for serial-based selection."
+                "OpenCVCamera only supports index-based devices. " "Use UvcCamera for serial-based selection."
             )
 
         index = int(serial_str)
@@ -119,7 +118,9 @@ class OpenCVCamera(CameraDevice):
             self._capture = None
             raise
 
-    def set_mode(self, width: int, height: int, fps: int, pixfmt: str, flip_180: bool = False, rotation_correction: float = 0.0) -> None:
+    def set_mode(
+        self, width: int, height: int, fps: int, pixfmt: str, flip_180: bool = False, rotation_correction: float = 0.0
+    ) -> None:
         """Configure camera resolution, framerate, and pixel format.
 
         Args:
@@ -155,7 +156,7 @@ class OpenCVCamera(CameraDevice):
             # Set FOURCC to MJPG for color, or try to disable monochrome mode
             # Different cameras respond to different settings
             try:
-                self._capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+                self._capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
             except Exception:
                 pass  # Ignore if camera doesn't support this
 
@@ -171,14 +172,10 @@ class OpenCVCamera(CameraDevice):
         actual_fps = int(self._capture.get(cv2.CAP_PROP_FPS))
 
         if actual_width != width or actual_height != height:
-            logger.warning(
-                f"Camera {self._serial}: Requested {width}x{height} but got {actual_width}x{actual_height}"
-            )
+            logger.warning(f"Camera {self._serial}: Requested {width}x{height} but got {actual_width}x{actual_height}")
 
         if actual_fps != fps:
-            logger.warning(
-                f"Camera {self._serial}: Requested {fps}fps but got {actual_fps}fps"
-            )
+            logger.warning(f"Camera {self._serial}: Requested {fps}fps but got {actual_fps}fps")
 
     def set_controls(
         self,
@@ -223,9 +220,9 @@ class OpenCVCamera(CameraDevice):
             delta_s = (now_ns - self._stats.last_frame_ns) / 1e9
             if delta_s > 0:
                 self._stats.fps_instant = 1.0 / delta_s
-                self._stats.fps_avg = (
-                    (self._stats.fps_avg * self._stats.frames) + self._stats.fps_instant
-                ) / (self._stats.frames + 1)
+                self._stats.fps_avg = ((self._stats.fps_avg * self._stats.frames) + self._stats.fps_instant) / (
+                    self._stats.frames + 1
+                )
         self._stats.frames += 1
         self._stats.last_frame_ns = now_ns
         return Frame(
@@ -263,6 +260,7 @@ class OpenCVCamera(CameraDevice):
         logger.info(f"Camera {self._serial}: Closing")
 
         try:
+
             def _release():
                 if self._capture is not None:
                     self._capture.release()

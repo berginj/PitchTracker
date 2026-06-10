@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 class CalibrationStepAlignmentCompareMixin:
     def _compare_with_preset(self) -> None:
         """Compare current alignment with a saved preset (side-by-side)."""
-        if not hasattr(self, '_alignment_results') or self._alignment_results is None:
+        if not hasattr(self, "_alignment_results") or self._alignment_results is None:
             show_message_dialog(
                 self,
                 "No Current Alignment",
@@ -26,11 +26,7 @@ class CalibrationStepAlignmentCompareMixin:
             return
 
         try:
-            from analysis.camera_alignment import (
-                list_alignment_presets,
-                load_alignment_preset,
-                compare_with_preset
-            )
+            from analysis.camera_alignment import list_alignment_presets, load_alignment_preset, compare_with_preset
 
             # Get list of available presets
             presets = list_alignment_presets()
@@ -39,15 +35,13 @@ class CalibrationStepAlignmentCompareMixin:
                 show_message_dialog(
                     self,
                     "No Presets Found",
-                    "No saved alignment presets found.\n\n"
-                    "Save a preset first to enable comparison.",
+                    "No saved alignment presets found.\n\n" "Save a preset first to enable comparison.",
                     tone="info",
                 )
                 return
 
             # Show selection dialog
-            preset_names = [f"{p['name']} ({p['quality_score']}% - {p['saved_at'][:10]})"
-                           for p in presets]
+            preset_names = [f"{p['name']} ({p['quality_score']}% - {p['saved_at'][:10]})" for p in presets]
 
             preset_choice, ok = QtWidgets.QInputDialog.getItem(
                 self,
@@ -55,7 +49,7 @@ class CalibrationStepAlignmentCompareMixin:
                 "Select a preset to compare with current alignment:",
                 preset_names,
                 0,
-                False
+                False,
             )
 
             if ok and preset_choice:
@@ -77,8 +71,10 @@ class CalibrationStepAlignmentCompareMixin:
                 comparison = compare_with_preset(self._alignment_results, preset_data)
 
                 # Build comparison display
-                trend_color = self._theme.accent_success if comparison["trend"] == "BETTER" else (
-                    self._theme.accent_error if comparison["trend"] == "WORSE" else self._theme.accent_warning
+                trend_color = (
+                    self._theme.accent_success
+                    if comparison["trend"] == "BETTER"
+                    else (self._theme.accent_error if comparison["trend"] == "WORSE" else self._theme.accent_warning)
                 )
 
                 comparison_html = f"""
@@ -111,7 +107,7 @@ class CalibrationStepAlignmentCompareMixin:
                     ("focal", "Focal Length"),
                     ("toin", "Toe-in"),
                     ("vertical", "Vertical"),
-                    ("rotation", "Rotation")
+                    ("rotation", "Rotation"),
                 ]:
                     delta_data = comparison["deltas"][metric_name]
                     status_emoji = "✓" if delta_data["better"] else "⚠️"
@@ -183,8 +179,7 @@ class CalibrationStepAlignmentCompareMixin:
             # Update UI
             self._alignment_status_label.setText(
                 self._alignment_status_label.text().replace(
-                    "Rotation correction applied",
-                    "Rotation correction applied ✓ (cameras restarted)"
+                    "Rotation correction applied", "Rotation correction applied ✓ (cameras restarted)"
                 )
             )
 

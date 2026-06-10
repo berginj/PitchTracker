@@ -178,12 +178,8 @@ if __name__ == "__main__":
         default=1000,
         help="Number of frames to process (default: 1000)",
     )
-    parser.add_argument(
-        "--width", type=int, default=1280, help="Frame width (default: 1280)"
-    )
-    parser.add_argument(
-        "--height", type=int, default=720, help="Frame height (default: 720)"
-    )
+    parser.add_argument("--width", type=int, default=1280, help="Frame width (default: 1280)")
+    parser.add_argument("--height", type=int, default=720, help="Frame height (default: 720)")
     parser.add_argument(
         "--all-resolutions",
         action="store_true",
@@ -196,6 +192,4 @@ if __name__ == "__main__":
         results = benchmark_multiple_resolutions()
         print_summary(results)
     else:
-        benchmark_detection_throughput(
-            num_frames=args.frames, width=args.width, height=args.height
-        )
+        benchmark_detection_throughput(num_frames=args.frames, width=args.width, height=args.height)

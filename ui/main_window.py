@@ -426,7 +426,9 @@ class MainWindow(
             start_timer=lambda ms: self._timer.start(ms),
             stop_timer=lambda: self._timer.stop(),
             stop_replay=self._stop_replay,
-            start_capture_service=lambda cfg, left, right, path: self._service.start_capture(cfg, left, right, config_path=path),
+            start_capture_service=lambda cfg, left, right, path: self._service.start_capture(
+                cfg, left, right, config_path=path
+            ),
             stop_capture_service=lambda: self._service.stop_capture(),
         )
         self._recording_controller = RecordingController(

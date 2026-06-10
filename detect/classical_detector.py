@@ -47,9 +47,7 @@ class ClassicalDetector(Detector):
         else:
             cropped, offset = crop
         if self._mode == Mode.MODE_A:
-            blobs, background = detect_mode_a(
-                cropped, state.prev_frame, state.background, self._config
-            )
+            blobs, background = detect_mode_a(cropped, state.prev_frame, state.background, self._config)
             state.background = background
         else:
             blobs, background = detect_mode_b(cropped, state.background, self._config)
@@ -61,9 +59,7 @@ class ClassicalDetector(Detector):
                 dx = blob.centroid[0] - state.last_centroid[0]
                 dy = blob.centroid[1] - state.last_centroid[1]
                 blob.velocity = (dx * dx + dy * dy) ** 0.5
-        filtered: List[BlobDetection] = apply_filters(
-            blobs, self._config.filters, lanes=None
-        )
+        filtered: List[BlobDetection] = apply_filters(blobs, self._config.filters, lanes=None)
         detections: List[Detection] = []
         for blob in filtered:
             if offset != (0, 0):
@@ -100,9 +96,7 @@ class ClassicalDetector(Detector):
             last_detection = now_ns
         return DetectorHealth(false_positive_rate_hz=0.0, last_detection_ns=last_detection)
 
-    def _crop_for_camera(
-        self, camera_id: str, image: np.ndarray
-    ) -> Optional[tuple[np.ndarray, tuple[int, int]]]:
+    def _crop_for_camera(self, camera_id: str, image: np.ndarray) -> Optional[tuple[np.ndarray, tuple[int, int]]]:
         polygon = self._roi_by_camera.get(camera_id)
         if not polygon:
             return None

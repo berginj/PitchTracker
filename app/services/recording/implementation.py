@@ -79,10 +79,7 @@ class RecordingServiceImpl(RecordingService):
 
         # Pre-roll frame buffer (before pitch detection)
         # Maintains 60 frames × 2 cameras (~8MB)
-        self._pre_roll_buffer: Dict[str, deque[Frame]] = {
-            "left": deque(maxlen=60),
-            "right": deque(maxlen=60)
-        }
+        self._pre_roll_buffer: Dict[str, deque[Frame]] = {"left": deque(maxlen=60), "right": deque(maxlen=60)}
 
         # Callbacks
         self._callbacks: List[RecordingCallback] = []
@@ -141,8 +138,7 @@ class RecordingServiceImpl(RecordingService):
 
             # Start session recording
             session_dir, warning = self._session_recorder.start_session(
-                session_name=session_name,
-                pitch_id=f"session_{session_name}"  # Fallback pitch ID
+                session_name=session_name, pitch_id=f"session_{session_name}"  # Fallback pitch ID
             )
 
             self._session_active = True
@@ -153,8 +149,7 @@ class RecordingServiceImpl(RecordingService):
 
             # Invoke callbacks
             self._invoke_callback(
-                "session_started",
-                json.dumps({"session_dir": str(session_dir), "session_name": session_name})
+                "session_started", json.dumps({"session_dir": str(session_dir), "session_name": session_name})
             )
 
             logger.info(f"Session started: {session_dir}")
@@ -188,7 +183,7 @@ class RecordingServiceImpl(RecordingService):
                 pitch_id=self._last_pitch_id or "unknown",
                 session_name=self._session_name,
                 mode=self._mode,
-                measured_speed_mph=self._measured_speed_mph
+                measured_speed_mph=self._measured_speed_mph,
             )
 
             session_dir = self._session_recorder.get_session_dir()
@@ -210,10 +205,7 @@ class RecordingServiceImpl(RecordingService):
             self._pre_roll_buffer["right"].clear()
 
             # Invoke callbacks
-            self._invoke_callback(
-                "session_ended",
-                json.dumps({"session_dir": str(session_dir)})
-            )
+            self._invoke_callback("session_ended", json.dumps({"session_dir": str(session_dir)}))
 
             logger.info(f"Session stopped: {session_dir}")
 
@@ -278,11 +270,7 @@ class RecordingServiceImpl(RecordingService):
                 raise RuntimeError("Session directory not available")
 
             # Create pitch recorder
-            self._pitch_recorder = PitchRecorder(
-                config=self._config,
-                session_dir=session_dir,
-                pitch_id=pitch_id
-            )
+            self._pitch_recorder = PitchRecorder(config=self._config, session_dir=session_dir, pitch_id=pitch_id)
 
             # Buffer current pre-roll frames to pitch recorder
             for frame in list(self._pre_roll_buffer["left"]):
@@ -300,7 +288,7 @@ class RecordingServiceImpl(RecordingService):
             # Invoke callbacks
             self._invoke_callback(
                 "pitch_started",
-                json.dumps({"pitch_id": pitch_id, "pitch_dir": str(self._pitch_recorder.get_pitch_dir())})
+                json.dumps({"pitch_id": pitch_id, "pitch_dir": str(self._pitch_recorder.get_pitch_dir())}),
             )
 
             logger.info(f"Pitch started: {pitch_id}")
@@ -349,10 +337,7 @@ class RecordingServiceImpl(RecordingService):
         self._current_pitch_id = None
 
         # Invoke callbacks
-        self._invoke_callback(
-            "pitch_ended",
-            json.dumps({"pitch_id": pitch_id, "pitch_dir": str(pitch_dir)})
-        )
+        self._invoke_callback("pitch_ended", json.dumps({"pitch_id": pitch_id, "pitch_dir": str(pitch_dir)}))
 
         logger.info(f"Pitch stopped: {pitch_id}")
         return pitch_dir

@@ -12,8 +12,7 @@ from typing import List, Optional
 from analysis.camera_alignment_types import AlignmentResults
 
 
-def save_alignment_preset(results: AlignmentResults, preset_name: str,
-                          left_serial: str, right_serial: str) -> None:
+def save_alignment_preset(results: AlignmentResults, preset_name: str, left_serial: str, right_serial: str) -> None:
     """Save current alignment as a preset/profile.
 
     Args:
@@ -43,14 +42,14 @@ def save_alignment_preset(results: AlignmentResults, preset_name: str,
             "vertical_mean_px": results.vertical_mean_px,
             "vertical_max_px": results.vertical_max_px,
             "rotation_deg": results.rotation_deg,
-            "num_matches": results.num_matches
+            "num_matches": results.num_matches,
         },
         "status": {
             "focal": results.scale_status,
             "horizontal": results.horizontal_status,
             "vertical": results.vertical_status,
-            "rotation": results.rotation_status
-        }
+            "rotation": results.rotation_status,
+        },
     }
 
     # Save to file
@@ -95,12 +94,14 @@ def list_alignment_presets() -> List[dict]:
     for preset_file in presets_dir.glob("*.json"):
         try:
             data = json.loads(preset_file.read_text())
-            presets.append({
-                "name": preset_file.stem,
-                "saved_at": data.get("saved_at", "Unknown"),
-                "quality_score": data.get("quality_score", 0),
-                "quality_rating": data.get("quality_rating", "UNKNOWN")
-            })
+            presets.append(
+                {
+                    "name": preset_file.stem,
+                    "saved_at": data.get("saved_at", "Unknown"),
+                    "quality_score": data.get("quality_score", 0),
+                    "quality_rating": data.get("quality_rating", "UNKNOWN"),
+                }
+            )
         except Exception:
             continue
 
@@ -156,25 +157,27 @@ def compare_with_preset(current: AlignmentResults, preset_data: dict) -> dict:
                 "current": current.scale_difference_percent,
                 "preset": preset_metrics["focal_diff_percent"],
                 "delta": focal_delta,
-                "better": abs(focal_delta) < 0 or (abs(current.scale_difference_percent) < abs(preset_metrics["focal_diff_percent"]))
+                "better": abs(focal_delta) < 0
+                or (abs(current.scale_difference_percent) < abs(preset_metrics["focal_diff_percent"])),
             },
             "toin": {
                 "current": current.convergence_std_px,
                 "preset": preset_metrics["toin_std_px"],
                 "delta": toin_delta,
-                "better": toin_delta < 0
+                "better": toin_delta < 0,
             },
             "vertical": {
                 "current": current.vertical_mean_px,
                 "preset": preset_metrics["vertical_mean_px"],
                 "delta": vertical_delta,
-                "better": abs(vertical_delta) < 0 or (abs(current.vertical_mean_px) < abs(preset_metrics["vertical_mean_px"]))
+                "better": abs(vertical_delta) < 0
+                or (abs(current.vertical_mean_px) < abs(preset_metrics["vertical_mean_px"])),
             },
             "rotation": {
                 "current": current.rotation_deg,
                 "preset": preset_metrics["rotation_deg"],
                 "delta": rotation_delta,
-                "better": abs(rotation_delta) < 0 or (abs(current.rotation_deg) < abs(preset_metrics["rotation_deg"]))
-            }
-        }
+                "better": abs(rotation_delta) < 0 or (abs(current.rotation_deg) < abs(preset_metrics["rotation_deg"])),
+            },
+        },
     }

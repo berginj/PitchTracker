@@ -57,11 +57,7 @@ class VelocityTrendChart(QtWidgets.QWidget):
             # No data - show placeholder
             painter.setPen(QtCore.Qt.GlobalColor.gray)
             painter.setFont(self._theme.get_font(size=12))
-            painter.drawText(
-                QtCore.QRect(0, 0, width, height),
-                QtCore.Qt.AlignmentFlag.AlignCenter,
-                "No velocity data"
-            )
+            painter.drawText(QtCore.QRect(0, 0, width, height), QtCore.Qt.AlignmentFlag.AlignCenter, "No velocity data")
             return
 
         # Get data range
@@ -179,32 +175,17 @@ class StrikeRatioGauge(QtWidgets.QWidget):
         start_angle = 90 * 16  # Qt uses 1/16th degree units
         span_angle = -int(self._percentage * 360 * 16)  # Negative for clockwise
 
-        painter.drawArc(
-            center_x - radius,
-            center_y - radius,
-            radius * 2,
-            radius * 2,
-            start_angle,
-            span_angle
-        )
+        painter.drawArc(center_x - radius, center_y - radius, radius * 2, radius * 2, start_angle, span_angle)
 
         # Draw percentage text
         painter.setPen(QtCore.Qt.GlobalColor.black)
         painter.setFont(self._theme.get_font(size=24, weight="bold"))
         text = f"{self._percentage * 100:.0f}%"
-        painter.drawText(
-            QtCore.QRect(0, center_y - 20, width, 40),
-            QtCore.Qt.AlignmentFlag.AlignCenter,
-            text
-        )
+        painter.drawText(QtCore.QRect(0, center_y - 20, width, 40), QtCore.Qt.AlignmentFlag.AlignCenter, text)
 
         # Draw label
         painter.setFont(self._theme.get_font(size=10))
-        painter.drawText(
-            QtCore.QRect(0, center_y + 20, width, 30),
-            QtCore.Qt.AlignmentFlag.AlignCenter,
-            "Strike %"
-        )
+        painter.drawText(QtCore.QRect(0, center_y + 20, width, 30), QtCore.Qt.AlignmentFlag.AlignCenter, "Strike %")
 
     def _get_color_for_percentage(self, pct: float) -> QtGui.QColor:
         """Get color based on percentage.
@@ -275,11 +256,7 @@ class AccuracyTrendChart(QtWidgets.QWidget):
         if not self._data:
             painter.setPen(QtCore.Qt.GlobalColor.gray)
             painter.setFont(self._theme.get_font(size=10))
-            painter.drawText(
-                QtCore.QRect(0, 0, width, height),
-                QtCore.Qt.AlignmentFlag.AlignCenter,
-                "No accuracy data"
-            )
+            painter.drawText(QtCore.QRect(0, 0, width, height), QtCore.Qt.AlignmentFlag.AlignCenter, "No accuracy data")
             return
 
         pitch_count = len(self._data)
@@ -373,35 +350,18 @@ class FastestPitchWidget(QtWidgets.QWidget):
 
         # Draw label
         painter.setFont(self._theme.get_font(size=12, weight="bold"))
-        painter.drawText(
-            QtCore.QRect(0, 10, width, 30),
-            QtCore.Qt.AlignmentFlag.AlignCenter,
-            "FASTEST PITCH"
-        )
+        painter.drawText(QtCore.QRect(0, 10, width, 30), QtCore.Qt.AlignmentFlag.AlignCenter, "FASTEST PITCH")
 
         # Draw speed
         painter.setFont(self._theme.get_font(size=36, weight="bold"))
         painter.setPen(QtGui.QColor(self._theme.chart_red))
         speed_text = f"{self._speed:.1f}" if self._speed > 0 else "--"
-        painter.drawText(
-            QtCore.QRect(0, 40, width, 50),
-            QtCore.Qt.AlignmentFlag.AlignCenter,
-            speed_text
-        )
+        painter.drawText(QtCore.QRect(0, 40, width, 50), QtCore.Qt.AlignmentFlag.AlignCenter, speed_text)
 
         # Draw units
         painter.setFont(self._theme.get_font(size=14, weight="bold"))
         painter.setPen(QtCore.Qt.GlobalColor.black)
-        painter.drawText(
-            QtCore.QRect(0, height - 30, width, 25),
-            QtCore.Qt.AlignmentFlag.AlignCenter,
-            "mph"
-        )
+        painter.drawText(QtCore.QRect(0, height - 30, width, 25), QtCore.Qt.AlignmentFlag.AlignCenter, "mph")
 
 
-__all__ = [
-    "VelocityTrendChart",
-    "StrikeRatioGauge",
-    "AccuracyTrendChart",
-    "FastestPitchWidget"
-]
+__all__ = ["VelocityTrendChart", "StrikeRatioGauge", "AccuracyTrendChart", "FastestPitchWidget"]

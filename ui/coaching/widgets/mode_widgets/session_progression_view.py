@@ -41,7 +41,7 @@ class SessionProgressionWidget(BaseModeWidget):
         self,
         session_tracker: "SessionHistoryTracker",
         overlay_config: StrikeZoneOverlayConfig,
-        parent: Optional[QtWidgets.QWidget] = None
+        parent: Optional[QtWidgets.QWidget] = None,
     ):
         """Initialize session progression view mode.
 
@@ -155,10 +155,7 @@ class SessionProgressionWidget(BaseModeWidget):
         accuracy_history = self._session_tracker.get_strike_accuracy_history()
         self._accuracy_chart.update_data(accuracy_history)
 
-        if (
-            latest_pitch.trajectory_plate_x_ft is not None
-            and latest_pitch.trajectory_plate_y_ft is not None
-        ):
+        if latest_pitch.trajectory_plate_x_ft is not None and latest_pitch.trajectory_plate_y_ft is not None:
             layout = calculate_overlay_layout(
                 self._overlay_config,
                 plate_x_ft=latest_pitch.trajectory_plate_x_ft,
@@ -177,11 +174,7 @@ class SessionProgressionWidget(BaseModeWidget):
             f"fastest={fastest:.1f} mph, strike%={strike_pct*100:.1f}%"
         )
 
-    def update_camera_frames(
-        self,
-        left_frame: Optional["Frame"],
-        right_frame: Optional["Frame"]
-    ) -> None:
+    def update_camera_frames(self, left_frame: Optional["Frame"], right_frame: Optional["Frame"]) -> None:
         """Update camera preview frames.
 
         Args:

@@ -105,11 +105,7 @@ class TestErrorRecovery(unittest.TestCase):
             time.sleep(2.0)
 
             # Should have received error events
-            detection_errors = [
-                e
-                for e in self.received_errors
-                if e.category == ErrorCategory.DETECTION
-            ]
+            detection_errors = [e for e in self.received_errors if e.category == ErrorCategory.DETECTION]
 
             self.assertGreater(
                 len(detection_errors),
@@ -126,9 +122,7 @@ class TestErrorRecovery(unittest.TestCase):
             )
 
             # After 10 failures, should have CRITICAL severity
-            critical_errors = [
-                e for e in detection_errors if e.severity == ErrorSeverity.CRITICAL
-            ]
+            critical_errors = [e for e in detection_errors if e.severity == ErrorSeverity.CRITICAL]
             self.assertGreater(
                 len(critical_errors),
                 0,
@@ -228,8 +222,7 @@ class TestErrorRecovery(unittest.TestCase):
             drop_warnings = [
                 e
                 for e in self.received_errors
-                if e.category == ErrorCategory.DETECTION
-                and "drop" in str(e.message).lower()
+                if e.category == ErrorCategory.DETECTION and "drop" in str(e.message).lower()
             ]
 
             self.assertGreater(
@@ -312,8 +305,7 @@ class TestErrorRecovery(unittest.TestCase):
             critical_errors = [
                 e
                 for e in self.received_errors
-                if e.category == ErrorCategory.DETECTION
-                and e.severity == ErrorSeverity.CRITICAL
+                if e.category == ErrorCategory.DETECTION and e.severity == ErrorSeverity.CRITICAL
             ]
             self.assertGreater(len(critical_errors), 0, "Expected CRITICAL error")
 
@@ -328,8 +320,7 @@ class TestErrorRecovery(unittest.TestCase):
             new_critical = [
                 e
                 for e in self.received_errors
-                if e.category == ErrorCategory.DETECTION
-                and e.severity == ErrorSeverity.CRITICAL
+                if e.category == ErrorCategory.DETECTION and e.severity == ErrorSeverity.CRITICAL
             ]
             self.assertEqual(
                 len(new_critical),

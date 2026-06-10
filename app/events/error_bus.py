@@ -68,9 +68,7 @@ class ErrorEventBus:
         self._max_history = 100
         self._error_counts: Dict[ErrorCategory, int] = {}
 
-    def subscribe(
-        self, callback: Callable[[ErrorEvent], None], category: Optional[ErrorCategory] = None
-    ) -> None:
+    def subscribe(self, callback: Callable[[ErrorEvent], None], category: Optional[ErrorCategory] = None) -> None:
         """Subscribe to error events.
 
         Args:
@@ -80,18 +78,16 @@ class ErrorEventBus:
         with self._lock:
             if category is None:
                 self._all_subscribers.append(callback)
-                callback_name = getattr(callback, '__name__', repr(callback))
+                callback_name = getattr(callback, "__name__", repr(callback))
                 logger.debug(f"Subscribed to all error events: {callback_name}")
             else:
                 if category not in self._subscribers:
                     self._subscribers[category] = []
                 self._subscribers[category].append(callback)
-                callback_name = getattr(callback, '__name__', repr(callback))
+                callback_name = getattr(callback, "__name__", repr(callback))
                 logger.debug(f"Subscribed to {category.value} errors: {callback_name}")
 
-    def unsubscribe(
-        self, callback: Callable[[ErrorEvent], None], category: Optional[ErrorCategory] = None
-    ) -> None:
+    def unsubscribe(self, callback: Callable[[ErrorEvent], None], category: Optional[ErrorCategory] = None) -> None:
         """Unsubscribe from error events.
 
         Args:
@@ -102,12 +98,12 @@ class ErrorEventBus:
             if category is None:
                 if callback in self._all_subscribers:
                     self._all_subscribers.remove(callback)
-                    callback_name = getattr(callback, '__name__', repr(callback))
+                    callback_name = getattr(callback, "__name__", repr(callback))
                     logger.debug(f"Unsubscribed from all errors: {callback_name}")
             else:
                 if category in self._subscribers and callback in self._subscribers[category]:
                     self._subscribers[category].remove(callback)
-                    callback_name = getattr(callback, '__name__', repr(callback))
+                    callback_name = getattr(callback, "__name__", repr(callback))
                     logger.debug(f"Unsubscribed from {category.value} errors: {callback_name}")
 
     def publish(self, event: ErrorEvent) -> None:
@@ -146,9 +142,7 @@ class ErrorEventBus:
             except Exception as e:
                 logger.error(f"Error in event subscriber {callback.__name__}: {e}", exc_info=True)
 
-    def get_history(
-        self, category: Optional[ErrorCategory] = None, limit: int = 100
-    ) -> List[ErrorEvent]:
+    def get_history(self, category: Optional[ErrorCategory] = None, limit: int = 100) -> List[ErrorEvent]:
         """Get recent error history.
 
         Args:

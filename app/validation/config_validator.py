@@ -72,80 +72,79 @@ class ConfigValidator:
         try:
             # Resolution
             if config.camera.width <= 0:
-                self._errors.append(ValidationError(
-                    "camera.width",
-                    f"Camera width must be positive, got {config.camera.width}"
-                ))
+                self._errors.append(
+                    ValidationError("camera.width", f"Camera width must be positive, got {config.camera.width}")
+                )
 
             if config.camera.height <= 0:
-                self._errors.append(ValidationError(
-                    "camera.height",
-                    f"Camera height must be positive, got {config.camera.height}"
-                ))
+                self._errors.append(
+                    ValidationError("camera.height", f"Camera height must be positive, got {config.camera.height}")
+                )
 
             # Common resolutions check
             common_resolutions = [(640, 480), (1280, 720), (1920, 1080), (2560, 1440), (3840, 2160)]
             if (config.camera.width, config.camera.height) not in common_resolutions:
-                self._warnings.append(ValidationError(
-                    "camera.resolution",
-                    f"Unusual resolution {config.camera.width}x{config.camera.height}. "
-                    f"Common resolutions are: {common_resolutions}",
-                    severity="warning"
-                ))
+                self._warnings.append(
+                    ValidationError(
+                        "camera.resolution",
+                        f"Unusual resolution {config.camera.width}x{config.camera.height}. "
+                        f"Common resolutions are: {common_resolutions}",
+                        severity="warning",
+                    )
+                )
 
             # FPS
             if config.camera.fps <= 0:
-                self._errors.append(ValidationError(
-                    "camera.fps",
-                    f"Camera FPS must be positive, got {config.camera.fps}"
-                ))
+                self._errors.append(
+                    ValidationError("camera.fps", f"Camera FPS must be positive, got {config.camera.fps}")
+                )
             elif config.camera.fps > 120:
-                self._warnings.append(ValidationError(
-                    "camera.fps",
-                    f"Very high FPS ({config.camera.fps}). System may not keep up.",
-                    severity="warning"
-                ))
+                self._warnings.append(
+                    ValidationError(
+                        "camera.fps",
+                        f"Very high FPS ({config.camera.fps}). System may not keep up.",
+                        severity="warning",
+                    )
+                )
 
             # Exposure
-            if hasattr(config.camera, 'exposure') and config.camera.exposure < 0:
-                self._warnings.append(ValidationError(
-                    "camera.exposure",
-                    "Negative exposure may cause issues",
-                    severity="warning"
-                ))
+            if hasattr(config.camera, "exposure") and config.camera.exposure < 0:
+                self._warnings.append(
+                    ValidationError("camera.exposure", "Negative exposure may cause issues", severity="warning")
+                )
 
         except AttributeError as e:
-            self._errors.append(ValidationError(
-                "camera",
-                f"Missing required camera configuration: {e}"
-            ))
+            self._errors.append(ValidationError("camera", f"Missing required camera configuration: {e}"))
 
     def _validate_recording_config(self, config) -> None:
         """Validate recording configuration."""
         try:
-            if hasattr(config, 'recording'):
+            if hasattr(config, "recording"):
                 # Quality/bitrate
-                if hasattr(config.recording, 'quality'):
+                if hasattr(config.recording, "quality"):
                     quality = config.recording.quality
                     if quality < 0 or quality > 100:
-                        self._errors.append(ValidationError(
-                            "recording.quality",
-                            f"Recording quality must be 0-100, got {quality}"
-                        ))
+                        self._errors.append(
+                            ValidationError("recording.quality", f"Recording quality must be 0-100, got {quality}")
+                        )
 
                 # Buffer size
-                if hasattr(config.recording, 'buffer_size'):
+                if hasattr(config.recording, "buffer_size"):
                     if config.recording.buffer_size < 1:
-                        self._errors.append(ValidationError(
-                            "recording.buffer_size",
-                            f"Buffer size must be positive, got {config.recording.buffer_size}"
-                        ))
+                        self._errors.append(
+                            ValidationError(
+                                "recording.buffer_size",
+                                f"Buffer size must be positive, got {config.recording.buffer_size}",
+                            )
+                        )
                     elif config.recording.buffer_size > 100:
-                        self._warnings.append(ValidationError(
-                            "recording.buffer_size",
-                            f"Very large buffer size ({config.recording.buffer_size}) may use excessive memory",
-                            severity="warning"
-                        ))
+                        self._warnings.append(
+                            ValidationError(
+                                "recording.buffer_size",
+                                f"Very large buffer size ({config.recording.buffer_size}) may use excessive memory",
+                                severity="warning",
+                            )
+                        )
 
         except AttributeError:
             # Recording config may be optional
@@ -155,58 +154,53 @@ class ConfigValidator:
         """Validate file paths."""
         try:
             # Calibration file
-            if hasattr(config, 'calibration_file'):
+            if hasattr(config, "calibration_file"):
                 calib_path = Path(config.calibration_file)
                 if not calib_path.exists():
-                    self._warnings.append(ValidationError(
-                        "calibration_file",
-                        f"Calibration file does not exist: {calib_path}",
-                        severity="warning"
-                    ))
+                    self._warnings.append(
+                        ValidationError(
+                            "calibration_file", f"Calibration file does not exist: {calib_path}", severity="warning"
+                        )
+                    )
 
             # Model paths
-            if hasattr(config, 'model') and hasattr(config.model, 'path'):
+            if hasattr(config, "model") and hasattr(config.model, "path"):
                 model_path = Path(config.model.path)
                 if not model_path.exists():
-                    self._errors.append(ValidationError(
-                        "model.path",
-                        f"Model file does not exist: {model_path}"
-                    ))
+                    self._errors.append(ValidationError("model.path", f"Model file does not exist: {model_path}"))
 
         except Exception as e:
-            self._warnings.append(ValidationError(
-                "paths",
-                f"Error validating paths: {e}",
-                severity="warning"
-            ))
+            self._warnings.append(ValidationError("paths", f"Error validating paths: {e}", severity="warning"))
 
     def _validate_detection_config(self, config) -> None:
         """Validate detection configuration."""
         try:
-            if hasattr(config, 'detection'):
+            if hasattr(config, "detection"):
                 # Confidence threshold
-                if hasattr(config.detection, 'confidence_threshold'):
+                if hasattr(config.detection, "confidence_threshold"):
                     conf = config.detection.confidence_threshold
                     if conf < 0.0 or conf > 1.0:
-                        self._errors.append(ValidationError(
-                            "detection.confidence_threshold",
-                            f"Confidence threshold must be 0.0-1.0, got {conf}"
-                        ))
+                        self._errors.append(
+                            ValidationError(
+                                "detection.confidence_threshold", f"Confidence threshold must be 0.0-1.0, got {conf}"
+                            )
+                        )
                     elif conf < 0.3:
-                        self._warnings.append(ValidationError(
-                            "detection.confidence_threshold",
-                            f"Very low confidence threshold ({conf}), may produce many false positives",
-                            severity="warning"
-                        ))
+                        self._warnings.append(
+                            ValidationError(
+                                "detection.confidence_threshold",
+                                f"Very low confidence threshold ({conf}), may produce many false positives",
+                                severity="warning",
+                            )
+                        )
 
                 # NMS threshold
-                if hasattr(config.detection, 'nms_threshold'):
+                if hasattr(config.detection, "nms_threshold"):
                     nms = config.detection.nms_threshold
                     if nms < 0.0 or nms > 1.0:
-                        self._errors.append(ValidationError(
-                            "detection.nms_threshold",
-                            f"NMS threshold must be 0.0-1.0, got {nms}"
-                        ))
+                        self._errors.append(
+                            ValidationError("detection.nms_threshold", f"NMS threshold must be 0.0-1.0, got {nms}")
+                        )
 
         except AttributeError:
             # Detection config may be optional
@@ -215,30 +209,30 @@ class ConfigValidator:
     def _validate_calibration(self, config) -> None:
         """Validate calibration configuration."""
         try:
-            if hasattr(config, 'calibration'):
+            if hasattr(config, "calibration"):
                 # Focal length
-                if hasattr(config.calibration, 'focal_length'):
+                if hasattr(config.calibration, "focal_length"):
                     focal = config.calibration.focal_length
                     if focal <= 0:
-                        self._errors.append(ValidationError(
-                            "calibration.focal_length",
-                            f"Focal length must be positive, got {focal}"
-                        ))
+                        self._errors.append(
+                            ValidationError("calibration.focal_length", f"Focal length must be positive, got {focal}")
+                        )
                     elif focal < 100:
-                        self._warnings.append(ValidationError(
-                            "calibration.focal_length",
-                            f"Very low focal length ({focal}mm), check calibration",
-                            severity="warning"
-                        ))
+                        self._warnings.append(
+                            ValidationError(
+                                "calibration.focal_length",
+                                f"Very low focal length ({focal}mm), check calibration",
+                                severity="warning",
+                            )
+                        )
 
                 # Baseline
-                if hasattr(config.calibration, 'baseline'):
+                if hasattr(config.calibration, "baseline"):
                     baseline = config.calibration.baseline
                     if baseline <= 0:
-                        self._errors.append(ValidationError(
-                            "calibration.baseline",
-                            f"Baseline must be positive, got {baseline}"
-                        ))
+                        self._errors.append(
+                            ValidationError("calibration.baseline", f"Baseline must be positive, got {baseline}")
+                        )
 
         except AttributeError:
             # Calibration config may be optional

@@ -13,9 +13,7 @@ class TestCameraReconnectionManager(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.mgr = CameraReconnectionManager(
-            max_reconnect_attempts=3,
-            base_delay=0.1,  # Short delays for testing
-            max_delay=1.0
+            max_reconnect_attempts=3, base_delay=0.1, max_delay=1.0  # Short delays for testing
         )
 
     def tearDown(self):
@@ -65,6 +63,7 @@ class TestCameraReconnectionManager(unittest.TestCase):
 
         # Mock successful reconnection
         reconnect_called = threading.Event()
+
         def mock_reconnect(camera_id):
             reconnect_called.set()
             return True
@@ -88,6 +87,7 @@ class TestCameraReconnectionManager(unittest.TestCase):
 
         # Mock failed reconnection
         attempts = []
+
         def mock_reconnect(camera_id):
             attempts.append(camera_id)
             return False
@@ -112,6 +112,7 @@ class TestCameraReconnectionManager(unittest.TestCase):
 
         # Track state changes
         state_changes = []
+
         def on_state_change(camera_id, state):
             state_changes.append((camera_id, state))
 
@@ -176,6 +177,7 @@ class TestCameraReconnectionManager(unittest.TestCase):
 
         # Track attempt times
         attempt_times = []
+
         def mock_reconnect(camera_id):
             attempt_times.append(time.time())
             return False

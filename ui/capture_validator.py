@@ -160,6 +160,7 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
         """Start camera capture."""
         # Get camera serials from app state
         from configs.app_state import load_state
+
         state = load_state()
         self._left_serial = state.get("last_left_camera", "0")
         self._right_serial = state.get("last_right_camera", "1")

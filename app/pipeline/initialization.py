@@ -253,9 +253,7 @@ class PipelineInitializer:
         detectors["right"] = self._build_detector_for_camera(right_id, lane_polygon)
         return detectors
 
-    def _build_detector_for_camera(
-        self, camera_id: str, lane_polygon: Optional[list[tuple[float, float]]]
-    ) -> object:
+    def _build_detector_for_camera(self, camera_id: str, lane_polygon: Optional[list[tuple[float, float]]]) -> object:
         """Build detector for a single camera.
 
         Args:

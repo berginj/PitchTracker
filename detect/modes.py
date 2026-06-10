@@ -46,9 +46,7 @@ def detect_mode_a(
 
     diff = np.abs(gray - prev_gray)
     bg_diff = np.abs(gray - background_f32)
-    foreground = (diff > config.frame_diff_threshold) | (
-        bg_diff > config.bg_diff_threshold
-    )
+    foreground = (diff > config.frame_diff_threshold) | (bg_diff > config.bg_diff_threshold)
 
     # Update background in float32 for accuracy
     background_f32 = config.bg_alpha * gray + (1 - config.bg_alpha) * background_f32

@@ -75,10 +75,7 @@ class HeatMapWidget(QtWidgets.QWidget):
                 color = self._get_heat_color(intensity)
 
                 # Draw cell
-                painter.fillRect(
-                    int(x), int(y), int(cell_width), int(cell_height),
-                    color
-                )
+                painter.fillRect(int(x), int(y), int(cell_width), int(cell_height), color)
 
                 # Draw border
                 painter.setPen(QtGui.QPen(QtCore.Qt.GlobalColor.black, 2))
@@ -90,22 +87,14 @@ class HeatMapWidget(QtWidgets.QWidget):
                     painter.setFont(self._style_manager.get_font("heading"))
 
                     text_rect = QtCore.QRectF(x, y, cell_width, cell_height)
-                    painter.drawText(
-                        text_rect,
-                        QtCore.Qt.AlignmentFlag.AlignCenter,
-                        str(count)
-                    )
+                    painter.drawText(text_rect, QtCore.Qt.AlignmentFlag.AlignCenter, str(count))
 
         # Draw zone labels
         painter.setPen(QtCore.Qt.GlobalColor.gray)
         painter.setFont(self._style_manager.get_font("caption"))
 
         # Top labels (High, Middle, Low)
-        painter.drawText(
-            QtCore.QRect(0, 0, width, margin),
-            QtCore.Qt.AlignmentFlag.AlignCenter,
-            "HIGH - MID - LOW"
-        )
+        painter.drawText(QtCore.QRect(0, 0, width, margin), QtCore.Qt.AlignmentFlag.AlignCenter, "HIGH - MID - LOW")
 
     def _get_heat_color(self, intensity: float) -> QtGui.QColor:
         """Get color based on intensity (0.0 to 1.0).
@@ -117,35 +106,19 @@ class HeatMapWidget(QtWidgets.QWidget):
         elif intensity < 0.25:
             # White to light blue
             t = intensity / 0.25
-            return QtGui.QColor(
-                int(255 - t * 100),
-                int(255 - t * 100),
-                255
-            )
+            return QtGui.QColor(int(255 - t * 100), int(255 - t * 100), 255)
         elif intensity < 0.5:
             # Light blue to blue
             t = (intensity - 0.25) / 0.25
-            return QtGui.QColor(
-                int(155 - t * 122),
-                int(155 - t * 155),
-                255
-            )
+            return QtGui.QColor(int(155 - t * 122), int(155 - t * 155), 255)
         elif intensity < 0.75:
             # Blue to purple
             t = (intensity - 0.5) / 0.25
-            return QtGui.QColor(
-                int(33 + t * 95),
-                0,
-                int(255 - t * 55)
-            )
+            return QtGui.QColor(int(33 + t * 95), 0, int(255 - t * 55))
         else:
             # Purple to red
             t = (intensity - 0.75) / 0.25
-            return QtGui.QColor(
-                int(128 + t * 127),
-                0,
-                int(200 - t * 200)
-            )
+            return QtGui.QColor(int(128 + t * 127), 0, int(200 - t * 200))
 
 
 class StrikeZoneOverlay(QtWidgets.QWidget):
@@ -238,10 +211,7 @@ class StrikeZoneOverlay(QtWidgets.QWidget):
         # Draw label
         painter.setPen(QtCore.Qt.GlobalColor.green)
         painter.setFont(self._style_manager.get_font("default"))
-        painter.drawText(
-            zone_left_px + 5, zone_top_px + 20,
-            "STRIKE ZONE"
-        )
+        painter.drawText(zone_left_px + 5, zone_top_px + 20, "STRIKE ZONE")
 
 
 class TrajectoryWidget(QtWidgets.QWidget):

@@ -19,17 +19,18 @@ class AroundWorldGame(BaseGame):
 
     # Clockwise sequence around perimeter + center
     SEQUENCE = [
-        (0, 0), (0, 1), (0, 2),  # Top row
-        (1, 2), (2, 2),           # Right side
-        (2, 1), (2, 0),           # Bottom row
-        (1, 0), (1, 1)            # Left side + center
+        (0, 0),
+        (0, 1),
+        (0, 2),  # Top row
+        (1, 2),
+        (2, 2),  # Right side
+        (2, 1),
+        (2, 0),  # Bottom row
+        (1, 0),
+        (1, 1),  # Left side + center
     ]
 
-    def __init__(
-        self,
-        game_state_manager: "GameStateManager",
-        parent: Optional[QtWidgets.QWidget] = None
-    ):
+    def __init__(self, game_state_manager: "GameStateManager", parent: Optional[QtWidgets.QWidget] = None):
         """Initialize around the world game."""
         super().__init__(game_state_manager, parent)
         self._style_manager = get_style_manager()

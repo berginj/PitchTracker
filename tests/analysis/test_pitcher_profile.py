@@ -14,8 +14,14 @@ from analysis.pattern_detection.pitcher_profile import (
 class MockPitch:
     """Mock pitch for testing."""
 
-    def __init__(self, pitch_id: str, speed_mph: float = None, run_in: float = None,
-                 rise_in: float = None, is_strike: bool = False):
+    def __init__(
+        self,
+        pitch_id: str,
+        speed_mph: float = None,
+        run_in: float = None,
+        rise_in: float = None,
+        is_strike: bool = False,
+    ):
         self.pitch_id = pitch_id
         self.speed_mph = speed_mph
         self.run_in = run_in
@@ -63,9 +69,9 @@ class TestPitcherProfile(unittest.TestCase):
         self.assertIsInstance(profile.baseline_metrics, ProfileMetrics)
 
         # Check velocity metrics (stored as dict)
-        self.assertAlmostEqual(profile.baseline_metrics.velocity['mean'], 85.24, places=1)
-        self.assertGreater(profile.baseline_metrics.velocity['p50'], 84.0)
-        self.assertLess(profile.baseline_metrics.velocity['p50'], 86.0)
+        self.assertAlmostEqual(profile.baseline_metrics.velocity["mean"], 85.24, places=1)
+        self.assertGreater(profile.baseline_metrics.velocity["p50"], 84.0)
+        self.assertLess(profile.baseline_metrics.velocity["p50"], 86.0)
 
     def test_save_and_load_profile(self):
         """Test saving and loading a pitcher profile."""
@@ -158,13 +164,13 @@ class TestPitcherProfile(unittest.TestCase):
 
         comparison = manager.compare_to_baseline("test_pitcher", current_pitches)
 
-        self.assertTrue(comparison['profile_exists'])
-        self.assertIn('velocity_vs_baseline', comparison)
+        self.assertTrue(comparison["profile_exists"])
+        self.assertIn("velocity_vs_baseline", comparison)
 
         # Check that status is "normal" or similar
-        velocity_comparison = comparison['velocity_vs_baseline']
-        self.assertIn('status', velocity_comparison)
-        self.assertEqual(velocity_comparison['status'], 'normal')
+        velocity_comparison = comparison["velocity_vs_baseline"]
+        self.assertIn("status", velocity_comparison)
+        self.assertEqual(velocity_comparison["status"], "normal")
 
     def test_compare_to_baseline_significantly_below(self):
         """Test baseline comparison with significantly lower performance."""
@@ -189,10 +195,10 @@ class TestPitcherProfile(unittest.TestCase):
 
         comparison = manager.compare_to_baseline("test_pitcher", current_pitches)
 
-        velocity_comparison = comparison['velocity_vs_baseline']
-        self.assertIn('status', velocity_comparison)
+        velocity_comparison = comparison["velocity_vs_baseline"]
+        self.assertIn("status", velocity_comparison)
         # Should be flagged as significantly below
-        self.assertIn('below', velocity_comparison['status'].lower())
+        self.assertIn("below", velocity_comparison["status"].lower())
 
     def test_compare_to_nonexistent_baseline(self):
         """Test baseline comparison when no profile exists."""
@@ -202,7 +208,7 @@ class TestPitcherProfile(unittest.TestCase):
 
         comparison = manager.compare_to_baseline("nonexistent_pitcher", pitches)
 
-        self.assertFalse(comparison['profile_exists'])
+        self.assertFalse(comparison["profile_exists"])
 
     def test_profile_with_missing_data(self):
         """Test creating profile with some missing data."""
@@ -236,9 +242,9 @@ class TestPitcherProfile(unittest.TestCase):
         self.assertTrue(profile_path.exists())
 
         # Filename should not contain special characters
-        self.assertNotIn('/', profile_path.name)
-        self.assertNotIn('\\', profile_path.name)
+        self.assertNotIn("/", profile_path.name)
+        self.assertNotIn("\\", profile_path.name)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

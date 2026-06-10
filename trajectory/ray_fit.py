@@ -97,13 +97,26 @@ class RayReprojectionFitter(TrajectoryFitterBase):
         )
         params0 = np.clip(
             np.array(
-                [seed[0], seed[1], seed[2], seed[3], seed[4], seed[5], request.drag_k0, request.time_offset_prior_ms / 1000.0],
+                [
+                    seed[0],
+                    seed[1],
+                    seed[2],
+                    seed[3],
+                    seed[4],
+                    seed[5],
+                    request.drag_k0,
+                    request.time_offset_prior_ms / 1000.0,
+                ],
                 dtype=float,
             ),
             bounds[0] + 1e-6,
             bounds[1] - 1e-6,
         )
-        loss = request.robust_loss if request.robust_loss in {"linear", "soft_l1", "huber", "cauchy", "arctan"} else "huber"
+        loss = (
+            request.robust_loss
+            if request.robust_loss in {"linear", "soft_l1", "huber", "cauchy", "arctan"}
+            else "huber"
+        )
         result = least_squares_multistart(
             params0=params0,
             request=request,

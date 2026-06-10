@@ -27,10 +27,11 @@ class TestCodecFallback(unittest.TestCase):
     def tearDown(self):
         """Clean up after tests."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    @patch('cv2.VideoWriter')
-    @patch('cv2.VideoWriter_fourcc')
+    @patch("cv2.VideoWriter")
+    @patch("cv2.VideoWriter_fourcc")
     def test_first_codec_success(self, mock_fourcc, mock_writer_class):
         """Test that first codec (MJPG) is used if available."""
 
@@ -50,8 +51,8 @@ class TestCodecFallback(unittest.TestCase):
         mock_fourcc.assert_called_once_with(*"H264")
         mock_writer_class.assert_called_once()
 
-    @patch('cv2.VideoWriter')
-    @patch('cv2.VideoWriter_fourcc')
+    @patch("cv2.VideoWriter")
+    @patch("cv2.VideoWriter_fourcc")
     def test_fallback_to_second_codec(self, mock_fourcc, mock_writer_class):
         """Test fallback to XVID if MJPG fails."""
 
@@ -66,7 +67,7 @@ class TestCodecFallback(unittest.TestCase):
 
         # Open writer
         path = self.temp_dir / "test.avi"
-        with self.assertLogs(level='DEBUG') as log_context:
+        with self.assertLogs(level="DEBUG") as log_context:
             writer = self.recorder._open_video_writer(path, 640, 480, 30)
 
         # Should return second writer
@@ -83,8 +84,8 @@ class TestCodecFallback(unittest.TestCase):
         # Should log fallback attempt
         self.assertTrue(any("Codec H264 failed" in msg for msg in log_context.output))
 
-    @patch('cv2.VideoWriter')
-    @patch('cv2.VideoWriter_fourcc')
+    @patch("cv2.VideoWriter")
+    @patch("cv2.VideoWriter_fourcc")
     def test_all_codecs_fail(self, mock_fourcc, mock_writer_class):
         """Test that RuntimeError is raised if all codecs fail."""
 
@@ -111,8 +112,8 @@ class TestCodecFallback(unittest.TestCase):
         # Should have released all failed writers
         self.assertEqual(failed_writer.release.call_count, 5)
 
-    @patch('cv2.VideoWriter')
-    @patch('cv2.VideoWriter_fourcc')
+    @patch("cv2.VideoWriter")
+    @patch("cv2.VideoWriter_fourcc")
     def test_both_cameras_use_same_codec_sequence(self, mock_fourcc, mock_writer_class):
         """Test that both left and right cameras use same fallback sequence."""
 
@@ -133,18 +134,18 @@ class TestCodecFallback(unittest.TestCase):
         self.recorder._session_dir.mkdir()
 
         # Mock CSV file creation
-        with patch.object(Path, 'open', create=True) as mock_open:
+        with patch.object(Path, "open", create=True) as mock_open:
             mock_open.return_value = Mock()
 
-            with patch('csv.writer', return_value=Mock()):
+            with patch("csv.writer", return_value=Mock()):
                 self.recorder._open_writers()
 
         # Both cameras should have tried MJPG first, then XVID
         # Total calls: 2 cameras × 2 codecs = 4
         self.assertEqual(mock_writer_class.call_count, 4)
 
-    @patch('cv2.VideoWriter')
-    @patch('cv2.VideoWriter_fourcc')
+    @patch("cv2.VideoWriter")
+    @patch("cv2.VideoWriter_fourcc")
     def test_left_writer_cleaned_up_if_right_fails(self, mock_fourcc, mock_writer_class):
         """Test that left writer is cleaned up if right writer fails."""
 
@@ -170,8 +171,8 @@ class TestCodecFallback(unittest.TestCase):
         self.recorder._session_dir.mkdir()
 
         # Mock CSV file creation
-        with patch.object(Path, 'open', create=True):
-            with patch('csv.writer'):
+        with patch.object(Path, "open", create=True):
+            with patch("csv.writer"):
                 # Should raise RuntimeError
                 with self.assertRaises(RuntimeError):
                     self.recorder._open_writers()
@@ -180,8 +181,8 @@ class TestCodecFallback(unittest.TestCase):
         self.assertIsNone(self.recorder._left_writer)
         self.assertIsNone(self.recorder._right_writer)
 
-    @patch('cv2.VideoWriter')
-    @patch('cv2.VideoWriter_fourcc')
+    @patch("cv2.VideoWriter")
+    @patch("cv2.VideoWriter_fourcc")
     def test_codec_success_logged(self, mock_fourcc, mock_writer_class):
         """Test that successful codec is logged."""
 
@@ -196,15 +197,15 @@ class TestCodecFallback(unittest.TestCase):
 
         # Open writer
         path = self.temp_dir / "test.avi"
-        with self.assertLogs(level='INFO') as log_context:
+        with self.assertLogs(level="INFO") as log_context:
             self.recorder._open_video_writer(path, 640, 480, 30)
 
         # Should log successful codec
         self.assertTrue(any("Video writer opened successfully" in msg for msg in log_context.output))
         self.assertTrue(any("avc1" in msg for msg in log_context.output))
 
-    @patch('cv2.VideoWriter')
-    @patch('cv2.VideoWriter_fourcc')
+    @patch("cv2.VideoWriter")
+    @patch("cv2.VideoWriter_fourcc")
     def test_writer_receives_correct_parameters(self, mock_fourcc, mock_writer_class):
         """Test that VideoWriter receives correct parameters."""
 
@@ -220,15 +221,11 @@ class TestCodecFallback(unittest.TestCase):
 
         # Check VideoWriter was called with correct params
         mock_writer_class.assert_called_with(
-            str(path),
-            12345,  # fourcc
-            60.0,   # fps as float
-            (1920, 1080),  # size
-            True    # isColor
+            str(path), 12345, 60.0, (1920, 1080), True  # fourcc  # fps as float  # size  # isColor
         )
 
-    @patch('cv2.VideoWriter')
-    @patch('cv2.VideoWriter_fourcc')
+    @patch("cv2.VideoWriter")
+    @patch("cv2.VideoWriter_fourcc")
     def test_release_called_on_failed_writers(self, mock_fourcc, mock_writer_class):
         """Test that release() is called on all failed writers."""
 
@@ -257,5 +254,5 @@ class TestCodecFallback(unittest.TestCase):
         success_writer.release.assert_not_called()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

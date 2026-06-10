@@ -5,9 +5,7 @@ from detect.types import BlobDetection, Lanes
 from detect.utils import point_in_polygon
 
 
-def apply_area_filter(
-    detections: list[BlobDetection], config: FilterConfig
-) -> list[BlobDetection]:
+def apply_area_filter(detections: list[BlobDetection], config: FilterConfig) -> list[BlobDetection]:
     output = []
     for det in detections:
         if det.area < config.min_area:
@@ -18,9 +16,7 @@ def apply_area_filter(
     return output
 
 
-def apply_circularity_filter(
-    detections: list[BlobDetection], config: FilterConfig
-) -> list[BlobDetection]:
+def apply_circularity_filter(detections: list[BlobDetection], config: FilterConfig) -> list[BlobDetection]:
     output = []
     for det in detections:
         if det.circularity < config.min_circularity:
@@ -31,9 +27,7 @@ def apply_circularity_filter(
     return output
 
 
-def apply_velocity_filter(
-    detections: list[BlobDetection], config: FilterConfig
-) -> list[BlobDetection]:
+def apply_velocity_filter(detections: list[BlobDetection], config: FilterConfig) -> list[BlobDetection]:
     output = []
     for det in detections:
         if det.velocity is None:
@@ -47,9 +41,7 @@ def apply_velocity_filter(
     return output
 
 
-def apply_lane_gating(
-    detections: list[BlobDetection], lanes: Lanes | None
-) -> list[BlobDetection]:
+def apply_lane_gating(detections: list[BlobDetection], lanes: Lanes | None) -> list[BlobDetection]:
     if not lanes:
         return detections
     gated: list[BlobDetection] = []
@@ -60,9 +52,7 @@ def apply_lane_gating(
     return gated
 
 
-def apply_filters(
-    detections: list[BlobDetection], config: FilterConfig, lanes: Lanes | None
-) -> list[BlobDetection]:
+def apply_filters(detections: list[BlobDetection], config: FilterConfig, lanes: Lanes | None) -> list[BlobDetection]:
     output = apply_area_filter(detections, config)
     output = apply_circularity_filter(output, config)
     output = apply_velocity_filter(output, config)

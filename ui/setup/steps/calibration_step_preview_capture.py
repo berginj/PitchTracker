@@ -22,7 +22,7 @@ class CalibrationStepPreviewCaptureMixin:
         """Update camera previews and check for ChArUco board."""
         if not self._left_camera or not self._right_camera:
             # Only log once to avoid spam
-            if not hasattr(self, '_logged_missing_cameras'):
+            if not hasattr(self, "_logged_missing_cameras"):
                 logger.debug(
                     "Skipping preview update because calibration cameras are missing. left_camera={!r}, right_camera={!r}",
                     self._left_camera,
@@ -97,10 +97,10 @@ class CalibrationStepPreviewCaptureMixin:
         # Try common ChArUco configurations
         # Format: (cols, rows) where num_markers = (cols-1)*(rows-1)
         COMMON_PATTERNS = [
-            (9, 6),   # 8*5 = 40 markers
-            (7, 5),   # 6*4 = 24 markers
+            (9, 6),  # 8*5 = 40 markers
+            (7, 5),  # 6*4 = 24 markers
             (11, 8),  # 10*7 = 70 markers
-            (8, 6),   # 7*5 = 35 markers
+            (8, 6),  # 7*5 = 35 markers
             (10, 7),  # 9*6 = 54 markers
             (12, 9),  # 11*8 = 88 markers
         ]
@@ -168,11 +168,7 @@ class CalibrationStepPreviewCaptureMixin:
         return True, f"{len(shared)} shared ChArUco corners"
 
     def _try_checkerboard_fallback(
-        self,
-        gray: np.ndarray,
-        annotated: np.ndarray,
-        blur_score: float,
-        is_blurry: bool
+        self, gray: np.ndarray, annotated: np.ndarray, blur_score: float, is_blurry: bool
     ) -> Optional[tuple[bool, np.ndarray, float]]:
         """Try plain checkerboard detection as fallback when ChArUco fails.
 
@@ -223,8 +219,7 @@ class CalibrationStepPreviewCaptureMixin:
             text_size = cv2.getTextSize(success_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
             cv2.rectangle(annotated, (5, 50), (text_size[0] + 15, 85), (0, 128, 128), -1)  # Teal background
             cv2.rectangle(annotated, (5, 50), (text_size[0] + 15, 85), (0, 255, 255), 2)  # Cyan border
-            cv2.putText(annotated, success_text, (10, 75),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            cv2.putText(annotated, success_text, (10, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
             # Add diagnostic info at bottom
             diag_text = f"Plain Checkerboard: {num_corners} corners | Blur: {blur_score:.0f}"
@@ -238,13 +233,19 @@ class CalibrationStepPreviewCaptureMixin:
             cv2.rectangle(annotated, (bg_x1, bg_y1), (bg_x2, bg_y2), (255, 255, 255), 2)
 
             text_color = (0, 0, 255) if is_blurry else (0, 255, 255)  # Red if blurry, cyan if OK
-            cv2.putText(annotated, full_text, (10, gray.shape[0] - 10),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_color, 2)
+            cv2.putText(annotated, full_text, (10, gray.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_color, 2)
 
             # Warn if blurry
             if is_blurry:
-                cv2.putText(annotated, "WARNING: Blurry - may affect calibration", (10, 110),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+                cv2.putText(
+                    annotated,
+                    "WARNING: Blurry - may affect calibration",
+                    (10, 110),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (0, 165, 255),
+                    2,
+                )
 
             return (True, annotated, blur_score)
 
@@ -359,6 +360,7 @@ class CalibrationStepPreviewCaptureMixin:
             # Store baseline alignment from first capture and track alignment history
             try:
                 from analysis.camera_alignment import analyze_alignment
+
                 current_alignment = analyze_alignment(left_frame.image, right_frame.image)
                 self._alignment_history.append(current_alignment)
 

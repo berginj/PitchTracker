@@ -13,7 +13,9 @@ logger = get_logger(__name__)
 
 
 class CalibrationStepCameraAnalysisMixin:
-    def _get_marker_horizontal_position(self, image: np.ndarray, return_details: bool = False) -> Optional[float | tuple]:
+    def _get_marker_horizontal_position(
+        self, image: np.ndarray, return_details: bool = False
+    ) -> Optional[float | tuple]:
         """Get average horizontal position of ChArUco markers (0.0 = left, 1.0 = right).
 
         Args:
@@ -35,14 +37,14 @@ class CalibrationStepCameraAnalysisMixin:
         if self._cached_dict_name:
             # Map dict name to ID
             dict_map = {
-                'DICT_6X6_250': cv2.aruco.DICT_6X6_250,
-                'DICT_5X5_250': cv2.aruco.DICT_5X5_250,
-                'DICT_4X4_250': cv2.aruco.DICT_4X4_250,
-                'DICT_6X6_100': cv2.aruco.DICT_6X6_100,
-                'DICT_5X5_100': cv2.aruco.DICT_5X5_100,
-                'DICT_4X4_100': cv2.aruco.DICT_4X4_100,
-                'DICT_4X4_50': cv2.aruco.DICT_4X4_50,
-                'DICT_ARUCO_ORIGINAL': cv2.aruco.DICT_ARUCO_ORIGINAL,
+                "DICT_6X6_250": cv2.aruco.DICT_6X6_250,
+                "DICT_5X5_250": cv2.aruco.DICT_5X5_250,
+                "DICT_4X4_250": cv2.aruco.DICT_4X4_250,
+                "DICT_6X6_100": cv2.aruco.DICT_6X6_100,
+                "DICT_5X5_100": cv2.aruco.DICT_5X5_100,
+                "DICT_4X4_100": cv2.aruco.DICT_4X4_100,
+                "DICT_4X4_50": cv2.aruco.DICT_4X4_50,
+                "DICT_ARUCO_ORIGINAL": cv2.aruco.DICT_ARUCO_ORIGINAL,
             }
             dict_id = dict_map.get(self._cached_dict_name, cv2.aruco.DICT_6X6_250)
 
@@ -103,13 +105,7 @@ class CalibrationStepCameraAnalysisMixin:
         bar_y = height - bar_height
 
         # Draw background bar
-        cv2.rectangle(
-            display_image,
-            (0, bar_y),
-            (width, height),
-            (50, 50, 50),  # Dark gray background
-            -1
-        )
+        cv2.rectangle(display_image, (0, bar_y), (width, height), (50, 50, 50), -1)  # Dark gray background
 
         # Draw position marker
         marker_x = int(avg_position * width)
@@ -127,25 +123,12 @@ class CalibrationStepCameraAnalysisMixin:
             position_text = "CENTER"
 
         # Draw vertical line at marker position
-        cv2.line(
-            display_image,
-            (marker_x, bar_y),
-            (marker_x, height),
-            marker_color,
-            3
-        )
+        cv2.line(display_image, (marker_x, bar_y), (marker_x, height), marker_color, 3)
 
         # Draw position text
         text = f"{position_text} ({avg_position:.1%}) | {marker_count} markers"
         cv2.putText(
-            display_image,
-            text,
-            (10, bar_y + 20),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            (255, 255, 255),
-            1,
-            cv2.LINE_AA
+            display_image, text, (10, bar_y + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA
         )
 
         return display_image
@@ -159,8 +142,8 @@ class CalibrationStepCameraAnalysisMixin:
         """
         # Focus quality thresholds
         EXCELLENT_THRESHOLD = 300  # >300 is excellent
-        GOOD_THRESHOLD = 150       # 150-300 is good
-        POOR_THRESHOLD = 100       # 100-150 is acceptable, <100 is poor
+        GOOD_THRESHOLD = 150  # 150-300 is good
+        POOR_THRESHOLD = 100  # 100-150 is acceptable, <100 is poor
 
         def get_focus_status(blur_score: float) -> tuple[str, str]:
             """Get focus status text and semantic tone."""

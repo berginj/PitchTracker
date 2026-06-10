@@ -1,0 +1,9 @@
+[tool.black]
+line-length = 120
+target-version = ["py310", "py312"]
+extend-exclude = '''
+/(
+    archive
+  | contracts-shared/examples
+)/
+'''

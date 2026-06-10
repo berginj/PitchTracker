@@ -38,7 +38,7 @@ def create_synthetic_frame(
     if ball_position is not None:
         x, y = ball_position
         yy, xx = np.ogrid[:height, :width]
-        circle_mask = (xx - x) ** 2 + (yy - y) ** 2 <= ball_radius ** 2
+        circle_mask = (xx - x) ** 2 + (yy - y) ** 2 <= ball_radius**2
         frame[circle_mask] = np.random.normal(220, 10, circle_mask.sum()).astype(np.uint8)
 
     return frame

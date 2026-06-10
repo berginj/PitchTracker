@@ -245,7 +245,7 @@ class CameraReconnectionManager:
                 self._set_state(camera_id, CameraState.RECONNECTING)
 
             # Calculate delay with exponential backoff
-            delay = min(self._base_delay * (2 ** attempt), self._max_delay)
+            delay = min(self._base_delay * (2**attempt), self._max_delay)
             logger.info(
                 f"Attempting reconnection for camera {camera_id} "
                 f"(attempt {attempt + 1}/{self._max_attempts}) in {delay:.1f}s"

@@ -10,10 +10,10 @@ from typing import Optional
 
 # Configure NumPy/OpenCV threading for multi-core performance
 # Must be set BEFORE importing numpy or opencv
-os.environ['OMP_NUM_THREADS'] = str(os.cpu_count() or 4)  # OpenMP threads
-os.environ['MKL_NUM_THREADS'] = str(os.cpu_count() or 4)  # Intel MKL threads
-os.environ['OPENBLAS_NUM_THREADS'] = str(os.cpu_count() or 4)  # OpenBLAS threads
-os.environ['NUMEXPR_NUM_THREADS'] = str(os.cpu_count() or 4)  # NumExpr threads
+os.environ["OMP_NUM_THREADS"] = str(os.cpu_count() or 4)  # OpenMP threads
+os.environ["MKL_NUM_THREADS"] = str(os.cpu_count() or 4)  # Intel MKL threads
+os.environ["OPENBLAS_NUM_THREADS"] = str(os.cpu_count() or 4)  # OpenBLAS threads
+os.environ["NUMEXPR_NUM_THREADS"] = str(os.cpu_count() or 4)  # NumExpr threads
 
 from PySide6 import QtWidgets
 

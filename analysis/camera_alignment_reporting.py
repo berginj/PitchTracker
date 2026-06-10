@@ -17,9 +17,9 @@ from analysis.camera_alignment_types import AlignmentResults
 from analysis.camera_alignment_internals import _find_feature_matches
 
 
-def visualize_features(left_img: np.ndarray, right_img: np.ndarray,
-                      pts1: np.ndarray, pts2: np.ndarray,
-                      save_path: Optional[Path] = None) -> np.ndarray:
+def visualize_features(
+    left_img: np.ndarray, right_img: np.ndarray, pts1: np.ndarray, pts2: np.ndarray, save_path: Optional[Path] = None
+) -> np.ndarray:
     """Create visualization of matched features between cameras.
 
     Args:
@@ -66,8 +66,7 @@ def visualize_features(left_img: np.ndarray, right_img: np.ndarray,
 
     # Add text overlay
     text = f"{len(pts1)} features matched"
-    cv2.putText(combined, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
-                1.0, (0, 255, 0), 2, cv2.LINE_AA)
+    cv2.putText(combined, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2, cv2.LINE_AA)
 
     # Save if requested
     if save_path:
@@ -76,9 +75,9 @@ def visualize_features(left_img: np.ndarray, right_img: np.ndarray,
     return combined
 
 
-def save_alignment_frames(left_img: np.ndarray, right_img: np.ndarray,
-                         results: AlignmentResults,
-                         output_dir: Path = Path("alignment_checks")) -> None:
+def save_alignment_frames(
+    left_img: np.ndarray, right_img: np.ndarray, results: AlignmentResults, output_dir: Path = Path("alignment_checks")
+) -> None:
     """Save alignment check frames and visualization for debugging.
 
     Args:
@@ -110,6 +109,7 @@ def save_alignment_frames(left_img: np.ndarray, right_img: np.ndarray,
 
         # Save JSON report
         import json
+
         report = {
             "timestamp": timestamp,
             "quality": results.quality,

@@ -129,11 +129,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         )
 
         # Should have disk space warning on error bus
-        disk_warnings = [
-            e
-            for e in self.received_errors
-            if e.category == ErrorCategory.DISK_SPACE
-        ]
+        disk_warnings = [e for e in self.received_errors if e.category == ErrorCategory.DISK_SPACE]
 
         # Note: Warning might be published during initial check or monitoring
         # If no warnings, that's okay - main thing is no crash
@@ -192,9 +188,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
                     if free_gb < service._session_recorder._critical_disk_gb:
                         # This would normally be called by monitoring thread
                         if hasattr(service, "_on_disk_critical"):
-                            service._on_disk_critical(
-                                free_gb, f"Critical: {free_gb:.1f}GB remaining"
-                            )
+                            service._on_disk_critical(free_gb, f"Critical: {free_gb:.1f}GB remaining")
                 except Exception as e:
                     # If method doesn't exist or fails, that's okay
                     # Main thing is verifying callback integration exists

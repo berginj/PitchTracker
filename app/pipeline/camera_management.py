@@ -154,9 +154,7 @@ class CameraManager:
                     source="CameraManager.start_capture",
                     exception=exc,
                 )
-                raise CameraConnectionError(
-                    f"Failed to initialize camera objects: {exc}"
-                ) from exc
+                raise CameraConnectionError(f"Failed to initialize camera objects: {exc}") from exc
 
             # Open left camera
             try:
@@ -263,18 +261,14 @@ class CameraManager:
                     exception=exc,
                 )
                 self._cleanup_cameras()
-                raise CameraConnectionError(
-                    f"Failed to start capture threads: {exc}"
-                ) from exc
+                raise CameraConnectionError(f"Failed to start capture threads: {exc}") from exc
 
             # Initialize reconnection manager (if enabled)
             if self._enable_reconnection:
                 logger.debug("Initializing camera reconnection manager")
                 self._config = config  # Store config for reconnection attempts
                 self._reconnection_mgr = CameraReconnectionManager(
-                    max_reconnect_attempts=5,
-                    base_delay=1.0,
-                    max_delay=30.0
+                    max_reconnect_attempts=5, base_delay=1.0, max_delay=30.0
                 )
                 self._reconnection_mgr.set_reconnect_callback(self._try_reconnect_camera)
                 self._reconnection_mgr.register_camera("left")
@@ -290,9 +284,7 @@ class CameraManager:
             # Catch any unexpected errors
             logger.exception("Unexpected error during capture start")
             self._cleanup_cameras()
-            raise CameraConnectionError(
-                f"Unexpected error starting capture: {exc}"
-            ) from exc
+            raise CameraConnectionError(f"Unexpected error starting capture: {exc}") from exc
 
     def stop_capture(self) -> None:
         """Stop capture on both cameras.
@@ -371,9 +363,7 @@ class CameraManager:
         """
         if self._left is None or self._right is None:
             logger.error("Attempted to get preview frames but capture not started")
-            raise CameraConnectionError(
-                "Capture not started. Call start_capture() first."
-            )
+            raise CameraConnectionError("Capture not started. Call start_capture() first.")
 
         try:
             with self._latest_lock:
@@ -381,9 +371,7 @@ class CameraManager:
                 right_frame = self._right_latest
         except Exception as exc:
             logger.error(f"Error accessing preview frames: {exc}")
-            raise PitchTrackerError(
-                f"Error accessing frame buffer: {exc}"
-            ) from exc
+            raise PitchTrackerError(f"Error accessing frame buffer: {exc}") from exc
 
         if left_frame is None or right_frame is None:
             # This is normal during startup - cameras haven't produced frames yet
@@ -486,10 +474,7 @@ class CameraManager:
             # Restart capture thread
             logger.debug(f"Starting capture thread for {camera_id} camera")
             new_thread = threading.Thread(
-                target=self._capture_loop,
-                args=(camera_id, new_camera),
-                name=f"Capture-{camera_id}",
-                daemon=False
+                target=self._capture_loop, args=(camera_id, new_camera), name=f"Capture-{camera_id}", daemon=False
             )
 
             if camera_id == "left":
@@ -587,10 +572,7 @@ class CameraManager:
                     try:
                         self._on_frame_captured(label, frame)
                     except Exception as e:
-                        logger.error(
-                            f"Camera {label}: Error in frame callback: {e}",
-                            exc_info=True
-                        )
+                        logger.error(f"Camera {label}: Error in frame callback: {e}", exc_info=True)
 
             except TimeoutError:
                 # Timeout is expected occasionally, don't log as error
@@ -602,7 +584,7 @@ class CameraManager:
                 logger.error(
                     f"Camera {label}: Frame read failed "
                     f"(attempt {consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}): {exc}",
-                    exc_info=True
+                    exc_info=True,
                 )
 
                 # Check for fatal error conditions
@@ -625,9 +607,7 @@ class CameraManager:
             # Health check: detect stalled camera
             time_since_frame = time.monotonic() - last_frame_time
             if time_since_frame > FRAME_STALL_TIMEOUT:
-                error_msg = (
-                    f"Camera {label} stalled - no frames for {time_since_frame:.1f} seconds"
-                )
+                error_msg = f"Camera {label} stalled - no frames for {time_since_frame:.1f} seconds"
                 logger.critical(error_msg)
 
                 if self._on_camera_error:
@@ -640,8 +620,7 @@ class CameraManager:
                 break
 
         logger.info(
-            f"Camera {label}: Capture loop stopped "
-            f"(total_frames={total_frames}, failures={consecutive_failures})"
+            f"Camera {label}: Capture loop stopped " f"(total_frames={total_frames}, failures={consecutive_failures})"
         )
 
     def _validate_frame(self, label: str, frame: Frame) -> bool:

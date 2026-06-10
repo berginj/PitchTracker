@@ -94,11 +94,7 @@ class TestStateCorruptionRecovery(unittest.TestCase):
         # (The machine tried to start pitch 1, failed, reverted to 0)
 
         # Error should have been published to error bus
-        tracking_errors = [
-            e
-            for e in self.received_errors
-            if e.category == ErrorCategory.TRACKING
-        ]
+        tracking_errors = [e for e in self.received_errors if e.category == ErrorCategory.TRACKING]
         self.assertGreater(len(tracking_errors), 0, "Expected error published to error bus")
 
         # Verify error message
@@ -158,11 +154,7 @@ class TestStateCorruptionRecovery(unittest.TestCase):
         self.assertEqual(self.state_machine.get_phase(), PitchPhase.INACTIVE)
 
         # Error should have been published
-        tracking_errors = [
-            e
-            for e in self.received_errors
-            if e.category == ErrorCategory.TRACKING
-        ]
+        tracking_errors = [e for e in self.received_errors if e.category == ErrorCategory.TRACKING]
         end_errors = [e for e in tracking_errors if "end callback failed" in e.message]
         self.assertGreater(len(end_errors), 0, "Expected end callback error on error bus")
 
@@ -243,6 +235,7 @@ class TestStateCorruptionRecovery(unittest.TestCase):
 
     def test_state_corruption_during_start_callback_reverts_correctly(self):
         """Test that state is correctly reverted when start callback fails."""
+
         # Set up failing callback
         def failing_callback(pitch_index, pitch_data):
             # Verify state before exception
@@ -275,6 +268,7 @@ class TestStateCorruptionRecovery(unittest.TestCase):
 
     def test_multiple_callback_errors_all_published_to_error_bus(self):
         """Test that multiple callback errors are all published to error bus."""
+
         # Set up callbacks that always fail
         def failing_start(pitch_index, pitch_data):
             raise ValueError(f"Start error {pitch_index}")
@@ -305,11 +299,7 @@ class TestStateCorruptionRecovery(unittest.TestCase):
             self.state_machine.add_observation(obs)
 
         # Should have at least one error
-        tracking_errors = [
-            e
-            for e in self.received_errors
-            if e.category == ErrorCategory.TRACKING
-        ]
+        tracking_errors = [e for e in self.received_errors if e.category == ErrorCategory.TRACKING]
         self.assertGreater(len(tracking_errors), 0, "Expected errors published")
 
         # Verify all errors have correct severity
@@ -318,6 +308,7 @@ class TestStateCorruptionRecovery(unittest.TestCase):
 
     def test_error_metadata_includes_context(self):
         """Test that error events include relevant context metadata."""
+
         def failing_callback(pitch_index, pitch_data):
             raise ValueError("Test error")
 
@@ -339,11 +330,7 @@ class TestStateCorruptionRecovery(unittest.TestCase):
             self.state_machine.add_observation(obs)
 
         # Check error metadata
-        tracking_errors = [
-            e
-            for e in self.received_errors
-            if e.category == ErrorCategory.TRACKING
-        ]
+        tracking_errors = [e for e in self.received_errors if e.category == ErrorCategory.TRACKING]
         self.assertGreater(len(tracking_errors), 0)
 
         error = tracking_errors[0]

@@ -221,9 +221,7 @@ class TestApplyDetectorConfig:
 
         assert result is True
         settings_manager._apply_detector_to_service.assert_called_once()
-        settings_manager._status_label.setText.assert_called_with(
-            "Detector settings applied."
-        )
+        settings_manager._status_label.setText.assert_called_with("Detector settings applied.")
 
     @patch("ui.controllers.settings_manager.QtWidgets.QMessageBox")
     def test_apply_detector_config_ml_no_path(self, mock_msgbox, settings_manager):

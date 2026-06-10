@@ -41,7 +41,7 @@ class TestResourceLeakVerification(unittest.TestCase):
             thread_growth,
             2,  # Allow 1-2 threads for test infrastructure
             f"Thread leak detected: {initial_threads} → {final_threads} "
-            f"(+{thread_growth} threads after 100 operations)"
+            f"(+{thread_growth} threads after 100 operations)",
         )
 
     def test_timeout_utils_handles_timeouts_without_leak(self):
@@ -79,7 +79,7 @@ class TestResourceLeakVerification(unittest.TestCase):
             thread_growth,
             5,  # Allow a few threads for executor cleanup
             f"Thread leak on timeout: {initial_threads} → {final_threads} "
-            f"(+{thread_growth} threads after 50 timeouts)"
+            f"(+{thread_growth} threads after 50 timeouts)",
         )
 
     def test_detection_pool_no_thread_leak(self):
@@ -113,7 +113,7 @@ class TestResourceLeakVerification(unittest.TestCase):
                 t_received_monotonic_ns=int(time.time() * 1e9),
                 width=640,
                 height=480,
-                camera_id="test"
+                camera_id="test",
             )
 
             for j in range(10):
@@ -138,7 +138,7 @@ class TestResourceLeakVerification(unittest.TestCase):
             thread_growth,
             3,  # Allow a few threads for test infrastructure
             f"Thread leak in detection pool: {initial_threads} → {final_threads} "
-            f"(+{thread_growth} threads after 10 start/stop cycles)"
+            f"(+{thread_growth} threads after 10 start/stop cycles)",
         )
 
     def test_detection_pool_extended_operation(self):
@@ -171,7 +171,7 @@ class TestResourceLeakVerification(unittest.TestCase):
             t_received_monotonic_ns=int(time.time() * 1e9),
             width=640,
             height=480,
-            camera_id="test"
+            camera_id="test",
         )
 
         for i in range(1000):
@@ -201,7 +201,7 @@ class TestResourceLeakVerification(unittest.TestCase):
             thread_growth,
             3,
             f"Threads not cleaned up after extended operation: "
-            f"{initial_threads} → {mid_threads} (during) → {final_threads} (after)"
+            f"{initial_threads} → {mid_threads} (during) → {final_threads} (after)",
         )
 
     def test_memory_stability_during_detection(self):
@@ -214,6 +214,7 @@ class TestResourceLeakVerification(unittest.TestCase):
 
         try:
             import psutil
+
             process = psutil.Process()
         except ImportError:
             self.skipTest("psutil not available")
@@ -243,7 +244,7 @@ class TestResourceLeakVerification(unittest.TestCase):
                 t_received_monotonic_ns=int(time.time() * 1e9),
                 width=640,
                 height=480,
-                camera_id="test"
+                camera_id="test",
             )
             pool.enqueue_frame("left", frame)
             pool.enqueue_frame("right", frame)
@@ -263,18 +264,17 @@ class TestResourceLeakVerification(unittest.TestCase):
         memory_growth = final_memory - initial_memory
         growth_percent = (memory_growth / initial_memory) * 100
 
-        print(f"  Memory: {initial_memory:.1f}MB → {final_memory:.1f}MB "
-              f"(+{memory_growth:.1f}MB, +{growth_percent:.1f}%)")
+        print(
+            f"  Memory: {initial_memory:.1f}MB → {final_memory:.1f}MB "
+            f"(+{memory_growth:.1f}MB, +{growth_percent:.1f}%)"
+        )
 
         # Stop pool
         pool.stop()
 
         # Allow memory growth up to 20% (some growth is normal)
         self.assertLess(
-            growth_percent,
-            20.0,
-            f"Memory grew {growth_percent:.1f}% (>{20.0}% threshold). "
-            f"Possible memory leak."
+            growth_percent, 20.0, f"Memory grew {growth_percent:.1f}% (>{20.0}% threshold). " f"Possible memory leak."
         )
 
 

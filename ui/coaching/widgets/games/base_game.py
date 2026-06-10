@@ -26,11 +26,7 @@ class BaseGame(QtWidgets.QWidget, metaclass=QABCMeta):
     All games must inherit from this class and implement the required methods.
     """
 
-    def __init__(
-        self,
-        game_state_manager: "GameStateManager",
-        parent: Optional[QtWidgets.QWidget] = None
-    ):
+    def __init__(self, game_state_manager: "GameStateManager", parent: Optional[QtWidgets.QWidget] = None):
         """Initialize base game.
 
         Args:
@@ -73,11 +69,8 @@ class BaseGame(QtWidgets.QWidget, metaclass=QABCMeta):
             score: Score to save
         """
         import time
-        self._state_mgr.save_game_score(
-            game_name=self.get_game_name(),
-            score=score,
-            timestamp=time.time()
-        )
+
+        self._state_mgr.save_game_score(game_name=self.get_game_name(), score=score, timestamp=time.time())
 
     def get_high_score(self) -> int:
         """Get all-time high score for this game.

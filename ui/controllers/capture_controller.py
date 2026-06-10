@@ -181,14 +181,9 @@ class CaptureController:
 
         # Check ROI files
         if not roi_path.exists():
-            warnings.append(
-                f"ROI file {roi_path} not found; lane/plate gating will be disabled."
-            )
+            warnings.append(f"ROI file {roi_path} not found; lane/plate gating will be disabled.")
         if not lane_path.exists():
-            warnings.append(
-                f"Lane ROI overrides not found at {lane_path}; "
-                "using shared lane ROI for both cameras."
-            )
+            warnings.append(f"Lane ROI overrides not found at {lane_path}; " "using shared lane ROI for both cameras.")
 
         # Show errors
         if errors:

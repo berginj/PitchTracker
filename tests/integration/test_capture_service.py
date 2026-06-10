@@ -20,6 +20,7 @@ from contracts import Frame
 
 # Test fixtures
 
+
 def create_test_config():
     """Create test configuration from default.yaml."""
     config_path = Path(__file__).parent.parent.parent / "configs" / "default.yaml"

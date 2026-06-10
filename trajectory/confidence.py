@@ -22,4 +22,3 @@ class ConfidenceScorer:
             return 0.0
         tau = 1.0
         return float(pow(2.718281828, -expected_error_ft / tau))
-

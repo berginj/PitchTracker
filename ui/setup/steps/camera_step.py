@@ -71,9 +71,7 @@ class CameraStep(BaseStep):
         backend_layout.addWidget(self._opencv_radio)
         backend_layout.addStretch()
 
-        backend_help = QtWidgets.QLabel(
-            "If UVC fails, switch to OpenCV backend which uses simple camera indices."
-        )
+        backend_help = QtWidgets.QLabel("If UVC fails, switch to OpenCV backend which uses simple camera indices.")
         self._style_manager.style_label(backend_help, "muted")
 
         backend_vlayout = QtWidgets.QVBoxLayout()

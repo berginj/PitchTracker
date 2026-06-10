@@ -33,10 +33,7 @@ class CalibrationGuide(QtWidgets.QDialog):
         apply_standard_layout(layout)
 
         # Header
-        header = build_dialog_header(
-            "Calibration Guide",
-            "Step-by-step instructions for system calibration"
-        )
+        header = build_dialog_header("Calibration Guide", "Step-by-step instructions for system calibration")
         layout.addWidget(header)
 
         # Instructions

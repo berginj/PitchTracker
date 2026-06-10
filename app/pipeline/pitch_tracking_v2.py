@@ -27,16 +27,18 @@ logger = logging.getLogger(__name__)
 
 class PitchPhase(Enum):
     """Pitch tracking phases with clear transitions."""
+
     INACTIVE = "inactive"
     RAMP_UP = "ramp_up"  # Collecting initial detections
-    ACTIVE = "active"    # Pitch confirmed, recording
-    ENDING = "ending"    # Post-roll period
+    ACTIVE = "active"  # Pitch confirmed, recording
+    ENDING = "ending"  # Post-roll period
     FINALIZED = "finalized"
 
 
 @dataclass
 class PitchConfig:
     """Configuration for pitch detection."""
+
     min_active_frames: int = 5
     end_gap_frames: int = 10
     use_plate_gate: bool = True
@@ -64,6 +66,7 @@ class PitchConfig:
 @dataclass
 class PitchData:
     """Immutable pitch data for thread-safe transfer."""
+
     pitch_index: int
     phase: PitchPhase
     start_ns: int
@@ -231,12 +234,15 @@ class PitchStateMachineV2:
             active = self._is_frame_active(lane_count, plate_count, obs_count)
 
             # Log event
-            self._log_event("update", {
-                "frame_ns": frame_ns,
-                "phase": self._phase.value,
-                "active": active,
-                "obs_count": obs_count,
-            })
+            self._log_event(
+                "update",
+                {
+                    "frame_ns": frame_ns,
+                    "phase": self._phase.value,
+                    "active": active,
+                    "obs_count": obs_count,
+                },
+            )
 
             # State machine transitions
             if active:
@@ -332,10 +338,13 @@ class PitchStateMachineV2:
                 if duration_ns >= self._config.min_duration_ns:
                     self._transition_to_active(frame_ns)
                 else:
-                    self._log_event("duration_check_failed", {
-                        "duration_ms": duration_ns / 1_000_000,
-                        "required_ms": self._config.min_duration_ms,
-                    })
+                    self._log_event(
+                        "duration_check_failed",
+                        {
+                            "duration_ms": duration_ns / 1_000_000,
+                            "required_ms": self._config.min_duration_ms,
+                        },
+                    )
 
         elif self._phase == PitchPhase.ACTIVE:
             # Continue recording
@@ -521,11 +530,13 @@ class PitchStateMachineV2:
 
     def _log_event(self, event_type: str, data: dict) -> None:
         """Log event for debugging."""
-        self._event_log.append({
-            "timestamp": time.monotonic_ns(),
-            "type": event_type,
-            "data": data,
-        })
+        self._event_log.append(
+            {
+                "timestamp": time.monotonic_ns(),
+                "type": event_type,
+                "data": data,
+            }
+        )
 
     def get_event_log(self) -> List[dict]:
         """Get event log for debugging (thread-safe)."""

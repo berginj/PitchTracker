@@ -112,11 +112,7 @@ def paired_triangulations(
     max_delta_ns = int(max_time_offset_ms * 1e6)
     paired: List[Tuple[int, np.ndarray]] = []
     for left_ray in left:
-        candidates = [
-            right_ray
-            for right_ray in right
-            if abs(right_ray.t_ns - left_ray.t_ns) <= max_delta_ns
-        ]
+        candidates = [right_ray for right_ray in right if abs(right_ray.t_ns - left_ray.t_ns) <= max_delta_ns]
         if not candidates:
             continue
         right_ray = min(candidates, key=lambda ray: abs(ray.t_ns - left_ray.t_ns))
@@ -265,7 +261,16 @@ def select_graph_inliers(
     threshold_px = max(request.max_reprojection_px * 16.0, 50.0)
     for seed in seeds:
         params = np.array(
-            [seed[0], seed[1], seed[2], seed[3], seed[4], seed[5], request.drag_k0, request.time_offset_prior_ms / 1000.0],
+            [
+                seed[0],
+                seed[1],
+                seed[2],
+                seed[3],
+                seed[4],
+                seed[5],
+                request.drag_k0,
+                request.time_offset_prior_ms / 1000.0,
+            ],
             dtype=float,
         )
         inliers: List[RayObservation] = []

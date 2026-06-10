@@ -16,7 +16,7 @@ from app.events import ErrorCategory, ErrorSeverity, publish_error
 logger = get_logger(__name__)
 
 # Type variables for type-safe event handling
-EventType = TypeVar('EventType')
+EventType = TypeVar("EventType")
 EventHandler = Callable[[EventType], None]
 
 
@@ -88,8 +88,10 @@ class EventBus:
                 self._event_count[event_type] = 0
 
             self._subscribers[event_type].append(handler)
-            logger.debug(f"Subscribed handler to {event_type.__name__} "
-                        f"({len(self._subscribers[event_type])} total subscribers)")
+            logger.debug(
+                f"Subscribed handler to {event_type.__name__} "
+                f"({len(self._subscribers[event_type])} total subscribers)"
+            )
 
     def unsubscribe(self, event_type: Type[EventType], handler: EventHandler) -> bool:
         """Unregister handler for event type.
@@ -109,8 +111,10 @@ class EventBus:
 
             try:
                 self._subscribers[event_type].remove(handler)
-                logger.debug(f"Unsubscribed handler from {event_type.__name__} "
-                           f"({len(self._subscribers[event_type])} remaining)")
+                logger.debug(
+                    f"Unsubscribed handler from {event_type.__name__} "
+                    f"({len(self._subscribers[event_type])} remaining)"
+                )
                 return True
             except ValueError:
                 return False
@@ -164,9 +168,7 @@ class EventBus:
             except Exception as e:
                 failed_handlers += 1
                 logger.error(
-                    f"Event handler error for {event_type.__name__}: "
-                    f"{e.__class__.__name__}: {e}",
-                    exc_info=True
+                    f"Event handler error for {event_type.__name__}: " f"{e.__class__.__name__}: {e}", exc_info=True
                 )
 
                 # Publish error event (but don't let it crash the bus)
@@ -175,7 +177,7 @@ class EventBus:
                         category=ErrorCategory.INTERNAL,
                         severity=ErrorSeverity.WARNING,
                         message=f"Event handler failed: {e}",
-                        details=f"Event: {event_type.__name__}, Handler: {handler.__name__}"
+                        details=f"Event: {event_type.__name__}, Handler: {handler.__name__}",
                     )
                 except:
                     pass  # Last resort - don't crash on error reporting
@@ -213,11 +215,8 @@ class EventBus:
             stats = {
                 "event_types": len(self._subscribers),
                 "total_subscribers": sum(len(handlers) for handlers in self._subscribers.values()),
-                "event_counts": {
-                    event_type.__name__: count
-                    for event_type, count in self._event_count.items()
-                },
-                "uptime_seconds": time.time() - self._start_time
+                "event_counts": {event_type.__name__: count for event_type, count in self._event_count.items()},
+                "uptime_seconds": time.time() - self._start_time,
             }
         return stats
 
@@ -236,6 +235,8 @@ class EventBus:
     def __repr__(self) -> str:
         """String representation of EventBus state."""
         stats = self.get_stats()
-        return (f"EventBus(event_types={stats['event_types']}, "
-                f"subscribers={stats['total_subscribers']}, "
-                f"uptime={stats['uptime_seconds']:.1f}s)")
+        return (
+            f"EventBus(event_types={stats['event_types']}, "
+            f"subscribers={stats['total_subscribers']}, "
+            f"uptime={stats['uptime_seconds']:.1f}s)"
+        )

@@ -171,9 +171,7 @@ class CleanupManager:
 
         # Add warnings if issues detected
         if verification["threads_remaining"] > 2:  # Main + monitor thread is acceptable
-            logger.warning(
-                f"Cleanup verification: {verification['threads_remaining']} threads still active"
-            )
+            logger.warning(f"Cleanup verification: {verification['threads_remaining']} threads still active")
 
         return verification
 

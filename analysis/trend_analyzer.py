@@ -325,11 +325,7 @@ class TrendAnalyzer:
         # Calculate current vs peak velocity
         peak_velocity = max(velocities)
         current_velocity = velocities[-1]
-        velocity_vs_peak = (
-            (current_velocity - peak_velocity) / peak_velocity * 100
-            if peak_velocity > 0
-            else 0.0
-        )
+        velocity_vs_peak = (current_velocity - peak_velocity) / peak_velocity * 100 if peak_velocity > 0 else 0.0
 
         # Generate alerts
         alerts = self._generate_trend_alerts(
@@ -382,10 +378,7 @@ class TrendAnalyzer:
         )
 
         # Exclude current session and take most recent for baseline
-        baseline = [
-            s for s in recent
-            if s.session_id != session_summary.session_id
-        ]
+        baseline = [s for s in recent if s.session_id != session_summary.session_id]
 
         if len(baseline) < 2:
             return None
@@ -604,15 +597,9 @@ class TrendAnalyzer:
         positive_statuses = ["above", "significantly_above"]
 
         # Count concerning indicators
-        concerns = sum(
-            1 for s in [velocity_status, movement_status, accuracy_status]
-            if s in concerning_statuses
-        )
+        concerns = sum(1 for s in [velocity_status, movement_status, accuracy_status] if s in concerning_statuses)
 
-        positives = sum(
-            1 for s in [velocity_status, accuracy_status]
-            if s in positive_statuses
-        )
+        positives = sum(1 for s in [velocity_status, accuracy_status] if s in positive_statuses)
 
         if concerns >= 2:
             return "concerning"
@@ -645,14 +632,10 @@ class TrendAnalyzer:
 
         # Velocity alerts
         if velocity_direction == "declining" and velocity_slope < -1.0:
-            alerts.append(
-                f"Velocity declining at {abs(velocity_slope):.1f} mph per session"
-            )
+            alerts.append(f"Velocity declining at {abs(velocity_slope):.1f} mph per session")
 
         if velocity_vs_peak < -10:
-            alerts.append(
-                f"Current velocity {abs(velocity_vs_peak):.1f}% below peak performance"
-            )
+            alerts.append(f"Current velocity {abs(velocity_vs_peak):.1f}% below peak performance")
 
         # Strike percentage alerts
         if strike_direction == "declining" and strike_slope < -0.05:
@@ -660,9 +643,7 @@ class TrendAnalyzer:
 
         # Positive alerts
         if velocity_direction == "improving" and velocity_slope > 1.0:
-            alerts.append(
-                f"Velocity improving at {velocity_slope:.1f} mph per session"
-            )
+            alerts.append(f"Velocity improving at {velocity_slope:.1f} mph per session")
 
         if strike_direction == "improving" and strike_slope > 0.03:
             alerts.append("Strike percentage trending upward")
@@ -691,30 +672,20 @@ class TrendAnalyzer:
 
         # Velocity recommendations
         if velocity_pct < -5:
-            recommendations.append(
-                "Velocity below baseline - check for fatigue or mechanical issues"
-            )
+            recommendations.append("Velocity below baseline - check for fatigue or mechanical issues")
         elif velocity_pct > 8:
-            recommendations.append(
-                "Velocity above baseline - maintain current approach"
-            )
+            recommendations.append("Velocity above baseline - maintain current approach")
 
         # Movement recommendations
         total_movement = np.sqrt(h_deviation**2 + v_deviation**2)
         if total_movement > 1.5:
-            recommendations.append(
-                "Significant movement variation - review release point consistency"
-            )
+            recommendations.append("Significant movement variation - review release point consistency")
 
         # Strike percentage recommendations
         if strike_deviation < -0.10:
-            recommendations.append(
-                "Strike percentage below baseline - focus on command"
-            )
+            recommendations.append("Strike percentage below baseline - focus on command")
         elif strike_deviation > 0.10:
-            recommendations.append(
-                "Strong strike percentage - consider expanding zone usage"
-            )
+            recommendations.append("Strong strike percentage - consider expanding zone usage")
 
         return recommendations
 

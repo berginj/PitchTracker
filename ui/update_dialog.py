@@ -27,11 +27,7 @@ logger = get_logger(__name__)
 class UpdateDialog(QtWidgets.QDialog):
     """Dialog showing available update with download/install options."""
 
-    def __init__(
-        self,
-        update_info: dict,
-        parent: Optional[QtWidgets.QWidget] = None
-    ):
+    def __init__(self, update_info: dict, parent: Optional[QtWidgets.QWidget] = None):
         super().__init__(parent)
         self._style_manager = get_style_manager()
         self.setWindowTitle("Update Available")
@@ -66,7 +62,7 @@ class UpdateDialog(QtWidgets.QDialog):
 
         self._release_notes = QtWidgets.QTextEdit()
         self._release_notes.setReadOnly(True)
-        self._release_notes.setMarkdown(self._update_info['release_notes'])
+        self._release_notes.setMarkdown(self._update_info["release_notes"])
         self._release_notes.setMaximumHeight(200)
         style_message_panel(self._release_notes, "info")
         layout.addWidget(self._release_notes)
@@ -112,16 +108,17 @@ class UpdateDialog(QtWidgets.QDialog):
         layout.addWidget(latest_version, 1, 1)
 
         # Release date
-        if self._update_info['release_date']:
+        if self._update_info["release_date"]:
             date_label = QtWidgets.QLabel("Released:")
             self._style_manager.style_label(date_label, "muted")
             # Parse ISO 8601 date
             try:
                 from datetime import datetime
-                dt = datetime.fromisoformat(self._update_info['release_date'].replace('Z', '+00:00'))
+
+                dt = datetime.fromisoformat(self._update_info["release_date"].replace("Z", "+00:00"))
                 date_str = dt.strftime("%B %d, %Y")
             except Exception:
-                date_str = self._update_info['release_date']
+                date_str = self._update_info["release_date"]
             date_value = QtWidgets.QLabel(date_str)
             layout.addWidget(date_label, 2, 0)
             layout.addWidget(date_value, 2, 1)
@@ -172,9 +169,7 @@ class UpdateDialog(QtWidgets.QDialog):
         style_status_label(self._status_label, "warning", "Downloading update...")
 
         # Download in background thread
-        self._download_thread = DownloadThread(
-            self._update_info['download_url']
-        )
+        self._download_thread = DownloadThread(self._update_info["download_url"])
         self._download_thread.progress.connect(self._on_progress)
         self._download_thread.finished.connect(self._on_download_finished)
         self._download_thread.error.connect(self._on_download_error)
@@ -189,9 +184,7 @@ class UpdateDialog(QtWidgets.QDialog):
             # Update status text
             mb_downloaded = bytes_downloaded / (1024 * 1024)
             mb_total = total_bytes / (1024 * 1024)
-            self._status_label.setText(
-                f"Downloading... {mb_downloaded:.1f} MB / {mb_total:.1f} MB"
-            )
+            self._status_label.setText(f"Downloading... {mb_downloaded:.1f} MB / {mb_total:.1f} MB")
             style_status_label(
                 self._status_label,
                 "warning",
@@ -229,9 +222,7 @@ class UpdateDialog(QtWidgets.QDialog):
             show_message_dialog(
                 self,
                 "Install Later",
-                f"Installer saved to:\n{installer_path}\n\n"
-                "Run it when you're ready to update."
-                ,
+                f"Installer saved to:\n{installer_path}\n\n" "Run it when you're ready to update.",
                 tone="info",
             )
             self.accept()
@@ -279,9 +270,9 @@ class UpdateDialog(QtWidgets.QDialog):
                 with open(settings_file) as f:
                     settings = json.load(f)
 
-            settings['skipped_version'] = self._update_info['version']
+            settings["skipped_version"] = self._update_info["version"]
 
-            with open(settings_file, 'w') as f:
+            with open(settings_file, "w") as f:
                 json.dump(settings, f, indent=2)
 
         except Exception:
@@ -292,8 +283,8 @@ class DownloadThread(QtCore.QThread):
     """Background thread for downloading update."""
 
     progress = QtCore.Signal(int, int)  # bytes_downloaded, total_bytes
-    finished = QtCore.Signal(Path)      # installer_path
-    error = QtCore.Signal(str)          # error_message
+    finished = QtCore.Signal(Path)  # installer_path
+    error = QtCore.Signal(str)  # error_message
 
     def __init__(self, url: str):
         super().__init__()
@@ -302,13 +293,11 @@ class DownloadThread(QtCore.QThread):
     def run(self) -> None:
         """Download update in background."""
         try:
+
             def progress_callback(downloaded, total):
                 self.progress.emit(downloaded, total)
 
-            installer_path = download_update(
-                self._url,
-                progress_callback=progress_callback
-            )
+            installer_path = download_update(self._url, progress_callback=progress_callback)
 
             if installer_path:
                 self.finished.emit(installer_path)

@@ -68,7 +68,16 @@ def frame_to_pixmap(
     pixmap = QtGui.QPixmap.fromImage(qimage)
 
     # Draw overlays if any
-    needs_painting = overlays or detections or lane_detections or plate_detections or plate_rect or zone or trail or focus_score is not None
+    needs_painting = (
+        overlays
+        or detections
+        or lane_detections
+        or plate_detections
+        or plate_rect
+        or zone
+        or trail
+        or focus_score is not None
+    )
     if needs_painting:
         painter = QtGui.QPainter(pixmap)
 

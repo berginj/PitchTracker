@@ -35,9 +35,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _open_writer(
-    path: Path, width: int, height: int, fps: int, codec: str
-) -> cv2.VideoWriter:
+def _open_writer(path: Path, width: int, height: int, fps: int, codec: str) -> cv2.VideoWriter:
     fourcc = cv2.VideoWriter_fourcc(*codec)
     writer = cv2.VideoWriter(str(path), fourcc, fps, (width, height), True)
     if not writer.isOpened():
@@ -62,9 +60,7 @@ def _capture_loop(
 
     with csv_path.open("w", newline="") as handle:
         csv_writer = csv.writer(handle)
-        csv_writer.writerow(
-            ["camera_id", "frame_index", "t_capture_monotonic_ns"]
-        )
+        csv_writer.writerow(["camera_id", "frame_index", "t_capture_monotonic_ns"])
         while time.monotonic() < end_time:
             frame = camera.read_frame(timeout_ms=200)
             image = frame.image
@@ -74,6 +70,7 @@ def _capture_loop(
                 # Lazy-initialize buffer on first grayscale frame
                 if bgr_buffer is None or bgr_buffer.shape[:2] != image.shape:
                     import numpy as np
+
                     bgr_buffer = np.empty((image.shape[0], image.shape[1], 3), dtype=np.uint8)
 
                 # Convert using pre-allocated buffer (avoids allocation overhead)
@@ -81,9 +78,7 @@ def _capture_loop(
                 image = bgr_buffer
 
             writer.write(image)
-            csv_writer.writerow(
-                [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
-            )
+            csv_writer.writerow([frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns])
     writer.release()
 
 
@@ -129,9 +124,7 @@ def main() -> None:
     right_csv = args.out_dir / "right_timestamps.csv"
     manifest_path = args.out_dir / "manifest.json"
 
-    left_writer = _open_writer(
-        left_video, config.camera.width, config.camera.height, config.camera.fps, args.codec
-    )
+    left_writer = _open_writer(left_video, config.camera.width, config.camera.height, config.camera.fps, args.codec)
     right_writer = _open_writer(
         right_video,
         config.camera.width,

@@ -100,9 +100,7 @@ class FocusMonitorController:
         """Get current right camera focus score."""
         return self._current_right
 
-    def compute_scores(
-        self, left_image: np.ndarray, right_image: np.ndarray
-    ) -> tuple[float, float]:
+    def compute_scores(self, left_image: np.ndarray, right_image: np.ndarray) -> tuple[float, float]:
         """Compute focus scores for both camera images.
 
         Args:

@@ -360,5 +360,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n\n❌ Fatal error running benchmarks: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

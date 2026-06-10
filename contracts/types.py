@@ -48,7 +48,9 @@ class StereoObservation:
     Y: float
     Z: float
     quality: float
-    covariance: Optional[Tuple[Tuple[float, float, float], Tuple[float, float, float], Tuple[float, float, float]]] = None
+    covariance: Optional[
+        Tuple[Tuple[float, float, float], Tuple[float, float, float], Tuple[float, float, float]]
+    ] = None
     confidence: float = 0.0
 
 

@@ -19,7 +19,9 @@ def _obs(t_ns: int, x: float, y: float, z: float) -> StereoObservation:
         t_ns=t_ns,
         left=(0.0, 0.0),
         right=(0.0, 0.0),
-        X=x, Y=y, Z=z,
+        X=x,
+        Y=y,
+        Z=z,
         quality=1.0,
     )
 
@@ -60,7 +62,7 @@ class TestSimpleTracker:
         state = tracker.update(_obs(1_000_000_000, 5.0, 0.0, 0.0))
         assert len(state.samples) == 1
         # dt clamped to 1e-6, so velocity is large but finite
-        assert state.samples[0].Vx != float('inf')
+        assert state.samples[0].Vx != float("inf")
 
     def test_negative_dt_does_not_crash(self, tracker):
         tracker.update(_obs(2_000_000_000, 0.0, 0.0, 0.0))

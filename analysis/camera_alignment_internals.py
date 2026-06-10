@@ -14,8 +14,7 @@ import numpy as np
 from analysis.camera_alignment_types import AlignmentResults
 
 
-def _find_feature_matches(img1: np.ndarray, img2: np.ndarray,
-                         max_features: int) -> Tuple[np.ndarray, np.ndarray]:
+def _find_feature_matches(img1: np.ndarray, img2: np.ndarray, max_features: int) -> Tuple[np.ndarray, np.ndarray]:
     """Find corresponding feature points between two images."""
     # Convert to grayscale if needed
     if img1.ndim == 3:
@@ -150,8 +149,7 @@ def _analyze_rotation(pts1: np.ndarray, pts2: np.ndarray) -> dict:
             }
 
         # Estimate affine transform with RANSAC
-        M, mask = cv2.estimateAffinePartial2D(pts1, pts2, method=cv2.RANSAC,
-                                              ransacReprojThreshold=5.0)
+        M, mask = cv2.estimateAffinePartial2D(pts1, pts2, method=cv2.RANSAC, ransacReprojThreshold=5.0)
 
         if M is None:
             return {
@@ -288,8 +286,9 @@ def _analyze_scale(pts1: np.ndarray, pts2: np.ndarray) -> dict:
         }
 
 
-def _assess_quality(vertical_px: float, convergence_std: float,
-                   rotation_deg: float, correlation: float, scale_difference_percent: float) -> str:
+def _assess_quality(
+    vertical_px: float, convergence_std: float, rotation_deg: float, correlation: float, scale_difference_percent: float
+) -> str:
     """Assess overall alignment quality."""
     # Critical - block calibration
     if correlation < 0.3 or convergence_std > 40 or scale_difference_percent > 15:
@@ -311,9 +310,16 @@ def _assess_quality(vertical_px: float, convergence_std: float,
     return "EXCELLENT"
 
 
-def _build_messages(quality: str, vertical: dict, horizontal: dict, rotation: dict, scale: dict,
-                   rotation_correction_needed: bool, rotation_deg: float,
-                   vertical_offset_px: int) -> Tuple[str, list[str], list[str]]:
+def _build_messages(
+    quality: str,
+    vertical: dict,
+    horizontal: dict,
+    rotation: dict,
+    scale: dict,
+    rotation_correction_needed: bool,
+    rotation_deg: float,
+    vertical_offset_px: int,
+) -> Tuple[str, list[str], list[str]]:
     """Build user-facing status messages."""
     warnings = []
     corrections_applied = []
@@ -360,8 +366,11 @@ def _build_messages(quality: str, vertical: dict, horizontal: dict, rotation: di
 def _insufficient_features_result(num_matches: int) -> AlignmentResults:
     """Return result when insufficient features are detected."""
     return AlignmentResults(
-        vertical_mean_px=0, vertical_max_px=0,
-        convergence_std_px=0, correlation=0, rotation_deg=0,
+        vertical_mean_px=0,
+        vertical_max_px=0,
+        convergence_std_px=0,
+        correlation=0,
+        rotation_deg=0,
         num_matches=num_matches,
         scale_difference_percent=0.0,  # NEW
         scale_ratio=1.0,  # NEW
@@ -371,12 +380,14 @@ def _insufficient_features_result(num_matches: int) -> AlignmentResults:
         rotation_status="UNKNOWN",
         scale_status="UNKNOWN",  # NEW
         rotation_correction_needed=False,
-        rotation_left=0, rotation_right=0, vertical_offset_px=0,
+        rotation_left=0,
+        rotation_right=0,
+        vertical_offset_px=0,
         status_message="Not enough features detected",
         warnings=[
             f"Only {num_matches} features matched (need 50+)",
             "Point cameras at textured scene (posters, books, NOT blank wall)",
-            "Ensure good lighting and both cameras see common objects"
+            "Ensure good lighting and both cameras see common objects",
         ],
-        corrections_applied=[]
+        corrections_applied=[],
     )

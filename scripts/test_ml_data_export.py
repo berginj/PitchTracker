@@ -109,16 +109,10 @@ def test_ml_data_export(session_dir: Path) -> bool:
             metrics = data["performance_metrics"]
             if "detection_quality" in metrics:
                 print(f"      Observations: {metrics['detection_quality']['stereo_observations']}")
-                print(
-                    f"      Detection rate: {metrics['detection_quality']['detection_rate_hz']:.1f} Hz"
-                )
+                print(f"      Detection rate: {metrics['detection_quality']['detection_rate_hz']:.1f} Hz")
             if "timing_accuracy" in metrics:
-                print(
-                    f"      Duration: {metrics['timing_accuracy']['duration_ns'] / 1e6:.1f} ms"
-                )
-                print(
-                    f"      Pre-roll frames: {metrics['timing_accuracy']['pre_roll_frames_captured']}"
-                )
+                print(f"      Duration: {metrics['timing_accuracy']['duration_ns'] / 1e6:.1f} ms")
+                print(f"      Pre-roll frames: {metrics['timing_accuracy']['pre_roll_frames_captured']}")
             passed += 1
         else:
             print("[WARN] Manifest missing performance metrics")
@@ -138,9 +132,7 @@ def test_ml_data_export(session_dir: Path) -> bool:
         print(f"\n[SUCCESS] All ML training data export checks passed!")
         return True
     elif passed > 0:
-        print(
-            f"\n[PARTIAL] Some features may be disabled in config. Enable all ML training options:"
-        )
+        print(f"\n[PARTIAL] Some features may be disabled in config. Enable all ML training options:")
         print("  recording:")
         print("    save_detections: true")
         print("    save_observations: true")

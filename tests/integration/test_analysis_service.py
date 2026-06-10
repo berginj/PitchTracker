@@ -20,6 +20,7 @@ from metrics.strike_zone import StrikeResult
 
 # Test fixtures
 
+
 def create_test_config():
     """Create test configuration from default.yaml."""
     config_path = Path(__file__).parent.parent.parent / "configs" / "default.yaml"
@@ -29,14 +30,7 @@ def create_test_config():
 def create_test_observation(t_ns: int, x_ft: float, y_ft: float, z_ft: float) -> StereoObservation:
     """Create test stereo observation."""
     return StereoObservation(
-        t_ns=t_ns,
-        left=(100.0, 100.0),
-        right=(110.0, 100.0),
-        X=x_ft,
-        Y=y_ft,
-        Z=z_ft,
-        quality=0.9,
-        confidence=0.9
+        t_ns=t_ns, left=(100.0, 100.0), right=(110.0, 100.0), X=x_ft, Y=y_ft, Z=z_ft, quality=0.9, confidence=0.9
     )
 
 
@@ -66,7 +60,7 @@ def create_test_pitch_data(pitch_index: int, obs_count: int = 20) -> PitchData:
         end_ns=end_ns,
         first_detection_ns=first_t,
         last_detection_ns=last_t,
-        observations=observations
+        observations=observations,
     )
 
 
@@ -155,7 +149,7 @@ class TestAnalysisServicePitchAnalysis:
             end_ns=1000000,
             first_detection_ns=0,
             last_detection_ns=1000000,
-            observations=[]
+            observations=[],
         )
 
         # Should raise ValueError
@@ -199,12 +193,12 @@ class TestAnalysisServiceSessionSummary:
 
         # Publish pitch events (use event handler to update summary)
         for i in range(5):
-            pitch_data = create_test_pitch_data(i+1, obs_count=15)
+            pitch_data = create_test_pitch_data(i + 1, obs_count=15)
             event = PitchEndEvent(
                 pitch_id=f"pitch_{i:03d}",
                 observations=pitch_data.observations,
                 timestamp_ns=pitch_data.end_ns,
-                duration_ns=pitch_data.end_ns - pitch_data.start_ns
+                duration_ns=pitch_data.end_ns - pitch_data.start_ns,
             )
             bus.publish(event)
 
@@ -229,12 +223,7 @@ class TestAnalysisServiceStrikeZone:
         service = AnalysisServiceImpl(bus, config)
 
         # Create observation at plate (z=0)
-        obs = create_test_observation(
-            t_ns=1000000000,
-            x_ft=0.0,  # Center
-            y_ft=3.0,  # Mid-height
-            z_ft=0.0   # At plate
-        )
+        obs = create_test_observation(t_ns=1000000000, x_ft=0.0, y_ft=3.0, z_ft=0.0)  # Center  # Mid-height  # At plate
 
         # Calculate strike result
         result = service.calculate_strike_result(obs, config)
@@ -341,7 +330,7 @@ class TestAnalysisServiceEventBusIntegration:
             pitch_id="pitch_001",
             observations=pitch_data.observations,
             timestamp_ns=pitch_data.end_ns,
-            duration_ns=pitch_data.end_ns - pitch_data.start_ns
+            duration_ns=pitch_data.end_ns - pitch_data.start_ns,
         )
 
         bus.publish(event)
@@ -365,12 +354,12 @@ class TestAnalysisServiceEventBusIntegration:
 
         # Publish multiple events
         for i in range(5):
-            pitch_data = create_test_pitch_data(i+1, obs_count=15)
+            pitch_data = create_test_pitch_data(i + 1, obs_count=15)
             event = PitchEndEvent(
                 pitch_id=f"pitch_{i:03d}",
                 observations=pitch_data.observations,
                 timestamp_ns=pitch_data.end_ns,
-                duration_ns=pitch_data.end_ns - pitch_data.start_ns
+                duration_ns=pitch_data.end_ns - pitch_data.start_ns,
             )
             bus.publish(event)
 
@@ -406,12 +395,12 @@ class TestAnalysisServiceRecentPitchPaths:
 
         # Publish pitch events
         for i in range(3):
-            pitch_data = create_test_pitch_data(i+1, obs_count=10)
+            pitch_data = create_test_pitch_data(i + 1, obs_count=10)
             event = PitchEndEvent(
                 pitch_id=f"pitch_{i:03d}",
                 observations=pitch_data.observations,
                 timestamp_ns=pitch_data.end_ns,
-                duration_ns=pitch_data.end_ns - pitch_data.start_ns
+                duration_ns=pitch_data.end_ns - pitch_data.start_ns,
             )
             bus.publish(event)
 
@@ -435,12 +424,12 @@ class TestAnalysisServiceRecentPitchPaths:
 
         # Publish more than maxlen (10) pitches
         for i in range(15):
-            pitch_data = create_test_pitch_data(i+1, obs_count=10)
+            pitch_data = create_test_pitch_data(i + 1, obs_count=10)
             event = PitchEndEvent(
                 pitch_id=f"pitch_{i:03d}",
                 observations=pitch_data.observations,
                 timestamp_ns=pitch_data.end_ns,
-                duration_ns=pitch_data.end_ns - pitch_data.start_ns
+                duration_ns=pitch_data.end_ns - pitch_data.start_ns,
             )
             bus.publish(event)
 
@@ -465,8 +454,8 @@ class TestAnalysisServicePlateMetrics:
 
         metrics = service.get_plate_metrics()
         assert metrics is not None
-        assert hasattr(metrics, 'run_in')
-        assert hasattr(metrics, 'rise_in')
+        assert hasattr(metrics, "run_in")
+        assert hasattr(metrics, "rise_in")
 
 
 class TestAnalysisServiceSessionAnalysis:

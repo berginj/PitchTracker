@@ -31,13 +31,15 @@ class SessionHistoryTracker:
         Args:
             pitch: Pitch summary to add
         """
-        self._pitches.append({
-            "velocity": pitch.speed_mph or 0.0,
-            "is_strike": pitch.is_strike,
-            "timestamp": time.time(),
-            "zone_row": pitch.zone_row,
-            "zone_col": pitch.zone_col,
-        })
+        self._pitches.append(
+            {
+                "velocity": pitch.speed_mph or 0.0,
+                "is_strike": pitch.is_strike,
+                "timestamp": time.time(),
+                "zone_row": pitch.zone_row,
+                "zone_col": pitch.zone_col,
+            }
+        )
 
     def get_velocity_history(self) -> List[Tuple[int, float]]:
         """Get velocity history for all pitches.
@@ -58,7 +60,7 @@ class SessionHistoryTracker:
         result = []
         for i in range(len(self._pitches)):
             start = max(0, i - self._window_size + 1)
-            window = self._pitches[start:i+1]
+            window = self._pitches[start : i + 1]
             strikes = sum(1 for p in window if p["is_strike"])
             accuracy = strikes / len(window) if window else 0.0
             result.append((i, accuracy))

@@ -78,9 +78,7 @@ class CameraCapabilityDetector:
 
         # Stage 1: Warmup stability (brightness check)
         logger.info("Stage 1: Checking warmup stability...")
-        is_stable, brightness_variance = self._check_warmup_stability(
-            camera_device, num_frames=20
-        )
+        is_stable, brightness_variance = self._check_warmup_stability(camera_device, num_frames=20)
         logger.info(f"Warmup stable: {is_stable}, variance: {brightness_variance:.4f}")
 
         # Stage 2: Focus stability monitoring
@@ -104,9 +102,7 @@ class CameraCapabilityDetector:
 
         if len(focus_scores) < 10:
             logger.error("Insufficient focus score samples, cannot detect camera type")
-            return self._create_unknown_capabilities(
-                "Insufficient frame data for detection"
-            )
+            return self._create_unknown_capabilities("Insufficient frame data for detection")
 
         focus_mean = np.mean(focus_scores)
         focus_std = np.std(focus_scores)
@@ -125,9 +121,7 @@ class CameraCapabilityDetector:
         logger.info(f"UVC autofocus query: {uvc_autofocus}")
 
         # Classification logic
-        camera_type, has_autofocus = self._classify_camera(
-            focus_cv, focal_drift, uvc_autofocus
-        )
+        camera_type, has_autofocus = self._classify_camera(focus_cv, focal_drift, uvc_autofocus)
 
         # Stability score (0-100, higher = better)
         stability_score = self._compute_stability_score(focus_cv, focal_drift)
@@ -141,9 +135,7 @@ class CameraCapabilityDetector:
             focus_mode = "unknown"
 
         # Generate recommendations
-        recommendations = self._generate_recommendations(
-            camera_type, has_autofocus, stability_score, is_stable
-        )
+        recommendations = self._generate_recommendations(camera_type, has_autofocus, stability_score, is_stable)
 
         capabilities = CameraCapabilities(
             camera_type=camera_type,
@@ -159,9 +151,7 @@ class CameraCapabilityDetector:
         logger.info(f"Detection complete:\n{capabilities}")
         return capabilities
 
-    def _check_warmup_stability(
-        self, camera: CameraDevice, num_frames: int = 20
-    ) -> tuple[bool, float]:
+    def _check_warmup_stability(self, camera: CameraDevice, num_frames: int = 20) -> tuple[bool, float]:
         """Check if camera brightness is stable (not warming up).
 
         Args:
@@ -202,9 +192,7 @@ class CameraCapabilityDetector:
 
         return is_stable, variance
 
-    def _detect_focal_drift(
-        self, camera: CameraDevice, duration_s: float = 5.0
-    ) -> float:
+    def _detect_focal_drift(self, camera: CameraDevice, duration_s: float = 5.0) -> float:
         """Monitor focal length stability over time using feature matching.
 
         Captures frames at 1-second intervals and uses SIFT feature matching
@@ -250,10 +238,10 @@ class CameraCapabilityDetector:
                 if len(pts1) >= 20:
                     # Compute median distance ratio (proxy for focal length change)
                     # If focal length changes, distances between features scale proportionally
-                    dists_ref = [np.linalg.norm(pts1[j] - pts1[j+1]) for j in range(len(pts1)-1)]
-                    dists_test = [np.linalg.norm(pts2[j] - pts2[j+1]) for j in range(len(pts2)-1)]
+                    dists_ref = [np.linalg.norm(pts1[j] - pts1[j + 1]) for j in range(len(pts1) - 1)]
+                    dists_test = [np.linalg.norm(pts2[j] - pts2[j + 1]) for j in range(len(pts2) - 1)]
 
-                    ratios = [d1/d2 for d1, d2 in zip(dists_ref, dists_test) if d2 > 1.0]
+                    ratios = [d1 / d2 for d1, d2 in zip(dists_ref, dists_test) if d2 > 1.0]
                     if ratios:
                         scale_ratios.append(np.median(ratios))
                 else:

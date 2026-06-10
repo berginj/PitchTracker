@@ -51,10 +51,7 @@ class StartupDialog(QtWidgets.QDialog):
         apply_standard_layout(layout)
 
         # Header
-        header = build_dialog_header(
-            "Session Setup",
-            "Select location profile and pitcher to begin"
-        )
+        header = build_dialog_header("Session Setup", "Select location profile and pitcher to begin")
         layout.addWidget(header)
 
         # Form

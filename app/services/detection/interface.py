@@ -165,7 +165,7 @@ class DetectionService(ABC):
     def set_lane_rois(
         self,
         lane_rois: Dict[str, List[Tuple[float, float]]],
-        plate_rois: Optional[Dict[str, List[Tuple[float, float]]]] = None
+        plate_rois: Optional[Dict[str, List[Tuple[float, float]]]] = None,
     ) -> None:
         """Set ROI polygons for lane gating.
 

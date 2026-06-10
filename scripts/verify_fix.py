@@ -4,8 +4,8 @@
 import sys
 
 # Force fresh import (no cache)
-if 'app.qt_pipeline_service' in sys.modules:
-    del sys.modules['app.qt_pipeline_service']
+if "app.qt_pipeline_service" in sys.modules:
+    del sys.modules["app.qt_pipeline_service"]
 
 from app.qt_pipeline_service import QtPipelineService
 import inspect
@@ -22,7 +22,7 @@ print(f"Parameters: {params}")
 print(f"Parameter count (excluding self): {len(params)}")
 
 # Check if config_path parameter exists
-has_config_path = 'config_path' in params
+has_config_path = "config_path" in params
 
 print(f"\nHas 'config_path' parameter: {has_config_path}")
 

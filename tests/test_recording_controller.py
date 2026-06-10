@@ -134,9 +134,7 @@ class TestStartRecording:
         result = rc.start_recording()
 
         assert result is True
-        mock_deps["start_recording_service"].assert_called_once_with(
-            "test-session", "review"
-        )
+        mock_deps["start_recording_service"].assert_called_once_with("test-session", "review")
         mock_deps["status_label"].setText.assert_called_with("Recording...")
 
     @patch("ui.controllers.recording_controller.QtWidgets.QMessageBox")
@@ -247,9 +245,7 @@ class TestTrainingCapture:
         result = rc.start_training_capture()
 
         assert result is True
-        mock_deps["start_recording_service"].assert_called_once_with(
-            "training-session", "training"
-        )
+        mock_deps["start_recording_service"].assert_called_once_with("training-session", "training")
         mock_deps["status_label"].setText.assert_called_with("Training capture...")
 
     @patch("ui.controllers.recording_controller.QtWidgets.QMessageBox")

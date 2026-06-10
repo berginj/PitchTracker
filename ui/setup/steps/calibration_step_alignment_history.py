@@ -20,14 +20,16 @@ class CalibrationStepAlignmentHistoryMixin:
         from datetime import datetime
 
         # Add to history list
-        self._alignment_history.append({
-            'timestamp': datetime.now(),
-            'quality': results.quality,
-            'focal': results.scale_difference_percent,
-            'toin': results.convergence_std_px,
-            'vertical': results.vertical_mean_px,
-            'rotation': results.rotation_deg
-        })
+        self._alignment_history.append(
+            {
+                "timestamp": datetime.now(),
+                "quality": results.quality,
+                "focal": results.scale_difference_percent,
+                "toin": results.convergence_std_px,
+                "vertical": results.vertical_mean_px,
+                "rotation": results.rotation_deg,
+            }
+        )
 
         # Update history display
         history_text = ""
@@ -65,23 +67,22 @@ class CalibrationStepAlignmentHistoryMixin:
             # Create current session entry
             session_entry = {
                 "session_date": datetime.now().isoformat(),
-                "camera_serials": {
-                    "left": self._left_serial,
-                    "right": self._right_serial
-                },
-                "iterations": []
+                "camera_serials": {"left": self._left_serial, "right": self._right_serial},
+                "iterations": [],
             }
 
             # Convert history entries to serializable format
             for entry in self._alignment_history:
-                session_entry["iterations"].append({
-                    "timestamp": entry["timestamp"].isoformat(),
-                    "quality": entry["quality"],
-                    "focal_diff_percent": entry["focal"],
-                    "toin_std_px": entry["toin"],
-                    "vertical_mean_px": entry["vertical"],
-                    "rotation_deg": entry["rotation"]
-                })
+                session_entry["iterations"].append(
+                    {
+                        "timestamp": entry["timestamp"].isoformat(),
+                        "quality": entry["quality"],
+                        "focal_diff_percent": entry["focal"],
+                        "toin_std_px": entry["toin"],
+                        "vertical_mean_px": entry["vertical"],
+                        "rotation_deg": entry["rotation"],
+                    }
+                )
 
             # Append to sessions
             existing_data["sessions"].append(session_entry)

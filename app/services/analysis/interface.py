@@ -100,11 +100,7 @@ class AnalysisService(ABC):
         """
 
     @abstractmethod
-    def calculate_strike_result(
-        self,
-        obs: StereoObservation,
-        config: AppConfig
-    ) -> StrikeResult:
+    def calculate_strike_result(self, obs: StereoObservation, config: AppConfig) -> StrikeResult:
         """Calculate strike/ball result for an observation.
 
         Uses plate crossing estimation and strike zone boundaries.

@@ -57,9 +57,7 @@ class TestRunWithTimeout:
         def func_with_args(a, b, c=None):
             return f"{a}-{b}-{c}"
 
-        result = run_with_timeout(
-            func_with_args, 1.0, "ignored", 1, 2, c=3
-        )
+        result = run_with_timeout(func_with_args, 1.0, "ignored", 1, 2, c=3)
         assert result == "1-2-3"
 
     def test_custom_error_message(self):
@@ -158,11 +156,9 @@ class TestRetryOnFailure:
 
     def test_retries_on_failure(self):
         """Should retry on configured exception types."""
-        mock_func = Mock(side_effect=[
-            CameraConnectionError("fail1", "cam1"),
-            CameraConnectionError("fail2", "cam1"),
-            "success"
-        ])
+        mock_func = Mock(
+            side_effect=[CameraConnectionError("fail1", "cam1"), CameraConnectionError("fail2", "cam1"), "success"]
+        )
 
         @retry_on_failure()
         def test_func():

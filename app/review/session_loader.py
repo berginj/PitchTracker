@@ -31,6 +31,7 @@ class LoadedPitch:
         original_observations: Original 3D trajectory observations (if available)
         frame_files: List of saved frame PNG files (if available)
     """
+
     pitch_id: str
     pitch_dir: Path
     manifest: dict
@@ -61,6 +62,7 @@ class LoadedSession:
         calibration: Calibration data (if available)
         original_config: Original AppConfig used for this session
     """
+
     session_id: str
     session_dir: Path
     manifest: dict
@@ -104,9 +106,12 @@ def _validate_session_manifest(manifest: dict) -> None:
         raise PitchTrackerError("Session manifest is not a JSON object")
     # Validate path-bearing fields are strings when present
     path_fields = [
-        "session_left_video", "session_right_video",
-        "session_left_timestamps", "session_right_timestamps",
-        "session_summary", "config_path",
+        "session_left_video",
+        "session_right_video",
+        "session_left_timestamps",
+        "session_right_timestamps",
+        "session_summary",
+        "config_path",
     ]
     for field in path_fields:
         value = manifest.get(field)
@@ -167,10 +172,14 @@ class SessionLoader:
 
         sessions = []
         for item in recordings_dir.iterdir():
-            if item.is_dir() and SessionLoader._find_existing_path(
-                item,
-                SessionLoader._SESSION_MANIFEST_CANDIDATES,
-            ) is not None:
+            if (
+                item.is_dir()
+                and SessionLoader._find_existing_path(
+                    item,
+                    SessionLoader._SESSION_MANIFEST_CANDIDATES,
+                )
+                is not None
+            ):
                 sessions.append(item)
 
         # Sort by name (which includes timestamp) in descending order
@@ -203,10 +212,13 @@ class SessionLoader:
             return False, f"Path is not a directory: {session_dir}"
 
         # Check for required session files
-        if SessionLoader._find_existing_path(
-            session_dir,
-            SessionLoader._SESSION_MANIFEST_CANDIDATES,
-        ) is None:
+        if (
+            SessionLoader._find_existing_path(
+                session_dir,
+                SessionLoader._SESSION_MANIFEST_CANDIDATES,
+            )
+            is None
+        ):
             return False, "Missing required files: manifest.json or session_manifest.json"
 
         manifest_path = SessionLoader._find_existing_path(
@@ -222,8 +234,12 @@ class SessionLoader:
                 return False, f"Failed to parse session manifest: {manifest_path}"
 
         # Check for session videos (at least one should exist)
-        session_left = _safe_path(session_dir, manifest.get("session_left_video", "session_left.avi"), "session_left.avi")
-        session_right = _safe_path(session_dir, manifest.get("session_right_video", "session_right.avi"), "session_right.avi")
+        session_left = _safe_path(
+            session_dir, manifest.get("session_left_video", "session_left.avi"), "session_left.avi"
+        )
+        session_right = _safe_path(
+            session_dir, manifest.get("session_right_video", "session_right.avi"), "session_right.avi"
+        )
 
         if not session_left.exists() and not session_right.exists():
             return False, "Session videos not found (session_left.avi or session_right.avi)"
@@ -266,7 +282,7 @@ class SessionLoader:
         if manifest_path is None:
             raise ValueError(f"Invalid session: manifest not found in {session_dir}")
         try:
-            with open(manifest_path, 'r') as f:
+            with open(manifest_path, "r") as f:
                 manifest = json.load(f)
         except json.JSONDecodeError as e:
             raise ValueError(f"Failed to parse session manifest: {e}")
@@ -277,17 +293,31 @@ class SessionLoader:
         session_id = manifest.get("session_id") or manifest.get("session_name") or session_dir.name
 
         # Load session-level video paths (with path safety)
-        left_video_path = _safe_path(session_dir, manifest.get("session_left_video", "session_left.avi"), "session_left.avi")
-        right_video_path = _safe_path(session_dir, manifest.get("session_right_video", "session_right.avi"), "session_right.avi")
-        left_timestamps_path = _safe_path(session_dir, manifest.get("session_left_timestamps", "session_left_timestamps.csv"), "session_left_timestamps.csv")
-        right_timestamps_path = _safe_path(session_dir, manifest.get("session_right_timestamps", "session_right_timestamps.csv"), "session_right_timestamps.csv")
+        left_video_path = _safe_path(
+            session_dir, manifest.get("session_left_video", "session_left.avi"), "session_left.avi"
+        )
+        right_video_path = _safe_path(
+            session_dir, manifest.get("session_right_video", "session_right.avi"), "session_right.avi"
+        )
+        left_timestamps_path = _safe_path(
+            session_dir,
+            manifest.get("session_left_timestamps", "session_left_timestamps.csv"),
+            "session_left_timestamps.csv",
+        )
+        right_timestamps_path = _safe_path(
+            session_dir,
+            manifest.get("session_right_timestamps", "session_right_timestamps.csv"),
+            "session_right_timestamps.csv",
+        )
 
         # Load session summary if available
         session_summary = None
-        summary_path = _safe_path(session_dir, manifest.get("session_summary", "session_summary.json"), "session_summary.json")
+        summary_path = _safe_path(
+            session_dir, manifest.get("session_summary", "session_summary.json"), "session_summary.json"
+        )
         if summary_path.exists():
             try:
-                with open(summary_path, 'r') as f:
+                with open(summary_path, "r") as f:
                     session_summary = json.load(f)
                 logger.debug(f"Loaded session summary: {summary_path}")
             except Exception as e:
@@ -352,10 +382,14 @@ class SessionLoader:
 
         # Find all pitch directories
         for item in session_dir.iterdir():
-            if item.is_dir() and SessionLoader._find_existing_path(
-                item,
-                SessionLoader._PITCH_MANIFEST_CANDIDATES,
-            ) is not None:
+            if (
+                item.is_dir()
+                and SessionLoader._find_existing_path(
+                    item,
+                    SessionLoader._PITCH_MANIFEST_CANDIDATES,
+                )
+                is not None
+            ):
                 try:
                     pitch = SessionLoader._load_pitch(item)
                     pitches.append(pitch)
@@ -393,7 +427,7 @@ class SessionLoader:
             raise FileNotFoundError(f"Pitch manifest not found in {pitch_dir}")
 
         try:
-            with open(manifest_path, 'r') as f:
+            with open(manifest_path, "r") as f:
                 manifest = json.load(f)
         except json.JSONDecodeError as e:
             raise ValueError(f"Failed to parse pitch manifest: {e}")
@@ -405,8 +439,12 @@ class SessionLoader:
         # Get video paths from manifest (with path safety)
         left_video_path = _safe_path(pitch_dir, manifest.get("left_video", "left.avi"), "left.avi")
         right_video_path = _safe_path(pitch_dir, manifest.get("right_video", "right.avi"), "right.avi")
-        left_timestamps_path = _safe_path(pitch_dir, manifest.get("left_timestamps", "left_timestamps.csv"), "left_timestamps.csv")
-        right_timestamps_path = _safe_path(pitch_dir, manifest.get("right_timestamps", "right_timestamps.csv"), "right_timestamps.csv")
+        left_timestamps_path = _safe_path(
+            pitch_dir, manifest.get("left_timestamps", "left_timestamps.csv"), "left_timestamps.csv"
+        )
+        right_timestamps_path = _safe_path(
+            pitch_dir, manifest.get("right_timestamps", "right_timestamps.csv"), "right_timestamps.csv"
+        )
 
         # Load original detections if available
         detections_left = None
@@ -416,7 +454,7 @@ class SessionLoader:
         )
         if detections_left_path is not None and detections_left_path.exists():
             try:
-                with open(detections_left_path, 'r') as f:
+                with open(detections_left_path, "r") as f:
                     detections_left = json.load(f)
             except Exception as e:
                 logger.debug(f"Failed to load left detections for {pitch_id}: {e}")
@@ -428,7 +466,7 @@ class SessionLoader:
         )
         if detections_right_path is not None and detections_right_path.exists():
             try:
-                with open(detections_right_path, 'r') as f:
+                with open(detections_right_path, "r") as f:
                     detections_right = json.load(f)
             except Exception as e:
                 logger.debug(f"Failed to load right detections for {pitch_id}: {e}")
@@ -441,7 +479,7 @@ class SessionLoader:
         )
         if observations_path is not None and observations_path.exists():
             try:
-                with open(observations_path, 'r') as f:
+                with open(observations_path, "r") as f:
                     observations = json.load(f)
             except Exception as e:
                 logger.debug(f"Failed to load observations for {pitch_id}: {e}")

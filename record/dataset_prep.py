@@ -86,9 +86,7 @@ def main() -> None:
             filename = f"{args.prefix}_{frame_index:06d}.jpg"
             out_path = images_dir / filename
             cv2.imwrite(str(out_path), frame)
-            writer.writerow(
-                [filename, frame_index, timestamps.get(frame_index, "")]
-            )
+            writer.writerow([filename, frame_index, timestamps.get(frame_index, "")])
             saved += 1
 
     capture.release()

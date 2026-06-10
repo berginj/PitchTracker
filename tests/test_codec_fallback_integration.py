@@ -9,6 +9,7 @@ import shutil
 # Try to import cv2, skip tests if not available
 try:
     import cv2
+
     CV2_AVAILABLE = True
 except ImportError:
     CV2_AVAILABLE = False
@@ -70,7 +71,7 @@ class TestCodecFallbackIntegration(unittest.TestCase):
 
             # Get codec name from fourcc
             codec_bytes = [(fourcc >> (8 * i)) & 0xFF for i in range(4)]
-            codec_name = ''.join([chr(b) for b in codec_bytes])
+            codec_name = "".join([chr(b) for b in codec_bytes])
             failed_codecs.append(codec_name)
 
             # Fail first 2 codecs (MJPG, XVID), succeed on 3rd (H264)
@@ -85,7 +86,7 @@ class TestCodecFallbackIntegration(unittest.TestCase):
                 # Succeed on third try
                 return original_vw(path, fourcc, fps, frameSize, isColor)
 
-        with patch('cv2.VideoWriter', side_effect=mock_video_writer):
+        with patch("cv2.VideoWriter", side_effect=mock_video_writer):
             try:
                 writer = recorder._open_video_writer(video_path, 640, 480, 30)
                 self.assertTrue(writer.isOpened())
@@ -114,7 +115,7 @@ class TestCodecFallbackIntegration(unittest.TestCase):
             mock_writer.release = Mock()
             return mock_writer
 
-        with patch('cv2.VideoWriter', side_effect=mock_failed_writer):
+        with patch("cv2.VideoWriter", side_effect=mock_failed_writer):
             # Should raise RuntimeError when all codecs fail
             with self.assertRaises(RuntimeError) as context:
                 recorder._open_video_writer(video_path, 640, 480, 30)
@@ -185,7 +186,7 @@ class TestCodecFallbackIntegration(unittest.TestCase):
                 t_received_monotonic_ns=1000000000,
                 width=640,
                 height=480,
-                camera_id="test"
+                camera_id="test",
             )
 
             # Write some frames
@@ -195,10 +196,7 @@ class TestCodecFallbackIntegration(unittest.TestCase):
 
             # Stop recording
             recorder.stop_recording(
-                config_path="test_config.yaml",
-                pitch_id="test_pitch",
-                session_name="test_session",
-                record_mode="test"
+                config_path="test_config.yaml", pitch_id="test_pitch", session_name="test_session", record_mode="test"
             )
 
             # Verify video files exist
@@ -221,7 +219,7 @@ class TestCodecFallbackIntegration(unittest.TestCase):
                     config_path="test_config.yaml",
                     pitch_id="test_pitch",
                     session_name="test_session",
-                    record_mode="test"
+                    record_mode="test",
                 )
 
     def test_codec_fallback_publishes_errors(self):
@@ -248,7 +246,7 @@ class TestCodecFallbackIntegration(unittest.TestCase):
             mock_writer.release = Mock()
             return mock_writer
 
-        with patch('cv2.VideoWriter', side_effect=mock_failed_writer):
+        with patch("cv2.VideoWriter", side_effect=mock_failed_writer):
             try:
                 recorder._open_video_writer(video_path, 640, 480, 30)
             except RuntimeError:

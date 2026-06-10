@@ -82,7 +82,7 @@ def test_triangulation_off_center():
     disparity = geometry.baseline_ft * geometry.focal_length_px / depth_ft  # 40 pixels
 
     left_u = 1200.0  # Offset right
-    left_v = 400.0   # Offset up
+    left_v = 400.0  # Offset up
     right_u = left_u - disparity
     right_v = left_v
 
@@ -203,11 +203,11 @@ def test_zero_disparity_handling():
     # In real code, this should be handled gracefully
     # Either return inf, None, or a very large number
     if disparity == 0:
-        computed_depth = float('inf')
+        computed_depth = float("inf")
     else:
         computed_depth = (geometry.baseline_ft * geometry.focal_length_px) / disparity
 
-    assert computed_depth == float('inf') or computed_depth > 1000.0
+    assert computed_depth == float("inf") or computed_depth > 1000.0
 
 
 def test_calibrated_stereo_triangulates_with_full_matrices():

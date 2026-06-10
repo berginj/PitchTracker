@@ -86,8 +86,7 @@ class UvcCamera(CameraDevice):
                         raise ValueError(f"Camera index must be non-negative, got: {index}")
                     if index > 15:
                         logger.warning(
-                            f"Camera index {index} is unusually high (>15). "
-                            "This may indicate an incorrect index."
+                            f"Camera index {index} is unusually high (>15). " "This may indicate an incorrect index."
                         )
                     capture = cv2.VideoCapture(index, cv2.CAP_DSHOW)
                 else:
@@ -123,7 +122,9 @@ class UvcCamera(CameraDevice):
                 camera_id=serial,
             )
 
-    def set_mode(self, width: int, height: int, fps: int, pixfmt: str, flip_180: bool = False, rotation_correction: float = 0.0) -> None:
+    def set_mode(
+        self, width: int, height: int, fps: int, pixfmt: str, flip_180: bool = False, rotation_correction: float = 0.0
+    ) -> None:
         """Set camera capture mode.
 
         Args:
@@ -161,7 +162,7 @@ class UvcCamera(CameraDevice):
             actual_height = self._capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
             actual_fps = self._capture.get(cv2.CAP_PROP_FPS)
 
-            if (actual_width != width or actual_height != height):
+            if actual_width != width or actual_height != height:
                 logger.warning(
                     f"Camera mode mismatch: requested {width}x{height}@{fps}fps, "
                     f"got {actual_width}x{actual_height}@{actual_fps}fps"
@@ -240,9 +241,9 @@ class UvcCamera(CameraDevice):
             delta_s = delta_ns / 1e9
             if delta_s > 0:
                 self._stats.fps_instant = 1.0 / delta_s
-                self._stats.fps_avg = (
-                    (self._stats.fps_avg * self._stats.frames) + self._stats.fps_instant
-                ) / (self._stats.frames + 1)
+                self._stats.fps_avg = ((self._stats.fps_avg * self._stats.frames) + self._stats.fps_instant) / (
+                    self._stats.frames + 1
+                )
         self._stats.frames += 1
         self._stats.last_frame_ns = now_ns
         return Frame(
@@ -285,6 +286,7 @@ class UvcCamera(CameraDevice):
         logger.info(f"Closing UVC camera {self._serial}")
 
         try:
+
             def _release():
                 if self._capture is not None:
                     self._capture.release()
@@ -322,21 +324,19 @@ class UvcCamera(CameraDevice):
         """
         try:
             from capture.device_discovery import list_uvc_devices
+
             devices = list_uvc_devices()
-            matches = [
-                dev for dev in devices if dev["serial"].lower() == serial.lower()
-            ]
+            matches = [dev for dev in devices if dev["serial"].lower() == serial.lower()]
 
             if not matches:
                 if serial.isdigit():
                     logger.debug(f"Using numeric index for camera: {serial}")
                     return serial
 
-                available_serials = [dev['serial'] for dev in devices]
+                available_serials = [dev["serial"] for dev in devices]
                 logger.error(f"Camera not found: {serial}. Available: {available_serials}")
                 raise CameraNotFoundError(
-                    f"No camera found with serial '{serial}'. "
-                    f"Available serials: {available_serials}",
+                    f"No camera found with serial '{serial}'. " f"Available serials: {available_serials}",
                     camera_id=serial,
                 )
 
@@ -364,4 +364,5 @@ class UvcCamera(CameraDevice):
 def list_uvc_devices() -> list[dict[str, str]]:
     """Return UVC camera devices with friendly names and serials."""
     from capture.device_discovery import list_uvc_devices as _discover
+
     return _discover()

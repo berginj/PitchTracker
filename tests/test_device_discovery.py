@@ -53,9 +53,7 @@ class TestUVCDeviceProbing:
     def test_probe_uvc_devices_caching(self):
         """Should cache results to avoid repeated PowerShell calls."""
         with patch("ui.device_utils.list_uvc_devices") as mock_list:
-            mock_list.return_value = [
-                {"serial": "TEST1", "friendly_name": "Test Camera"}
-            ]
+            mock_list.return_value = [{"serial": "TEST1", "friendly_name": "Test Camera"}]
 
             # First call should query
             devices1 = probe_uvc_devices(use_cache=True)
@@ -71,9 +69,7 @@ class TestUVCDeviceProbing:
     def test_probe_uvc_devices_bypass_cache(self):
         """Should bypass cache when use_cache=False."""
         with patch("ui.device_utils.list_uvc_devices") as mock_list:
-            mock_list.return_value = [
-                {"serial": "TEST1", "friendly_name": "Test Camera"}
-            ]
+            mock_list.return_value = [{"serial": "TEST1", "friendly_name": "Test Camera"}]
 
             # First call with cache
             probe_uvc_devices(use_cache=True)
@@ -86,9 +82,7 @@ class TestUVCDeviceProbing:
     def test_clear_device_cache(self):
         """Cache should be cleared when clear_device_cache() is called."""
         with patch("ui.device_utils.list_uvc_devices") as mock_list:
-            mock_list.return_value = [
-                {"serial": "TEST1", "friendly_name": "Test Camera"}
-            ]
+            mock_list.return_value = [{"serial": "TEST1", "friendly_name": "Test Camera"}]
 
             # Prime cache
             probe_uvc_devices(use_cache=True)
@@ -147,9 +141,7 @@ class TestOpenCVIndexProbing:
 
             mock_instance.isOpened.side_effect = is_opened_side_effect
 
-            indices = probe_opencv_indices(
-                max_index=4, parallel=False, use_cache=False
-            )
+            indices = probe_opencv_indices(max_index=4, parallel=False, use_cache=False)
 
             assert 1 in indices
             assert len(indices) == 1
@@ -204,9 +196,7 @@ class TestUnifiedProbing:
     def test_prefers_uvc_when_available(self):
         """Should use UVC devices when available, skip OpenCV."""
         with patch("ui.device_utils.list_uvc_devices") as mock_uvc:
-            mock_uvc.return_value = [
-                {"serial": "UVC1", "friendly_name": "UVC Camera"}
-            ]
+            mock_uvc.return_value = [{"serial": "UVC1", "friendly_name": "UVC Camera"}]
 
             with patch("cv2.VideoCapture") as mock_cv:
                 uvc_devices, opencv_indices = probe_all_devices(use_cache=False)
@@ -240,9 +230,7 @@ class TestUnifiedProbing:
     def test_caching_applies_to_unified_probe(self):
         """Caching should work for unified probe."""
         with patch("ui.device_utils.list_uvc_devices") as mock_uvc:
-            mock_uvc.return_value = [
-                {"serial": "TEST1", "friendly_name": "Test Camera"}
-            ]
+            mock_uvc.return_value = [{"serial": "TEST1", "friendly_name": "Test Camera"}]
 
             # First call
             probe_all_devices(use_cache=True)
@@ -262,10 +250,7 @@ class TestDeviceDiscoveryPerformance:
 
         with patch("ui.device_utils.list_uvc_devices") as mock_list:
             # Simulate fast PowerShell query
-            mock_list.return_value = [
-                {"serial": f"CAM{i}", "friendly_name": f"Camera {i}"}
-                for i in range(10)
-            ]
+            mock_list.return_value = [{"serial": f"CAM{i}", "friendly_name": f"Camera {i}"} for i in range(10)]
 
             start = time.monotonic()
             devices = probe_uvc_devices(use_cache=False)
@@ -280,9 +265,7 @@ class TestDeviceDiscoveryPerformance:
         import time
 
         with patch("ui.device_utils.list_uvc_devices") as mock_list:
-            mock_list.return_value = [
-                {"serial": "TEST1", "friendly_name": "Test Camera"}
-            ]
+            mock_list.return_value = [{"serial": "TEST1", "friendly_name": "Test Camera"}]
 
             # Prime cache
             probe_uvc_devices(use_cache=True)

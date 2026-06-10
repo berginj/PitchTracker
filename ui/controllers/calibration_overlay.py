@@ -134,9 +134,7 @@ class CalibrationOverlayController:
             return image
         return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    def process_target_detection(
-        self, frame_image: np.ndarray
-    ) -> Optional[list[tuple[float, float]]]:
+    def process_target_detection(self, frame_image: np.ndarray) -> Optional[list[tuple[float, float]]]:
         """Process frame for checkerboard detection.
 
         Only processes every N frames based on stride setting.
@@ -156,17 +154,13 @@ class CalibrationOverlayController:
             found, corners = cv2.findChessboardCorners(gray, self._target_pattern)
             self._target_found = bool(found)
             if found and corners is not None:
-                self._target_corners = [
-                    (float(pt[0][0]), float(pt[0][1])) for pt in corners
-                ]
+                self._target_corners = [(float(pt[0][0]), float(pt[0][1])) for pt in corners]
             else:
                 self._target_corners = None
 
         return self._target_corners
 
-    def process_fiducial_detection(
-        self, frame_image: np.ndarray
-    ) -> Optional[list[FiducialDetection]]:
+    def process_fiducial_detection(self, frame_image: np.ndarray) -> Optional[list[FiducialDetection]]:
         """Process frame for fiducial (AprilTag) detection.
 
         Only processes every N frames based on stride setting.

@@ -179,9 +179,7 @@ class SessionSummaryDialog(QtWidgets.QDialog):
 
         table = QtWidgets.QTableWidget(len(self._summary.pitches), 7)
         style_data_table(table)
-        table.setHorizontalHeaderLabels(
-            ["Pitch", "Strike", "Zone", "Run (in)", "Rise (in)", "Speed", "Rotation"]
-        )
+        table.setHorizontalHeaderLabels(["Pitch", "Strike", "Zone", "Run (in)", "Rise (in)", "Speed", "Rotation"])
         table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         table.setMinimumHeight(320)
 

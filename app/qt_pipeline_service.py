@@ -103,7 +103,9 @@ class QtPipelineService(QtCore.QObject):
         """Check if capturing (delegates to underlying service)."""
         return self._service.is_capturing()
 
-    def start_recording(self, pitch_id: Optional[str] = None, session_name: Optional[str] = None, mode: Optional[str] = None) -> str:
+    def start_recording(
+        self, pitch_id: Optional[str] = None, session_name: Optional[str] = None, mode: Optional[str] = None
+    ) -> str:
         """Start recording (delegates to underlying service).
 
         Note: Pitch events are automatically handled via EventBus subscriptions

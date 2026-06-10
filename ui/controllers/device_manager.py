@@ -87,9 +87,7 @@ class DeviceManager:
             Number of devices found
         """
         devices = probe_uvc_devices()  # Already sorted with ArduCam first
-        arducam_count = sum(
-            1 for d in devices if is_arducam_device(d.get("friendly_name", ""))
-        )
+        arducam_count = sum(1 for d in devices if is_arducam_device(d.get("friendly_name", "")))
 
         for device in devices:
             label = f"{device['serial']} - {device['friendly_name']}"

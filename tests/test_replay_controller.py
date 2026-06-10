@@ -130,9 +130,7 @@ class TestStartReplay:
         result = rc.start_replay()
 
         assert result is False
-        mock_deps["status_label"].setText.assert_called_with(
-            "Failed to open replay video."
-        )
+        mock_deps["status_label"].setText.assert_called_with("Failed to open replay video.")
 
     @patch("ui.controllers.replay_controller.cv2.VideoCapture")
     @patch("ui.controllers.replay_controller.QtWidgets.QFileDialog.getOpenFileName")
@@ -343,9 +341,7 @@ class TestUpdateReplay:
     @patch("ui.controllers.replay_controller.frame_to_pixmap")
     @patch("ui.controllers.replay_controller.cv2.VideoCapture")
     @patch("ui.controllers.replay_controller.QtWidgets.QFileDialog.getOpenFileName")
-    def test_update_replay_end_of_video(
-        self, mock_dialog, mock_cv_capture, mock_pixmap, mock_deps
-    ):
+    def test_update_replay_end_of_video(self, mock_dialog, mock_cv_capture, mock_pixmap, mock_deps):
         """update_replay should stop when video ends."""
         mock_dialog.return_value = ("test.avi", "")
         mock_capture = Mock()
@@ -406,9 +402,7 @@ class TestStepFrame:
 
     @patch("ui.controllers.replay_controller.cv2.VideoCapture")
     @patch("ui.controllers.replay_controller.QtWidgets.QFileDialog.getOpenFileName")
-    def test_step_frame_advances_one_frame(
-        self, mock_dialog, mock_cv_capture, mock_deps
-    ):
+    def test_step_frame_advances_one_frame(self, mock_dialog, mock_cv_capture, mock_deps):
         """step_frame should advance by one frame and pause."""
         mock_dialog.return_value = ("test.avi", "")
         mock_capture = Mock()

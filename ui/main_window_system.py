@@ -143,8 +143,7 @@ class MainWindowSystemMixin:
                 show_message_dialog(
                     None,
                     "Configuration Error",
-                    f"Configuration validation failed:\n\n{error_text}\n\n"
-                    f"Please fix these errors in {config_path}",
+                    f"Configuration validation failed:\n\n{error_text}\n\n" f"Please fix these errors in {config_path}",
                     tone="error",
                 )
                 import sys
@@ -153,9 +152,7 @@ class MainWindowSystemMixin:
 
             warnings = [item for item in issues if item.severity == "warning"]
             if warnings:
-                warning_text = "\n".join(
-                    f"• {item.field}: {item.message}" for item in warnings
-                )
+                warning_text = "\n".join(f"• {item.field}: {item.message}" for item in warnings)
                 show_message_dialog(
                     None,
                     "Configuration Warnings",
@@ -178,9 +175,7 @@ class MainWindowSystemMixin:
         """Initialize error handling system."""
         self._error_bus = get_error_bus()
         self._recovery_manager = get_recovery_manager()
-        self._recovery_manager.register_handler(
-            "stop_session", lambda event: self._stop_recording()
-        )
+        self._recovery_manager.register_handler("stop_session", lambda event: self._stop_recording())
         self._recovery_manager.register_handler("shutdown", lambda event: self.close())
         self._recovery_manager.start()
         logger.info("Error handling system initialized")
@@ -220,9 +215,7 @@ class MainWindowSystemMixin:
         )
         self._cleanup_manager.register_cleanup(
             "stop_recording",
-            lambda: self._service.stop_recording()
-            if hasattr(self, "_service")
-            else None,
+            lambda: self._service.stop_recording() if hasattr(self, "_service") else None,
             timeout=10.0,
             critical=True,
         )

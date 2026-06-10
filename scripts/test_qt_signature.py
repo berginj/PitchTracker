@@ -13,16 +13,12 @@ print(f"  Count: {len(sig.parameters)}")
 
 # Test call signature
 from unittest.mock import Mock
+
 service._service = Mock()
 
 # This should work without error
 try:
-    service.start_capture(
-        config=Mock(),
-        left_serial="test_left",
-        right_serial="test_right",
-        config_path="test_path"
-    )
+    service.start_capture(config=Mock(), left_serial="test_left", right_serial="test_right", config_path="test_path")
     print("\nSUCCESS: Method accepts 4 arguments (5 with self)")
 except TypeError as e:
     print(f"\nERROR: {e}")

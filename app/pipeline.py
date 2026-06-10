@@ -62,9 +62,7 @@ def build_lane_gate(
     return LaneGate(roi_by_camera={left_id: roi, right_id: roi})
 
 
-def load_lane_polygon(
-    roi_path: Path, left_id: str, right_id: str
-) -> list[tuple[float, float]] | None:
+def load_lane_polygon(roi_path: Path, left_id: str, right_id: str) -> list[tuple[float, float]] | None:
     rois = load_rois(roi_path)
     lane = rois.get("lane")
     if lane:
@@ -85,9 +83,7 @@ def load_plate_polygon(roi_path: Path) -> list[tuple[float, float]] | None:
     return None
 
 
-def gate_detections(
-    lane_gate: LaneGate, detections: Iterable[Detection], frame_index: int
-) -> List[Detection]:
+def gate_detections(lane_gate: LaneGate, detections: Iterable[Detection], frame_index: int) -> List[Detection]:
     allowed = lane_gate.filter_detections(detections)
     allowed_set = set(allowed)
     dropped = [detection for detection in detections if detection not in allowed_set]
@@ -191,11 +187,7 @@ def run_pipeline(
         detector = ClassicalDetector(
             config=detector_cfg,
             mode=Mode(config.detector.mode),
-            roi_by_camera=(
-                {left_id: lane_polygon, right_id: lane_polygon}
-                if lane_polygon
-                else None
-            ),
+            roi_by_camera=({left_id: lane_polygon, right_id: lane_polygon} if lane_polygon else None),
         )
     lane_gate = build_lane_gate(
         config.camera.width,

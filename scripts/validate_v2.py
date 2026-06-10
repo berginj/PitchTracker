@@ -127,11 +127,7 @@ def test_ramp_up_observations() -> TestResult:
     """Test observations during ramp-up are captured."""
     result = TestResult("Ramp-up Observation Capture")
     try:
-        config = PitchConfig(
-            min_active_frames=5,
-            min_duration_ms=100.0,  # Need minimum duration
-            frame_rate=30.0
-        )
+        config = PitchConfig(min_active_frames=5, min_duration_ms=100.0, frame_rate=30.0)  # Need minimum duration
         sm = PitchStateMachineV2(config)
 
         ramp_up_obs: List = []
@@ -158,7 +154,9 @@ def test_ramp_up_observations() -> TestResult:
         if not start_called:
             events = sm.get_event_log()
             last_events = [e for e in events[-10:]]
-            raise AssertionError(f"Pitch start callback should have been called (phase={sm.get_phase().value}, events={last_events})")
+            raise AssertionError(
+                f"Pitch start callback should have been called (phase={sm.get_phase().value}, events={last_events})"
+            )
 
         # Verify observations were captured (should have 5 from ramp-up + 1 from post-transition)
         assert len(ramp_up_obs) >= 5, f"Should capture at least 5 observations from ramp-up, got {len(ramp_up_obs)}"

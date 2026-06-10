@@ -83,12 +83,11 @@ def _speed_reference(result: TrajectoryFitResult, request: TrajectoryFitRequest)
 
 
 def _speed_mph(sample) -> float:
-    speed_ft_s = (sample.Vx ** 2 + sample.Vy ** 2 + sample.Vz ** 2) ** 0.5
+    speed_ft_s = (sample.Vx**2 + sample.Vy**2 + sample.Vz**2) ** 0.5
     return float(speed_ft_s * 0.681818)
 
 
 def _radar_inlier_probability(residual_mph: float) -> float:
     sigma = 2.0
-    prob = float(np.exp(-(residual_mph ** 2) / (2 * sigma * sigma)))
+    prob = float(np.exp(-(residual_mph**2) / (2 * sigma * sigma)))
     return prob
-

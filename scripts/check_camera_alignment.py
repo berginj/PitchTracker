@@ -50,9 +50,11 @@ from typing import Tuple
 print("Importing cv2...")
 sys.stdout.flush()
 import cv2
+
 print("Importing numpy...")
 sys.stdout.flush()
 import numpy as np
+
 print("Imports successful!\n")
 sys.stdout.flush()
 
@@ -65,7 +67,9 @@ def load_frame(path: Path) -> np.ndarray:
     return img
 
 
-def capture_frame_pair(backend: str = "opencv", left_camera: str = "0", right_camera: str = "1") -> Tuple[np.ndarray, np.ndarray]:
+def capture_frame_pair(
+    backend: str = "opencv", left_camera: str = "0", right_camera: str = "1"
+) -> Tuple[np.ndarray, np.ndarray]:
     """Capture a single frame pair from cameras.
 
     Args:
@@ -85,10 +89,10 @@ def capture_frame_pair(backend: str = "opencv", left_camera: str = "0", right_ca
     # Temporarily restore console for user input
     sys.stdout = _original_stdout
     sys.stderr = _original_stderr
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("Point cameras at a textured scene (posters, books, NOT blank wall)")
     print("Make sure both cameras can see the same objects")
-    print("="*70)
+    print("=" * 70)
     input("Press ENTER to capture frames...")
 
     # Restore log file output
@@ -116,6 +120,7 @@ def capture_frame_pair(backend: str = "opencv", left_camera: str = "0", right_ca
 
             print("Warming up cameras (3 seconds)...")
             import time
+
             time.sleep(3)
 
             # Capture frames
@@ -471,9 +476,9 @@ def print_alignment_report(vertical: dict, horizontal: dict, rotation: dict, num
 
 def main():
     # Print header immediately so user knows script started
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("CAMERA ALIGNMENT CHECKER")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")
 
     parser = argparse.ArgumentParser(
         description="Check stereo camera alignment",
@@ -491,7 +496,7 @@ Examples:
 
   # Check existing images
   python scripts/check_camera_alignment.py --left left.png --right right.png
-        """
+        """,
     )
     parser.add_argument("--left", type=Path, help="Path to left camera image")
     parser.add_argument("--right", type=Path, help="Path to right camera image")
@@ -499,7 +504,11 @@ Examples:
     parser.add_argument("--backend", default="opencv", choices=["opencv", "uvc"], help="Camera backend for capture")
     parser.add_argument("--left-camera", default="0", help="Left camera identifier (default: 0)")
     parser.add_argument("--right-camera", default="1", help="Right camera identifier (default: 1)")
-    parser.add_argument("--save", action="store_true", help="Save captured frames to alignment_check_left.png and alignment_check_right.png")
+    parser.add_argument(
+        "--save",
+        action="store_true",
+        help="Save captured frames to alignment_check_left.png and alignment_check_right.png",
+    )
 
     args = parser.parse_args()
 
@@ -543,9 +552,9 @@ Examples:
         overall_pass = print_alignment_report(vertical, horizontal, rotation, len(pts1))
 
         # Pause before exit on Windows so user can read results
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("Analysis complete!")
-        print("="*70)
+        print("=" * 70)
 
         # Restore console output
         sys.stdout = _original_stdout
@@ -566,13 +575,13 @@ Examples:
     except ValueError as e:
         print(f"\n{'='*70}")
         print(f"ERROR: {e}")
-        print("="*70)
+        print("=" * 70)
         print("\nTips:")
         print("  - Point cameras at textured scene (posters, furniture, etc.)")
         print("  - Avoid blank walls or low-contrast surfaces")
         print("  - Ensure good lighting")
         print("  - Make sure camera indices are correct (--left-camera 0 --right-camera 1)")
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
 
         # Restore console output
         sys.stdout = _original_stdout
@@ -590,10 +599,11 @@ Examples:
     except Exception as e:
         print(f"\n{'='*70}")
         print(f"UNEXPECTED ERROR: {e}")
-        print("="*70)
+        print("=" * 70)
         import traceback
+
         traceback.print_exc()
-        print("="*70)
+        print("=" * 70)
 
         # Restore console output
         sys.stdout = _original_stdout
@@ -629,15 +639,16 @@ if __name__ == "__main__":
         # Don't catch sys.exit() calls
         raise
     except Exception as e:
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("FATAL ERROR - Script failed to run")
-        print("="*70)
+        print("=" * 70)
         print(f"\nError: {e}\n")
         import traceback
+
         traceback.print_exc()
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("\nIf this error persists, please report it with the error message above.")
-        print("="*70)
+        print("=" * 70)
 
         # Restore console output
         try:
@@ -646,13 +657,13 @@ if __name__ == "__main__":
             log_file.close()
 
             # Print to console
-            print("\n" + "="*70)
+            print("\n" + "=" * 70)
             print("FATAL ERROR - Script failed to run")
-            print("="*70)
+            print("=" * 70)
             print(f"\nError: {e}\n")
             traceback.print_exc()
             print(f"\nFull error log saved to: {log_file_path.absolute()}")
-            print("="*70)
+            print("=" * 70)
         except:
             pass  # If we can't restore output, at least log file has the error
 

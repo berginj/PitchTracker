@@ -111,8 +111,7 @@ class MainWindowActionsMixin:
         show_message_dialog(
             self,
             "Cue Card Test",
-            f"Detections in current frame: {total}\n"
-            "Hold the cue card in the lane and confirm detections appear.",
+            f"Detections in current frame: {total}\n" "Hold the cue card in the lane and confirm detections appear.",
             tone="info",
         )
 
@@ -189,9 +188,7 @@ class MainWindowActionsMixin:
             zone = (strike.zone_row, strike.zone_col)
 
         checkerboard, fiducials = self._calibration_overlay.process_frame(left_frame.image)
-        focus_left, focus_right = self._focus_monitor.compute_scores(
-            left_frame.image, right_frame.image
-        )
+        focus_left, focus_right = self._focus_monitor.compute_scores(left_frame.image, right_frame.image)
         focus_overlay_left, focus_overlay_right = self._focus_monitor.get_overlay_scores(
             self._calibration_overlay.show_target
         )
@@ -355,10 +352,7 @@ class MainWindowActionsMixin:
         left = stats.get("left", {})
         right = stats.get("right", {})
         fps_ok = left.get("fps_avg", 0.0) >= 58.0 and right.get("fps_avg", 0.0) >= 58.0
-        drops_ok = (
-            int(left.get("dropped_frames", 0)) <= 2
-            and int(right.get("dropped_frames", 0)) <= 2
-        )
+        drops_ok = int(left.get("dropped_frames", 0)) <= 2 and int(right.get("dropped_frames", 0)) <= 2
         return fps_ok and drops_ok
 
     def _update_plate_map_zone(self) -> None:

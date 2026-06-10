@@ -294,11 +294,16 @@ def load_config(path: Path) -> AppConfig:
         )
         strike_zone = StrikeZoneConfig(**data["strike_zone"])
         ball = BallConfig(**data["ball"])
-        upload = UploadConfig(**data.get("upload", {
-            "enabled": False,
-            "swa_api_base": "",
-            "api_key": "",
-        }))
+        upload = UploadConfig(
+            **data.get(
+                "upload",
+                {
+                    "enabled": False,
+                    "swa_api_base": "",
+                    "api_key": "",
+                },
+            )
+        )
 
         cal_val_data = data.get("calibration_validation", {})
         calibration_validation = CalibrationValidationConfig(
@@ -324,7 +329,9 @@ def load_config(path: Path) -> AppConfig:
             calibration_validation=calibration_validation,
         )
 
-        logger.info(f"Configuration loaded successfully: {config.detector.type} detector, {config.camera.width}x{config.camera.height}@{config.camera.fps}fps")
+        logger.info(
+            f"Configuration loaded successfully: {config.detector.type} detector, {config.camera.width}x{config.camera.height}@{config.camera.fps}fps"
+        )
         return config
 
     except Exception as e:

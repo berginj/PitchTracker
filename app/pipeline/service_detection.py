@@ -51,20 +51,11 @@ class PipelineServiceDetectionMixin:
             )
             error_type = exc.__class__.__name__
             if "memory" in str(exc).lower() or "allocation" in str(exc).lower():
-                user_msg = (
-                    f"Detection failed on {label} camera due to memory issue. "
-                    "Try closing other applications."
-                )
+                user_msg = f"Detection failed on {label} camera due to memory issue. " "Try closing other applications."
             elif "model" in str(exc).lower():
-                user_msg = (
-                    f"Detection model error on {label} camera. "
-                    "Switch to classical detector in settings."
-                )
+                user_msg = f"Detection model error on {label} camera. " "Switch to classical detector in settings."
             else:
-                user_msg = (
-                    f"Detection failed on {label} camera: {error_type}. "
-                    "Check logs for details."
-                )
+                user_msg = f"Detection failed on {label} camera: {error_type}. " "Check logs for details."
 
             publish_error(
                 category=ErrorCategory.DETECTION,
@@ -176,11 +167,7 @@ class PipelineServiceDetectionMixin:
             performance_metrics = {
                 "detection_quality": {
                     "stereo_observations": len(observations),
-                    "detection_rate_hz": (
-                        float(len(observations)) / (duration_ns / 1e9)
-                        if duration_ns > 0
-                        else 0.0
-                    ),
+                    "detection_rate_hz": (float(len(observations)) / (duration_ns / 1e9) if duration_ns > 0 else 0.0),
                     "observation_duration_ms": summary.observation_duration_ms,
                     "observation_max_gap_ms": summary.observation_max_gap_ms,
                     "observation_z_span_ft": summary.observation_z_span_ft,

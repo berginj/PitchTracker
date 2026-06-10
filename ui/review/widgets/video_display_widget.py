@@ -260,10 +260,12 @@ class VideoDisplayWidget(QtWidgets.QLabel):
             size = 10
 
             # Draw X marker (orange)
-            cv2.line(frame, (center[0] - size, center[1] - size),
-                    (center[0] + size, center[1] + size), (0, 165, 255), 2)
-            cv2.line(frame, (center[0] + size, center[1] - size),
-                    (center[0] - size, center[1] + size), (0, 165, 255), 2)
+            cv2.line(
+                frame, (center[0] - size, center[1] - size), (center[0] + size, center[1] + size), (0, 165, 255), 2
+            )
+            cv2.line(
+                frame, (center[0] + size, center[1] - size), (center[0] - size, center[1] + size), (0, 165, 255), 2
+            )
 
             # Draw circle around it
             cv2.circle(frame, center, 15, (0, 165, 255), 2)

@@ -117,9 +117,7 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
         self._threading = QtWidgets.QComboBox()
         self._threading.addItem("Per-camera threads", "per_camera")
         self._threading.addItem("Worker pool", "worker_pool")
-        self._threading.setCurrentIndex(
-            0 if threading_mode == "per_camera" else 1
-        )
+        self._threading.setCurrentIndex(0 if threading_mode == "per_camera" else 1)
 
         self._workers = QtWidgets.QSpinBox()
         self._workers.setMinimum(1)
@@ -165,8 +163,7 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
 
         # Header
         header = build_dialog_header(
-            "Detector Settings",
-            "Configure ball detection parameters for classical and ML detectors"
+            "Detector Settings", "Configure ball detection parameters for classical and ML detectors"
         )
         layout.addWidget(header)
 

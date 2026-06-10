@@ -131,16 +131,12 @@ class PitchRecorder:
             if label == "left" and self._left_writer is not None:
                 self._left_writer.write(image)
                 if self._left_csv is not None:
-                    self._left_csv[1].writerow(
-                        [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
-                    )
+                    self._left_csv[1].writerow([frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns])
                 self._latest_ns["left"] = frame.t_capture_monotonic_ns
             elif label == "right" and self._right_writer is not None:
                 self._right_writer.write(image)
                 if self._right_csv is not None:
-                    self._right_csv[1].writerow(
-                        [frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns]
-                    )
+                    self._right_csv[1].writerow([frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns])
                 self._latest_ns["right"] = frame.t_capture_monotonic_ns
 
     def write_frame_with_detections(
@@ -159,14 +155,16 @@ class PitchRecorder:
         # Store detection data for ML training
         if self._save_detections and detections:
             for det in detections:
-                self._detections[label].append({
-                    "frame_index": frame.frame_index,
-                    "timestamp_ns": det.t_capture_monotonic_ns,
-                    "u_px": float(det.u),
-                    "v_px": float(det.v),
-                    "radius_px": float(det.radius_px),
-                    "confidence": float(det.confidence),
-                })
+                self._detections[label].append(
+                    {
+                        "frame_index": frame.frame_index,
+                        "timestamp_ns": det.t_capture_monotonic_ns,
+                        "u_px": float(det.u),
+                        "v_px": float(det.v),
+                        "radius_px": float(det.radius_px),
+                        "confidence": float(det.confidence),
+                    }
+                )
                 self._detection_count[label] += 1
 
         # Extract frames for ML training
@@ -197,16 +195,18 @@ class PitchRecorder:
             obs: Stereo observation to store
         """
         if self._save_observations:
-            self._observations.append({
-                "timestamp_ns": obs.t_ns,
-                "left_px": [float(obs.left[0]), float(obs.left[1])],
-                "right_px": [float(obs.right[0]), float(obs.right[1])],
-                "X_ft": float(obs.X),
-                "Y_ft": float(obs.Y),
-                "Z_ft": float(obs.Z),
-                "quality": float(obs.quality),
-                "confidence": float(obs.confidence),
-            })
+            self._observations.append(
+                {
+                    "timestamp_ns": obs.t_ns,
+                    "left_px": [float(obs.left[0]), float(obs.left[1])],
+                    "right_px": [float(obs.right[0]), float(obs.right[1])],
+                    "X_ft": float(obs.X),
+                    "Y_ft": float(obs.Y),
+                    "Z_ft": float(obs.Z),
+                    "quality": float(obs.quality),
+                    "confidence": float(obs.confidence),
+                }
+            )
 
     def end_pitch(self, end_ns: int) -> None:
         """Mark pitch as ended, continue recording post-roll.
@@ -254,17 +254,13 @@ class PitchRecorder:
                 self._latest_ns = {"left": 0, "right": 0}
 
         # Export ML training data (outside lock)
-        if self._save_detections and (
-            self._detection_count["left"] > 0 or self._detection_count["right"] > 0
-        ):
+        if self._save_detections and (self._detection_count["left"] > 0 or self._detection_count["right"] > 0):
             self._export_detections()
 
         if self._save_observations and self._observations:
             self._export_observations()
 
-    def write_manifest(
-        self, summary, config_path: Optional[str], performance_metrics: Optional[Dict] = None
-    ) -> None:
+    def write_manifest(self, summary, config_path: Optional[str], performance_metrics: Optional[Dict] = None) -> None:
         """Write pitch manifest to JSON file.
 
         Args:
@@ -313,9 +309,9 @@ class PitchRecorder:
         # Try H.264 first (better compression, hardware acceleration if available)
         # Fall back to MJPEG if H.264 not supported
         codec_options = [
-            ("H264", ".mp4"),   # H.264 codec - 5-10x better compression
-            ("avc1", ".mp4"),   # Alternative H.264 fourcc
-            ("MJPG", ".avi"),   # Fallback to MJPEG
+            ("H264", ".mp4"),  # H.264 codec - 5-10x better compression
+            ("avc1", ".mp4"),  # Alternative H.264 fourcc
+            ("MJPG", ".avi"),  # Fallback to MJPEG
         ]
 
         fourcc = None
@@ -335,6 +331,7 @@ class PitchRecorder:
                 extension = ext
                 test_writer.release()
                 import os
+
                 if os.path.exists("test.tmp"):
                     os.remove("test.tmp")
                 logger.info(f"Using video codec: {codec} (extension: {extension})")
@@ -402,9 +399,7 @@ class PitchRecorder:
                     "detections": self._detections[camera],
                 }
                 detection_file.write_text(json.dumps(data, indent=2))
-                logger.info(
-                    f"Exported {self._detection_count[camera]} detections to {detection_file}"
-                )
+                logger.info(f"Exported {self._detection_count[camera]} detections to {detection_file}")
 
     def _export_observations(self) -> None:
         """Export stereo observations to JSON file."""

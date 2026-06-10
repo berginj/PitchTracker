@@ -14,6 +14,7 @@ from pathlib import Path
 
 try:
     import psutil
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
@@ -47,9 +48,9 @@ class TestMemoryStressTests(unittest.TestCase):
         from detect.config import DetectorConfig, FilterConfig
         import numpy as np
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Extended Detection Pipeline Test (5 minutes)")
-        print("="*60)
+        print("=" * 60)
 
         # Create detector
         filter_config = FilterConfig()
@@ -85,7 +86,7 @@ class TestMemoryStressTests(unittest.TestCase):
                 t_received_monotonic_ns=timestamp,
                 width=640,
                 height=480,
-                camera_id="stress_test"
+                camera_id="stress_test",
             )
 
             pool.enqueue_frame("left", frame)
@@ -100,8 +101,7 @@ class TestMemoryStressTests(unittest.TestCase):
                 growth_pct = (growth / initial_memory) * 100
 
                 memory_samples.append((elapsed, current_memory, growth_pct))
-                print(f"  [{elapsed:>5.0f}s] {current_memory:>7.1f} MB "
-                      f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)")
+                print(f"  [{elapsed:>5.0f}s] {current_memory:>7.1f} MB " f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)")
 
             # Throttle slightly to avoid overwhelming
             time.sleep(0.01)
@@ -113,19 +113,17 @@ class TestMemoryStressTests(unittest.TestCase):
         total_growth = final_memory - initial_memory
         growth_percent = (total_growth / initial_memory) * 100
 
-        print(f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
-              f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)")
+        print(
+            f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
+            f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)"
+        )
         print(f"Frames processed: {frame_count:,}")
 
         # Stop pool
         pool.stop()
 
         # Memory should not grow more than 15% over 5 minutes
-        self.assertLess(
-            growth_percent,
-            15.0,
-            f"Memory grew {growth_percent:.1f}% over 5 minutes. Possible leak."
-        )
+        self.assertLess(growth_percent, 15.0, f"Memory grew {growth_percent:.1f}% over 5 minutes. Possible leak.")
 
         print("✅ PASS: Memory stable over extended operation")
 
@@ -135,9 +133,9 @@ class TestMemoryStressTests(unittest.TestCase):
         from app.config import AppConfig
         import numpy as np
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("SessionRecorder Multiple Sessions Test")
-        print("="*60)
+        print("=" * 60)
 
         # Create config
         config = AppConfig()
@@ -154,9 +152,7 @@ class TestMemoryStressTests(unittest.TestCase):
 
             # Start session
             session_dir, _ = recorder.start_session(
-                session_name=f"stress_test_{session_num:03d}",
-                pitch_id=f"pitch_{session_num:03d}",
-                mode="test"
+                session_name=f"stress_test_{session_num:03d}", pitch_id=f"pitch_{session_num:03d}", mode="test"
             )
 
             # Write 30 frames per session
@@ -176,8 +172,10 @@ class TestMemoryStressTests(unittest.TestCase):
                 current_memory = self.get_memory_mb()
                 growth = current_memory - initial_memory
                 growth_pct = (growth / initial_memory) * 100
-                print(f"  Session {session_num+1:>2}/20: {current_memory:>7.1f} MB "
-                      f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)")
+                print(
+                    f"  Session {session_num+1:>2}/20: {current_memory:>7.1f} MB "
+                    f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)"
+                )
 
         # Final check
         gc.collect()
@@ -186,15 +184,13 @@ class TestMemoryStressTests(unittest.TestCase):
         total_growth = final_memory - initial_memory
         growth_percent = (total_growth / initial_memory) * 100
 
-        print(f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
-              f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)")
+        print(
+            f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
+            f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)"
+        )
 
         # Memory should not grow more than 20% after 20 sessions
-        self.assertLess(
-            growth_percent,
-            20.0,
-            f"Memory grew {growth_percent:.1f}% after 20 sessions. Possible leak."
-        )
+        self.assertLess(growth_percent, 20.0, f"Memory grew {growth_percent:.1f}% after 20 sessions. Possible leak.")
 
         print("✅ PASS: SessionRecorder memory stable across sessions")
 
@@ -204,9 +200,9 @@ class TestMemoryStressTests(unittest.TestCase):
         from contracts import Detection
         from app.config import AppConfig
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("StereoManager Extended Operation Test")
-        print("="*60)
+        print("=" * 60)
 
         # Create config
         config = AppConfig()
@@ -226,27 +222,11 @@ class TestMemoryStressTests(unittest.TestCase):
 
             # Create dummy detections (simulate detected baseball)
             left_detections = [
-                Detection(
-                    x=320 + i % 100,
-                    y=240,
-                    w=30,
-                    h=30,
-                    confidence=0.9,
-                    label="baseball",
-                    t_ns=timestamp
-                )
+                Detection(x=320 + i % 100, y=240, w=30, h=30, confidence=0.9, label="baseball", t_ns=timestamp)
             ]
 
             right_detections = [
-                Detection(
-                    x=300 + i % 100,
-                    y=240,
-                    w=30,
-                    h=30,
-                    confidence=0.9,
-                    label="baseball",
-                    t_ns=timestamp
-                )
+                Detection(x=300 + i % 100, y=240, w=30, h=30, confidence=0.9, label="baseball", t_ns=timestamp)
             ]
 
             # Process stereo
@@ -258,8 +238,10 @@ class TestMemoryStressTests(unittest.TestCase):
                 current_memory = self.get_memory_mb()
                 growth = current_memory - initial_memory
                 growth_pct = (growth / initial_memory) * 100
-                print(f"  Frame {i+1:>5}/{num_frames}: {current_memory:>7.1f} MB "
-                      f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)")
+                print(
+                    f"  Frame {i+1:>5}/{num_frames}: {current_memory:>7.1f} MB "
+                    f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)"
+                )
 
         # Final check
         gc.collect()
@@ -268,15 +250,13 @@ class TestMemoryStressTests(unittest.TestCase):
         total_growth = final_memory - initial_memory
         growth_percent = (total_growth / initial_memory) * 100
 
-        print(f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
-              f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)")
+        print(
+            f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
+            f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)"
+        )
 
         # Memory should not grow more than 15% after 5000 frames
-        self.assertLess(
-            growth_percent,
-            15.0,
-            f"Memory grew {growth_percent:.1f}% after 5000 frames. Possible leak."
-        )
+        self.assertLess(growth_percent, 15.0, f"Memory grew {growth_percent:.1f}% after 5000 frames. Possible leak.")
 
         print("✅ PASS: StereoManager memory stable during extended operation")
 
@@ -286,9 +266,9 @@ class TestMemoryStressTests(unittest.TestCase):
         from contracts import StereoObservation
         from app.config import AppConfig
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("PitchStateMachine Multiple Pitches Test")
-        print("="*60)
+        print("=" * 60)
 
         # Create config
         config = AppConfig()
@@ -332,8 +312,10 @@ class TestMemoryStressTests(unittest.TestCase):
                 current_memory = self.get_memory_mb()
                 growth = current_memory - initial_memory
                 growth_pct = (growth / initial_memory) * 100
-                print(f"  Pitch {pitch_num+1:>3}/{num_pitches}: {current_memory:>7.1f} MB "
-                      f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)")
+                print(
+                    f"  Pitch {pitch_num+1:>3}/{num_pitches}: {current_memory:>7.1f} MB "
+                    f"(+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)"
+                )
 
         # Final check
         gc.collect()
@@ -342,15 +324,13 @@ class TestMemoryStressTests(unittest.TestCase):
         total_growth = final_memory - initial_memory
         growth_percent = (total_growth / initial_memory) * 100
 
-        print(f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
-              f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)")
+        print(
+            f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
+            f"(+{total_growth:.1f} MB, +{growth_percent:.1f}%)"
+        )
 
         # Memory should not grow more than 15% after 100 pitches
-        self.assertLess(
-            growth_percent,
-            15.0,
-            f"Memory grew {growth_percent:.1f}% after 100 pitches. Possible leak."
-        )
+        self.assertLess(growth_percent, 15.0, f"Memory grew {growth_percent:.1f}% after 100 pitches. Possible leak.")
 
         print("✅ PASS: PitchStateMachine memory stable across pitches")
 
@@ -362,9 +342,9 @@ class TestMemoryStressTests(unittest.TestCase):
         from contracts import Frame
         import numpy as np
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Rapid Start/Stop Cycles Test (100 cycles)")
-        print("="*60)
+        print("=" * 60)
 
         gc.collect()
         initial_memory = self.get_memory_mb()
@@ -397,7 +377,7 @@ class TestMemoryStressTests(unittest.TestCase):
                     t_received_monotonic_ns=timestamp + i * 16_666_667,
                     width=640,
                     height=480,
-                    camera_id="cycle_test"
+                    camera_id="cycle_test",
                 )
                 pool.enqueue_frame("left", frame)
 
@@ -416,9 +396,11 @@ class TestMemoryStressTests(unittest.TestCase):
                 thread_growth = current_threads - initial_threads
                 memory_growth_pct = (memory_growth / initial_memory) * 100
 
-                print(f"  Cycle {cycle+1:>3}/{num_cycles}: {current_memory:>7.1f} MB "
-                      f"(+{memory_growth:>5.1f} MB, +{memory_growth_pct:>5.1f}%), "
-                      f"{current_threads} threads (+{thread_growth})")
+                print(
+                    f"  Cycle {cycle+1:>3}/{num_cycles}: {current_memory:>7.1f} MB "
+                    f"(+{memory_growth:>5.1f} MB, +{memory_growth_pct:>5.1f}%), "
+                    f"{current_threads} threads (+{thread_growth})"
+                )
 
         # Final check
         gc.collect()
@@ -429,22 +411,20 @@ class TestMemoryStressTests(unittest.TestCase):
         thread_growth = final_threads - initial_threads
         memory_growth_pct = (memory_growth / initial_memory) * 100
 
-        print(f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
-              f"(+{memory_growth:.1f} MB, +{memory_growth_pct:.1f}%)")
+        print(
+            f"\nFinal: {initial_memory:.1f} MB → {final_memory:.1f} MB "
+            f"(+{memory_growth:.1f} MB, +{memory_growth_pct:.1f}%)"
+        )
         print(f"Threads: {initial_threads} → {final_threads} (+{thread_growth})")
 
         # Memory should not grow more than 10% after 100 cycles
         self.assertLess(
-            memory_growth_pct,
-            10.0,
-            f"Memory grew {memory_growth_pct:.1f}% after 100 cycles. Possible leak."
+            memory_growth_pct, 10.0, f"Memory grew {memory_growth_pct:.1f}% after 100 cycles. Possible leak."
         )
 
         # Threads should return to near-initial count
         self.assertLessEqual(
-            thread_growth,
-            3,
-            f"Thread leak: {initial_threads} → {final_threads} (+{thread_growth} threads)"
+            thread_growth, 3, f"Thread leak: {initial_threads} → {final_threads} (+{thread_growth} threads)"
         )
 
         print("✅ PASS: Memory and threads stable during rapid cycling")

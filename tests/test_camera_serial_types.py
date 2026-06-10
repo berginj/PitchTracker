@@ -12,12 +12,15 @@ from unittest.mock import patch, MagicMock
 class TestCameraSerialTypes:
     """Test camera backends accept both string and integer serials."""
 
-    @pytest.mark.parametrize("serial_input", [
-        "0",      # String
-        0,        # Integer
-        "1",      # String
-        1,        # Integer
-    ])
+    @pytest.mark.parametrize(
+        "serial_input",
+        [
+            "0",  # String
+            0,  # Integer
+            "1",  # String
+            1,  # Integer
+        ],
+    )
     def test_opencv_backend_accepts_both_types(self, serial_input):
         """OpenCV backend should accept both string and integer serials."""
         from capture.opencv_backend import OpenCVCamera
@@ -25,7 +28,7 @@ class TestCameraSerialTypes:
         camera = OpenCVCamera()
 
         # Mock cv2.VideoCapture to prevent actual camera access
-        with patch('capture.opencv_backend.cv2.VideoCapture') as mock_capture:
+        with patch("capture.opencv_backend.cv2.VideoCapture") as mock_capture:
             mock_cap_instance = MagicMock()
             mock_cap_instance.isOpened.return_value = True
             mock_capture.return_value = mock_cap_instance
@@ -36,14 +39,18 @@ class TestCameraSerialTypes:
                 # If it succeeds, great
             except Exception as e:
                 # Allow camera not found or connection errors, but not type errors
-                assert not isinstance(e, (AttributeError, TypeError)), \
-                    f"Got type error with serial {serial_input} ({type(serial_input).__name__}): {e}"
+                assert not isinstance(
+                    e, (AttributeError, TypeError)
+                ), f"Got type error with serial {serial_input} ({type(serial_input).__name__}): {e}"
 
-    @pytest.mark.parametrize("serial_input", [
-        "ABC123",  # String serial
-        "0",       # String index
-        0,         # Integer index
-    ])
+    @pytest.mark.parametrize(
+        "serial_input",
+        [
+            "ABC123",  # String serial
+            "0",  # String index
+            0,  # Integer index
+        ],
+    )
     def test_uvc_backend_accepts_both_types(self, serial_input):
         """UVC backend should accept both string and integer serials."""
         from capture.uvc_backend import UvcCamera
@@ -51,13 +58,11 @@ class TestCameraSerialTypes:
         camera = UvcCamera()
 
         # Mock list_uvc_devices and cv2.VideoCapture
-        with patch('capture.uvc_backend._list_camera_devices') as mock_list, \
-             patch('capture.uvc_backend.cv2.VideoCapture') as mock_capture:
-
+        with patch("capture.uvc_backend._list_camera_devices") as mock_list, patch(
+            "capture.uvc_backend.cv2.VideoCapture"
+        ) as mock_capture:
             # Setup mock devices
-            mock_list.return_value = [
-                {"serial": "ABC123", "friendly_name": "Test Camera"}
-            ]
+            mock_list.return_value = [{"serial": "ABC123", "friendly_name": "Test Camera"}]
 
             mock_cap_instance = MagicMock()
             mock_cap_instance.isOpened.return_value = True
@@ -69,8 +74,9 @@ class TestCameraSerialTypes:
                 # If it succeeds, great
             except Exception as e:
                 # Allow camera not found or connection errors, but not type errors
-                assert not isinstance(e, (AttributeError, TypeError)), \
-                    f"Got type error with serial {serial_input} ({type(serial_input).__name__}): {e}"
+                assert not isinstance(
+                    e, (AttributeError, TypeError)
+                ), f"Got type error with serial {serial_input} ({type(serial_input).__name__}): {e}"
 
     # NOTE: GUI tests disabled - CalibrationStep and RoiStep require Qt application
     # The actual protection is tested via backend tests above

@@ -356,9 +356,7 @@ def build_training_report(
             "session_dir": str(session_dir),
             "manifest": "manifest.json" if manifest_path.exists() else None,
             "session_summary": "session_summary.json",
-            "session_summary_csv": "session_summary.csv"
-            if (session_dir / "session_summary.csv").exists()
-            else None,
+            "session_summary_csv": "session_summary.csv" if (session_dir / "session_summary.csv").exists() else None,
         },
         "source": source
         or {

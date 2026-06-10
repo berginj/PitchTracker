@@ -25,6 +25,7 @@ from typing import List, Dict
 @dataclass
 class Violation:
     """Theme compliance violation."""
+
     file_path: Path
     line_num: int
     rule: str
@@ -80,123 +81,136 @@ class ThemeLinter:
         violations = []
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
-                content = ''.join(lines)
+                content = "".join(lines)
         except Exception as e:
             print(f"Warning: Could not read {file_path}: {e}")
             return []
 
         # Determine if this is a UI file
-        is_ui_file = any(indicator in content for indicator in [
-            "QtWidgets.QDialog",
-            "QtWidgets.QWidget",
-            "QtWidgets.QMainWindow",
-            "_build_ui",
-            "QVBoxLayout",
-            "QHBoxLayout",
-        ])
+        is_ui_file = any(
+            indicator in content
+            for indicator in [
+                "QtWidgets.QDialog",
+                "QtWidgets.QWidget",
+                "QtWidgets.QMainWindow",
+                "_build_ui",
+                "QVBoxLayout",
+                "QHBoxLayout",
+            ]
+        )
 
         if not is_ui_file:
             return []  # Skip non-UI files
 
         # Rule 1: Check for theme imports
         has_theme_import = (
-            "from ui.themes import" in content or
-            "import ui.themes" in content or
-            "get_style_manager" in content
+            "from ui.themes import" in content or "import ui.themes" in content or "get_style_manager" in content
         )
 
         if not has_theme_import:
             severity, description = self.RULES["MISSING_THEME_IMPORT"]
-            violations.append(Violation(
-                file_path=file_path,
-                line_num=1,
-                rule="MISSING_THEME_IMPORT",
-                severity=severity,
-                message=description,
-                code_snippet="# No theme imports found"
-            ))
+            violations.append(
+                Violation(
+                    file_path=file_path,
+                    line_num=1,
+                    rule="MISSING_THEME_IMPORT",
+                    severity=severity,
+                    message=description,
+                    code_snippet="# No theme imports found",
+                )
+            )
 
         # Rule 2: Check for inline setStyleSheet()
         for i, line in enumerate(lines, 1):
             if ".setStyleSheet(" in line:
                 # Extract the stylesheet content
-                match = re.search(r'setStyleSheet\((.*?)\)', line)
+                match = re.search(r"setStyleSheet\((.*?)\)", line)
                 if match:
                     style_content = match.group(1)
                     # Check for hardcoded values (colors, fonts, sizes)
-                    if re.search(r'#[0-9A-Fa-f]{6}|font-size:|background-color:|color:', style_content):
+                    if re.search(r"#[0-9A-Fa-f]{6}|font-size:|background-color:|color:", style_content):
                         severity, description = self.RULES["INLINE_SETSTYLESHEET"]
-                        violations.append(Violation(
-                            file_path=file_path,
-                            line_num=i,
-                            rule="INLINE_SETSTYLESHEET",
-                            severity=severity,
-                            message=description,
-                            code_snippet=line.strip()[:80]
-                        ))
+                        violations.append(
+                            Violation(
+                                file_path=file_path,
+                                line_num=i,
+                                rule="INLINE_SETSTYLESHEET",
+                                severity=severity,
+                                message=description,
+                                code_snippet=line.strip()[:80],
+                            )
+                        )
 
         # Rule 3: Check for manual font operations
         for i, line in enumerate(lines, 1):
-            if re.search(r'\.(setFont|setPointSize|setPixelSize|setBold|setItalic)\s*\(', line):
+            if re.search(r"\.(setFont|setPointSize|setPixelSize|setBold|setItalic)\s*\(", line):
                 # Skip if in comment
-                if line.strip().startswith('#'):
+                if line.strip().startswith("#"):
                     continue
                 severity, description = self.RULES["MANUAL_FONT"]
-                violations.append(Violation(
-                    file_path=file_path,
-                    line_num=i,
-                    rule="MANUAL_FONT",
-                    severity=severity,
-                    message=description,
-                    code_snippet=line.strip()[:80]
-                ))
+                violations.append(
+                    Violation(
+                        file_path=file_path,
+                        line_num=i,
+                        rule="MANUAL_FONT",
+                        severity=severity,
+                        message=description,
+                        code_snippet=line.strip()[:80],
+                    )
+                )
 
         # Rule 4: Check for hardcoded colors
         for i, line in enumerate(lines, 1):
             # Find hex colors
-            matches = re.finditer(r'#[0-9A-Fa-f]{6}', line)
+            matches = re.finditer(r"#[0-9A-Fa-f]{6}", line)
             for match in matches:
                 color = match.group()
                 severity, description = self.RULES["HARDCODED_COLOR"]
-                violations.append(Violation(
-                    file_path=file_path,
-                    line_num=i,
-                    rule="HARDCODED_COLOR",
-                    severity=severity,
-                    message=f"{description} (found: {color})",
-                    code_snippet=line.strip()[:80]
-                ))
+                violations.append(
+                    Violation(
+                        file_path=file_path,
+                        line_num=i,
+                        rule="HARDCODED_COLOR",
+                        severity=severity,
+                        message=f"{description} (found: {color})",
+                        code_snippet=line.strip()[:80],
+                    )
+                )
 
         # Rule 5: Check for missing layout helpers (dialogs)
         if "QDialog" in content:
             if "apply_standard_layout" not in content:
                 severity, description = self.RULES["MISSING_LAYOUT_HELPER"]
-                violations.append(Violation(
-                    file_path=file_path,
-                    line_num=1,
-                    rule="MISSING_LAYOUT_HELPER",
-                    severity=severity,
-                    message=description,
-                    code_snippet="# Dialog class but no apply_standard_layout() call"
-                ))
+                violations.append(
+                    Violation(
+                        file_path=file_path,
+                        line_num=1,
+                        rule="MISSING_LAYOUT_HELPER",
+                        severity=severity,
+                        message=description,
+                        code_snippet="# Dialog class but no apply_standard_layout() call",
+                    )
+                )
 
         # Rule 6: Check for missing polish_form_controls
-        has_inputs = any(widget in content for widget in [
-            "QLineEdit", "QComboBox", "QSpinBox", "QDoubleSpinBox", "QTextEdit"
-        ])
+        has_inputs = any(
+            widget in content for widget in ["QLineEdit", "QComboBox", "QSpinBox", "QDoubleSpinBox", "QTextEdit"]
+        )
         if has_inputs and "QDialog" in content:
             if "polish_form_controls" not in content:
                 severity, description = self.RULES["MISSING_POLISH"]
-                violations.append(Violation(
-                    file_path=file_path,
-                    line_num=1,
-                    rule="MISSING_POLISH",
-                    severity=severity,
-                    message=description,
-                    code_snippet="# Has input widgets but no polish_form_controls()"
-                ))
+                violations.append(
+                    Violation(
+                        file_path=file_path,
+                        line_num=1,
+                        rule="MISSING_POLISH",
+                        severity=severity,
+                        message=description,
+                        code_snippet="# Has input widgets but no polish_form_controls()",
+                    )
+                )
 
         # Rule 7: Check for raw QMessageBox
         for i, line in enumerate(lines, 1):
@@ -205,45 +219,51 @@ class ThemeLinter:
                 if "import" in line:
                     continue
                 severity, description = self.RULES["RAW_QMESSAGEBOX"]
-                violations.append(Violation(
-                    file_path=file_path,
-                    line_num=i,
-                    rule="RAW_QMESSAGEBOX",
-                    severity=severity,
-                    message=description,
-                    code_snippet=line.strip()[:80]
-                ))
+                violations.append(
+                    Violation(
+                        file_path=file_path,
+                        line_num=i,
+                        rule="RAW_QMESSAGEBOX",
+                        severity=severity,
+                        message=description,
+                        code_snippet=line.strip()[:80],
+                    )
+                )
 
         # Rule 8: Check for hardcoded margins
         for i, line in enumerate(lines, 1):
             if "setContentsMargins(" in line:
                 # Check if it's not (0,0,0,0) which is sometimes needed
-                match = re.search(r'setContentsMargins\((.*?)\)', line)
+                match = re.search(r"setContentsMargins\((.*?)\)", line)
                 if match:
                     args = match.group(1)
                     if args.strip() != "0, 0, 0, 0":
                         severity, description = self.RULES["HARDCODED_MARGINS"]
-                        violations.append(Violation(
-                            file_path=file_path,
-                            line_num=i,
-                            rule="HARDCODED_MARGINS",
-                            severity=severity,
-                            message=f"{description} (found: {args})",
-                            code_snippet=line.strip()[:80]
-                        ))
+                        violations.append(
+                            Violation(
+                                file_path=file_path,
+                                line_num=i,
+                                rule="HARDCODED_MARGINS",
+                                severity=severity,
+                                message=f"{description} (found: {args})",
+                                code_snippet=line.strip()[:80],
+                            )
+                        )
 
         # Rule 9: Check for hardcoded spacing
         for i, line in enumerate(lines, 1):
-            if re.search(r'\.setSpacing\(\s*\d+\s*\)', line):
+            if re.search(r"\.setSpacing\(\s*\d+\s*\)", line):
                 severity, description = self.RULES["HARDCODED_SPACING"]
-                violations.append(Violation(
-                    file_path=file_path,
-                    line_num=i,
-                    rule="HARDCODED_SPACING",
-                    severity=severity,
-                    message=description,
-                    code_snippet=line.strip()[:80]
-                ))
+                violations.append(
+                    Violation(
+                        file_path=file_path,
+                        line_num=i,
+                        rule="HARDCODED_SPACING",
+                        severity=severity,
+                        message=description,
+                        code_snippet=line.strip()[:80],
+                    )
+                )
 
         return violations
 
@@ -419,7 +439,7 @@ def main():
 
     # Save to file if requested
     if args.report:
-        with open(args.report, 'w', encoding='utf-8') as f:
+        with open(args.report, "w", encoding="utf-8") as f:
             f.write(report)
         print(f"\nReport saved to: {args.report}")
 

@@ -24,21 +24,10 @@ def test_charuco_detection():
 
     try:
         # Try newer API first (OpenCV 4.7+)
-        board = cv2.aruco.CharucoBoard(
-            (9, 6),
-            30.0,
-            22.5,
-            aruco_dict
-        )
+        board = cv2.aruco.CharucoBoard((9, 6), 30.0, 22.5, aruco_dict)
     except (AttributeError, TypeError):
         # Fall back to older API
-        board = cv2.aruco.CharucoBoard_create(
-            9,
-            6,
-            30.0,
-            22.5,
-            aruco_dict
-        )
+        board = cv2.aruco.CharucoBoard_create(9, 6, 30.0, 22.5, aruco_dict)
 
     # Detect markers
     try:
@@ -49,9 +38,7 @@ def test_charuco_detection():
     except AttributeError:
         # Fall back to older API
         detector_params = cv2.aruco.DetectorParameters_create()
-        marker_corners, marker_ids, rejected = cv2.aruco.detectMarkers(
-            image, aruco_dict, parameters=detector_params
-        )
+        marker_corners, marker_ids, rejected = cv2.aruco.detectMarkers(image, aruco_dict, parameters=detector_params)
 
     if marker_ids is None or len(marker_ids) == 0:
         print("Error: No ArUco markers detected!")

@@ -210,9 +210,7 @@ class RecordingController:
         Returns:
             Selected path if chosen, None otherwise
         """
-        path = QtWidgets.QFileDialog.getExistingDirectory(
-            self._parent, "Select output folder"
-        )
+        path = QtWidgets.QFileDialog.getExistingDirectory(self._parent, "Select output folder")
         if path:
             self.set_output_dir(path)
             return path
