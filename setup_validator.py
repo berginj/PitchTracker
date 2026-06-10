@@ -172,7 +172,7 @@ def check_camera_access() -> ValidationCheck:
                     return ValidationCheck(
                         "Camera Access",
                         False,
-                        f"Only found 1 camera (need 2 for stereo tracking)",
+                        "Only found 1 camera (need 2 for stereo tracking)",
                         "Connect a second USB camera",
                     )
             else:

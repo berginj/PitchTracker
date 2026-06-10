@@ -256,7 +256,7 @@ class CameraManager:
                 publish_error(
                     category=ErrorCategory.CAMERA,
                     severity=ErrorSeverity.CRITICAL,
-                    message=f"Failed to start capture threads",
+                    message="Failed to start capture threads",
                     source="CameraManager.start_capture",
                     exception=exc,
                 )

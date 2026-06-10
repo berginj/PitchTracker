@@ -107,7 +107,7 @@ def generate_charuco_board(
     # Add board specifications
     specs = [
         f"Squares: {squares_x}x{squares_y}  |  Square: {square_length}mm  |  Marker: {marker_length}mm",
-        f"Dictionary: DICT_6X6_250",
+        "Dictionary: DICT_6X6_250",
     ]
     spec_y = title_y + 80
     for i, spec in enumerate(specs):
@@ -142,7 +142,7 @@ def generate_charuco_board(
     print(f"  Board size: {squares_x}x{squares_y} squares ({board_width_mm:.1f}mm x {board_height_mm:.1f}mm)")
     print(f"  Square size: {square_length}mm")
     print(f"  Marker size: {marker_length}mm")
-    print(f"  Print at 100% scale - measure a square to verify!")
+    print("  Print at 100% scale - measure a square to verify!")
 
 
 def main():

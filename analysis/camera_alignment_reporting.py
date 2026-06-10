@@ -104,7 +104,7 @@ def save_alignment_frames(
             pts1, pts2 = _find_feature_matches(left_img, right_img, max_features=1000)
             vis_path = output_dir / f"features_{timestamp}.png"
             visualize_features(left_img, right_img, pts1, pts2, vis_path)
-        except:
+        except Exception:
             pass  # Skip visualization if feature matching fails
 
         # Save JSON report

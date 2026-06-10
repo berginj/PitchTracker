@@ -61,9 +61,9 @@ def benchmark_detection_latency(num_frames: int = 1000, width: int = 1280, heigh
         Dictionary with latency statistics
     """
     print(f"\n{'='*60}")
-    print(f"Detection Latency Benchmark")
+    print("Detection Latency Benchmark")
     print(f"{'='*60}")
-    print(f"Configuration:")
+    print("Configuration:")
     print(f"  Frames: {num_frames}")
     print(f"  Resolution: {width}x{height}")
     print(f"{'='*60}\n")
@@ -139,11 +139,11 @@ def benchmark_detection_latency(num_frames: int = 1000, width: int = 1280, heigh
 
     # Print results
     print(f"\n{'='*60}")
-    print(f"Results:")
+    print("Results:")
     print(f"{'='*60}")
     print(f"  Frames Measured: {len(latencies_ms)}")
     print(f"  Resolution: {width}x{height}")
-    print(f"\n  Latency Statistics (milliseconds):")
+    print("\n  Latency Statistics (milliseconds):")
     print(f"    Min:  {stats['min']:>8.2f} ms")
     print(f"    P50:  {stats['p50']:>8.2f} ms (median)")
     print(f"    P75:  {stats['p75']:>8.2f} ms")
@@ -152,7 +152,7 @@ def benchmark_detection_latency(num_frames: int = 1000, width: int = 1280, heigh
     print(f"    P99:  {stats['p99']:>8.2f} ms")
     print(f"    Max:  {stats['max']:>8.2f} ms")
     print(f"    Mean: {stats['mean']:>8.2f} ms")
-    print(f"\n  Target: <20ms p95 latency")
+    print("\n  Target: <20ms p95 latency")
     print(f"  Status: {'✅ PASS' if stats['p95'] < 20 else '⚠️ ABOVE TARGET'}")
     print(f"{'='*60}\n")
 
@@ -162,9 +162,9 @@ def benchmark_detection_latency(num_frames: int = 1000, width: int = 1280, heigh
 def benchmark_latency_under_load(num_frames: int = 500, width: int = 1280, height: int = 720) -> dict:
     """Benchmark latency under sustained high load."""
     print(f"\n{'='*60}")
-    print(f"Latency Under Load Benchmark")
+    print("Latency Under Load Benchmark")
     print(f"{'='*60}")
-    print(f"Testing latency stability under continuous high throughput")
+    print("Testing latency stability under continuous high throughput")
     print(f"{'='*60}\n")
 
     # Create detector
@@ -208,15 +208,15 @@ def benchmark_latency_under_load(num_frames: int = 500, width: int = 1280, heigh
 
     # Print results
     print(f"\n{'='*60}")
-    print(f"Results (Under Load):")
+    print("Results (Under Load):")
     print(f"{'='*60}")
     print(f"  Frames Measured: {len(latencies_ms)}")
-    print(f"\n  Latency Statistics:")
+    print("\n  Latency Statistics:")
     print(f"    P50:  {stats['p50']:>8.2f} ms")
     print(f"    P95:  {stats['p95']:>8.2f} ms")
     print(f"    P99:  {stats['p99']:>8.2f} ms")
     print(f"    Max:  {stats['max']:>8.2f} ms")
-    print(f"\n  Max latency under load should be reasonable")
+    print("\n  Max latency under load should be reasonable")
     print(f"  Status: {'✅ GOOD' if stats['max'] < 100 else '⚠️ HIGH LATENCY SPIKES'}")
     print(f"{'='*60}\n")
 

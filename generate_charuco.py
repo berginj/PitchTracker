@@ -111,7 +111,7 @@ def generate_charuco_board(
     # Print success message with instructions
     # Use ASCII-safe characters for Windows console compatibility
     print("=" * 70)
-    print(f"[SUCCESS] ChArUco Calibration Board Generated!")
+    print("[SUCCESS] ChArUco Calibration Board Generated!")
     print("=" * 70)
     print()
     print(f"File: {output}")
@@ -142,9 +142,9 @@ def generate_charuco_board(
     print("   - Optional: Laminate for durability")
     print()
     print("4. Verification:")
-    print(f"   - Measure actual square size with a ruler")
+    print("   - Measure actual square size with a ruler")
     print(f"   - Should be {square_mm} mm +/- 0.5 mm")
-    print(f"   - If different, adjust 'Square Size' in Advanced Settings")
+    print("   - If different, adjust 'Square Size' in Advanced Settings")
     print()
     print("=" * 70)
     print("USING THE BOARD FOR CALIBRATION")

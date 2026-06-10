@@ -53,24 +53,24 @@ def analyze_session(args):
         detector.save_reports(report, session_path)
 
         # Print summary
-        print(f"\n✓ Analysis complete!")
-        print(f"\nSummary:")
+        print("\n✓ Analysis complete!")
+        print("\nSummary:")
         print(f"  Total Pitches: {report.total_pitches}")
         print(f"  Pitch Types: {report.pitch_types_detected}")
         print(f"  Avg Velocity: {report.average_velocity_mph:.1f} mph")
         print(f"  Strike %: {report.strike_percentage:.1f}%")
         print(f"  Anomalies: {report.anomalies_detected}")
 
-        print(f"\nPitch Repertoire:")
+        print("\nPitch Repertoire:")
         for rep in report.pitch_repertoire:
             print(f"  {rep.pitch_type}: {rep.count} ({rep.percentage:.1f}%) - {rep.avg_speed_mph:.1f} mph")
 
         if report.anomalies:
-            print(f"\nAnomalies Detected:")
+            print("\nAnomalies Detected:")
             for anomaly in report.anomalies[:5]:  # Show first 5
                 print(f"  [{anomaly.severity.upper()}] {anomaly.anomaly_type}: {anomaly.recommendation[:80]}...")
 
-        print(f"\nReports saved to:")
+        print("\nReports saved to:")
         print(f"  {session_path / 'analysis_report.json'}")
         print(f"  {session_path / 'analysis_report.html'}")
 

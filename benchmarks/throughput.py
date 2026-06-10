@@ -46,9 +46,9 @@ def benchmark_detection_throughput(
         Dictionary with benchmark results
     """
     print(f"\n{'='*60}")
-    print(f"Frame Processing Throughput Benchmark")
+    print("Frame Processing Throughput Benchmark")
     print(f"{'='*60}")
-    print(f"Configuration:")
+    print("Configuration:")
     print(f"  Frames: {num_frames}")
     print(f"  Resolution: {width}x{height}")
     print(f"  Queue Size: {queue_size}")
@@ -109,13 +109,13 @@ def benchmark_detection_throughput(
 
     # Print results
     print(f"\n{'='*60}")
-    print(f"Results:")
+    print("Results:")
     print(f"{'='*60}")
     print(f"  Frames Processed: {num_frames}")
     print(f"  Total Time: {elapsed:.2f} seconds")
     print(f"  Throughput: {fps:.2f} FPS")
     print(f"  Frame Time: {frame_time_ms:.2f} ms/frame")
-    print(f"  Target: 60 FPS minimum")
+    print("  Target: 60 FPS minimum")
     print(f"  Status: {'✅ PASS' if fps >= 60 else '❌ BELOW TARGET'}")
     print(f"{'='*60}\n")
 
@@ -152,7 +152,7 @@ def benchmark_multiple_resolutions() -> List[dict]:
 def print_summary(results: List[dict]) -> None:
     """Print summary table of all results."""
     print(f"\n{'='*60}")
-    print(f"Throughput Benchmark Summary")
+    print("Throughput Benchmark Summary")
     print(f"{'='*60}")
     print(f"{'Resolution':<15} {'FPS':>10} {'ms/frame':>12} {'Status':>15}")
     print(f"{'-'*60}")

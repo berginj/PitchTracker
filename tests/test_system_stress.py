@@ -71,7 +71,7 @@ class TestSystemStressTests(unittest.TestCase):
         initial_memory = self.get_memory_mb()
         initial_threads = threading.active_count()
 
-        print(f"\nInitial State:")
+        print("\nInitial State:")
         print(f"  Memory: {initial_memory:.1f} MB")
         print(f"  Threads: {initial_threads}")
         print()
@@ -155,14 +155,14 @@ class TestSystemStressTests(unittest.TestCase):
             print(f"  Frames Processed: {frame_count:,}")
             print(f"  Errors: {error_count}")
             print(f"  Average FPS: {frame_count/elapsed:.1f}")
-            print(f"\n  Memory:")
+            print("\n  Memory:")
             print(f"    Initial: {initial_memory:.1f} MB")
             print(f"    Final: {final_memory:.1f} MB")
             print(
                 f"    Growth: +{final_memory - initial_memory:.1f} MB "
                 f"(+{(final_memory - initial_memory)/initial_memory*100:.1f}%)"
             )
-            print(f"\n  Threads:")
+            print("\n  Threads:")
             print(f"    Initial: {initial_threads}")
             print(f"    Final: {final_threads}")
             print(f"    Change: {final_threads - initial_threads:+d}")
@@ -184,7 +184,7 @@ class TestSystemStressTests(unittest.TestCase):
                 f"High error rate: {error_count}/{frame_count}",
             )
 
-            print(f"\n✅ PASS: System stable over 10-minute marathon")
+            print("\n✅ PASS: System stable over 10-minute marathon")
 
     def test_high_frame_rate_stress(self):
         """Stress test with high frame rate (120+ FPS input)."""
@@ -284,7 +284,7 @@ class TestSystemStressTests(unittest.TestCase):
         memory_growth_pct = (final_memory - initial_memory) / initial_memory * 100
         self.assertLess(memory_growth_pct, 25.0, f"Memory grew {memory_growth_pct:.1f}% under high frame rate")
 
-        print(f"\n✅ PASS: System handles high frame rate with backpressure")
+        print("\n✅ PASS: System handles high frame rate with backpressure")
 
     def test_multi_session_marathon(self):
         """Stress test: 50 recording sessions back-to-back."""
@@ -381,7 +381,7 @@ class TestSystemStressTests(unittest.TestCase):
         initial_memory = self.get_memory_mb()
         initial_threads = threading.active_count()
 
-        print(f"\nInitial state:")
+        print("\nInitial state:")
         print(f"  Memory: {initial_memory:.1f} MB")
         print(f"  Threads: {initial_threads}")
 
@@ -397,7 +397,7 @@ class TestSystemStressTests(unittest.TestCase):
             pool.start(queue_size=6)
             pools.append((pool, detector))
 
-        print(f"\nAll pools started. Running for 60 seconds...")
+        print("\nAll pools started. Running for 60 seconds...")
 
         # Process frames on all pools
         image = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
@@ -431,7 +431,7 @@ class TestSystemStressTests(unittest.TestCase):
         mid_memory = self.get_memory_mb()
         mid_threads = threading.active_count()
 
-        print(f"\nDuring operation:")
+        print("\nDuring operation:")
         print(f"  Memory: {mid_memory:.1f} MB (+{mid_memory-initial_memory:.1f} MB)")
         print(f"  Threads: {mid_threads} (+{mid_threads-initial_threads})")
 
@@ -446,7 +446,7 @@ class TestSystemStressTests(unittest.TestCase):
         final_memory = self.get_memory_mb()
         final_threads = threading.active_count()
 
-        print(f"\nAfter cleanup:")
+        print("\nAfter cleanup:")
         print(f"  Memory: {final_memory:.1f} MB (+{final_memory-initial_memory:.1f} MB)")
         print(f"  Threads: {final_threads} (+{final_threads-initial_threads})")
         print(f"\nFrames processed per pool: {[f'{c:,}' for c in frame_counts]}")
@@ -458,7 +458,7 @@ class TestSystemStressTests(unittest.TestCase):
         memory_growth_pct = (final_memory - initial_memory) / initial_memory * 100
         self.assertLess(memory_growth_pct, 30.0, f"High memory growth: {memory_growth_pct:.1f}%")
 
-        print(f"\n✅ PASS: Concurrent pools handled successfully")
+        print("\n✅ PASS: Concurrent pools handled successfully")
 
     def test_system_resource_limits(self):
         """Test system behavior approaching resource limits."""
@@ -505,7 +505,7 @@ class TestSystemStressTests(unittest.TestCase):
             print(f"  ⚠️ MemoryError encountered: {e}")
 
         # Verify system can still operate
-        print(f"\nTesting system operation under memory pressure...")
+        print("\nTesting system operation under memory pressure...")
 
         from app.pipeline.detection.threading_pool import DetectionThreadPool
         from contracts import Frame
@@ -560,7 +560,7 @@ class TestSystemStressTests(unittest.TestCase):
 
         self.assertLess(errors, 10, "Too many errors under memory pressure")
 
-        print(f"\n✅ PASS: System handles memory pressure gracefully")
+        print("\n✅ PASS: System handles memory pressure gracefully")
 
 
 if __name__ == "__main__":

@@ -209,7 +209,7 @@ def run_benchmark(
         PerformanceMetrics with collected data
     """
     print(f"\n{'='*60}")
-    print(f"PitchTracker Performance Benchmark")
+    print("PitchTracker Performance Benchmark")
     print(f"{'='*60}")
     print(f"Duration: {duration_seconds}s")
     print(f"Backend: {backend}")

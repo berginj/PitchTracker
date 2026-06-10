@@ -59,7 +59,7 @@ class CalibrationStepAlignmentHistoryMixin:
             if history_file.exists():
                 try:
                     existing_data = json.loads(history_file.read_text())
-                except:
+                except Exception:
                     existing_data = {"sessions": []}
             else:
                 existing_data = {"sessions": []}

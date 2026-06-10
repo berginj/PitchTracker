@@ -123,9 +123,9 @@ def clear_python_cache(verbose: bool = False, clear_memory: bool = True) -> None
                     f"[Cache] Verification: {remaining_pyc} .pyc files and {remaining_cache} __pycache__ directories remain"
                 )
                 if remaining_pyc > 0 or remaining_cache > 0:
-                    print(f"[Cache] Note: Remaining files may be in use by Python or other processes")
+                    print("[Cache] Note: Remaining files may be in use by Python or other processes")
             else:
-                print(f"[Cache] Verification: All cache files successfully cleared")
+                print("[Cache] Verification: All cache files successfully cleared")
 
         if pyc_failures or cache_failures:
             total_failures = len(pyc_failures) + len(cache_failures)

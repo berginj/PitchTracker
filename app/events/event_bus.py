@@ -179,7 +179,7 @@ class EventBus:
                         message=f"Event handler failed: {e}",
                         details=f"Event: {event_type.__name__}, Handler: {handler.__name__}",
                     )
-                except:
+                except Exception:
                     pass  # Last resort - don't crash on error reporting
 
         if failed_handlers > 0:

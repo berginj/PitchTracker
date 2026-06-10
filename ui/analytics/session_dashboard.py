@@ -19,8 +19,6 @@ try:
 except ImportError:
     HAS_MATPLOTLIB = False
 
-from typing import TYPE_CHECKING
-
 from analysis.pattern_detection.pitch_classifier import classify_pitch_heuristic
 
 if TYPE_CHECKING:

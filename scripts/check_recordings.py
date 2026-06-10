@@ -57,7 +57,7 @@ def check_recordings():
             print(f"   [+] Left camera:  {left_video.name} ({size_mb:.1f} MB)")
             print(f"     Modified:     {modified.strftime('%Y-%m-%d %H:%M:%S')}")
         else:
-            print(f"   [-] Left camera:  MISSING")
+            print("   [-] Left camera:  MISSING")
 
         if right_video.exists():
             size_mb = right_video.stat().st_size / (1024 * 1024)
@@ -65,7 +65,7 @@ def check_recordings():
             print(f"   [+] Right camera: {right_video.name} ({size_mb:.1f} MB)")
             print(f"     Modified:     {modified.strftime('%Y-%m-%d %H:%M:%S')}")
         else:
-            print(f"   [-] Right camera: MISSING")
+            print("   [-] Right camera: MISSING")
 
         # Check for CSV files
         left_csv = session_dir / "session_left_timestamps.csv"
@@ -91,11 +91,11 @@ def check_recordings():
         # Check if video files are small (might indicate recording issue)
         if left_video.exists() and left_video.stat().st_size < 1024 * 1024:  # Less than 1MB
             print(f"\n   [!]  WARNING: Left video is very small ({left_video.stat().st_size / 1024:.1f} KB)")
-            print(f"       This might indicate recording stopped early or failed")
+            print("       This might indicate recording stopped early or failed")
 
         if right_video.exists() and right_video.stat().st_size < 1024 * 1024:  # Less than 1MB
             print(f"\n   [!]  WARNING: Right video is very small ({right_video.stat().st_size / 1024:.1f} KB)")
-            print(f"       This might indicate recording stopped early or failed")
+            print("       This might indicate recording stopped early or failed")
 
     print("\n" + "=" * 80)
     print("MOST RECENT SESSION LOCATION:")

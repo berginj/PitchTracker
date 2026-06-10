@@ -219,7 +219,7 @@ def capture_coach_window_screenshots(backend: str = "sim"):
     capturer.capture(window, "main_dashboard_final", "Main coaching dashboard - Final state")
 
     print("\n" + "=" * 60)
-    print(f"Screenshot capture complete!")
+    print("Screenshot capture complete!")
     print(f"Total screenshots: {capturer.screenshot_count}")
     print(f"Saved to: {capturer.output_dir}")
     print("=" * 60 + "\n")
@@ -338,7 +338,7 @@ def generate_screenshot_index(screenshot_dir: Path):
         f.write(html_content)
 
     print(f"\n[OK] Generated screenshot index: {index_file}")
-    print(f"  Open in browser to view all screenshots")
+    print("  Open in browser to view all screenshots")
 
 
 if __name__ == "__main__":

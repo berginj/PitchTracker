@@ -201,7 +201,7 @@ def print_summary_report(results: dict):
         status = "✅ PASS" if fps >= 60 else "❌ BELOW TARGET"
         print(f"   Resolution: {result.get('resolution', 'N/A')}")
         print(f"   FPS: {fps:.2f}")
-        print(f"   Target: 60 FPS minimum")
+        print("   Target: 60 FPS minimum")
         print(f"   Status: {status}")
     elif "multiple_resolutions" in throughput:
         print(f"   {'Resolution':<15} {'FPS':>10} {'Status':>15}")
@@ -224,14 +224,14 @@ def print_summary_report(results: dict):
         print(f"   P50 (median): {result.get('p50', 0):.2f} ms")
         print(f"   P95: {p95:.2f} ms")
         print(f"   P99: {result.get('p99', 0):.2f} ms")
-        print(f"   Target: <20ms p95 latency")
+        print("   Target: <20ms p95 latency")
         print(f"   Status: {status}")
 
         if "under_load" in latency:
             load_result = latency["under_load"]
             max_latency = load_result.get("max", 0)
             load_status = "✅ GOOD" if max_latency < 100 else "⚠️ HIGH LATENCY SPIKES"
-            print(f"\n   Under Load:")
+            print("\n   Under Load:")
             print(f"   P95: {load_result.get('p95', 0):.2f} ms")
             print(f"   Max: {max_latency:.2f} ms")
             print(f"   Status: {load_status}")
@@ -257,7 +257,7 @@ def print_summary_report(results: dict):
             print(f"   Initial Memory: {result.get('initial_memory_mb', 0):.1f} MB")
             print(f"   Final Memory: {result.get('final_memory_mb', 0):.1f} MB")
             print(f"   Growth: +{result.get('growth_mb', 0):.1f} MB (+{growth_pct:.1f}%)")
-            print(f"   Target: <10% growth")
+            print("   Target: <10% growth")
             print(f"   Status: {status}")
 
             if "rapid_cycling" in memory:

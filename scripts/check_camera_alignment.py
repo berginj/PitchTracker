@@ -630,7 +630,7 @@ if __name__ == "__main__":
             sys.stdout = _original_stdout
             sys.stderr = _original_stderr
             log_file.close()
-        except:
+        except Exception:
             pass
         print("\nInterrupted by user")
         input("Press ENTER to exit...")
@@ -664,7 +664,7 @@ if __name__ == "__main__":
             traceback.print_exc()
             print(f"\nFull error log saved to: {log_file_path.absolute()}")
             print("=" * 70)
-        except:
+        except Exception:
             pass  # If we can't restore output, at least log file has the error
 
         input("\nPress ENTER to exit...")

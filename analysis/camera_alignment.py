@@ -238,7 +238,7 @@ def analyze_alignment_averaged(
             left_frame = left_camera.read_frame(timeout_ms=1000)
             right_frame = right_camera.read_frame(timeout_ms=1000)
             return analyze_alignment(left_frame.image, right_frame.image)
-        except:
+        except Exception:
             raise ValueError("Could not capture frames for alignment analysis")
 
     # Average the metrics

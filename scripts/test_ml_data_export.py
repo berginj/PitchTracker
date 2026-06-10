@@ -22,7 +22,7 @@ def test_ml_data_export(session_dir: Path) -> bool:
         True if all checks pass, False otherwise
     """
     print(f"\n{'='*70}")
-    print(f"Testing ML Data Export")
+    print("Testing ML Data Export")
     print(f"Session: {session_dir}")
     print(f"{'='*70}\n")
 
@@ -123,16 +123,16 @@ def test_ml_data_export(session_dir: Path) -> bool:
 
     # Summary
     print(f"\n{'='*70}")
-    print(f"Test Summary")
+    print("Test Summary")
     print(f"{'='*70}")
     print(f"Passed: {passed}")
     print(f"Failed/Warnings: {failed}")
 
     if failed == 0:
-        print(f"\n[SUCCESS] All ML training data export checks passed!")
+        print("\n[SUCCESS] All ML training data export checks passed!")
         return True
     elif passed > 0:
-        print(f"\n[PARTIAL] Some features may be disabled in config. Enable all ML training options:")
+        print("\n[PARTIAL] Some features may be disabled in config. Enable all ML training options:")
         print("  recording:")
         print("    save_detections: true")
         print("    save_observations: true")
@@ -140,7 +140,7 @@ def test_ml_data_export(session_dir: Path) -> bool:
         print("    frame_save_interval: 5")
         return True
     else:
-        print(f"\n[FAIL] ML data export validation failed")
+        print("\n[FAIL] ML data export validation failed")
         return False
 
 

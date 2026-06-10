@@ -861,7 +861,7 @@ def _calibrate(
     total_input = len(left_paths)
     rejected = total_input - num_images
     if rejected > 0:
-        print(f"\n📊 Summary:")
+        print("\n📊 Summary:")
         print(f"   Input images: {total_input} pairs")
         print(f"   Rejected: {rejected} pairs (corner detection failed)")
         print(f"   Used for calibration: {num_images} pairs ✓")
@@ -1036,7 +1036,7 @@ def main() -> None:
         _write_config(args.config, updates)
         _save_calibration_file(updates)
         print(f"\n✓ Calibration saved to {args.config}")
-        print(f"✓ Full matrices saved to calibration/stereo_calibration.npz")
+        print("✓ Full matrices saved to calibration/stereo_calibration.npz")
 
 
 if __name__ == "__main__":

@@ -75,7 +75,7 @@ def create_icon():
         # Try to use a nice font
         font_size = 60
         font = ImageFont.truetype("arial.ttf", font_size)
-    except:
+    except Exception:
         # Fallback to default font
         font = ImageFont.load_default()
 

@@ -131,10 +131,10 @@ class CalibrationStepAlignmentMixin:
             warning_msg = (
                 f"⚠️ Camera alignment has drifted from recent captures!\n\n"
                 f"Changes detected (compared to last {window_size} captures):\n" + "\n".join(drift_details) + "\n\n"
-                f"This can invalidate calibration. Recommendations:\n\n"
-                f"• Click 'Restart' to clear captures and start over (recommended)\n"
-                f"• Click 'Continue' to capture anyway (may reduce calibration quality)\n"
-                f"• Click 'Cancel' to skip this capture and reposition cameras"
+                "This can invalidate calibration. Recommendations:\n\n"
+                "• Click 'Restart' to clear captures and start over (recommended)\n"
+                "• Click 'Continue' to capture anyway (may reduce calibration quality)\n"
+                "• Click 'Cancel' to skip this capture and reposition cameras"
             )
 
             choice = show_choice_dialog(

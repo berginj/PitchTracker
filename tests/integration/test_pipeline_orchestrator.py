@@ -444,7 +444,7 @@ class TestPipelineOrchestratorSessionSummary:
 
         try:
             orchestrator.stop_recording()
-        except:
+        except Exception:
             pass
         orchestrator.stop_capture()
 

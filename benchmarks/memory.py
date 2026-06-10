@@ -67,9 +67,9 @@ def benchmark_memory_stability(
         return {}
 
     print(f"\n{'='*60}")
-    print(f"Memory Stability Benchmark")
+    print("Memory Stability Benchmark")
     print(f"{'='*60}")
-    print(f"Configuration:")
+    print("Configuration:")
     print(f"  Duration: {duration_seconds} seconds ({duration_seconds/60:.1f} minutes)")
     print(f"  Sample Interval: {sample_interval} seconds")
     print(f"  Resolution: {width}x{height}")
@@ -166,25 +166,25 @@ def benchmark_memory_stability(
 
     # Print results
     print(f"\n{'='*60}")
-    print(f"Results:")
+    print("Results:")
     print(f"{'='*60}")
     print(f"  Duration: {duration_seconds} seconds")
     print(f"  Frames Processed: {frame_count:,}")
-    print(f"\n  Memory Usage:")
+    print("\n  Memory Usage:")
     print(f"    Initial:  {initial_memory:>8.1f} MB")
     print(f"    Final:    {final_memory:>8.1f} MB")
     print(f"    Max:      {max_memory:>8.1f} MB")
-    print(f"\n  Memory Growth:")
+    print("\n  Memory Growth:")
     print(f"    Final:    +{memory_growth_mb:>7.1f} MB (+{memory_growth_pct:>5.1f}%)")
     print(f"    Peak:     +{max_growth_mb:>7.1f} MB (+{max_growth_pct:>5.1f}%)")
-    print(f"\n  Target: <10% growth over test duration")
+    print("\n  Target: <10% growth over test duration")
 
     if memory_growth_pct < 10:
-        print(f"  Status: ✅ PASS (memory stable)")
+        print("  Status: ✅ PASS (memory stable)")
     elif memory_growth_pct < 20:
-        print(f"  Status: ⚠️ WARNING (moderate growth)")
+        print("  Status: ⚠️ WARNING (moderate growth)")
     else:
-        print(f"  Status: ❌ FAIL (possible memory leak)")
+        print("  Status: ❌ FAIL (possible memory leak)")
 
     print(f"{'='*60}\n")
 
@@ -209,9 +209,9 @@ def benchmark_memory_rapid_cycling(num_cycles: int = 100, width: int = 1280, hei
         return {}
 
     print(f"\n{'='*60}")
-    print(f"Memory Rapid Cycling Benchmark")
+    print("Memory Rapid Cycling Benchmark")
     print(f"{'='*60}")
-    print(f"Testing for leaks during repeated start/stop cycles")
+    print("Testing for leaks during repeated start/stop cycles")
     print(f"  Cycles: {num_cycles}")
     print(f"{'='*60}\n")
 
@@ -267,7 +267,7 @@ def benchmark_memory_rapid_cycling(num_cycles: int = 100, width: int = 1280, hei
 
     # Print results
     print(f"\n{'='*60}")
-    print(f"Results:")
+    print("Results:")
     print(f"{'='*60}")
     print(f"  Cycles: {num_cycles}")
     print(f"  Initial Memory: {initial_memory:.1f} MB")
