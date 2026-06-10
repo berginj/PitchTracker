@@ -1,7 +1,6 @@
 """Test script to verify coaching UI with 3 visualization modes."""
 
 import sys
-from pathlib import Path
 
 from PySide6 import QtWidgets
 

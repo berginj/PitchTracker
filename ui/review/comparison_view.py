@@ -11,9 +11,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Optional
 
-import cv2
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 

@@ -4,9 +4,7 @@ import pytest
 
 from analysis.pattern_detection.pitch_classifier import (
     classify_pitch_heuristic,
-    classify_pitches,
 )
-from analysis.pattern_detection.schemas import PitchClassification
 
 
 class TestPitchClassifierHeuristics:

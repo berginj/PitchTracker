@@ -3,9 +3,8 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch
 
-import cv2
 
 from app.pipeline.recording.session_recorder import SessionRecorder
 

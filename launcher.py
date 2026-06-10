@@ -423,7 +423,6 @@ class LauncherWindow(QtWidgets.QMainWindow):
     def _set_window_icon(self):
         """Set window icon if available."""
         # Try to set an icon (placeholder for now)
-        pass
 
     def _start_environment_validation(self) -> None:
         """Run startup validation after the launcher is already visible."""

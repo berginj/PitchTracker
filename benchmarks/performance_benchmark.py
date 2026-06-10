@@ -9,8 +9,6 @@ Measures key performance metrics:
 - Lock contention
 """
 
-import gc
-import os
 import sys
 import time
 import psutil

@@ -15,10 +15,6 @@ from trajectory.contracts import (
     TrajectoryFitResult,
 )
 from trajectory.physics import (
-    _condition_number,
-    _find_plate_crossing,
-    _is_monotonic_z,
-    _rmse,
     _seed_state,
 )
 

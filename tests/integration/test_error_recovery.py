@@ -18,10 +18,8 @@ import time
 import tempfile
 import shutil
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
 
 from configs.settings import load_config
-from app.pipeline_service import InProcessPipelineService
 from app.events import get_error_bus, ErrorCategory, ErrorSeverity
 from contracts import Frame
 import numpy as np
@@ -71,8 +69,6 @@ class TestErrorRecovery(unittest.TestCase):
     def test_detection_errors_published_to_error_bus(self):
         """Test that detection errors are published to error bus."""
         from app.pipeline.detection.threading_pool import DetectionThreadPool
-        from detect.classical_detector import ClassicalDetector
-        from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig, Mode
 
         # Create detection pool
         pool = DetectionThreadPool()

@@ -4,7 +4,6 @@ Launch this script to test the Review Mode window directly.
 """
 
 import sys
-from pathlib import Path
 
 from PySide6 import QtWidgets
 

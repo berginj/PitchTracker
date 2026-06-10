@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 # Combined metaclass for Qt + ABC
 class QABCMeta(type(QObject), ABCMeta):
     """Metaclass that combines Qt's metaclass with ABCMeta."""
-    pass
 
 
 class BaseGame(QtWidgets.QWidget, metaclass=QABCMeta):
@@ -51,7 +50,6 @@ class BaseGame(QtWidgets.QWidget, metaclass=QABCMeta):
         Args:
             pitch: Pitch summary with zone location and metrics
         """
-        pass
 
     @abstractmethod
     def reset_game(self) -> None:
@@ -59,7 +57,6 @@ class BaseGame(QtWidgets.QWidget, metaclass=QABCMeta):
 
         Called when starting a new game or after completion.
         """
-        pass
 
     @abstractmethod
     def get_game_name(self) -> str:
@@ -68,7 +65,6 @@ class BaseGame(QtWidgets.QWidget, metaclass=QABCMeta):
         Returns:
             Game name (e.g., "tic_tac_toe", "target_scoring")
         """
-        pass
 
     def save_score(self, score: int) -> None:
         """Save score to persistent storage.

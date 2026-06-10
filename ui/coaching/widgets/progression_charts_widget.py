@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from typing import List, Optional, Tuple
 
 from PySide6 import QtCore, QtGui, QtWidgets

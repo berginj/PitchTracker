@@ -3,7 +3,6 @@
 import unittest
 import threading
 import time
-from unittest.mock import Mock, MagicMock, patch
 
 from app.camera import CameraReconnectionManager, CameraState
 

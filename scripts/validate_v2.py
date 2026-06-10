@@ -18,7 +18,6 @@ sys.path.insert(0, ".")
 
 from app.pipeline.pitch_tracking_v2 import (
     PitchConfig,
-    PitchData,
     PitchPhase,
     PitchStateMachineV2,
 )

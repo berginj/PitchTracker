@@ -7,7 +7,7 @@ Manages detector, strike zone, and recording settings.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Callable, TYPE_CHECKING, Any
+from typing import Callable, TYPE_CHECKING
 
 import yaml
 from PySide6 import QtWidgets

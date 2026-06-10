@@ -7,7 +7,6 @@ Target: Memory growth <10% over 30 minutes of operation.
 import time
 import gc
 import numpy as np
-from typing import List, Tuple
 
 try:
     import psutil

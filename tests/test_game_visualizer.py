@@ -6,7 +6,7 @@ Covers tic-tac-toe game logic and plate map visualization.
 
 from __future__ import annotations
 
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
 import pytest
 

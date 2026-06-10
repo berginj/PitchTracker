@@ -1,6 +1,5 @@
 """Unit tests for error event bus (Phase 2 Fix #1)."""
 
-import time
 import unittest
 from unittest.mock import Mock
 

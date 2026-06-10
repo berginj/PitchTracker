@@ -8,7 +8,6 @@ from typing import Optional
 class PitchTrackerError(Exception):
     """Base exception for all PitchTracker errors."""
 
-    pass
 
 
 class CameraError(PitchTrackerError):
@@ -22,67 +21,56 @@ class CameraError(PitchTrackerError):
 class CameraConnectionError(CameraError):
     """Raised when camera connection fails or is lost."""
 
-    pass
 
 
 class CameraConfigurationError(CameraError):
     """Raised when camera configuration fails."""
 
-    pass
 
 
 class CameraNotFoundError(CameraError):
     """Raised when a specified camera is not found."""
 
-    pass
 
 
 class CalibrationError(PitchTrackerError):
     """Base exception for calibration-related errors."""
 
-    pass
 
 
 class InvalidROIError(CalibrationError):
     """Raised when ROI configuration is invalid."""
 
-    pass
 
 
 class CheckerboardNotFoundError(CalibrationError):
     """Raised when checkerboard pattern cannot be detected."""
 
-    pass
 
 
 class CalibrationInputError(CalibrationError):
     """Raised when calibration inputs are invalid or incomplete."""
 
-    pass
 
 
 class CalibrationExecutionError(CalibrationError):
     """Raised when the calibration worker fails during execution."""
 
-    pass
 
 
 class CalibrationPersistenceError(CalibrationError):
     """Raised when calibration results cannot be written to disk."""
 
-    pass
 
 
 class ConfigError(PitchTrackerError):
     """Base exception for configuration errors."""
 
-    pass
 
 
 class InvalidConfigError(ConfigError):
     """Raised when configuration file is invalid or corrupted."""
 
-    pass
 
 
 class ConfigValidationError(ConfigError):
@@ -96,46 +84,38 @@ class ConfigValidationError(ConfigError):
 class DetectionError(PitchTrackerError):
     """Base exception for detection-related errors."""
 
-    pass
 
 
 class ModelLoadError(DetectionError):
     """Raised when ML model fails to load."""
 
-    pass
 
 
 class ModelInferenceError(DetectionError):
     """Raised when ML model inference fails."""
 
-    pass
 
 
 class StereoError(PitchTrackerError):
     """Base exception for stereo-related errors."""
 
-    pass
 
 
 class TriangulationError(StereoError):
     """Raised when stereo triangulation fails."""
 
-    pass
 
 
 class RecordingError(PitchTrackerError):
     """Base exception for recording-related errors."""
 
-    pass
 
 
 class DiskSpaceError(RecordingError):
     """Raised when insufficient disk space is available."""
 
-    pass
 
 
 class FileWriteError(RecordingError):
     """Raised when file write operation fails."""
 
-    pass

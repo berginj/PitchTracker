@@ -11,7 +11,6 @@ import gc
 import tempfile
 import shutil
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
 
 try:
     import psutil

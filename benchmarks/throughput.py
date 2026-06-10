@@ -6,7 +6,7 @@ Target: 60 FPS minimum for real-time processing.
 
 import time
 import numpy as np
-from typing import List, Tuple
+from typing import List
 
 from app.pipeline.detection.threading_pool import DetectionThreadPool
 from contracts import Frame

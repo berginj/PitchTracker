@@ -9,12 +9,9 @@ Tests complete user workflows from start to finish, including:
 
 from __future__ import annotations
 
-import json
-import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 
-import numpy as np
 import pytest
 
 # Try to import pytest-qt, skip Qt tests if not available
@@ -25,14 +22,13 @@ except ImportError:
     HAS_PYTEST_QT = False
     QtBot = None
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore
 
 from configs.settings import load_config
 from ui.dialogs import (
     RecordingSettingsDialog,
     StrikeZoneSettingsDialog,
     DetectorSettingsDialog,
-    QuickCalibrateDialog,
 )
 from ui.export import write_session_summary_csv
 from ui.widgets import RoiLabel

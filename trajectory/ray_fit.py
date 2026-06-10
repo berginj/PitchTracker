@@ -18,8 +18,6 @@ from trajectory.contracts import (
 )
 from trajectory.physics import _condition_number, _find_plate_crossing, _is_monotonic_z, _rmse
 from trajectory.ray_fit_helpers import (
-    RIGHT_CAMERA_IDS,
-    GRAVITY_FT_S2,
     build_ray_residual_reports,
     build_samples,
     expected_plate_error_from_px,

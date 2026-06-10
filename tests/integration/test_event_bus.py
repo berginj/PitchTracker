@@ -7,19 +7,14 @@ service communication in the refactored architecture.
 import threading
 import time
 from dataclasses import dataclass
-from typing import List
 
 import pytest
 
 from app.events.event_bus import EventBus
 from app.events.event_types import (
-    FrameCapturedEvent,
-    ObservationDetectedEvent,
     PitchStartEvent,
-    PitchEndEvent,
-    ErrorEvent
+    PitchEndEvent
 )
-from contracts import Frame, StereoObservation
 
 
 # Test fixtures for Frame and StereoObservation

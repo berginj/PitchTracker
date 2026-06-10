@@ -15,7 +15,6 @@ from PySide6 import QtCore
 
 from app.services.orchestrator import PipelineOrchestrator
 from app.events.event_types import PitchStartEvent, PitchEndEvent
-from app.pipeline.pitch_tracking_v2 import PitchData
 
 logger = logging.getLogger(__name__)
 

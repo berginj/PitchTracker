@@ -6,8 +6,7 @@ Covers video replay, frame stepping, and detection visualization.
 
 from __future__ import annotations
 
-from collections import deque
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import pytest
 

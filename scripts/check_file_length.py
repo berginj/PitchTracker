@@ -54,7 +54,6 @@ ALLOWLIST = {
     "tests/integration/test_analysis_service.py",
     "app/review/review_service.py",
     "app/pipeline/pitch_tracking_v2.py",
-    "ui/setup/steps/calibration_step_charuco_detection.py",
     "tests/test_online_refinement.py",
     "app/pipeline/detection/threading_pool.py",
 }

@@ -8,7 +8,6 @@ import psutil
 import threading
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Dict, List, Optional
 
 from app.events import ErrorCategory, ErrorSeverity, publish_error

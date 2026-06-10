@@ -6,7 +6,7 @@ should defensively handle both str and int inputs.
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 
 class TestCameraSerialTypes:

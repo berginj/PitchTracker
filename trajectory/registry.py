@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Dict
 
 from trajectory.physics import PhysicsDragFitter
 from trajectory.ray_fit import RayGraphFitter, RayReprojectionFitter

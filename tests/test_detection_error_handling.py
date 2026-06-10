@@ -1,12 +1,11 @@
 """Unit tests for detection thread error handling (Phase 1 Fix #1)."""
 
-import queue
 import time
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from app.pipeline.detection.threading_pool import DetectionThreadPool
-from contracts import Detection, Frame
+from contracts import Frame
 
 
 class TestDetectionErrorHandling(unittest.TestCase):

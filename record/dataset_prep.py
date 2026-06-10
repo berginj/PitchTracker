@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
 import cv2
 

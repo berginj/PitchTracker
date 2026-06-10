@@ -6,8 +6,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from PySide6.QtCore import QObject, Qt, Signal, Slot
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -18,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.events import ErrorCategory, ErrorEvent, ErrorSeverity, get_error_bus
+from app.events import ErrorEvent, ErrorSeverity, get_error_bus
 
 logger = logging.getLogger(__name__)
 

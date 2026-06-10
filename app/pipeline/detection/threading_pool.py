@@ -333,7 +333,6 @@ class DetectionThreadPool:
             target.put_nowait(item)
         except queue.Full:
             logger.error(f"Failed to put item in queue '{queue_name}' even after dropping oldest")
-            pass
 
     def _detect_frame(self, label: str, frame: Frame) -> list[Detection]:
         """Detect frame using callback.

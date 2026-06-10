@@ -3,11 +3,9 @@
 Tests the event-driven recording service that manages session and pitch recording.
 """
 
-import json
 import shutil
 import tempfile
 import threading
-import time
 from pathlib import Path
 from typing import List, Tuple
 
@@ -19,8 +17,7 @@ from app.events.event_bus import EventBus
 from app.events.event_types import (
     FrameCapturedEvent,
     ObservationDetectedEvent,
-    PitchStartEvent,
-    PitchEndEvent
+    PitchStartEvent
 )
 from app.services.recording import RecordingServiceImpl
 from configs.settings import AppConfig, load_config

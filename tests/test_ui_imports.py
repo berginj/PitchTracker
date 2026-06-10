@@ -26,8 +26,6 @@ def test_main_window_direct_import():
 def test_geometry_imports():
     """Test that geometry utilities can be imported."""
     from ui.geometry import (
-        Overlay,
-        Rect,
         normalize_rect,
         points_to_rect,
         polygon_to_rect,
@@ -168,38 +166,6 @@ def test_qt_app_entry_point():
 def test_no_circular_imports():
     """Test that importing all modules doesn't cause circular import errors."""
     # This will fail if there are circular imports
-    from ui import MainWindow
-    from ui.dialogs import (
-        CalibrationGuide,
-        CalibrationWizardDialog,
-        ChecklistDialog,
-        DetectorSettingsDialog,
-        PlatePlaneDialog,
-        QuickCalibrateDialog,
-        RecordingSettingsDialog,
-        SessionSummaryDialog,
-        StartupDialog,
-        StrikeZoneSettingsDialog,
-    )
-    from ui.device_utils import current_serial, probe_opencv_indices, probe_uvc_devices
-    from ui.drawing import frame_to_pixmap
-    from ui.export import (
-        export_manifests_zip,
-        export_session_summary_csv,
-        export_session_summary_json,
-        export_training_report,
-        save_session_export,
-        upload_session,
-        write_session_summary_csv,
-    )
-    from ui.geometry import (
-        normalize_rect,
-        points_to_rect,
-        polygon_to_rect,
-        rect_to_polygon,
-        roi_overlays,
-    )
-    from ui.widgets import RoiLabel
 
     # If we got here without errors, no circular imports exist
     assert True

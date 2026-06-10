@@ -6,7 +6,7 @@ Target: <20ms p95 latency for real-time responsiveness.
 
 import time
 import numpy as np
-from typing import List, Tuple
+from typing import List
 from collections import deque
 
 from app.pipeline.detection.threading_pool import DetectionThreadPool

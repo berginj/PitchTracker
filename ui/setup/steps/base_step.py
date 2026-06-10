@@ -39,11 +39,9 @@ class BaseStep(QtWidgets.QWidget):
 
     def on_enter(self) -> None:
         """Called when step becomes active. Subclasses should override."""
-        pass
 
     def on_exit(self) -> None:
         """Called when leaving step. Subclasses should override."""
-        pass
 
     def is_optional(self) -> bool:
         """Return True if step can be skipped."""

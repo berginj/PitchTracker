@@ -6,8 +6,7 @@ function correctly with the new module structure.
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 import numpy as np
 import pytest

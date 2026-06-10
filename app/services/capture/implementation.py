@@ -9,10 +9,9 @@ Manages camera lifecycle:
 
 from __future__ import annotations
 
-import logging
 import threading
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from app.camera import CameraState
 from app.events.event_bus import EventBus

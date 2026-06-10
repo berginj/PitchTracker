@@ -5,7 +5,6 @@ Tests the event-driven analysis service that manages pitch analysis and session 
 
 import time
 from pathlib import Path
-from typing import List
 
 import numpy as np
 import pytest

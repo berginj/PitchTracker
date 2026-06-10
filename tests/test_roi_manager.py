@@ -6,8 +6,7 @@ Covers ROI drawing, saving, and loading workflows.
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import pytest
 

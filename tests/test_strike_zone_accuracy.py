@@ -8,7 +8,6 @@ from metrics.strike_zone import (
     build_strike_zone,
     is_strike,
     StrikeZone,
-    StrikeResult,
 )
 
 

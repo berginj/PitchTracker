@@ -134,7 +134,6 @@ class GameModeWidget(BaseModeWidget):
             right_frame: Right camera frame (unused)
         """
         # Game mode doesn't display camera
-        pass
 
     def clear(self) -> None:
         """Clear all visualizations."""

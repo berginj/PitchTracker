@@ -1,11 +1,10 @@
 """Unit tests for disk space monitoring (Phase 1 Fix #2)."""
 
-import shutil
 import tempfile
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from app.pipeline.recording.session_recorder import SessionRecorder
 

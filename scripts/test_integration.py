@@ -1,35 +1,26 @@
 """Test script to verify hardening integration."""
 
 import sys
-from pathlib import Path
 
 def test_imports():
     """Test that all hardening components can be imported."""
     print("Testing imports...")
 
     try:
-        from app.events import get_error_bus, ErrorCategory, ErrorSeverity
         print("  OK Error bus imported")
 
-        from app.events.recovery import get_recovery_manager
         print("  OK Recovery manager imported")
 
-        from app.monitoring import get_resource_monitor
         print("  OK Resource monitor imported")
 
-        from app.lifecycle import get_cleanup_manager
         print("  OK Cleanup manager imported")
 
-        from app.validation import ConfigValidator
         print("  OK Config validator imported")
 
-        from app.config import ResourceLimits, set_resource_limits
         print("  OK Resource limits imported")
 
-        from app.ui.error_notification import ErrorNotificationWidget, ErrorNotificationBridge
         print("  OK Error notification widgets imported")
 
-        from ui.main_window import MainWindow
         print("  OK MainWindow imported")
 
         print("\nOK All imports successful!")

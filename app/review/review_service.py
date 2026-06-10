@@ -10,8 +10,8 @@ from typing import Optional
 
 import numpy as np
 
-from app.review.session_loader import LoadedPitch, LoadedSession, SessionLoader
-from app.review.video_reader import PlaybackState, VideoReader
+from app.review.session_loader import LoadedSession, SessionLoader
+from app.review.video_reader import VideoReader
 from contracts import Frame
 from detect.classical_detector import ClassicalDetector
 from detect.config import DetectorConfig, FilterConfig, Mode

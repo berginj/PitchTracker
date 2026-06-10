@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
-from app.contracts import CalibrationProfile, PitchSummary, SessionSummary
+from app.contracts import CalibrationProfile, SessionSummary
 from configs.settings import AppConfig
 from contracts import Detection, Frame, StereoObservation
 from detect.config import DetectorConfig as CvDetectorConfig

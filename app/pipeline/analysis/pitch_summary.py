@@ -10,7 +10,7 @@ from app.contracts import PitchSummary
 from configs.settings import AppConfig
 from contracts import RayObservation, StereoObservation
 from metrics.simple_metrics import compute_plate_from_observations
-from metrics.strike_zone import StrikeResult, build_strike_zone, is_strike
+from metrics.strike_zone import build_strike_zone, is_strike
 from trajectory.camera_model import load_stereo_ray_camera_models
 from trajectory.contracts import FailureCode, TrajectoryDiagnostics, TrajectoryFitRequest, TrajectoryFitResult
 from trajectory.registry import TrajectoryFitterRegistry

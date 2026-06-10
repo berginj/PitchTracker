@@ -1,6 +1,5 @@
 """Unit tests for pitcher profile management."""
 
-import json
 import tempfile
 import unittest
 from pathlib import Path

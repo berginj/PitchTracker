@@ -6,10 +6,9 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtWidgets
 
 from configs.settings import load_config
-from contracts import Frame
 from detect.config import DetectorConfig as CvDetectorConfig
 from detect.config import Mode
 from ui.dialogs import StartupDialog

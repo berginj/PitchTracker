@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List
 
 import pytest
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtWidgets
 
 from app.qt_pipeline_service import QtPipelineService
 from app.events.event_types import PitchStartEvent, PitchEndEvent

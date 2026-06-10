@@ -10,7 +10,6 @@ Tests verify critical improvements over v1:
 
 import threading
 import time
-from unittest.mock import Mock
 
 import pytest
 

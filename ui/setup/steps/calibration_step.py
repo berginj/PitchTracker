@@ -2,24 +2,14 @@
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional
 
-import cv2
 import numpy as np
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
-from app.services.tooling import get_tooling_service
 from capture import CameraDevice
-from contracts.tooling import CalibrationRequest
-from exceptions import (
-    CalibrationExecutionError,
-    CalibrationInputError,
-    CalibrationPersistenceError,
-)
 from log_config.logger import get_logger
-from ui.setup.steps.calibration_errors import build_calibration_error_payload
 from ui.setup.steps.base_step import BaseStep
 from ui.setup.steps.calibration_step_alignment import CalibrationStepAlignmentMixin
 from ui.setup.steps.calibration_step_alignment_compare import CalibrationStepAlignmentCompareMixin
@@ -38,17 +28,7 @@ from ui.setup.steps.calibration_step_preview_capture import CalibrationStepPrevi
 from ui.setup.steps.calibration_step_status import CalibrationStepStatusMixin
 from ui.setup.steps.charuco_metadata import load_charuco_metadata
 from ui.themes import (
-    apply_standard_layout,
-    ask_confirmation,
-    build_notice,
     get_style_manager,
-    polish_form_controls,
-    show_choice_dialog,
-    show_message_dialog,
-    style_message_panel,
-    style_preview_surface,
-    style_progress_bar,
-    style_status_label,
 )
 
 logger = get_logger(__name__)

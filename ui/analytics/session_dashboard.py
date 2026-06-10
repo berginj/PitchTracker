@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, List, Optional
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ui.themes import apply_standard_layout, get_style_manager, style_progress_bar
+from ui.themes import get_style_manager, style_progress_bar
 
 try:
     from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas

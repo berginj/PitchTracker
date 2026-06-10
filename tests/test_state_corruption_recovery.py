@@ -10,7 +10,6 @@ Tests that the pitch state machine properly handles callback exceptions:
 
 import unittest
 import time
-from unittest.mock import Mock
 
 from app.pipeline.pitch_tracking_v2 import PitchStateMachineV2, PitchConfig, PitchPhase
 from app.events import get_error_bus, ErrorCategory, ErrorSeverity

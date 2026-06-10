@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 import numpy as np
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from capture.opencv_backend import OpenCVCamera
 from capture.uvc_backend import UvcCamera

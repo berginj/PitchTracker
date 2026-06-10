@@ -7,7 +7,7 @@ from typing import Optional
 
 import numpy as np
 
-from trajectory.contracts import FailureCode, TrajectoryDiagnostics, TrajectoryFitRequest, TrajectoryFitResult
+from trajectory.contracts import FailureCode, TrajectoryFitRequest, TrajectoryFitResult
 from trajectory.physics import PhysicsDragFitter, _find_plate_crossing
 
 

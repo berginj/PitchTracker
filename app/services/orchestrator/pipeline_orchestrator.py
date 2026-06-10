@@ -14,7 +14,6 @@ from typing import Callable, Dict, List, Optional, Tuple, Type
 from app.contracts import CalibrationProfile, SessionSummary
 from app.events.event_bus import EventBus
 from app.events.event_types import (
-    FrameCapturedEvent,
     ObservationDetectedEvent,
     PitchEndEvent,
     PitchStartEvent,

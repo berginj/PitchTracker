@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from app.contracts import PitchSummary
 from app.pipeline.utils import (
@@ -12,9 +11,8 @@ from app.pipeline.utils import (
     stats_to_dict,
 )
 from capture.camera_device import CameraStats
-from contracts import Detection, StereoObservation
+from contracts import Detection
 from detect.lane import LaneGate, LaneRoi
-from stereo.association import StereoMatch
 
 
 class TestStatsToDict:

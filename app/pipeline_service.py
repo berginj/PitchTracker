@@ -8,8 +8,7 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 from configs.settings import AppConfig
-from contracts import Detection, Frame, PitchMetrics, StereoObservation
-from detect.config import DetectorConfig as CvDetectorConfig, Mode
+from contracts import Frame, PitchMetrics
 from detect.lane import LaneGate
 from exceptions import (
     CameraConfigurationError,
@@ -23,7 +22,6 @@ from exceptions import (
 from integrations.radar import NullRadarGun, RadarGunClient
 from log_config.logger import get_logger
 from metrics.simple_metrics import PlateMetricsStub
-from metrics.strike_zone import StrikeResult
 from record.recorder import RecordingBundle
 from stereo import StereoLaneGate
 from stereo.simple_stereo import SimpleStereoMatcher

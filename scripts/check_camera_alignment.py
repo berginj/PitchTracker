@@ -45,7 +45,7 @@ print("Script starting...\n")
 sys.stdout.flush()
 
 import argparse
-from typing import Optional, Tuple
+from typing import Tuple
 
 print("Importing cv2...")
 sys.stdout.flush()

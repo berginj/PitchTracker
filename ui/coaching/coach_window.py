@@ -8,7 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Optional
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from app.qt_pipeline_service import QtPipelineService
 from configs.app_state import load_state, save_state

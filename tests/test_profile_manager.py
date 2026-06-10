@@ -6,9 +6,8 @@ Covers profile/pitcher management, validation, and error handling.
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import pytest
 

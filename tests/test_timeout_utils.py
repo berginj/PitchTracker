@@ -7,7 +7,7 @@ to prevent camera operations from hanging or failing unnecessarily.
 from __future__ import annotations
 
 import time
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
@@ -206,7 +206,6 @@ class TestRetryOnFailure:
         @retry_on_failure()
         def my_func():
             """My docstring."""
-            pass
 
         assert my_func.__name__ == "my_func"
         assert "My docstring" in my_func.__doc__

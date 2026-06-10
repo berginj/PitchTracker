@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 # Combined metaclass for Qt + ABC
 class QABCMeta(type(QObject), ABCMeta):
     """Metaclass that combines Qt's metaclass with ABCMeta."""
-    pass
 
 
 class BaseModeWidget(QtWidgets.QWidget, metaclass=QABCMeta):
@@ -48,7 +47,6 @@ class BaseModeWidget(QtWidgets.QWidget, metaclass=QABCMeta):
         Args:
             recent_pitches: List of recent pitch summaries
         """
-        pass
 
     @abstractmethod
     def update_camera_frames(
@@ -64,7 +62,6 @@ class BaseModeWidget(QtWidgets.QWidget, metaclass=QABCMeta):
             left_frame: Left camera frame
             right_frame: Right camera frame
         """
-        pass
 
     @abstractmethod
     def clear(self) -> None:
@@ -72,7 +69,6 @@ class BaseModeWidget(QtWidgets.QWidget, metaclass=QABCMeta):
 
         Called when starting a new session.
         """
-        pass
 
     @abstractmethod
     def get_mode_name(self) -> str:
@@ -81,7 +77,6 @@ class BaseModeWidget(QtWidgets.QWidget, metaclass=QABCMeta):
         Returns:
             Mode name (e.g., "Broadcast View")
         """
-        pass
 
     def get_current_camera_selection(self) -> str:
         """Get current camera selection.

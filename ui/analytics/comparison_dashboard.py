@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 # Try to import matplotlib for charts
 try:
@@ -28,7 +28,7 @@ try:
 except ImportError:
     HAS_MATPLOTLIB = False
 
-from analysis.trend_analyzer import SessionSummary, TrendAnalyzer
+from analysis.trend_analyzer import TrendAnalyzer
 from ui.themes import apply_standard_layout, polish_form_controls, show_message_dialog
 
 logger = logging.getLogger(__name__)

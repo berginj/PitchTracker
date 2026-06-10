@@ -6,7 +6,7 @@ Covers checkerboard and fiducial detection for calibration overlays.
 
 from __future__ import annotations
 
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 import numpy as np
 
 import pytest

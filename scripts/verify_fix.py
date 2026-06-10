@@ -2,7 +2,6 @@
 """Verify QtPipelineService.start_capture has correct signature."""
 
 import sys
-import importlib
 
 # Force fresh import (no cache)
 if 'app.qt_pipeline_service' in sys.modules:

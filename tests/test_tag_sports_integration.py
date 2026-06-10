@@ -12,14 +12,12 @@ Future phases:
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 from app.services.tag_sports_integration import (
     TagSportsIntegrationService,
-    TagSportsImportResult,
 )
 
 
@@ -243,19 +241,15 @@ class TestTagSportsCloudAPI:
 
     def test_oauth_authentication(self):
         """Test OAuth 2.0 authentication flow."""
-        pass
 
     def test_athlete_profile_sync(self):
         """Test athlete profile creation and sync."""
-        pass
 
     def test_session_upload(self):
         """Test uploading session data to cloud."""
-        pass
 
     def test_session_download(self):
         """Test downloading athlete session history from cloud."""
-        pass
 
 
 # Phase 3 Tests (Future - Bluetooth)
@@ -265,16 +259,12 @@ class TestTagSportsBluetoothIntegration:
 
     def test_device_discovery(self):
         """Test scanning for nearby TAG Sports devices."""
-        pass
 
     def test_device_pairing(self):
         """Test pairing with TAG Sports device via Bluetooth."""
-        pass
 
     def test_pitch_data_streaming(self):
         """Test receiving real-time pitch data via BLE notifications."""
-        pass
 
     def test_cross_validation(self):
         """Test cross-validation of TAG velocity vs. PitchTracker stereo."""
-        pass

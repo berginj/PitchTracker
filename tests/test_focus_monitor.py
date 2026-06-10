@@ -14,8 +14,6 @@ import pytest
 from ui.controllers.focus_monitor import (
     FocusMonitorController,
     focus_quality_tone,
-    FOCUS_GOOD_THRESHOLD,
-    FOCUS_FAIR_THRESHOLD,
     TONE_GOOD,
     TONE_FAIR,
     TONE_POOR,

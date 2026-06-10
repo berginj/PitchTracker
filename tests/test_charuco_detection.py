@@ -1,7 +1,6 @@
 """Test ChArUco board detection."""
 
 import cv2
-import numpy as np
 from pathlib import Path
 
 

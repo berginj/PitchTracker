@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from datetime import datetime
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtWidgets
 
 from ui.coaching.coach_window import CoachWindow
 from ui.coaching.dialogs import SessionStartDialog

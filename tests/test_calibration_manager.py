@@ -6,8 +6,7 @@ Covers calibration workflows and dialog management.
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import pytest
 

@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import patch
 from dataclasses import dataclass
 
 from calib.camera_capabilities import (

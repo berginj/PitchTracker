@@ -87,7 +87,7 @@ class TestResourceLeakVerification(unittest.TestCase):
         from app.pipeline.detection.threading_pool import DetectionThreadPool
         from contracts import Frame
         from detect.classical_detector import ClassicalDetector
-        from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig, Mode
+        from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig
         import numpy as np
 
         gc.collect()
@@ -146,7 +146,7 @@ class TestResourceLeakVerification(unittest.TestCase):
         from app.pipeline.detection.threading_pool import DetectionThreadPool
         from contracts import Frame
         from detect.classical_detector import ClassicalDetector
-        from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig, Mode
+        from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig
         import numpy as np
 
         gc.collect()
@@ -209,7 +209,7 @@ class TestResourceLeakVerification(unittest.TestCase):
         from app.pipeline.detection.threading_pool import DetectionThreadPool
         from contracts import Frame
         from detect.classical_detector import ClassicalDetector
-        from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig, Mode
+        from detect.config import DetectorConfig as CvDetectorConfig, FilterConfig
         import numpy as np
 
         try:

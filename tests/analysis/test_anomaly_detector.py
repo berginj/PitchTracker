@@ -1,10 +1,8 @@
 """Tests for anomaly detection."""
 
 import pytest
-import numpy as np
 
 from analysis.pattern_detection.anomaly_detector import detect_anomalies
-from analysis.pattern_detection.schemas import Anomaly
 
 
 class TestAnomalyDetection:

@@ -12,7 +12,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
-import numpy as np
 
 from analysis.pattern_detection.utils import (
     compute_coefficient_of_variation,

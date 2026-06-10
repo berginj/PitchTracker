@@ -9,7 +9,7 @@ from typing import Dict, Optional, Tuple
 import yaml
 
 from configs.validator import validate_config
-from exceptions import ConfigError, InvalidConfigError
+from exceptions import InvalidConfigError
 from log_config.logger import get_logger
 
 logger = get_logger(__name__)

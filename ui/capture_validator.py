@@ -20,7 +20,7 @@ import cv2
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from capture import CameraDevice
-from configs.settings import AppConfig, load_config
+from configs.settings import load_config
 from ui.themes import (
     apply_standard_layout,
     build_dialog_header,

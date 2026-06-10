@@ -134,7 +134,6 @@ class TestMemoryStressTests(unittest.TestCase):
         from app.pipeline.recording.session_recorder import SessionRecorder
         from app.config import AppConfig
         import numpy as np
-        import cv2
 
         print("\n" + "="*60)
         print("SessionRecorder Multiple Sessions Test")
@@ -202,9 +201,8 @@ class TestMemoryStressTests(unittest.TestCase):
     def test_stereo_manager_extended_operation(self):
         """Test StereoManager for memory leaks during extended operation."""
         from app.pipeline.stereo.stereo_manager import StereoManager
-        from contracts import Detection, Frame
+        from contracts import Detection
         from app.config import AppConfig
-        import numpy as np
 
         print("\n" + "="*60)
         print("StereoManager Extended Operation Test")

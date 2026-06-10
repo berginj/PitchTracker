@@ -6,7 +6,7 @@ Manages focus score tracking, peak values, and health display.
 
 from __future__ import annotations
 
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 import numpy as np
 from PySide6 import QtWidgets

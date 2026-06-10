@@ -1,6 +1,5 @@
 """Integration tests for camera alignment workflow."""
 
-import pytest
 import numpy as np
 from pathlib import Path
 

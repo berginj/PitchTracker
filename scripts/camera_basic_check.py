@@ -6,7 +6,6 @@ If this works but check_camera_alignment.py fails, the issue is in the logic.
 If this also fails, the issue is with imports or camera drivers.
 """
 
-import sys
 from datetime import datetime
 
 print("\n" + "="*70)

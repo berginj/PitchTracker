@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from pathlib import Path
 from typing import Callable, Optional, Tuple
 
 from capture import CameraDevice, SimulatedCamera, UvcCamera

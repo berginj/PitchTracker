@@ -8,7 +8,6 @@ from typing import Dict, Optional, Tuple
 from contracts import Detection, StereoObservation
 from detect.config import DetectorConfig as CvDetectorConfig, Mode
 from log_config.logger import get_logger
-from metrics.simple_metrics import PlateMetricsStub
 from metrics.strike_zone import StrikeResult
 
 logger = get_logger(__name__)
