@@ -12,11 +12,9 @@ If you received the installer, see [README_INSTALL.md](README_INSTALL.md) for in
 
 **Current Version:** v1.5.0-pilot (Locked for pilot program - March 2026)
 
-**Strategic Update:** TAG Sports partnership strategy complete. Deep integration architecture designed (Bluetooth PC ingest + Cloud API). Ready for partnership execution. See `NEXT_ACTIONS_TAG_PARTNERSHIP.md` for execution plan.
-
 The application includes automatic updates - you'll be notified when new versions are available.
 
-### 📚 User Documentation
+### User Documentation
 
 **New to PitchTracker? Start here:**
 - **[Quick Start Guide](docs/QUICK_START.md)** - Get up and running in 30 minutes
@@ -25,9 +23,9 @@ The application includes automatic updates - you'll be notified when new version
 - **[Calibration Tips](docs/user/CALIBRATION_TIPS.md)** - Camera setup and calibration
 
 **For advanced usage:**
-- **[Pattern Detection Guide](docs/PATTERN_DETECTION_GUIDE.md)** - **NEW (UI Integrated!)** - Analyze pitch types, detect anomalies, track pitcher baselines
-- [Review Mode Guide](docs/REVIEW_TRAINING_MODE_DESIGN.md) - Analyze and tune past sessions
-- [Current Status](docs/CURRENT_STATUS.md) - Project status and roadmap
+- **[Pattern Detection Guide](docs/PATTERN_DETECTION_GUIDE.md)** - Analyze pitch types, detect anomalies, track pitcher baselines
+- [Keyboard Shortcuts](docs/KEYBOARD_SHORTCUTS.md) - All keyboard shortcuts
+- [Build Instructions](BUILD_INSTRUCTIONS.md) - Building and packaging
 
 **Pattern Detection Quick Start:**
 1. Record a pitching session

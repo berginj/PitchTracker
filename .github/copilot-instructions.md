@@ -150,6 +150,24 @@ if TYPE_CHECKING:
 - Each dialog gets its own file (max 300 lines). Use `values()` to return user input.
 - Use signals/callbacks for decoupling; no business logic in dialogs.
 
+### UI Theming
+
+All styling flows through `ui/themes/glass_theme.py` (`GlassTheme` dataclass) and `ui/themes/style_manager.py` (`StyleManager` singleton). Never hardcode colors, font sizes, or spacing in widget code.
+
+**Colors** — use theme tokens (`accent_primary`, `accent_success`, `accent_error`, `accent_warning`, `text_primary`, `text_secondary`, `text_muted`, `surface_base`, `surface_muted`). For charts/visualizations, use `chart_blue`, `chart_green`, `chart_red`, `chart_orange`, `chart_background`.
+
+**Font sizes** — use tokens: `font_size_hero` (28), `font_size_title` (22), `font_size_subtitle` (18), `font_size_large` (16), `font_size_body` (15), `font_size_medium` (13), `font_size_small` (12), `font_size_caption` (11).
+
+**Button heights** — use tokens: `button_height_lg` (48) for primary actions, `button_height_md` (40) for standard buttons, `button_height_sm` (32) for compact/secondary buttons.
+
+**Margins** — use presets from `dialog_helpers.py`: `MARGINS_SPACIOUS` (24), `MARGINS_NORMAL` (16), `MARGINS_TIGHT` (8), `MARGINS_NONE` (0).
+
+**Button styling** — use `style_manager.style_button(btn, variant)` with variants: `"primary"`, `"success"`, `"danger"`, `"ghost"`, `"default"`.
+
+**No emoji in buttons** — use plain text labels for all buttons. Emoji render inconsistently across Windows versions and DPI settings.
+
+**Loading/empty states** — use `build_loading_indicator()` and `build_empty_state()` from `dialog_helpers.py`.
+
 ### Testing
 
 - No conftest.py — fixtures are inline with `@pytest.fixture` in each test file.
