@@ -5,9 +5,9 @@ This script helps verify which ArUco dictionary your printed board uses
 and confirms the pattern size detection is working correctly.
 
 Usage:
-    python test_charuco_detection.py              # Use webcam 0
-    python test_charuco_detection.py --camera 1   # Use specific camera
-    python test_charuco_detection.py --image board.jpg  # Test with image file
+    python scripts/charuco_detection_check.py              # Use webcam 0
+    python scripts/charuco_detection_check.py --camera 1   # Use specific camera
+    python scripts/charuco_detection_check.py --image board.jpg  # Test with image file
 """
 
 import argparse

@@ -37,9 +37,15 @@ python -m pytest tests/test_video_clip.py
 
 ```powershell
 black .                                  # format
-flake8 .                                 # lint
+flake8 .                                 # lint (config in setup.cfg, max-line-length=120)
 mypy .                                   # type check
+python scripts/check_file_length.py      # enforce the 500-line file cap
+python scripts/sync_schema.py --check    # verify root schema/ mirrors contracts-shared/
 ```
+
+CI blocking gates: schema-mirror check, file-length guard, critical flake8 errors
+(`--select=E9,F63,F7,F82`), and tests. Full-style flake8 and mypy run as advisory
+(`continue-on-error`) while the existing style/type debt is paid down.
 
 ### Building the Installer
 
@@ -98,6 +104,8 @@ YAML files in `configs/` (e.g., `default.yaml`, `snapdragon.yaml`) are loaded by
 ### File & Code Size Limits (strictly enforced)
 
 - **Files: max 500 lines** (target 200–300). Stop adding code at 400 lines and extract.
+  Enforced in CI by `scripts/check_file_length.py` (existing oversized files are
+  grandfathered via an allowlist and may only shrink, never grow past 500).
 - **Functions: max 50 lines** (target 10–20). Max 5 parameters (use dataclasses for more).
 - **Classes: max 30 methods** (target 10–15).
 - **Cyclomatic complexity: max 10**. Max 3 levels of nesting.

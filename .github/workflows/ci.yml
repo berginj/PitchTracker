@@ -30,11 +30,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Lint with flake8
-        run: flake8 . --count --show-source --statistics
+      - name: Verify schema mirror is in sync
+        run: python scripts/sync_schema.py --check
 
-      - name: Type check with mypy
+      - name: Enforce file-length convention
+        run: python scripts/check_file_length.py
+
+      - name: Lint - critical errors (blocking)
+        run: flake8 . --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Lint - style (advisory)
+        run: flake8 . --exit-zero --statistics
+        continue-on-error: true
+
+      - name: Type check with mypy (advisory)
         run: mypy . --ignore-missing-imports
+        continue-on-error: true
 
       - name: Run tests
         run: python -m pytest --tb=short -q

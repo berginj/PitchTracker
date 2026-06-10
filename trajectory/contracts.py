@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
-from contracts import RayObservation, StereoObservation, TrackSample
+from contracts import RayObservation, StereoObservation, TrackSample, TrajectoryFit
 from trajectory.camera_model import CameraModel, RayCameraModel
 
 
@@ -121,8 +121,6 @@ class TrajectoryFitResult:
         Bridges the richer trajectory-module result into the pipeline's
         common contract, preserving extra detail in the diagnostics dict.
         """
-        from contracts import TrajectoryFit
-
         diag = self.diagnostics.to_dict()
         diag["plate_crossing_t_ns"] = self.plate_crossing_t_ns
         diag["expected_plate_error_ft"] = self.expected_plate_error_ft

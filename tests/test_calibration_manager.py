@@ -269,10 +269,10 @@ class TestPlateCalibrate:
         status_text = calibration_manager._status_label.setText.call_args[0][0]
         assert "55.500" in status_text
 
-    @patch("ui.controllers.calibration_manager.QtWidgets.QMessageBox")
+    @patch("ui.controllers.calibration_manager.show_message_dialog")
     @patch("ui.controllers.calibration_manager.estimate_and_write")
     @patch("ui.controllers.calibration_manager.PlatePlaneDialog")
-    def test_plate_calibrate_error(self, mock_dialog_class, mock_estimate, mock_msgbox, calibration_manager):
+    def test_plate_calibrate_error(self, mock_dialog_class, mock_estimate, mock_show_message, calibration_manager):
         """open_plate_calibrate should show error on failure."""
         from PySide6 import QtWidgets
 
@@ -285,7 +285,8 @@ class TestPlateCalibrate:
 
         calibration_manager.open_plate_calibrate()
 
-        mock_msgbox.critical.assert_called_once()
+        mock_show_message.assert_called_once()
+        assert mock_show_message.call_args.kwargs.get("tone") == "error"
 
 
 class TestUpdateCalibSummary:

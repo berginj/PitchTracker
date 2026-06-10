@@ -13,35 +13,35 @@ import pytest
 
 from ui.controllers.focus_monitor import (
     FocusMonitorController,
-    focus_quality_color,
+    focus_quality_tone,
     FOCUS_GOOD_THRESHOLD,
     FOCUS_FAIR_THRESHOLD,
-    COLOR_GOOD,
-    COLOR_FAIR,
-    COLOR_POOR,
+    TONE_GOOD,
+    TONE_FAIR,
+    TONE_POOR,
 )
 
 
-class TestFocusQualityColor:
-    """Tests for focus_quality_color function."""
+class TestFocusQualityTone:
+    """Tests for focus_quality_tone function."""
 
     def test_good_quality(self):
-        """Score >= 200 should return green."""
-        assert focus_quality_color(200) == COLOR_GOOD
-        assert focus_quality_color(250) == COLOR_GOOD
-        assert focus_quality_color(500) == COLOR_GOOD
+        """Score >= 200 should return the success tone."""
+        assert focus_quality_tone(200) == TONE_GOOD
+        assert focus_quality_tone(250) == TONE_GOOD
+        assert focus_quality_tone(500) == TONE_GOOD
 
     def test_fair_quality(self):
-        """Score 100-199 should return yellow/orange."""
-        assert focus_quality_color(100) == COLOR_FAIR
-        assert focus_quality_color(150) == COLOR_FAIR
-        assert focus_quality_color(199) == COLOR_FAIR
+        """Score 100-199 should return the warning tone."""
+        assert focus_quality_tone(100) == TONE_FAIR
+        assert focus_quality_tone(150) == TONE_FAIR
+        assert focus_quality_tone(199) == TONE_FAIR
 
     def test_poor_quality(self):
-        """Score < 100 should return red."""
-        assert focus_quality_color(0) == COLOR_POOR
-        assert focus_quality_color(50) == COLOR_POOR
-        assert focus_quality_color(99) == COLOR_POOR
+        """Score < 100 should return the error tone."""
+        assert focus_quality_tone(0) == TONE_POOR
+        assert focus_quality_tone(50) == TONE_POOR
+        assert focus_quality_tone(99) == TONE_POOR
 
 
 class TestFocusMonitorControllerInit:
@@ -103,13 +103,14 @@ class TestUpdateDisplay:
         )
 
     def test_update_display_updates_labels(self, focus_monitor):
-        """update_display should update label text and style."""
-        focus_monitor.update_display(150.0, 180.0)
+        """update_display should style both focus labels via the helper."""
+        with patch("ui.controllers.focus_monitor.style_status_label") as mock_style:
+            focus_monitor.update_display(150.0, 180.0)
 
-        focus_monitor._focus_left_label.setText.assert_called_once()
-        focus_monitor._focus_left_label.setStyleSheet.assert_called_once()
-        focus_monitor._focus_right_label.setText.assert_called_once()
-        focus_monitor._focus_right_label.setStyleSheet.assert_called_once()
+        assert mock_style.call_count == 2
+        styled_labels = [call.args[0] for call in mock_style.call_args_list]
+        assert focus_monitor._focus_left_label in styled_labels
+        assert focus_monitor._focus_right_label in styled_labels
 
     def test_update_display_tracks_peaks(self, focus_monitor):
         """update_display should track peak values."""

@@ -364,13 +364,13 @@ class LauncherWindow(QtWidgets.QMainWindow):
         label_layout.setSpacing(12)
 
         # Title
-        title_label = QtWidgets.QLabel(sanitized_title)
+        title_label = QtWidgets.QLabel(title)
         title_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter)
         self._style_manager.style_label(title_label, "sectionTitle")
         title_label.setWordWrap(True)
 
         # Description
-        desc_label = QtWidgets.QLabel(sanitized_description)
+        desc_label = QtWidgets.QLabel(description)
         desc_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
         self._style_manager.style_label(desc_label, "muted")
         desc_label.setWordWrap(True)

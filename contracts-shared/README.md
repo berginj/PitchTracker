@@ -19,6 +19,24 @@ persona-specific fields into every payload.
 - `examples/training_report.sample.json` - Example training report with logs, errors, and capture stats.
 - `examples/generate_marker_spec.py` - Helper to regenerate marker spec for baseball/softball.
 
+## Runtime schema mirror
+
+This directory is the **single source of truth** for published schemas. The
+running desktop app loads a small subset from the repository-root `schema/`
+directory so it does not depend on this package's layout. That root directory is
+a generated mirror, not a second source of truth.
+
+After editing `schema/version.json` or `schema/session_summary.schema.json`
+here, regenerate the mirror:
+
+```powershell
+python scripts/sync_schema.py            # update the root schema/ mirror
+python scripts/sync_schema.py --check    # CI: fail if the mirror is stale
+```
+
+`tests/test_contracts.py` asserts the mirror matches this source, so a stale
+mirror fails the test suite.
+
 ## Persona and Workflow Context
 
 See `PERSONAS.md` before changing schemas. It defines the current baseline

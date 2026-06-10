@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from contracts import Detection
 
 
 @dataclass
@@ -20,7 +23,7 @@ def to_contract_detection(
     frame_index: int,
     t_capture_monotonic_ns: int,
     confidence: float,
-) -> "contracts.Detection":
+) -> "Detection":
     from contracts import Detection
 
     radius_px = (blob.area / 3.141592653589793) ** 0.5 if blob.area > 0 else 0.0

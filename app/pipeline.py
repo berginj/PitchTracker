@@ -167,6 +167,7 @@ def run_pipeline(
         min_velocity=config.detector.filters.min_velocity,
         max_velocity=config.detector.filters.max_velocity,
     )
+    lane_polygon = load_lane_polygon(roi_path, left_id, right_id)
     if config.detector.type == "ml":
         detector = MlDetector(
             model_path=config.detector.model_path,
@@ -196,7 +197,6 @@ def run_pipeline(
                 else None
             ),
         )
-    lane_polygon = load_lane_polygon(roi_path, left_id, right_id)
     lane_gate = build_lane_gate(
         config.camera.width,
         config.camera.height,

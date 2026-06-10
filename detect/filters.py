@@ -52,7 +52,7 @@ def apply_lane_gating(
 ) -> list[BlobDetection]:
     if not lanes:
         return detections
-    gated: list[Detection] = []
+    gated: list[BlobDetection] = []
     lane_list = [list(lane) for lane in lanes]
     for det in detections:
         if any(point_in_polygon(det.centroid, lane) for lane in lane_list):

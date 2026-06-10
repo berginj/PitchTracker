@@ -323,7 +323,8 @@ class UvcCamera(CameraDevice):
             CameraNotFoundError: If camera is not found
         """
         try:
-            devices = _list_camera_devices()
+            from capture.device_discovery import list_uvc_devices
+            devices = list_uvc_devices()
             matches = [
                 dev for dev in devices if dev["serial"].lower() == serial.lower()
             ]
