@@ -86,7 +86,6 @@ class GlassTheme:
                 color: {self.text_primary};
                 font-family: {self.font_family};
                 font-size: {self.font_size_medium}px;
-                outline: none;
             }}
 
             QWidget#AppShell,
@@ -419,6 +418,17 @@ class GlassTheme:
             QDateTimeEdit:focus,
             QComboBox:focus {{
                 border-color: {self.accent_primary};
+            }}
+
+            QPushButton:focus,
+            QToolButton:focus {{
+                border: 2px solid {self.accent_primary};
+            }}
+
+            QCheckBox:focus,
+            QRadioButton:focus {{
+                outline: 2px solid {self.accent_primary};
+                outline-offset: 2px;
             }}
 
             QComboBox {{

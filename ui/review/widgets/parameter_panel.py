@@ -71,6 +71,7 @@ class ParameterPanel(QtWidgets.QWidget):
 
         # Reset button
         reset_btn = QtWidgets.QPushButton("Reset to Original")
+        reset_btn.setAccessibleName("Reset Parameters")
         self._style_manager.style_button(reset_btn, "default")
         reset_btn.clicked.connect(self._reset_parameters)
         reset_btn.setToolTip("Reset all parameters to original session values")
@@ -78,6 +79,7 @@ class ParameterPanel(QtWidgets.QWidget):
 
         # Apply button
         apply_btn = QtWidgets.QPushButton("Apply Changes")
+        apply_btn.setAccessibleName("Apply Parameters")
         self._style_manager.style_button(apply_btn, "primary")
         apply_btn.clicked.connect(self.parameter_changed.emit)
         layout.addWidget(apply_btn)
@@ -98,13 +100,16 @@ class ParameterPanel(QtWidgets.QWidget):
         group = QtWidgets.QGroupBox("Detection Mode")
 
         self._mode_a_radio = QtWidgets.QRadioButton("MODE_A (Standard)")
+        self._mode_a_radio.setAccessibleName("Detection Mode A")
         self._mode_a_radio.setChecked(True)
         self._mode_a_radio.toggled.connect(lambda: self._set_mode(Mode.MODE_A))
 
         self._mode_b_radio = QtWidgets.QRadioButton("MODE_B (Sensitive)")
+        self._mode_b_radio.setAccessibleName("Detection Mode B")
         self._mode_b_radio.toggled.connect(lambda: self._set_mode(Mode.MODE_B))
 
         self._mode_c_radio = QtWidgets.QRadioButton("MODE_C (Aggressive)")
+        self._mode_c_radio.setAccessibleName("Detection Mode C")
         self._mode_c_radio.toggled.connect(lambda: self._set_mode(Mode.MODE_C))
 
         layout = QtWidgets.QVBoxLayout()
@@ -126,6 +131,7 @@ class ParameterPanel(QtWidgets.QWidget):
         # Frame diff threshold
         frame_diff_label = QtWidgets.QLabel("Frame Diff:")
         self._frame_diff_slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self._frame_diff_slider.setAccessibleName("Frame Difference Threshold")
         self._frame_diff_slider.setRange(1, 50)
         self._frame_diff_slider.setValue(18)
         self._frame_diff_slider.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBelow)
@@ -136,6 +142,7 @@ class ParameterPanel(QtWidgets.QWidget):
         # BG diff threshold
         bg_diff_label = QtWidgets.QLabel("BG Diff:")
         self._bg_diff_slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self._bg_diff_slider.setAccessibleName("Background Difference Threshold")
         self._bg_diff_slider.setRange(1, 30)
         self._bg_diff_slider.setValue(12)
         self._bg_diff_slider.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBelow)
@@ -165,6 +172,7 @@ class ParameterPanel(QtWidgets.QWidget):
         # Min area
         min_area_label = QtWidgets.QLabel("Min Area:")
         self._min_area_slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self._min_area_slider.setAccessibleName("Minimum Blob Area")
         self._min_area_slider.setRange(1, 50)
         self._min_area_slider.setValue(12)
         self._min_area_slider.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBelow)
@@ -175,6 +183,7 @@ class ParameterPanel(QtWidgets.QWidget):
         # Max area
         max_area_label = QtWidgets.QLabel("Max Area:")
         self._max_area_slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self._max_area_slider.setAccessibleName("Maximum Blob Area")
         self._max_area_slider.setRange(100, 1000)
         self._max_area_slider.setValue(500)
         self._max_area_slider.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBelow)
@@ -185,6 +194,7 @@ class ParameterPanel(QtWidgets.QWidget):
         # Min circularity
         min_circ_label = QtWidgets.QLabel("Min Circularity:")
         self._min_circ_slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self._min_circ_slider.setAccessibleName("Minimum Circularity")
         self._min_circ_slider.setRange(0, 100)
         self._min_circ_slider.setValue(10)
         self._min_circ_slider.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBelow)

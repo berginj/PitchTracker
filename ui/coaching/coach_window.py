@@ -197,6 +197,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         mode_toolbar_layout.addWidget(mode_label)
 
         self._mode_selector = QtWidgets.QComboBox()
+        self._mode_selector.setAccessibleName("View Mode")
         self._style_manager.style_input(self._mode_selector)
         self._mode_selector.addItems([
             "Broadcast View",
@@ -273,11 +274,13 @@ class CoachWindow(QtWidgets.QMainWindow):
     def _build_controls(self) -> QtWidgets.QWidget:
         """Build control buttons."""
         self._setup_button = QtWidgets.QPushButton("Start Session")
+        self._setup_button.setAccessibleName("Start Session")
         self._setup_button.setMinimumHeight(50)
         self._style_manager.style_button(self._setup_button, "primary")
         self._setup_button.clicked.connect(self._setup_session)
 
         self._start_recording_button = QtWidgets.QPushButton("▶ Start Recording")
+        self._start_recording_button.setAccessibleName("Start Recording")
         self._start_recording_button.setMinimumHeight(50)
         self._start_recording_button.setText("Start Recording")
         self._style_manager.style_button(self._start_recording_button, "success")
@@ -285,6 +288,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._start_recording_button.clicked.connect(self._start_recording)
 
         self._pause_button = QtWidgets.QPushButton("⏸ Pause")
+        self._pause_button.setAccessibleName("Pause Session")
         self._pause_button.setMinimumHeight(50)
         self._pause_button.setText("Pause")
         self._style_manager.style_button(self._pause_button, "default")
@@ -292,6 +296,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._pause_button.clicked.connect(self._pause_session)
 
         self._end_button = QtWidgets.QPushButton("⏹ End Session")
+        self._end_button.setAccessibleName("End Session")
         self._end_button.setMinimumHeight(50)
         self._end_button.setText("End Session")
         self._style_manager.style_button(self._end_button, "danger")
@@ -299,12 +304,14 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._end_button.clicked.connect(self._end_session)
 
         self._settings_button = QtWidgets.QPushButton("⚙ Settings")
+        self._settings_button.setAccessibleName("Settings")
         self._settings_button.setMinimumHeight(50)
         self._settings_button.setText("Settings")
         self._style_manager.style_button(self._settings_button, "ghost")
         self._settings_button.clicked.connect(self._show_settings)
 
         self._lane_button = QtWidgets.QPushButton("📐 Adjust Lane")
+        self._lane_button.setAccessibleName("Adjust Lane")
         self._lane_button.setMinimumHeight(50)
         self._lane_button.setText("Adjust Lane")
         self._style_manager.style_button(self._lane_button, "default")
@@ -312,6 +319,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._lane_button.setToolTip("Adjust the lane ROI (region where ball tracking occurs)")
 
         self._review_button = QtWidgets.QPushButton("🎬 Review Session")
+        self._review_button.setAccessibleName("Review Session")
         self._review_button.setMinimumHeight(50)
         self._review_button.setText("Review Session")
         self._style_manager.style_button(self._review_button, "default")
@@ -319,6 +327,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._review_button.setToolTip("Review and analyze previous sessions")
 
         self._help_button = QtWidgets.QPushButton("❓ Help")
+        self._help_button.setAccessibleName("Help")
         self._help_button.setMinimumHeight(50)
         self._help_button.setText("Help")
         self._style_manager.style_button(self._help_button, "ghost")

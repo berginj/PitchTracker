@@ -86,18 +86,21 @@ class PitchListWidget(QtWidgets.QWidget):
 
         self._good_btn = QtWidgets.QPushButton("✓ Good")
         self._good_btn.setText("Good")
+        self._good_btn.setAccessibleName("Mark Good Detection")
         self._style_manager.style_button(self._good_btn, "success")
         self._good_btn.clicked.connect(lambda: self._score_current_pitch(PitchScore.GOOD))
         self._good_btn.setToolTip("Detection worked perfectly")
 
         self._partial_btn = QtWidgets.QPushButton("⚠ Partial")
         self._partial_btn.setText("Partial")
+        self._partial_btn.setAccessibleName("Mark Partial Detection")
         self._style_manager.style_button(self._partial_btn, "default")
         self._partial_btn.clicked.connect(lambda: self._score_current_pitch(PitchScore.PARTIAL))
         self._partial_btn.setToolTip("Some frames detected, some missed")
 
         self._missed_btn = QtWidgets.QPushButton("✗ Missed")
         self._missed_btn.setText("Missed")
+        self._missed_btn.setAccessibleName("Mark Missed Detection")
         self._style_manager.style_button(self._missed_btn, "danger")
         self._missed_btn.clicked.connect(lambda: self._score_current_pitch(PitchScore.MISSED))
         self._missed_btn.setToolTip("Detection completely failed")

@@ -104,11 +104,18 @@ class SettingsDialog(QtWidgets.QDialog):
         self.setLayout(layout)
         polish_form_controls(self)
 
+        # Set logical tab order
+        QtWidgets.QWidget.setTabOrder(self._resolution_combo, self._color_mode_checkbox)
+        QtWidgets.QWidget.setTabOrder(self._color_mode_checkbox, self._left_camera_combo)
+        QtWidgets.QWidget.setTabOrder(self._left_camera_combo, self._right_camera_combo)
+        QtWidgets.QWidget.setTabOrder(self._right_camera_combo, self._custom_distance_spin)
+
     def _build_resolution_group(self) -> QtWidgets.QGroupBox:
         """Build resolution selection group."""
         group = QtWidgets.QGroupBox("Recording Resolution")
 
         self._resolution_combo = QtWidgets.QComboBox()
+        self._resolution_combo.setAccessibleName("Resolution")
         for label, width, height, fps in self.RESOLUTIONS:
             self._resolution_combo.addItem(label, (width, height, fps))
 
@@ -119,6 +126,7 @@ class SettingsDialog(QtWidgets.QDialog):
                 break
 
         self._color_mode_checkbox = QtWidgets.QCheckBox("Capture Color Video")
+        self._color_mode_checkbox.setAccessibleName("Color Mode")
         self._color_mode_checkbox.setChecked(self._current_color_mode)
         self._color_mode_checkbox.setToolTip(
             "Enable to capture color video (YUYV format).\n"
@@ -152,8 +160,10 @@ class SettingsDialog(QtWidgets.QDialog):
 
         left_label = QtWidgets.QLabel("Left Camera")
         self._left_camera_combo = QtWidgets.QComboBox()
+        self._left_camera_combo.setAccessibleName("Left Camera")
         right_label = QtWidgets.QLabel("Right Camera")
         self._right_camera_combo = QtWidgets.QComboBox()
+        self._right_camera_combo.setAccessibleName("Right Camera")
 
         if indices:
             for index in indices:
@@ -166,10 +176,11 @@ class SettingsDialog(QtWidgets.QDialog):
                 if self._right_camera_combo.itemData(i) == self._current_right:
                     self._right_camera_combo.setCurrentIndex(i)
         else:
-            self._left_camera_combo.addItem("No cameras found", "")
-            self._right_camera_combo.addItem("No cameras found", "")
+            self._left_camera_combo.addItem("No cameras found — check USB connections", "")
+            self._right_camera_combo.addItem("No cameras found — check USB connections", "")
 
         swap_button = QtWidgets.QPushButton("Swap Left / Right")
+        swap_button.setAccessibleName("Swap Cameras")
         swap_button.clicked.connect(self._swap_cameras)
         swap_button.setToolTip("Quickly swap left and right camera assignments.")
         self._style_manager.style_button(swap_button, "ghost")
@@ -223,6 +234,7 @@ class SettingsDialog(QtWidgets.QDialog):
 
         custom_label = QtWidgets.QLabel("Custom")
         self._custom_distance_spin = QtWidgets.QDoubleSpinBox()
+        self._custom_distance_spin.setAccessibleName("Custom Baseline Distance")
         self._custom_distance_spin.setRange(20.0, 100.0)
         self._custom_distance_spin.setValue(self._current_mound_distance)
         self._custom_distance_spin.setSuffix(" ft")

@@ -37,6 +37,12 @@ class PlateMapWidget(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.MinimumExpanding,
             QtWidgets.QSizePolicy.MinimumExpanding,
         )
+        self.setAccessibleName("Strike Zone Plate Map")
+        self.setAccessibleDescription(
+            "Visual strike zone showing pitch locations. "
+            "Blue rectangle is the strike zone. Cyan lines are pitch trails. "
+            "Red dot marks the plate crossing point."
+        )
 
     def set_zone(self, zone: StrikeZone) -> None:
         self._zone = zone
@@ -95,6 +101,20 @@ class PlateMapWidget(QtWidgets.QWidget):
             y_max,
             self._crossing_point,
         )
+
+        # Draw text legend for accessibility
+        legend_y = rect.height() - 16
+        painter.setPen(QtGui.QColor(180, 200, 220, 180))
+        font = painter.font()
+        font.setPixelSize(10)
+        painter.setFont(font)
+        legend_items = "■ Zone  ── Trail  ● Crossing"
+        painter.drawText(
+            QtCore.QRect(4, legend_y, rect.width() - 8, 14),
+            QtCore.Qt.AlignmentFlag.AlignLeft,
+            legend_items,
+        )
+
         painter.end()
 
 

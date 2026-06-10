@@ -324,6 +324,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
             "#4CAF50",
             self._launch_setup,
         )
+        self._setup_button.setAccessibleName("Launch Setup Wizard")
 
         # Coaching App button
         self._coach_button = self._create_role_button(
@@ -337,6 +338,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
             "#2196F3",
             self._launch_coaching,
         )
+        self._coach_button.setAccessibleName("Launch Coaching App")
 
         layout.addWidget(self._setup_button)
         layout.addWidget(self._coach_button)
@@ -409,6 +411,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
         about_button = QtWidgets.QPushButton("ℹ About")
         about_button.setMinimumHeight(40)
         about_button.setText("About PitchTracker")
+        about_button.setAccessibleName("About PitchTracker")
         about_button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         about_button.clicked.connect(self._show_about)
         self._style_manager.style_button(about_button, "ghost")

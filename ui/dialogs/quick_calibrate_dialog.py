@@ -31,20 +31,27 @@ class QuickCalibrateDialog(QtWidgets.QDialog):
         self.updates: dict | None = None
 
         self._left_dir = QtWidgets.QLineEdit()
+        self._left_dir.setAccessibleName("Left Image Directory")
         self._right_dir = QtWidgets.QLineEdit()
+        self._right_dir.setAccessibleName("Right Image Directory")
         self._pattern = QtWidgets.QLineEdit("9x6")
+        self._pattern.setAccessibleName("Checkerboard Pattern")
         self._square_mm = QtWidgets.QDoubleSpinBox()
+        self._square_mm.setAccessibleName("Square Size in Millimeters")
         self._square_mm.setMinimum(1.0)
         self._square_mm.setMaximum(1000.0)
         self._square_mm.setValue(25.0)
         self._ext = QtWidgets.QLineEdit("*.png")
+        self._ext.setAccessibleName("Image File Extension")
 
         self._build_ui()
 
     def _build_ui(self) -> None:
         """Build dialog UI."""
         left_browse = QtWidgets.QPushButton("Browse")
+        left_browse.setAccessibleName("Browse Left Images")
         right_browse = QtWidgets.QPushButton("Browse")
+        right_browse.setAccessibleName("Browse Right Images")
         left_browse.clicked.connect(lambda: self._browse_dir(self._left_dir))
         right_browse.clicked.connect(lambda: self._browse_dir(self._right_dir))
         self._style_manager.style_button(left_browse, "ghost")
@@ -70,7 +77,9 @@ class QuickCalibrateDialog(QtWidgets.QDialog):
         form.addRow("Image glob", self._ext)
 
         run_button = QtWidgets.QPushButton("Run Calibration")
+        run_button.setAccessibleName("Run Calibration")
         close_button = QtWidgets.QPushButton("Close")
+        close_button.setAccessibleName("Close")
         run_button.clicked.connect(self._run)
         close_button.clicked.connect(self.reject)
         self._style_manager.style_button(run_button, "primary")
@@ -114,7 +123,18 @@ class QuickCalibrateDialog(QtWidgets.QDialog):
         left_paths = sorted(left_dir.glob(glob_pattern))
         right_paths = sorted(right_dir.glob(glob_pattern))
         if not left_paths or not right_paths:
-            show_message_dialog(self, "Quick Calibrate", "No images found.", tone="warning")
+            missing = []
+            if not left_paths:
+                missing.append(f"left ({left_dir})")
+            if not right_paths:
+                missing.append(f"right ({right_dir})")
+            show_message_dialog(
+                self,
+                "Quick Calibrate",
+                f"No {self._ext.text()} images found in {' or '.join(missing)}.\n\n"
+                f"Ensure the folders contain calibration images with the '{self._ext.text()}' extension.",
+                tone="warning",
+            )
             return
 
         progress = QtWidgets.QProgressDialog("Running calibration...", "Cancel", 0, 0, self)

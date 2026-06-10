@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import ssl
 import subprocess
 import tempfile
 from pathlib import Path
@@ -21,6 +22,11 @@ from loguru import logger
 CURRENT_VERSION = "1.5.0"  # Updated to match canonical pilot build (March 2026)
 GITHUB_REPO = "berginj/PitchTracker"
 UPDATE_CHECK_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+
+
+def _default_ssl_context() -> ssl.SSLContext:
+    """Create a default SSL context with certificate verification."""
+    return ssl.create_default_context()
 
 
 def parse_version(version_str: str) -> tuple[int, ...]:
@@ -87,7 +93,7 @@ def check_for_updates(timeout: int = 5) -> dict:
         logger.debug(f"Checking for updates at: {UPDATE_CHECK_URL}")
 
         # Fetch latest release info from GitHub API
-        with urlopen(UPDATE_CHECK_URL, timeout=timeout) as response:
+        with urlopen(UPDATE_CHECK_URL, timeout=timeout, context=_default_ssl_context()) as response:
             if response.status != 200:
                 logger.warning(f"Update check returned status {response.status}")
                 return result
@@ -132,7 +138,7 @@ def check_for_updates(timeout: int = 5) -> dict:
                 if asset.get('name', '') == f"{installer_name}.sha256":
                     try:
                         sha_url = asset.get('browser_download_url')
-                        with urlopen(sha_url, timeout=timeout) as sha_resp:
+                        with urlopen(sha_url, timeout=timeout, context=_default_ssl_context()) as sha_resp:
                             expected_sha256 = sha_resp.read().decode('utf-8').strip().split()[0]
                     except Exception as e:
                         logger.debug(f"Failed to fetch .sha256 asset: {e}")
@@ -228,7 +234,7 @@ def download_update(
         logger.debug(f"Destination: {dest_path}")
 
         # Download with progress tracking
-        with urlopen(url, timeout=30) as response:
+        with urlopen(url, timeout=30, context=_default_ssl_context()) as response:
             total_size = int(response.headers.get('Content-Length', 0))
             bytes_downloaded = 0
 

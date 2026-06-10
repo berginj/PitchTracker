@@ -51,6 +51,7 @@ class CalibrationStepPanelsMixin:
         # Pattern size
         pattern_label = QtWidgets.QLabel("Pattern (cols x rows):")
         self._pattern_cols_spin = QtWidgets.QSpinBox()
+        self._pattern_cols_spin.setAccessibleName("Pattern Columns")
         self._pattern_cols_spin.setRange(3, 20)
         self._pattern_cols_spin.setValue(self._pattern_cols)
         self._pattern_cols_spin.valueChanged.connect(self._on_pattern_changed)
@@ -58,6 +59,7 @@ class CalibrationStepPanelsMixin:
         cross_label = QtWidgets.QLabel("×")
 
         self._pattern_rows_spin = QtWidgets.QSpinBox()
+        self._pattern_rows_spin.setAccessibleName("Pattern Rows")
         self._pattern_rows_spin.setRange(3, 20)
         self._pattern_rows_spin.setValue(self._pattern_rows)
         self._pattern_rows_spin.valueChanged.connect(self._on_pattern_changed)
@@ -65,6 +67,7 @@ class CalibrationStepPanelsMixin:
         # Square size
         square_label = QtWidgets.QLabel("Square size (mm):")
         self._square_spin = QtWidgets.QDoubleSpinBox()
+        self._square_spin.setAccessibleName("Square Size")
         self._square_spin.setRange(1.0, 100.0)
         self._square_spin.setValue(self._square_mm)
         self._square_spin.setSuffix(" mm")
@@ -72,6 +75,7 @@ class CalibrationStepPanelsMixin:
 
         # Auto-detection toggle
         self._auto_detect_pattern_checkbox = QtWidgets.QCheckBox("Enable Auto-Detection")
+        self._auto_detect_pattern_checkbox.setAccessibleName("Auto-detect Pattern")
         self._auto_detect_pattern_checkbox.setChecked(True)  # ON by default
         self._auto_detect_pattern_checkbox.setToolTip(
             "When enabled, automatically detects ChArUco board size and dictionary.\n"
@@ -131,12 +135,15 @@ class CalibrationStepPanelsMixin:
         self._flip_right_btn.clicked.connect(lambda checked: self._toggle_flip("right", checked))
         self._flip_left_btn.setText("Flip Left 180")
         self._flip_right_btn.setText("Flip Right 180")
+        self._flip_left_btn.setAccessibleName("Flip Left Camera")
+        self._flip_right_btn.setAccessibleName("Flip Right Camera")
         self._style_manager.style_button(self._flip_left_btn, "ghost")
         self._style_manager.style_button(self._flip_right_btn, "ghost")
 
         # Manual rotation controls
         rotate_left_label = QtWidgets.QLabel("Rotate L:")
         self._rotate_left_spin = QtWidgets.QDoubleSpinBox()
+        self._rotate_left_spin.setAccessibleName("Rotate Left Camera")
         self._rotate_left_spin.setRange(-45.0, 45.0)
         self._rotate_left_spin.setSingleStep(0.5)
         self._rotate_left_spin.setDecimals(1)
@@ -145,6 +152,7 @@ class CalibrationStepPanelsMixin:
 
         rotate_right_label = QtWidgets.QLabel("Rotate R:")
         self._rotate_right_spin = QtWidgets.QDoubleSpinBox()
+        self._rotate_right_spin.setAccessibleName("Rotate Right Camera")
         self._rotate_right_spin.setRange(-45.0, 45.0)
         self._rotate_right_spin.setSingleStep(0.5)
         self._rotate_right_spin.setDecimals(1)
@@ -170,10 +178,12 @@ class CalibrationStepPanelsMixin:
         self._reset_corrections_btn.setToolTip("Reset all rotation and offset corrections to zero")
         self._reset_corrections_btn.clicked.connect(self._reset_all_corrections)
         self._reset_corrections_btn.setText("Reset All")
+        self._reset_corrections_btn.setAccessibleName("Reset Corrections")
         self._style_manager.style_button(self._reset_corrections_btn, "ghost")
 
         # Auto-correction checkbox
         self._auto_correct_checkbox = QtWidgets.QCheckBox("Auto-apply alignment corrections")
+        self._auto_correct_checkbox.setAccessibleName("Auto Correct Alignment")
         self._auto_correct_checkbox.setChecked(False)  # OFF by default
         self._auto_correct_checkbox.setToolTip(
             "When enabled, automatically apply software corrections for camera rotation and vertical offset.\n"
@@ -186,6 +196,7 @@ class CalibrationStepPanelsMixin:
         self._swap_lr_btn.setToolTip("Manually swap left and right camera assignments")
         self._swap_lr_btn.clicked.connect(self._swap_left_right)
         self._swap_lr_btn.setText("Swap Left / Right")
+        self._swap_lr_btn.setAccessibleName("Swap Left and Right Cameras")
         self._style_manager.style_button(self._swap_lr_btn, "ghost")
 
         # Auto-swap button (intelligent swap based on marker positions)
@@ -198,11 +209,13 @@ class CalibrationStepPanelsMixin:
         )
         self._auto_swap_btn.clicked.connect(self._auto_swap_cameras)
         self._auto_swap_btn.setText("Auto-Swap")
+        self._auto_swap_btn.setAccessibleName("Auto Swap Cameras")
         self._style_manager.style_button(self._auto_swap_btn, "success")
 
         # Baseline setting
         baseline_label = QtWidgets.QLabel("Baseline:")
         self._baseline_spin = QtWidgets.QDoubleSpinBox()
+        self._baseline_spin.setAccessibleName("Baseline Distance")
         self._baseline_spin.setRange(0.5, 10.0)
         self._baseline_spin.setSingleStep(0.125)  # 1.5 inch increments
         self._baseline_spin.setDecimals(3)
@@ -350,6 +363,7 @@ class CalibrationStepPanelsMixin:
         self._recheck_alignment_btn.setToolTip("Run full alignment check (averaged over 10 frames, ~1 second)")
         self._recheck_alignment_btn.clicked.connect(self._run_automatic_alignment_check)
         self._recheck_alignment_btn.setText("Full Check")
+        self._recheck_alignment_btn.setAccessibleName("Recheck Alignment")
         self._style_manager.style_button(self._recheck_alignment_btn, "primary")
         self._recheck_alignment_btn.hide()
 
@@ -357,6 +371,7 @@ class CalibrationStepPanelsMixin:
         self._quick_check_btn.setToolTip("Run quick alignment check (1 frame, <100ms)")
         self._quick_check_btn.clicked.connect(self._run_quick_alignment_check)
         self._quick_check_btn.setText("Quick Check")
+        self._quick_check_btn.setAccessibleName("Quick Alignment Check")
         self._style_manager.style_button(self._quick_check_btn, "ghost")
         self._quick_check_btn.hide()
 
@@ -364,6 +379,7 @@ class CalibrationStepPanelsMixin:
         self._alignment_details_btn.setToolTip("Show detailed alignment report")
         self._alignment_details_btn.clicked.connect(self._show_alignment_details)
         self._alignment_details_btn.setText("Details")
+        self._alignment_details_btn.setAccessibleName("Alignment Details")
         self._style_manager.style_button(self._alignment_details_btn, "ghost")
         self._alignment_details_btn.hide()
 
@@ -371,6 +387,7 @@ class CalibrationStepPanelsMixin:
         self._show_features_btn.setToolTip("Visualize matched features on camera previews")
         self._show_features_btn.clicked.connect(self._show_feature_overlay)
         self._show_features_btn.setText("Show Features")
+        self._show_features_btn.setAccessibleName("Show Features")
         self._style_manager.style_button(self._show_features_btn, "ghost")
         self._show_features_btn.hide()
 
@@ -378,6 +395,7 @@ class CalibrationStepPanelsMixin:
         self._export_report_btn.setToolTip("Export alignment report as HTML")
         self._export_report_btn.clicked.connect(self._export_alignment_report)
         self._export_report_btn.setText("Export Report")
+        self._export_report_btn.setAccessibleName("Export Alignment Report")
         self._style_manager.style_button(self._export_report_btn, "ghost")
         self._export_report_btn.hide()
 
@@ -396,6 +414,7 @@ class CalibrationStepPanelsMixin:
         self._save_preset_btn.setToolTip("Save current alignment as a preset")
         self._save_preset_btn.clicked.connect(self._save_alignment_preset)
         self._save_preset_btn.setText("Save Preset")
+        self._save_preset_btn.setAccessibleName("Save Preset")
         self._style_manager.style_button(self._save_preset_btn, "ghost")
         self._save_preset_btn.hide()
 
@@ -403,6 +422,7 @@ class CalibrationStepPanelsMixin:
         self._load_preset_btn.setToolTip("Load a saved alignment preset")
         self._load_preset_btn.clicked.connect(self._load_alignment_preset)
         self._load_preset_btn.setText("Load Preset")
+        self._load_preset_btn.setAccessibleName("Load Preset")
         self._style_manager.style_button(self._load_preset_btn, "ghost")
         self._load_preset_btn.hide()
 
@@ -410,6 +430,7 @@ class CalibrationStepPanelsMixin:
         self._compare_preset_btn.setToolTip("Compare current alignment with saved preset")
         self._compare_preset_btn.clicked.connect(self._compare_with_preset)
         self._compare_preset_btn.setText("Compare")
+        self._compare_preset_btn.setAccessibleName("Compare Preset")
         self._style_manager.style_button(self._compare_preset_btn, "ghost")
         self._compare_preset_btn.hide()
 

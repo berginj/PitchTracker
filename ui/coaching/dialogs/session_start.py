@@ -85,6 +85,14 @@ class SessionStartDialog(QtWidgets.QDialog):
         self.setLayout(layout)
         polish_form_controls(self)
 
+        # Set logical tab order for keyboard navigation
+        QtWidgets.QWidget.setTabOrder(self._pitcher_combo, self._new_pitcher_input)
+        QtWidgets.QWidget.setTabOrder(self._new_pitcher_input, self._session_name_input)
+        QtWidgets.QWidget.setTabOrder(self._session_name_input, self._left_camera_combo)
+        QtWidgets.QWidget.setTabOrder(self._left_camera_combo, self._right_camera_combo)
+        QtWidgets.QWidget.setTabOrder(self._right_camera_combo, self._batter_height_spin)
+        QtWidgets.QWidget.setTabOrder(self._batter_height_spin, self._ball_type_combo)
+
     def _build_pitcher_group(self) -> QtWidgets.QGroupBox:
         """Build pitcher selection group."""
         group = QtWidgets.QGroupBox("Pitcher")
@@ -92,12 +100,14 @@ class SessionStartDialog(QtWidgets.QDialog):
         saved_pitchers = self._load_saved_pitchers()
 
         self._pitcher_combo = QtWidgets.QComboBox()
+        self._pitcher_combo.setAccessibleName("Pitcher")
         self._pitcher_combo.addItem("(Select Pitcher)")
         self._pitcher_combo.addItems(saved_pitchers)
         self._pitcher_combo.addItem("+ Add New Pitcher")
         self._pitcher_combo.currentTextChanged.connect(self._on_pitcher_changed)
 
         self._new_pitcher_input = QtWidgets.QLineEdit()
+        self._new_pitcher_input.setAccessibleName("New Pitcher Name")
         self._new_pitcher_input.setPlaceholderText("Enter pitcher name")
         self._new_pitcher_input.hide()
         self._new_pitcher_input.textChanged.connect(self._on_new_pitcher_changed)
@@ -115,9 +125,11 @@ class SessionStartDialog(QtWidgets.QDialog):
         group = QtWidgets.QGroupBox("Session Name")
 
         self._session_name_input = QtWidgets.QLineEdit()
+        self._session_name_input.setAccessibleName("Session Name")
         self._session_name_input.textChanged.connect(self._on_session_name_changed)
 
         auto_button = QtWidgets.QPushButton("Auto-Generate")
+        auto_button.setAccessibleName("Generate Session Name")
         auto_button.clicked.connect(self._generate_session_name)
         self._style_manager.style_button(auto_button, "ghost")
 
@@ -146,9 +158,11 @@ class SessionStartDialog(QtWidgets.QDialog):
 
         left_label = QtWidgets.QLabel("Left Camera")
         self._left_camera_combo = QtWidgets.QComboBox()
+        self._left_camera_combo.setAccessibleName("Left Camera")
 
         right_label = QtWidgets.QLabel("Right Camera")
         self._right_camera_combo = QtWidgets.QComboBox()
+        self._right_camera_combo.setAccessibleName("Right Camera")
 
         state = load_state()
         last_left = state.get("last_left_camera")
@@ -179,8 +193,8 @@ class SessionStartDialog(QtWidgets.QDialog):
                 self._left_camera_combo.addItem(left_label_text, str(index))
                 self._right_camera_combo.addItem(right_label_text, str(index))
         else:
-            self._left_camera_combo.addItem("No cameras found", "")
-            self._right_camera_combo.addItem("No cameras found", "")
+            self._left_camera_combo.addItem("No cameras found — check USB connections", "")
+            self._right_camera_combo.addItem("No cameras found — check USB connections", "")
 
         if last_left:
             for i in range(self._left_camera_combo.count()):
@@ -211,6 +225,7 @@ class SessionStartDialog(QtWidgets.QDialog):
             self._right_camera_combo.setCurrentIndex(1)
 
         refresh_button = QtWidgets.QPushButton("Refresh Cameras")
+        refresh_button.setAccessibleName("Refresh Camera List")
         refresh_button.clicked.connect(self._refresh_cameras)
         refresh_button.setToolTip("Refresh camera list if cameras are not showing correctly.")
         self._style_manager.style_button(refresh_button, "ghost")
@@ -243,6 +258,7 @@ class SessionStartDialog(QtWidgets.QDialog):
 
         batter_label = QtWidgets.QLabel("Batter Height (inches)")
         self._batter_height_spin = QtWidgets.QDoubleSpinBox()
+        self._batter_height_spin.setAccessibleName("Batter Height")
         self._batter_height_spin.setRange(48.0, 84.0)
         self._batter_height_spin.setValue(self._batter_height_in)
         self._batter_height_spin.setSuffix(" in")
@@ -250,6 +266,7 @@ class SessionStartDialog(QtWidgets.QDialog):
 
         ball_label = QtWidgets.QLabel("Ball Type")
         self._ball_type_combo = QtWidgets.QComboBox()
+        self._ball_type_combo.setAccessibleName("Ball Type")
         self._ball_type_combo.addItems(["baseball", "softball"])
         self._ball_type_combo.setCurrentText(self._ball_type)
         self._ball_type_combo.currentTextChanged.connect(self._on_ball_type_changed)

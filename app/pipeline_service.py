@@ -40,6 +40,7 @@ from app.pipeline.service_contracts import (
 )
 from app.pipeline.service_detection import PipelineServiceDetectionMixin
 from app.pipeline.service_recording import PipelineServiceRecordingMixin
+from app.pipeline.service_config import PipelineServiceConfigMixin
 from app.pipeline.recording.session_recorder import SessionRecorder
 from app.pipeline.recording.pitch_recorder import PitchRecorder
 from app.pipeline.analysis.pitch_summary import PitchAnalyzer
@@ -51,6 +52,7 @@ logger = get_logger(__name__)
 class InProcessPipelineService(
     PipelineServiceDetectionMixin,
     PipelineServiceRecordingMixin,
+    PipelineServiceConfigMixin,
     PipelineService,
 ):
     def __init__(self, backend: str = "uvc", radar_client: Optional[RadarGunClient] = None) -> None:
@@ -421,104 +423,5 @@ class InProcessPipelineService(
         if self._detection_processor:
             return self._detection_processor.get_plate_metrics()
         return PlateMetricsStub(run_in=0.0, rise_in=0.0, sample_count=0)
-
-    def set_detector_config(
-        self,
-        config: CvDetectorConfig,
-        mode: Mode,
-        detector_type: str = "classical",
-        model_path: Optional[str] = None,
-        model_input_size: Tuple[int, int] = (640, 640),
-        model_conf_threshold: float = 0.25,
-        model_class_id: int = 0,
-        model_format: str = "yolo_v5",
-    ) -> None:
-        self._initializer.update_detector_config(
-            config,
-            mode,
-            detector_type,
-            model_path,
-            model_input_size,
-            model_conf_threshold,
-            model_class_id,
-            model_format,
-        )
-        left_id, right_id = self._camera_mgr.get_camera_ids()
-        if left_id and right_id:
-            self._detectors_by_camera = self._initializer.build_detectors(
-                left_id, right_id, self._lane_polygon
-            )
-
-    def set_detection_threading(self, mode: str, worker_count: int) -> None:
-        if mode not in ("per_camera", "worker_pool"):
-            raise ValueError(f"Unknown detection threading mode: {mode}")
-
-        if self._detection_pool:
-            # Update mode and restart if running
-            is_running = self._detection_pool.is_running()
-            if is_running:
-                self._detection_pool.stop()
-            self._detection_pool.set_mode(mode, worker_count)
-            if is_running:
-                self._detection_pool.start(queue_size=self._detect_queue_size)
-
-    def get_latest_detections(self) -> Dict[str, list[Detection]]:
-        if self._detection_processor:
-            return self._detection_processor.get_latest_detections()
-        return {}
-
-    def get_latest_gated_detections(self) -> Dict[str, Dict[str, list[Detection]]]:
-        if self._detection_processor:
-            return self._detection_processor.get_latest_gated_detections()
-        return {}
-
-    def get_strike_result(self) -> StrikeResult:
-        if self._detection_processor:
-            return self._detection_processor.get_strike_result()
-        return StrikeResult(is_strike=False, sample_count=0)
-
-    def is_capturing(self) -> bool:
-        """Check if cameras are currently capturing.
-
-        Returns:
-            True if cameras are actively capturing frames
-        """
-        return self._camera_mgr.is_capturing()
-
-    def set_ball_type(self, ball_type: str) -> None:
-        if self._config_service is not None:
-            self._config_service.set_ball_type(ball_type)
-
-    def set_batter_height_in(self, height_in: float) -> None:
-        if self._config_service is not None:
-            self._config_service.update_batter_height(height_in)
-            # Sync back to self._config for backward compatibility
-            self._config = self._config_service.get_config()
-            # Update pitch analyzer
-            if self._pitch_analyzer:
-                self._pitch_analyzer.update_config(self._config)
-
-    def set_strike_zone_ratios(self, top_ratio: float, bottom_ratio: float) -> None:
-        if self._config_service is not None:
-            self._config_service.update_strike_zone_ratios(top_ratio, bottom_ratio)
-            # Sync back to self._config for backward compatibility
-            self._config = self._config_service.get_config()
-            # Update pitch analyzer
-            if self._pitch_analyzer:
-                self._pitch_analyzer.update_config(self._config)
-
-    def get_session_summary(self) -> SessionSummary:
-        with self._record_lock:
-            return self._last_session_summary
-
-    def get_recent_pitch_paths(self) -> list[list[StereoObservation]]:
-        if self._session_manager:
-            return [list(path) for path in self._session_manager.get_recent_paths()]
-        return []
-
-    def get_session_dir(self) -> Optional[Path]:
-        if self._session_recorder:
-            return self._session_recorder.get_session_dir()
-        return None
 
 

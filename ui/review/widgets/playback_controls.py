@@ -62,6 +62,7 @@ class PlaybackControls(QtWidgets.QWidget):
         self._seek_start_btn.clicked.connect(self.seek_start_clicked.emit)
         self._seek_start_btn.setMinimumHeight(40)
         self._seek_start_btn.setText("Start")
+        self._seek_start_btn.setAccessibleName("Seek to Start")
         self._style_manager.style_button(self._seek_start_btn, "default")
 
         # Step backward button
@@ -70,6 +71,7 @@ class PlaybackControls(QtWidgets.QWidget):
         self._step_back_btn.clicked.connect(self.step_backward_clicked.emit)
         self._step_back_btn.setMinimumHeight(40)
         self._step_back_btn.setText("Step Back")
+        self._step_back_btn.setAccessibleName("Step Backward")
         self._style_manager.style_button(self._step_back_btn, "default")
 
         # Play/Pause button
@@ -78,6 +80,7 @@ class PlaybackControls(QtWidgets.QWidget):
         self._play_pause_btn.clicked.connect(self.play_pause_clicked.emit)
         self._play_pause_btn.setMinimumHeight(40)
         self._play_pause_btn.setText("Play")
+        self._play_pause_btn.setAccessibleName("Play or Pause")
         self._style_manager.style_button(self._play_pause_btn, "success")
 
         # Step forward button
@@ -86,6 +89,7 @@ class PlaybackControls(QtWidgets.QWidget):
         self._step_forward_btn.clicked.connect(self.step_forward_clicked.emit)
         self._step_forward_btn.setMinimumHeight(40)
         self._step_forward_btn.setText("Step Forward")
+        self._step_forward_btn.setAccessibleName("Step Forward")
         self._style_manager.style_button(self._step_forward_btn, "default")
 
         # Seek to end button
@@ -94,12 +98,14 @@ class PlaybackControls(QtWidgets.QWidget):
         self._seek_end_btn.clicked.connect(self.seek_end_clicked.emit)
         self._seek_end_btn.setMinimumHeight(40)
         self._seek_end_btn.setText("End")
+        self._seek_end_btn.setAccessibleName("Seek to End")
         self._style_manager.style_button(self._seek_end_btn, "default")
 
         # Speed control
         speed_label = QtWidgets.QLabel("Speed:")
         self._style_manager.style_label(speed_label, "eyebrow")
         self._speed_combo = QtWidgets.QComboBox()
+        self._speed_combo.setAccessibleName("Playback Speed")
         self._speed_combo.addItem("0.1x", 0.1)
         self._speed_combo.addItem("0.25x", 0.25)
         self._speed_combo.addItem("0.5x", 0.5)
@@ -112,6 +118,7 @@ class PlaybackControls(QtWidgets.QWidget):
 
         # Loop mode toggle
         self._loop_btn = QtWidgets.QPushButton("Loop")
+        self._loop_btn.setAccessibleName("Toggle Loop")
         self._loop_btn.setToolTip("Toggle loop mode (L)")
         self._loop_btn.setCheckable(True)
         self._loop_btn.clicked.connect(self._on_loop_toggled)
@@ -124,6 +131,7 @@ class PlaybackControls(QtWidgets.QWidget):
         self._prev_pitch_btn.clicked.connect(self.prev_pitch_clicked.emit)
         self._prev_pitch_btn.setMinimumHeight(32)
         self._prev_pitch_btn.setText("Prev Pitch")
+        self._prev_pitch_btn.setAccessibleName("Previous Pitch")
         self._style_manager.style_button(self._prev_pitch_btn, "default")
 
         self._next_pitch_btn = QtWidgets.QPushButton("Next Pitch ▶")
@@ -131,6 +139,7 @@ class PlaybackControls(QtWidgets.QWidget):
         self._next_pitch_btn.clicked.connect(self.next_pitch_clicked.emit)
         self._next_pitch_btn.setMinimumHeight(32)
         self._next_pitch_btn.setText("Next Pitch")
+        self._next_pitch_btn.setAccessibleName("Next Pitch")
         self._style_manager.style_button(self._next_pitch_btn, "default")
 
         # Top row: Frame controls

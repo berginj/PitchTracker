@@ -57,6 +57,14 @@ def upload_session(
             tone="warning",
         )
         return
+    if not api_base.startswith("https://"):
+        show_message_dialog(
+            parent,
+            "Upload Session",
+            "Upload URL must use HTTPS to protect data in transit.",
+            tone="warning",
+        )
+        return
 
     marker_spec = None
     if session_dir:
@@ -80,8 +88,9 @@ def upload_session(
     data = json.dumps(payload).encode("utf-8")
     url = f"{api_base}/sessions"
     headers = {"Content-Type": "application/json"}
-    if config.upload.api_key:
-        headers["x-api-key"] = config.upload.api_key
+    api_key = _resolve_api_key(config)
+    if api_key:
+        headers["x-api-key"] = api_key
     request = urllib.request.Request(url, data=data, headers=headers, method="POST")
 
     # Show progress dialog during upload
@@ -425,6 +434,25 @@ def export_manifests_zip(
             progress.setValue(len(files))
     finally:
         progress.close()
+
+
+def _resolve_api_key(config: AppConfig) -> str:
+    """Resolve API key from OS credential store, falling back to config file.
+
+    Checks the OS keyring first (Windows Credential Manager / macOS Keychain).
+    Falls back to the plaintext api_key in config if keyring is unavailable.
+
+    Returns:
+        API key string, or empty string if none configured.
+    """
+    try:
+        import keyring
+        stored = keyring.get_password("PitchTracker", "upload_api_key")
+        if stored:
+            return stored
+    except Exception:
+        pass
+    return config.upload.api_key
 
 
 __all__ = [

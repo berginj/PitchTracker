@@ -19,6 +19,9 @@ jsonschema==4.20.0
 # System hardening - resource monitoring
 psutil==7.2.1
 
+# Secure credential storage (optional - uses OS keyring)
+keyring>=24.0.0
+
 # TAG Sports Integration (Phase 3: Bluetooth PC Ingest)
 # bleak==0.21.1  # Bluetooth Low Energy library (cross-platform)
 # Uncomment when Phase 3 development begins (Months 7-9)
