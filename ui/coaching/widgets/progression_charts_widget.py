@@ -48,7 +48,7 @@ class VelocityTrendChart(QtWidgets.QWidget):
         margin = 40
 
         # Draw background
-        painter.fillRect(0, 0, width, height, QtGui.QColor(250, 250, 250))
+        painter.fillRect(0, 0, width, height, QtGui.QColor(self._theme.chart_background))
 
         # Draw border
         painter.setPen(QtGui.QPen(QtCore.Qt.GlobalColor.lightGray, 1))
@@ -116,12 +116,12 @@ class VelocityTrendChart(QtWidgets.QWidget):
 
         # Draw line
         if len(self._data) >= 2:
-            painter.setPen(QtGui.QPen(QtGui.QColor(33, 150, 243), 3))  # Blue
+            painter.setPen(QtGui.QPen(QtGui.QColor(self._theme.chart_blue), 3))
             points = [QtCore.QPoint(to_screen_x(i), to_screen_y(v)) for i, v in self._data]
             painter.drawPolyline(points)
 
             # Draw points
-            painter.setBrush(QtGui.QBrush(QtGui.QColor(33, 150, 243)))
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(self._theme.chart_blue)))
             for point in points:
                 painter.drawEllipse(point, 4, 4)
 
@@ -267,7 +267,7 @@ class AccuracyTrendChart(QtWidgets.QWidget):
         margin = 30
 
         # Draw background
-        painter.fillRect(0, 0, width, height, QtGui.QColor(250, 250, 250))
+        painter.fillRect(0, 0, width, height, QtGui.QColor(self._theme.chart_background))
 
         # Draw border
         painter.setPen(QtGui.QPen(QtCore.Qt.GlobalColor.lightGray, 1))
@@ -319,12 +319,12 @@ class AccuracyTrendChart(QtWidgets.QWidget):
 
         # Draw line
         if len(self._data) >= 2:
-            painter.setPen(QtGui.QPen(QtGui.QColor(76, 175, 80), 3))  # Green
+            painter.setPen(QtGui.QPen(QtGui.QColor(self._theme.chart_green), 3))
             points = [QtCore.QPoint(to_screen_x(i), to_screen_y(acc)) for i, acc in self._data]
             painter.drawPolyline(points)
 
             # Draw points
-            painter.setBrush(QtGui.QBrush(QtGui.QColor(76, 175, 80)))
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(self._theme.chart_green)))
             for point in points:
                 painter.drawEllipse(point, 3, 3)
 
@@ -366,7 +366,7 @@ class FastestPitchWidget(QtWidgets.QWidget):
         height = self.height()
 
         # Draw background
-        painter.fillRect(0, 0, width, height, QtGui.QColor(255, 235, 59))  # Yellow
+        painter.fillRect(0, 0, width, height, QtGui.QColor(self._theme.accent_warning_dim))
 
         # Draw border
         painter.setPen(QtGui.QPen(QtCore.Qt.GlobalColor.black, 2))
@@ -382,7 +382,7 @@ class FastestPitchWidget(QtWidgets.QWidget):
 
         # Draw speed
         painter.setFont(self._theme.get_font(size=36, weight="bold"))
-        painter.setPen(QtGui.QColor(211, 47, 47))  # Red
+        painter.setPen(QtGui.QColor(self._theme.chart_red))
         speed_text = f"{self._speed:.1f}" if self._speed > 0 else "--"
         painter.drawText(
             QtCore.QRect(0, 40, width, 50),

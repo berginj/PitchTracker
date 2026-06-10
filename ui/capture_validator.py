@@ -121,19 +121,19 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
         # Controls
         controls_layout = QtWidgets.QHBoxLayout()
 
-        self._start_button = QtWidgets.QPushButton("▶ Start Cameras")
-        self._start_button.setMinimumHeight(50)
+        self._start_button = QtWidgets.QPushButton("Start Cameras")
+        self._start_button.setMinimumHeight(self._style_manager.theme.button_height_lg)
         self._style_manager.style_button(self._start_button, "success")
         self._start_button.clicked.connect(self._start_cameras)
 
-        self._record_button = QtWidgets.QPushButton("⏺ Start Recording")
-        self._record_button.setMinimumHeight(50)
+        self._record_button = QtWidgets.QPushButton("Start Recording")
+        self._record_button.setMinimumHeight(self._style_manager.theme.button_height_lg)
         self._style_manager.style_button(self._record_button, "danger")
         self._record_button.setEnabled(False)
         self._record_button.clicked.connect(self._toggle_recording)
 
-        self._stop_button = QtWidgets.QPushButton("⏹ Stop Cameras")
-        self._stop_button.setMinimumHeight(50)
+        self._stop_button = QtWidgets.QPushButton("Stop Cameras")
+        self._stop_button.setMinimumHeight(self._style_manager.theme.button_height_lg)
         self._style_manager.style_button(self._stop_button, "ghost")
         self._stop_button.setEnabled(False)
         self._stop_button.clicked.connect(self._stop_cameras)
@@ -309,7 +309,7 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
                 )
 
                 self._recording = True
-                self._record_button.setText("⏹ Stop Recording")
+                self._record_button.setText("Stop Recording")
                 self._style_manager.style_button(self._record_button, "danger")
                 self._set_status(f"Recording to: {self._test_dir}", "warning")
 
@@ -332,7 +332,7 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
                 self._right_writer = None
 
             self._recording = False
-            self._record_button.setText("⏺ Start Recording")
+            self._record_button.setText("Start Recording")
             self._style_manager.style_button(self._record_button, "danger")
             self._set_status(f"Recording saved to: {self._test_dir}", "success")
 

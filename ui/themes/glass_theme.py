@@ -61,9 +61,31 @@ class GlassTheme:
 
     # Type
     font_family: str = '"Segoe UI Variable Text", "Segoe UI", "SF Pro Text", sans-serif'
+    font_size_hero: int = 28
+    font_size_title: int = 22
+    font_size_subtitle: int = 18
     font_size_large: int = 16
+    font_size_body: int = 15
     font_size_medium: int = 13
     font_size_small: int = 12
+    font_size_caption: int = 11
+
+    # Button heights
+    button_height_lg: int = 48
+    button_height_md: int = 40
+    button_height_sm: int = 32
+
+    # Margin presets
+    margin_spacious: int = 24
+    margin_normal: int = 16
+    margin_tight: int = 8
+
+    # Chart/visualization colors
+    chart_blue: str = "#2563EB"
+    chart_green: str = "#15803D"
+    chart_orange: str = "#B45309"
+    chart_red: str = "#B42318"
+    chart_background: str = "#F8FAFC"
 
     @property
     def background_glass(self) -> str:
@@ -102,25 +124,25 @@ class GlassTheme:
             }}
 
             QLabel[variant="title"] {{
-                font-size: 28px;
+                font-size: {self.font_size_hero}px;
                 font-weight: 700;
                 color: {self.text_primary};
             }}
 
             QLabel[variant="pageTitle"] {{
-                font-size: 22px;
+                font-size: {self.font_size_title}px;
                 font-weight: 700;
                 color: {self.text_primary};
             }}
 
             QLabel[variant="sectionTitle"] {{
-                font-size: 15px;
+                font-size: {self.font_size_body}px;
                 font-weight: 700;
                 color: {self.text_primary};
             }}
 
             QLabel[variant="eyebrow"] {{
-                font-size: 11px;
+                font-size: {self.font_size_caption}px;
                 font-weight: 600;
                 color: {self.text_muted};
             }}
@@ -212,13 +234,13 @@ class GlassTheme:
             }}
 
             QLabel[variant="metric"] {{
-                font-size: 18px;
+                font-size: {self.font_size_subtitle}px;
                 font-weight: 700;
                 color: {self.text_primary};
             }}
 
             QLabel[variant="metricAccent"] {{
-                font-size: 18px;
+                font-size: {self.font_size_subtitle}px;
                 font-weight: 700;
                 color: {self.accent_primary};
             }}
@@ -345,6 +367,11 @@ class GlassTheme:
                 border-color: #166534;
             }}
 
+            QPushButton[variant="success"]:pressed {{
+                background-color: #14532D;
+                border-color: #14532D;
+            }}
+
             QPushButton[variant="danger"] {{
                 background-color: {self.accent_error};
                 border-color: {self.accent_error};
@@ -356,6 +383,11 @@ class GlassTheme:
                 border-color: #912018;
             }}
 
+            QPushButton[variant="danger"]:pressed {{
+                background-color: #7F1D1D;
+                border-color: #7F1D1D;
+            }}
+
             QPushButton[variant="ghost"] {{
                 background-color: transparent;
                 border-color: transparent;
@@ -365,6 +397,12 @@ class GlassTheme:
             QPushButton[variant="ghost"]:hover {{
                 background-color: {self.surface_muted};
                 border-color: {self.border_glass};
+                color: {self.text_primary};
+            }}
+
+            QPushButton[variant="ghost"]:pressed {{
+                background-color: {self.surface_glass_active};
+                border-color: {self.border_glass_hover};
                 color: {self.text_primary};
             }}
 

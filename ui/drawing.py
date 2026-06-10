@@ -280,7 +280,7 @@ def draw_focus_overlay(
 
     # Draw text with background for readability
     text = f"Focus: {focus_score:.0f} ({status})"
-    font = QtGui.QFont("Arial", 12, QtGui.QFont.Bold)
+    font = QtGui.QFont("Segoe UI", 12, QtGui.QFont.Weight.Bold)
     painter.setFont(font)
 
     # Measure text size

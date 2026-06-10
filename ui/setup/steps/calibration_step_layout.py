@@ -172,19 +172,17 @@ class CalibrationStepLayoutMixin:
         # Controls - Large buttons for capture and calibration
         controls_layout = QtWidgets.QHBoxLayout()
 
-        self._capture_button = QtWidgets.QPushButton("📷 Capture Pose")
-        self._capture_button.setMinimumHeight(50)
+        self._capture_button = QtWidgets.QPushButton("Capture Pose")
+        self._capture_button.setMinimumHeight(self._style_manager.theme.button_height_lg)
         self._capture_button.setMinimumWidth(200)
         self._capture_button.setEnabled(False)
-        self._capture_button.setText("Capture Pose")
         self._style_manager.style_button(self._capture_button, "success")
         self._capture_button.clicked.connect(self._capture_image_pair)
 
-        self._calibrate_button = QtWidgets.QPushButton("🔧 Run Calibration")
-        self._calibrate_button.setMinimumHeight(50)
+        self._calibrate_button = QtWidgets.QPushButton("Run Calibration")
+        self._calibrate_button.setMinimumHeight(self._style_manager.theme.button_height_lg)
         self._calibrate_button.setMinimumWidth(200)
         self._calibrate_button.setEnabled(False)
-        self._calibrate_button.setText("Run Calibration")
         self._style_manager.style_button(self._calibrate_button, "primary")
         self._calibrate_button.clicked.connect(self._run_calibration)
 

@@ -86,13 +86,13 @@ class LaneAdjustDialog(QtWidgets.QDialog):
         controls_layout.setSpacing(10)
 
         self._edit_button = QtWidgets.QPushButton("Edit Lane ROI")
-        self._edit_button.setMinimumHeight(40)
+        self._edit_button.setMinimumHeight(self._style_manager.theme.button_height_md)
         self._edit_button.setCheckable(True)
         self._edit_button.clicked.connect(self._toggle_edit_mode)
         self._style_manager.style_button(self._edit_button, "primary")
 
         self._reset_button = QtWidgets.QPushButton("Reset to Current")
-        self._reset_button.setMinimumHeight(40)
+        self._reset_button.setMinimumHeight(self._style_manager.theme.button_height_md)
         self._reset_button.clicked.connect(self._reset_roi)
         self._reset_button.setEnabled(False)
         self._style_manager.style_button(self._reset_button, "ghost")
@@ -114,13 +114,13 @@ class LaneAdjustDialog(QtWidgets.QDialog):
         button_layout.addStretch()
 
         self._save_button = QtWidgets.QPushButton("Save Changes")
-        self._save_button.setMinimumHeight(40)
+        self._save_button.setMinimumHeight(self._style_manager.theme.button_height_md)
         self._save_button.clicked.connect(self._save_and_accept)
         self._save_button.setEnabled(False)
         self._style_manager.style_button(self._save_button, "success")
 
         cancel_button = QtWidgets.QPushButton("Cancel")
-        cancel_button.setMinimumHeight(40)
+        cancel_button.setMinimumHeight(self._style_manager.theme.button_height_md)
         cancel_button.clicked.connect(self.reject)
         self._style_manager.style_button(cancel_button, "ghost")
 

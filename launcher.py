@@ -314,12 +314,12 @@ class LauncherWindow(QtWidgets.QMainWindow):
 
         # Setup Wizard button
         self._setup_button = self._create_role_button(
-            "🔧 Setup & Calibration",
+            "Setup & Calibration",
             "For technicians and installers\n\n"
-            "• Camera configuration\n"
-            "• Stereo calibration\n"
-            "• ROI setup\n"
-            "• System validation\n\n"
+            "- Camera configuration\n"
+            "- Stereo calibration\n"
+            "- ROI setup\n"
+            "- System validation\n\n"
             "Run once or when reconfiguring",
             "#4CAF50",
             self._launch_setup,
@@ -328,12 +328,12 @@ class LauncherWindow(QtWidgets.QMainWindow):
 
         # Coaching App button
         self._coach_button = self._create_role_button(
-            "⚾ Coaching Sessions",
+            "Coaching Sessions",
             "For coaches and pitchers\n\n"
-            "• Start/stop sessions\n"
-            "• Live pitch tracking\n"
-            "• Real-time metrics\n"
-            "• Session summaries\n\n"
+            "- Start/stop sessions\n"
+            "- Live pitch tracking\n"
+            "- Real-time metrics\n"
+            "- Session summaries\n\n"
             "Use daily for practice",
             "#2196F3",
             self._launch_coaching,
@@ -350,8 +350,6 @@ class LauncherWindow(QtWidgets.QMainWindow):
         self, title: str, description: str, color: str, callback
     ) -> QtWidgets.QPushButton:
         """Create a styled role selection button."""
-        sanitized_title = title.replace("ðŸ”§ ", "").replace("âš¾ ", "")
-        sanitized_description = description.replace("â€¢", "-")
         accent = "success" if color.lower() == "#4caf50" else "primary"
 
         button = QtWidgets.QPushButton()

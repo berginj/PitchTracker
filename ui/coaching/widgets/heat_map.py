@@ -19,6 +19,7 @@ class HeatMapWidget(QtWidgets.QWidget):
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
         super().__init__(parent)
         self._style_manager = get_style_manager()
+        self._theme = self._style_manager.theme
         self.setMinimumSize(200, 200)
 
         # Zone counts (3x3 grid, row-major order)
@@ -255,6 +256,7 @@ class TrajectoryWidget(QtWidgets.QWidget):
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
         super().__init__(parent)
         self._style_manager = get_style_manager()
+        self._theme = self._style_manager.theme
         self.setMinimumSize(300, 200)
 
         # Trajectory data: list of (y_positions, z_positions) tuples
@@ -321,7 +323,7 @@ class TrajectoryWidget(QtWidgets.QWidget):
             return int(height - margin - norm * plot_height)
 
         # Draw background
-        painter.fillRect(0, 0, width, height, QtGui.QColor(240, 240, 240))
+        painter.fillRect(0, 0, width, height, QtGui.QColor(self._theme.chart_background))
 
         # Draw ground line
         ground_y = to_screen_y(0)

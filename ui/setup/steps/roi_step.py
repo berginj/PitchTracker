@@ -77,19 +77,19 @@ class RoiStep(BaseStep):
         controls_layout.setSpacing(10)
 
         self._lane_button = QtWidgets.QPushButton("Edit Lane ROI")
-        self._lane_button.setMinimumHeight(40)
+        self._lane_button.setMinimumHeight(self._style_manager.theme.button_height_md)
         self._lane_button.setCheckable(True)
         self._lane_button.clicked.connect(lambda: self._set_mode("lane"))
         self._style_manager.style_button(self._lane_button, "primary")
 
         self._plate_button = QtWidgets.QPushButton("Edit Plate ROI")
-        self._plate_button.setMinimumHeight(40)
+        self._plate_button.setMinimumHeight(self._style_manager.theme.button_height_md)
         self._plate_button.setCheckable(True)
         self._plate_button.clicked.connect(lambda: self._set_mode("plate"))
         self._style_manager.style_button(self._plate_button, "primary")
 
         self._clear_button = QtWidgets.QPushButton("Clear Current")
-        self._clear_button.setMinimumHeight(40)
+        self._clear_button.setMinimumHeight(self._style_manager.theme.button_height_md)
         self._clear_button.clicked.connect(self._clear_current_roi)
         self._style_manager.style_button(self._clear_button, "ghost")
 

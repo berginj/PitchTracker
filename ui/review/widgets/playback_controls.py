@@ -57,47 +57,42 @@ class PlaybackControls(QtWidgets.QWidget):
     def _build_ui(self) -> None:
         """Build control buttons layout."""
         # Seek to start button
-        self._seek_start_btn = QtWidgets.QPushButton("⏮ Start")
+        self._seek_start_btn = QtWidgets.QPushButton("Start")
         self._seek_start_btn.setToolTip("Seek to start (Home)")
         self._seek_start_btn.clicked.connect(self.seek_start_clicked.emit)
-        self._seek_start_btn.setMinimumHeight(40)
-        self._seek_start_btn.setText("Start")
+        self._seek_start_btn.setMinimumHeight(self._style_manager.theme.button_height_md)
         self._seek_start_btn.setAccessibleName("Seek to Start")
         self._style_manager.style_button(self._seek_start_btn, "default")
 
         # Step backward button
-        self._step_back_btn = QtWidgets.QPushButton("◀ Step Back")
+        self._step_back_btn = QtWidgets.QPushButton("Step Back")
         self._step_back_btn.setToolTip("Step backward one frame (Left Arrow)")
         self._step_back_btn.clicked.connect(self.step_backward_clicked.emit)
-        self._step_back_btn.setMinimumHeight(40)
-        self._step_back_btn.setText("Step Back")
+        self._step_back_btn.setMinimumHeight(self._style_manager.theme.button_height_md)
         self._step_back_btn.setAccessibleName("Step Backward")
         self._style_manager.style_button(self._step_back_btn, "default")
 
         # Play/Pause button
-        self._play_pause_btn = QtWidgets.QPushButton("▶ Play")
+        self._play_pause_btn = QtWidgets.QPushButton("Play")
         self._play_pause_btn.setToolTip("Play/Pause (Space)")
         self._play_pause_btn.clicked.connect(self.play_pause_clicked.emit)
-        self._play_pause_btn.setMinimumHeight(40)
-        self._play_pause_btn.setText("Play")
+        self._play_pause_btn.setMinimumHeight(self._style_manager.theme.button_height_md)
         self._play_pause_btn.setAccessibleName("Play or Pause")
         self._style_manager.style_button(self._play_pause_btn, "success")
 
         # Step forward button
-        self._step_forward_btn = QtWidgets.QPushButton("Step Forward ▶")
+        self._step_forward_btn = QtWidgets.QPushButton("Step Forward")
         self._step_forward_btn.setToolTip("Step forward one frame (Right Arrow)")
         self._step_forward_btn.clicked.connect(self.step_forward_clicked.emit)
-        self._step_forward_btn.setMinimumHeight(40)
-        self._step_forward_btn.setText("Step Forward")
+        self._step_forward_btn.setMinimumHeight(self._style_manager.theme.button_height_md)
         self._step_forward_btn.setAccessibleName("Step Forward")
         self._style_manager.style_button(self._step_forward_btn, "default")
 
         # Seek to end button
-        self._seek_end_btn = QtWidgets.QPushButton("End ⏭")
+        self._seek_end_btn = QtWidgets.QPushButton("End")
         self._seek_end_btn.setToolTip("Seek to end (End)")
         self._seek_end_btn.clicked.connect(self.seek_end_clicked.emit)
-        self._seek_end_btn.setMinimumHeight(40)
-        self._seek_end_btn.setText("End")
+        self._seek_end_btn.setMinimumHeight(self._style_manager.theme.button_height_md)
         self._seek_end_btn.setAccessibleName("Seek to End")
         self._style_manager.style_button(self._seek_end_btn, "default")
 
@@ -122,23 +117,21 @@ class PlaybackControls(QtWidgets.QWidget):
         self._loop_btn.setToolTip("Toggle loop mode (L)")
         self._loop_btn.setCheckable(True)
         self._loop_btn.clicked.connect(self._on_loop_toggled)
-        self._loop_btn.setMinimumHeight(32)
+        self._loop_btn.setMinimumHeight(self._style_manager.theme.button_height_sm)
         self._style_manager.style_button(self._loop_btn, "ghost")
 
         # Pitch navigation
-        self._prev_pitch_btn = QtWidgets.QPushButton("◀ Prev Pitch")
+        self._prev_pitch_btn = QtWidgets.QPushButton("Prev Pitch")
         self._prev_pitch_btn.setToolTip("Jump to previous pitch (PgUp)")
         self._prev_pitch_btn.clicked.connect(self.prev_pitch_clicked.emit)
-        self._prev_pitch_btn.setMinimumHeight(32)
-        self._prev_pitch_btn.setText("Prev Pitch")
+        self._prev_pitch_btn.setMinimumHeight(self._style_manager.theme.button_height_sm)
         self._prev_pitch_btn.setAccessibleName("Previous Pitch")
         self._style_manager.style_button(self._prev_pitch_btn, "default")
 
-        self._next_pitch_btn = QtWidgets.QPushButton("Next Pitch ▶")
+        self._next_pitch_btn = QtWidgets.QPushButton("Next Pitch")
         self._next_pitch_btn.setToolTip("Jump to next pitch (PgDown)")
         self._next_pitch_btn.clicked.connect(self.next_pitch_clicked.emit)
-        self._next_pitch_btn.setMinimumHeight(32)
-        self._next_pitch_btn.setText("Next Pitch")
+        self._next_pitch_btn.setMinimumHeight(self._style_manager.theme.button_height_sm)
         self._next_pitch_btn.setAccessibleName("Next Pitch")
         self._style_manager.style_button(self._next_pitch_btn, "default")
 
@@ -178,10 +171,10 @@ class PlaybackControls(QtWidgets.QWidget):
         self._is_playing = is_playing
 
         if is_playing:
-            self._play_pause_btn.setText("⏸ Pause")
+            self._play_pause_btn.setText("Pause")
             self._style_manager.style_button(self._play_pause_btn, "primary")
         else:
-            self._play_pause_btn.setText("▶ Play")
+            self._play_pause_btn.setText("Play")
             self._style_manager.style_button(self._play_pause_btn, "success")
 
     def _on_speed_changed(self, index: int) -> None:

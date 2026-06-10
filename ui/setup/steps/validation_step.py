@@ -49,7 +49,7 @@ class ValidationStep(BaseStep):
         layout.addWidget(self._summary_label)
 
         refresh_button = QtWidgets.QPushButton("Refresh Status")
-        refresh_button.setMinimumHeight(40)
+        refresh_button.setMinimumHeight(self._style_manager.theme.button_height_md)
         refresh_button.clicked.connect(self._run_validation)
         self._style_manager.style_button(refresh_button, "primary")
         layout.addWidget(refresh_button)

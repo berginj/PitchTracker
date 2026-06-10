@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, Tuple
 
 from PySide6 import QtCore, QtWidgets
 
@@ -19,6 +19,12 @@ INPUT_TYPES: tuple[type[QtWidgets.QWidget], ...] = (
     QtWidgets.QTimeEdit,
     QtWidgets.QDateTimeEdit,
 )
+
+# Standardized margin presets (left, top, right, bottom)
+MARGINS_SPACIOUS: Tuple[int, int, int, int] = (24, 24, 24, 24)
+MARGINS_NORMAL: Tuple[int, int, int, int] = (16, 16, 16, 16)
+MARGINS_TIGHT: Tuple[int, int, int, int] = (8, 8, 8, 8)
+MARGINS_NONE: Tuple[int, int, int, int] = (0, 0, 0, 0)
 
 
 def apply_standard_layout(
@@ -366,3 +372,79 @@ def polish_form_controls(root: QtWidgets.QWidget) -> None:
     for button in root.findChildren(QtWidgets.QPushButton):
         if not button.property("variant"):
             sm.style_button(button, "default")
+
+
+def build_loading_indicator(
+    message: str = "Loading...",
+    parent: QtWidgets.QWidget | None = None,
+) -> tuple[QtWidgets.QFrame, QtWidgets.QLabel, QtWidgets.QProgressBar]:
+    """Create a standard loading indicator with progress bar and message.
+
+    Returns:
+        Tuple of (frame, label, progress_bar) for controlling visibility and text.
+    """
+    sm = get_style_manager()
+
+    frame = QtWidgets.QFrame(parent)
+    frame.setProperty("surface", "card")
+    sm.polish(frame)
+
+    layout = QtWidgets.QVBoxLayout(frame)
+    apply_standard_layout(layout, margins=MARGINS_NORMAL, spacing=12)
+    layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
+    label = QtWidgets.QLabel(message)
+    label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+    sm.style_label(label, "muted")
+    layout.addWidget(label)
+
+    progress = QtWidgets.QProgressBar()
+    progress.setRange(0, 0)  # Indeterminate
+    progress.setTextVisible(False)
+    progress.setMaximumWidth(300)
+    style_progress_bar(progress, "default")
+    layout.addWidget(progress, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+
+    return frame, label, progress
+
+
+def build_empty_state(
+    title: str,
+    subtitle: str = "",
+    action_text: str | None = None,
+    parent: QtWidgets.QWidget | None = None,
+) -> tuple[QtWidgets.QFrame, QtWidgets.QLabel, QtWidgets.QPushButton | None]:
+    """Create a standard empty state placeholder.
+
+    Returns:
+        Tuple of (frame, subtitle_label, action_button_or_None).
+    """
+    sm = get_style_manager()
+
+    frame = QtWidgets.QFrame(parent)
+    frame.setProperty("surface", "subtle")
+    sm.polish(frame)
+
+    layout = QtWidgets.QVBoxLayout(frame)
+    apply_standard_layout(layout, margins=MARGINS_SPACIOUS, spacing=12)
+    layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
+    title_label = QtWidgets.QLabel(title)
+    title_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+    sm.style_label(title_label, "sectionTitle")
+    layout.addWidget(title_label)
+
+    subtitle_label = QtWidgets.QLabel(subtitle)
+    subtitle_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+    subtitle_label.setWordWrap(True)
+    sm.style_label(subtitle_label, "muted")
+    layout.addWidget(subtitle_label)
+
+    action_button = None
+    if action_text:
+        action_button = QtWidgets.QPushButton(action_text)
+        action_button.setMinimumHeight(sm.theme.button_height_md)
+        sm.style_button(action_button, "primary")
+        layout.addWidget(action_button, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+
+    return frame, subtitle_label, action_button

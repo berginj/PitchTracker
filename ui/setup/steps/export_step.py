@@ -47,7 +47,7 @@ class ExportStep(BaseStep):
         layout.addWidget(self._build_next_steps())
 
         export_button = QtWidgets.QPushButton("Generate Summary Report")
-        export_button.setMinimumHeight(48)
+        export_button.setMinimumHeight(self._style_manager.theme.button_height_lg)
         export_button.clicked.connect(self._generate_report)
         self._style_manager.style_button(export_button, "primary")
         layout.addWidget(export_button)
