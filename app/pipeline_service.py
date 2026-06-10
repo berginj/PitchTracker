@@ -140,7 +140,7 @@ class InProcessPipelineService(
             # Start camera capture (opens, configures, starts threads)
             try:
                 self._camera_mgr.start_capture(config, left_serial, right_serial)
-            except (CameraConnectionError, CameraConfigurationError) as exc:
+            except (CameraConnectionError, CameraConfigurationError):
                 # Camera errors - let them propagate
                 raise
 
@@ -277,7 +277,7 @@ class InProcessPipelineService(
             InvalidROIError,
             ModelLoadError,
             DetectionError,
-        ) as exc:
+        ):
             # Re-raise our custom exceptions
             raise
         except Exception as exc:

@@ -130,8 +130,7 @@ class AlignmentResults:
                 )
             elif self.correlation < -0.3:  # Toed out
                 guidance.append(
-                    "🔧 Camera Angles: Rotate BOTH cameras INWARD (toward each other) "
-                    "by ~2-3 degrees to fix toe-out"
+                    "🔧 Camera Angles: Rotate BOTH cameras INWARD (toward each other) " "by ~2-3 degrees to fix toe-out"
                 )
 
         # Vertical guidance

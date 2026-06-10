@@ -103,7 +103,7 @@ class TestPitcherProfile(unittest.TestCase):
             MockPitch("p1", speed_mph=85.0, run_in=2.0, rise_in=-1.0, is_strike=True),
             MockPitch("p2", speed_mph=86.0, run_in=2.2, rise_in=-1.2, is_strike=True),
         ]
-        profile1 = manager.create_or_update_profile("test_pitcher", pitches1)
+        manager.create_or_update_profile("test_pitcher", pitches1)
 
         # Update with more pitches
         pitches2 = [
@@ -235,7 +235,7 @@ class TestPitcherProfile(unittest.TestCase):
         pitches = [MockPitch("p1", speed_mph=85.0, run_in=2.0, rise_in=-1.0)]
 
         # Create profile with special characters
-        profile = manager.create_or_update_profile("John Doe/Jr.", pitches)
+        manager.create_or_update_profile("John Doe/Jr.", pitches)
 
         # Check that file was created with sanitized name
         profile_path = manager._get_profile_path("John Doe/Jr.")

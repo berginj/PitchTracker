@@ -29,9 +29,6 @@ def test_build_strike_zone():
     )
 
     # Verify dimensions
-    expected_top_y_in = batter_height_in * top_ratio  # 36 inches
-    expected_bottom_y_in = batter_height_in * bottom_ratio  # 19.44 inches
-
     assert isinstance(zone, StrikeZone)
     # Zone should have reasonable bounds
 
@@ -44,6 +41,7 @@ def test_center_strike():
         top_ratio=0.5,
         bottom_ratio=0.27,
         plate_width_in=17.0,
+        plate_length_in=8.5,
         plate_z_ft=0.0,
     )
 
@@ -75,6 +73,7 @@ def test_ball_outside_zone():
         top_ratio=0.5,
         bottom_ratio=0.27,
         plate_width_in=17.0,
+        plate_length_in=8.5,
         plate_z_ft=0.0,
     )
 
@@ -98,6 +97,7 @@ def test_ball_high():
         top_ratio=0.5,
         bottom_ratio=0.27,
         plate_width_in=17.0,
+        plate_length_in=8.5,
         plate_z_ft=0.0,
     )
 
@@ -121,6 +121,7 @@ def test_ball_low():
         top_ratio=0.5,
         bottom_ratio=0.27,
         plate_width_in=17.0,
+        plate_length_in=8.5,
         plate_z_ft=0.0,
     )
 
@@ -144,6 +145,7 @@ def test_edge_strike():
         top_ratio=0.5,
         bottom_ratio=0.27,
         plate_width_in=17.0,
+        plate_length_in=8.5,
         plate_z_ft=0.0,
     )
 
@@ -172,6 +174,7 @@ def test_zone_grid_corners():
         top_ratio=0.5,
         bottom_ratio=0.27,
         plate_width_in=17.0,
+        plate_length_in=8.5,
         plate_z_ft=0.0,
     )
 
@@ -211,6 +214,7 @@ def test_softball_vs_baseball():
         top_ratio=0.5,
         bottom_ratio=0.27,
         plate_width_in=17.0,
+        plate_length_in=8.5,
         plate_z_ft=0.0,
     )
 

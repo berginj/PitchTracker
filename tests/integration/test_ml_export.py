@@ -79,10 +79,6 @@ class TestMLDataExport(unittest.TestCase):
             )
 
             # Check for subdirectories
-            detections_dir = ml_dir / "detections"
-            observations_dir = ml_dir / "observations"
-            frames_dir = ml_dir / "frames"
-
             # Note: These directories may only be created when data is actually saved
             # For simulated cameras without detections, they might not exist
             # This is expected behavior
@@ -90,7 +86,7 @@ class TestMLDataExport(unittest.TestCase):
             # Stop capture
             service.stop_capture()
 
-        except Exception as e:
+        except Exception:
             try:
                 if service._recording:
                     service.stop_recording()
@@ -130,18 +126,16 @@ class TestMLDataExport(unittest.TestCase):
             time.sleep(1.0)
 
             # Stop recording
-            bundle = service.stop_recording()
-            session_dir = bundle.session_dir
+            service.stop_recording()
 
             # Verify ML data directory was NOT created
-            ml_dir = session_dir / "ml_data"
             # It's okay if the directory exists but is empty
             # Main thing is no ML data files should be inside
 
             # Stop capture
             service.stop_capture()
 
-        except Exception as e:
+        except Exception:
             try:
                 if service._recording:
                     service.stop_recording()
@@ -200,7 +194,7 @@ class TestMLDataExport(unittest.TestCase):
             # Stop capture
             service.stop_capture()
 
-        except Exception as e:
+        except Exception:
             try:
                 if service._recording:
                     service.stop_recording()
@@ -252,7 +246,7 @@ class TestMLDataExport(unittest.TestCase):
             # Stop capture
             service.stop_capture()
 
-        except Exception as e:
+        except Exception:
             try:
                 if service._recording:
                     service.stop_recording()
@@ -296,7 +290,7 @@ class TestMLDataExport(unittest.TestCase):
             # Stop capture
             service.stop_capture()
 
-        except Exception as e:
+        except Exception:
             try:
                 if service._recording:
                     service.stop_recording()
@@ -348,7 +342,7 @@ class TestMLDataExport(unittest.TestCase):
             # Stop capture
             service.stop_capture()
 
-        except Exception as e:
+        except Exception:
             try:
                 if service._recording:
                     service.stop_recording()

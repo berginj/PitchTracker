@@ -7,9 +7,9 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from PySide6 import QtWidgets
+from PySide6 import QtWidgets  # noqa: E402
 
-from ui.coaching import CoachWindow
+from ui.coaching import CoachWindow  # noqa: E402
 
 
 def main():

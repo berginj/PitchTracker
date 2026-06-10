@@ -8,10 +8,10 @@ import json
 import matplotlib
 
 matplotlib.use("Agg")  # Non-interactive backend
-import matplotlib.pyplot as plt
-import numpy as np
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
 
-from .schemas import PatternAnalysisReport
+from .schemas import PatternAnalysisReport  # noqa: E402
 
 
 def generate_json_report(report: PatternAnalysisReport, output_path: Path) -> None:
@@ -116,7 +116,7 @@ def _create_strike_zone_heatmap(report: PatternAnalysisReport) -> str:
     # Add text annotations
     for i in range(3):
         for j in range(3):
-            text = ax.text(j, i, int(heatmap_data[i, j]), ha="center", va="center", color="black", fontsize=14)
+            ax.text(j, i, int(heatmap_data[i, j]), ha="center", va="center", color="black", fontsize=14)
 
     ax.set_xticks([0, 1, 2])
     ax.set_yticks([0, 1, 2])

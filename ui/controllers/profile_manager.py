@@ -314,7 +314,7 @@ class ProfileManager:
 
             logger.info(f"Successfully added pitcher '{name}'")
             return True
-        except Exception as exc:
+        except Exception:
             logger.exception(f"Failed to add pitcher '{name}'")
             return False
 

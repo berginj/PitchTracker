@@ -422,7 +422,7 @@ def main():
             print(f"Error: Directory not found: {directory}")
             return 1
 
-        results = linter.lint_directory(directory)
+        linter.lint_directory(directory)
 
     # Generate report
     if args.priority_only:

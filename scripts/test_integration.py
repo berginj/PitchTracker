@@ -44,7 +44,7 @@ def test_initialization():
         from app.config import ResourceLimits, set_resource_limits
 
         # Test error bus
-        error_bus = get_error_bus()
+        get_error_bus()
         print("  OK Error bus initialized")
 
         # Test recovery manager
@@ -67,7 +67,7 @@ def test_initialization():
         print("  OK Cleanup manager initialized")
 
         # Test config validator
-        validator = ConfigValidator()
+        ConfigValidator()
         print("  OK Config validator initialized")
 
         # Test resource limits

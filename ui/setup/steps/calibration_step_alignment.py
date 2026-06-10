@@ -329,32 +329,15 @@ class CalibrationStepAlignmentMixin:
         Args:
             results: AlignmentResults object from analysis
         """
-        # Choose color and icon based on quality
-        if results.quality == "CRITICAL":
-            bg_color = self._theme.accent_error_dim
-            border_color = self._theme.accent_error
-            text_color = self._theme.accent_error
-            icon = "❌"
-        elif results.quality == "POOR":
-            bg_color = self._theme.accent_warning_dim
-            border_color = self._theme.accent_warning
-            text_color = self._theme.accent_warning
-            icon = "⚠️"
-        elif results.quality == "ACCEPTABLE":
-            bg_color = self._theme.accent_warning_dim
-            border_color = self._theme.accent_warning
-            text_color = self._theme.accent_warning
-            icon = "🟡"
-        elif results.quality == "GOOD":
-            bg_color = self._theme.accent_success_dim
-            border_color = self._theme.accent_success
-            text_color = self._theme.accent_success
-            icon = "✓"
-        else:  # EXCELLENT
-            bg_color = self._theme.accent_success_dim
-            border_color = self._theme.accent_success
-            text_color = self._theme.accent_success
-            icon = "✅"
+        # Choose icon based on quality (styling is applied via tones elsewhere)
+        icon = {
+            "CRITICAL": "❌",
+            "POOR": "⚠️",
+            "ACCEPTABLE": "🟡",
+            "GOOD": "✓",
+        }.get(
+            results.quality, "✅"
+        )  # EXCELLENT
 
         # Build status message
         status_html = f"<b>{icon} {results.status_message}</b>"

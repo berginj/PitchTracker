@@ -44,16 +44,16 @@ print(f"Log file: {log_file_path.absolute()}")
 print("Script starting...\n")
 sys.stdout.flush()
 
-import argparse
-from typing import Tuple
+import argparse  # noqa: E402
+from typing import Tuple  # noqa: E402
 
 print("Importing cv2...")
 sys.stdout.flush()
-import cv2
+import cv2  # noqa: E402
 
 print("Importing numpy...")
 sys.stdout.flush()
-import numpy as np
+import numpy as np  # noqa: E402
 
 print("Imports successful!\n")
 sys.stdout.flush()

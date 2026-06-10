@@ -15,10 +15,10 @@ os.environ["MKL_NUM_THREADS"] = str(os.cpu_count() or 4)  # Intel MKL threads
 os.environ["OPENBLAS_NUM_THREADS"] = str(os.cpu_count() or 4)  # OpenBLAS threads
 os.environ["NUMEXPR_NUM_THREADS"] = str(os.cpu_count() or 4)  # NumExpr threads
 
-from PySide6 import QtWidgets
+from PySide6 import QtWidgets  # noqa: E402
 
-from ui.main_window import MainWindow
-from ui.themes import get_style_manager
+from ui.main_window import MainWindow  # noqa: E402
+from ui.themes import get_style_manager  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:

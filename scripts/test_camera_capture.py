@@ -17,9 +17,9 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from PySide6 import QtWidgets
+from PySide6 import QtWidgets  # noqa: E402
 
-from ui.capture_validator import CaptureValidatorWindow
+from ui.capture_validator import CaptureValidatorWindow  # noqa: E402
 
 
 def main():

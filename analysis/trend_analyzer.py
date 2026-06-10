@@ -488,7 +488,6 @@ class TrendAnalyzer:
             return []
 
         summaries = []
-        cutoff_date = datetime.now().isoformat()[:10]  # YYYY-MM-DD
 
         for summary_file in pitcher_dir.glob("*.json"):
             try:
@@ -497,9 +496,6 @@ class TrendAnalyzer:
 
                 summary = SessionSummary.from_dict(data)
 
-                # Check if within date range
-                session_date = summary.session_date[:10]  # YYYY-MM-DD
-                # Simple date comparison (works for ISO format)
                 summaries.append(summary)
 
             except Exception as e:

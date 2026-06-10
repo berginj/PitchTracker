@@ -12,7 +12,7 @@ print(f"  Parameters: {list(sig.parameters.keys())}")
 print(f"  Count: {len(sig.parameters)}")
 
 # Test call signature
-from unittest.mock import Mock
+from unittest.mock import Mock  # noqa: E402
 
 service._service = Mock()
 

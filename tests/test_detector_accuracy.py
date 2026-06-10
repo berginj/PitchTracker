@@ -75,7 +75,7 @@ def test_detector_finds_ball():
         pixfmt="GRAY8",
     )
 
-    detections1 = detector.detect(frame_obj1)
+    detector.detect(frame_obj1)
     detections2 = detector.detect(frame_obj2)
 
     # First frame might not detect (needs previous frame)
@@ -112,7 +112,7 @@ def test_detector_rejects_small_blobs():
         pixfmt="GRAY8",
     )
 
-    detections = detector.detect(frame_obj)
+    detector.detect(frame_obj)
 
     # Small blob should be filtered out
     # (Note: depends on detection mode and thresholds)

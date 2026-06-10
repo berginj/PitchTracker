@@ -289,7 +289,7 @@ class SessionStartDialog(QtWidgets.QDialog):
         apply_standard_layout(layout, margins=(0, 0, 0, 0), spacing=8)
 
         status = describe_runtime_calibration()
-        calibration_file = Path("calibration/stereo_calibration.npz")
+        Path("calibration/stereo_calibration.npz")
         has_calibration = status["mode"] == "full_matrix"
         quality = load_calibration_quality() if has_calibration else None
 

@@ -62,7 +62,7 @@ def run_with_timeout(
                 camera_id="unknown",
             )
 
-        except Exception as e:
+        except Exception:
             # Function raised exception - re-raise it
             raise
 

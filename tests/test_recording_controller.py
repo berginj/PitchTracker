@@ -47,7 +47,7 @@ class TestRecordingControllerInit:
 
     def test_initialization(self, mock_deps):
         """RecordingController should initialize with provided dependencies."""
-        rc = RecordingController(**mock_deps)
+        RecordingController(**mock_deps)
         # Should not raise
 
 

@@ -124,7 +124,7 @@ class TestFullPipeline(unittest.TestCase):
             # Stop capture
             service.stop_capture()
 
-        except Exception as e:
+        except Exception:
             # Make sure we clean up even if test fails
             try:
                 if service._recording:
@@ -172,7 +172,7 @@ class TestFullPipeline(unittest.TestCase):
             # Stop capture
             service.stop_capture()
 
-        except Exception as e:
+        except Exception:
             try:
                 if service._recording:
                     service.stop_recording()
@@ -217,7 +217,7 @@ class TestFullPipeline(unittest.TestCase):
             # Stop capture
             service.stop_capture()
 
-        except Exception as e:
+        except Exception:
             try:
                 service.stop_capture()
             except Exception:
@@ -252,7 +252,7 @@ class TestFullPipeline(unittest.TestCase):
             except Exception:
                 pass  # Expected - cameras stopped
 
-        except Exception as e:
+        except Exception:
             try:
                 service.stop_capture()
             except Exception:
@@ -342,7 +342,6 @@ class TestFullPipeline(unittest.TestCase):
 
             # Check if session summary was generated
             summary_json_path = session_dir / "session_summary.json"
-            summary_csv_path = session_dir / "session_summary.csv"
 
             # Note: Summary may not exist if no pitches were tracked
             # This is acceptable for simulated cameras without injected detections
@@ -410,7 +409,7 @@ class TestFullPipeline(unittest.TestCase):
                 "Bundle should have end timestamp",
             )
 
-        except Exception as e:
+        except Exception:
             # Clean up on failure
             try:
                 if service._recording:
@@ -454,7 +453,7 @@ class TestFullPipeline(unittest.TestCase):
             # Stop capture
             service.stop_capture()
 
-        except Exception as e:
+        except Exception:
             try:
                 service.stop_capture()
             except Exception:

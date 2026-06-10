@@ -43,7 +43,7 @@ class TestCaptureControllerInit:
 
     def test_initialization(self, mock_deps):
         """CaptureController should initialize with provided dependencies."""
-        cc = CaptureController(**mock_deps)
+        CaptureController(**mock_deps)
         # Should not raise
 
 

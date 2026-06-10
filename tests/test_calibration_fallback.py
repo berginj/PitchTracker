@@ -11,7 +11,7 @@ from typing import Tuple
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from calib.quick_calibrate import _collect_corners
+from calib.quick_calibrate import _collect_corners  # noqa: E402
 
 
 def create_checkerboard_image(
@@ -100,7 +100,7 @@ def test_collect_corners_charuco_success():
         assert img_size[0] > 0 and img_size[1] > 0, "Image size should be valid"
 
         # Verify corner count (ChArUco boards have (cols-1)*(rows-1) internal corners)
-        expected_corners = (pattern_size[0] - 1) * (pattern_size[1] - 1)
+        (pattern_size[0] - 1) * (pattern_size[1] - 1)
         for det in detections:
             obj_pts = det.objpoints
             img_pts = det.imgpoints

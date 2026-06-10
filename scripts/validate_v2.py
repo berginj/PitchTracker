@@ -16,12 +16,12 @@ from typing import List, Optional
 # Add project root to path
 sys.path.insert(0, ".")
 
-from app.pipeline.pitch_tracking_v2 import (
+from app.pipeline.pitch_tracking_v2 import (  # noqa: E402
     PitchConfig,
     PitchPhase,
     PitchStateMachineV2,
 )
-from contracts import Frame, StereoObservation
+from contracts import Frame, StereoObservation  # noqa: E402
 
 
 # Test helpers

@@ -163,12 +163,10 @@ def _collect_corners(
 
             ret = False
             corners = None
-            flags_used = None
 
             for flags in flag_combinations:
                 ret, corners = cv2.findChessboardCorners(image, board_size, flags)
                 if ret and corners is not None:
-                    flags_used = flags
                     break
 
             if ret and corners is not None:

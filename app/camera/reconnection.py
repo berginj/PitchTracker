@@ -94,7 +94,6 @@ class CameraReconnectionManager:
             if camera_id in self._camera_states:
                 # Stop any ongoing reconnection
                 if camera_id in self._reconnect_threads:
-                    thread = self._reconnect_threads[camera_id]
                     # Thread will stop on next iteration check
                     del self._reconnect_threads[camera_id]
 

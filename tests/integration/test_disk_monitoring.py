@@ -189,7 +189,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
                         # This would normally be called by monitoring thread
                         if hasattr(service, "_on_disk_critical"):
                             service._on_disk_critical(free_gb, f"Critical: {free_gb:.1f}GB remaining")
-                except Exception as e:
+                except Exception:
                     # If method doesn't exist or fails, that's okay
                     # Main thing is verifying callback integration exists
                     pass
@@ -206,7 +206,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
             # Note: In actual production, the callback would auto-stop recording
             # This test verifies the integration exists
 
-        except Exception as e:
+        except Exception:
             try:
                 if service._recording:
                     service.stop_recording()
@@ -289,7 +289,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
                 session_name="test_session",
                 record_mode="test",
             )
-        except Exception as e:
+        except Exception:
             # Some error is expected if directory was deleted
             # Main thing is no crash/hang
             pass

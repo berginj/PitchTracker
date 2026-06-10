@@ -537,7 +537,7 @@ class TestSystemStressTests(unittest.TestCase):
                     camera_id="limit_test",
                 )
                 pool.enqueue_frame("left", frame)
-            except Exception as e:
+            except Exception:
                 errors += 1
 
         time.sleep(0.5)

@@ -23,10 +23,10 @@ project_root = Path(__file__).parent.resolve()
 _ensure_project_root_on_sys_path(project_root)
 os.chdir(project_root)
 
-from app.services.tooling import ToolingService, get_tooling_service
-from startup_validator import create_required_directories
-from ui.themes import get_style_manager
-from updater import check_for_updates, get_current_version
+from app.services.tooling import ToolingService, get_tooling_service  # noqa: E402
+from startup_validator import create_required_directories  # noqa: E402
+from ui.themes import get_style_manager  # noqa: E402
+from updater import check_for_updates, get_current_version  # noqa: E402
 
 
 def clear_python_cache(verbose: bool = False, clear_memory: bool = True) -> None:

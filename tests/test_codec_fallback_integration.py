@@ -76,7 +76,7 @@ class TestCodecFallbackIntegration(unittest.TestCase):
 
             # Fail first 2 codecs (MJPG, XVID), succeed on 3rd (H264)
             if call_count[0] <= 2:
-                writer = original_vw(path, fourcc, fps, frameSize, isColor)
+                original_vw(path, fourcc, fps, frameSize, isColor)
                 # Force it to fail
                 mock_writer = Mock(spec=cv2.VideoWriter)
                 mock_writer.isOpened.return_value = False
@@ -97,7 +97,7 @@ class TestCodecFallbackIntegration(unittest.TestCase):
                 # Should have failed on first 2
                 self.assertEqual(len(failed_codecs), 3)
 
-            except RuntimeError as e:
+            except RuntimeError:
                 # If all codecs fail, that's acceptable (system-dependent)
                 pass
 

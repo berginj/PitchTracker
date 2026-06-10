@@ -17,9 +17,9 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from benchmarks.throughput import benchmark_detection_throughput, benchmark_multiple_resolutions
-from benchmarks.latency import benchmark_detection_latency, benchmark_latency_under_load
-from benchmarks.memory import benchmark_memory_stability, benchmark_memory_rapid_cycling
+from benchmarks.throughput import benchmark_detection_throughput, benchmark_multiple_resolutions  # noqa: E402
+from benchmarks.latency import benchmark_detection_latency, benchmark_latency_under_load  # noqa: E402
+from benchmarks.memory import benchmark_memory_stability, benchmark_memory_rapid_cycling  # noqa: E402
 
 
 def run_all_benchmarks(

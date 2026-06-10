@@ -179,7 +179,7 @@ class TestPipelineOrchestratorRecording:
             bundle = orchestrator.stop_recording()
             assert bundle is not None
             assert bundle.session_dir is not None
-        except Exception as e:
+        except Exception:
             # Recording may fail in test environment, just verify the method can be called
             pass
 

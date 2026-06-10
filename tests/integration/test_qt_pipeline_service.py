@@ -161,12 +161,12 @@ class TestQtPipelineServiceDelegation:
 
             # Stop recording
             try:
-                bundle = service.stop_recording()
+                service.stop_recording()
                 # Bundle may be None in test environment
             except Exception:
                 # Recording may fail in test environment
                 pass
-        except Exception as e:
+        except Exception:
             # Recording may fail due to file system issues in test environment
             # This is acceptable as long as the delegation works
             pass

@@ -61,7 +61,7 @@ def _estimate_plate_z(config_path: Path, left: Path, right: Path) -> Optional[fl
         return None
     cx = config.stereo.cx or (config.camera.width / 2.0)
     cy = config.stereo.cy or (config.camera.height / 2.0)
-    matcher = SimpleStereoMatcher(
+    SimpleStereoMatcher(
         StereoGeometry(
             baseline_ft=config.stereo.baseline_ft,
             focal_length_px=config.stereo.focal_length_px,

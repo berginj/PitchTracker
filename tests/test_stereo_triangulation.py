@@ -56,8 +56,8 @@ def test_basic_triangulation():
         confidence=1.0,
     )
 
-    matcher = SimpleStereoMatcher(geometry)
-    match = StereoMatch(left_det, right_det, epipolar_error_px=0.0, score=1.0)
+    SimpleStereoMatcher(geometry)
+    StereoMatch(left_det, right_det, epipolar_error_px=0.0, score=1.0)
 
     # Compute depth
     disparity = left_det.u - right_det.u
@@ -175,9 +175,6 @@ def test_triangulation_accuracy_at_various_depths():
 
     for expected_depth in test_depths:
         disparity = geometry.baseline_ft * geometry.focal_length_px / expected_depth
-
-        left_u = 960.0
-        right_u = left_u - disparity
 
         # Reconstruct depth
         computed_depth = (geometry.baseline_ft * geometry.focal_length_px) / disparity

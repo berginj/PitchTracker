@@ -58,7 +58,7 @@ class ChecklistDialog(QtWidgets.QDialog):
 
         # Buttons
         button_box = QtWidgets.QDialogButtonBox()
-        close_btn = button_box.addButton("Close", QtWidgets.QDialogButtonBox.AcceptRole)
+        button_box.addButton("Close", QtWidgets.QDialogButtonBox.AcceptRole)
         style_dialog_button_box(button_box, primary=True)
         button_box.accepted.connect(self.accept)
         layout.addWidget(button_box)

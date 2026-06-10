@@ -17,7 +17,7 @@ print("=" * 70)
 print()
 
 # Import and inspect
-from app.qt_pipeline_service import QtPipelineService
+from app.qt_pipeline_service import QtPipelineService  # noqa: E402
 
 # Get signature
 sig = inspect.signature(QtPipelineService.start_capture)

@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from calib.online_refinement import (
+from calib.online_refinement import (  # noqa: E402
     RefinementState,
     TrajectoryStats,
     OnlineCalibrationRefiner,
@@ -298,7 +298,7 @@ def test_refine_updates_metadata(temp_config):
         refiner.accumulate_trajectory(trajectory)
 
     before_count = refiner.state.refinement_count
-    result = refiner.refine_parameters()
+    refiner.refine_parameters()
 
     # Check metadata updated
     assert refiner.state.last_refinement_date is not None
@@ -318,7 +318,7 @@ def test_refine_clears_buffer(temp_config):
     assert len(refiner.state.trajectories_buffer) == 50
     assert refiner.state.num_trajectories_accumulated == 50
 
-    result = refiner.refine_parameters()
+    refiner.refine_parameters()
 
     # Buffer should be cleared
     assert len(refiner.state.trajectories_buffer) == 0

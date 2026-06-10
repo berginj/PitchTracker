@@ -220,7 +220,6 @@ def _propagate(
 
 def _rk4_step(state: np.ndarray, h: float, k: float, wind: np.ndarray) -> np.ndarray:
     def dynamics(s: np.ndarray) -> np.ndarray:
-        pos = s[:3]
         vel = s[3:]
         rel = vel - wind
         speed = np.linalg.norm(rel)

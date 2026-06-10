@@ -347,7 +347,7 @@ class CameraManager:
 
             logger.info("Capture stopped successfully")
 
-        except Exception as exc:
+        except Exception:
             logger.exception("Unexpected error during capture stop")
             # Don't raise - we want stop to be best-effort cleanup
 

@@ -113,7 +113,7 @@ class TestRecordingServiceBasics:
             assert service.get_session_dir().exists()
 
             # Stop session
-            bundle = service.stop_session()
+            service.stop_session()
             assert not service.is_recording_session()
             assert service.get_session_dir() is None
 

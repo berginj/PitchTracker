@@ -241,7 +241,7 @@ class TrajectoryRenderer:
         for i in range(start_idx, len(points) - 1):
             # Fade based on position in trail
             fade_t = (i - start_idx) / max(fade_len - 1, 1)
-            alpha = int(255 * fade_t)
+            int(255 * fade_t)
 
             color = self._interpolate_color(cfg.color_start, cfg.color_end, 0.5)
             color = (color[0], color[1], color[2])  # No alpha in BGR

@@ -22,7 +22,7 @@ class TestDeviceManagerInit:
         right_input = Mock()
         status_label = Mock()
 
-        dm = DeviceManager(
+        DeviceManager(
             left_input=left_input,
             right_input=right_input,
             status_label=status_label,

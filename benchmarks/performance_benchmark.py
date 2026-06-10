@@ -22,8 +22,8 @@ import json
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from configs.settings import load_config
-from app.services.orchestrator import PipelineOrchestrator
+from configs.settings import load_config  # noqa: E402
+from app.services.orchestrator import PipelineOrchestrator  # noqa: E402
 
 
 @dataclass

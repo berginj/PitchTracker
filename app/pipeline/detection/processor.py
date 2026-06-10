@@ -559,7 +559,7 @@ class DetectionProcessor:
 
         # Track observations
         for obs in observations:
-            state = self._tracker.update(obs)
+            self._tracker.update(obs)
         for obs in plate_observations:
             self._plate_observations.append(obs)
 
