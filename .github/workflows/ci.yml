@@ -36,15 +36,11 @@ jobs:
       - name: Enforce file-length convention
         run: python scripts/check_file_length.py
 
-      - name: Lint - critical errors (blocking)
-        run: flake8 . --select=E9,F63,F7,F82 --show-source --statistics
-
-      - name: Lint - style (advisory)
-        run: flake8 . --exit-zero --statistics
-        continue-on-error: true
+      - name: Lint with flake8
+        run: flake8 . --count --statistics
 
       - name: Type check with mypy (advisory)
-        run: mypy . --ignore-missing-imports
+        run: mypy .
         continue-on-error: true
 
       - name: Run tests
