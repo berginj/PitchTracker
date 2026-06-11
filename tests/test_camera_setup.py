@@ -7,6 +7,7 @@ video frames can be read, preventing runtime errors in the setup wizard.
 from __future__ import annotations
 
 import pytest
+import cv2
 import numpy as np
 from unittest.mock import MagicMock, patch
 
@@ -44,8 +45,8 @@ class TestOpenCVCameraInitialization:
             mock_cap.return_value = mock_instance
             mock_instance.isOpened.return_value = True
 
-            # Mock frame reading
-            mock_frame = np.zeros((480, 640), dtype=np.uint8)
+            # Mock frame reading (BGR; read_frame converts to GRAY8)
+            mock_frame = np.zeros((480, 640, 3), dtype=np.uint8)
             mock_instance.read.return_value = (True, mock_frame)
 
             # 1. Create camera
@@ -53,7 +54,7 @@ class TestOpenCVCameraInitialization:
 
             # 2. Open camera
             camera.open("0")
-            mock_cap.assert_called_with(0, 2)  # cv2.CAP_DSHOW = 2
+            mock_cap.assert_called_with(0, cv2.CAP_DSHOW)
 
             # 3. Set mode
             camera.set_mode(640, 480, 30, "GRAY8")
@@ -74,7 +75,7 @@ class TestUVCCameraInitialization:
 
     def test_uvc_camera_api_sequence(self):
         """Test correct API call sequence: create -> open -> set_mode -> read_frame."""
-        with patch("capture.uvc_backend._list_camera_devices") as mock_list:
+        with patch("capture.device_discovery.list_uvc_devices") as mock_list:
             # Mock device list
             mock_list.return_value = [
                 {"serial": "TEST123", "friendly_name": "Test Camera", "instance_id": "USB\\VID_1234&PID_5678\\TEST123"}
@@ -85,8 +86,8 @@ class TestUVCCameraInitialization:
                 mock_cap.return_value = mock_instance
                 mock_instance.isOpened.return_value = True
 
-                # Mock frame reading
-                mock_frame = np.zeros((480, 640), dtype=np.uint8)
+                # Mock frame reading (BGR; read_frame converts to GRAY8)
+                mock_frame = np.zeros((480, 640, 3), dtype=np.uint8)
                 mock_instance.read.return_value = (True, mock_frame)
 
                 # 1. Create camera
@@ -113,7 +114,7 @@ class TestCameraSetupWorkflow:
             mock_instance = MagicMock()
             mock_cap.return_value = mock_instance
             mock_instance.isOpened.return_value = True
-            mock_frame = np.zeros((480, 640), dtype=np.uint8)
+            mock_frame = np.zeros((480, 640, 3), dtype=np.uint8)
             mock_instance.read.return_value = (True, mock_frame)
 
             # Simulate setup wizard selecting "Camera 0" and "Camera 1"
@@ -141,7 +142,7 @@ class TestCameraSetupWorkflow:
 
     def test_uvc_backend_workflow(self):
         """Test setup wizard workflow with UVC backend."""
-        with patch("capture.uvc_backend._list_camera_devices") as mock_list:
+        with patch("capture.device_discovery.list_uvc_devices") as mock_list:
             mock_list.return_value = [
                 {"serial": "LEFT123", "friendly_name": "Left Camera", "instance_id": "USB\\VID_1234&PID_5678\\LEFT123"},
                 {
@@ -155,7 +156,7 @@ class TestCameraSetupWorkflow:
                 mock_instance = MagicMock()
                 mock_cap.return_value = mock_instance
                 mock_instance.isOpened.return_value = True
-                mock_frame = np.zeros((480, 640), dtype=np.uint8)
+                mock_frame = np.zeros((480, 640, 3), dtype=np.uint8)
                 mock_instance.read.return_value = (True, mock_frame)
 
                 # Simulate setup wizard selecting cameras by serial
