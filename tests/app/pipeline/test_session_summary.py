@@ -144,7 +144,7 @@ class TestSessionManager:
         manager.add_pitch(pitch, [])
 
         summary = manager.get_summary()
-        # Zone rows are flipped for display, so zone (1, 1) maps to bottom-left.
-        assert summary.heatmap[2][0] == 1
+        # Zone (row, col) maps directly into the heatmap grid (no flip).
+        assert summary.heatmap[1][1] == 1
         # Other cells should be 0
         assert summary.heatmap[0][0] == 0

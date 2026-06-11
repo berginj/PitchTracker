@@ -137,8 +137,8 @@ class TestStartRecording:
         mock_deps["start_recording_service"].assert_called_once_with("test-session", "review")
         mock_deps["status_label"].setText.assert_called_with("Recording...")
 
-    @patch("ui.controllers.recording_controller.QtWidgets.QMessageBox")
-    def test_start_recording_health_check_fail(self, mock_msgbox, mock_deps):
+    @patch("ui.controllers.recording_controller.show_message_dialog")
+    def test_start_recording_health_check_fail(self, mock_dialog, mock_deps):
         """start_recording should fail when health check fails."""
         mock_deps["health_check"] = Mock(return_value=False)
         rc = RecordingController(**mock_deps)
@@ -146,7 +146,8 @@ class TestStartRecording:
         result = rc.start_recording()
 
         assert result is False
-        mock_msgbox.warning.assert_called_once()
+        mock_dialog.assert_called_once()
+        assert mock_dialog.call_args.kwargs["tone"] == "warning"
         mock_deps["start_recording_service"].assert_not_called()
 
     def test_start_recording_empty_session_name(self, mock_deps):
@@ -248,8 +249,8 @@ class TestTrainingCapture:
         mock_deps["start_recording_service"].assert_called_once_with("training-session", "training")
         mock_deps["status_label"].setText.assert_called_with("Training capture...")
 
-    @patch("ui.controllers.recording_controller.QtWidgets.QMessageBox")
-    def test_start_training_capture_health_check_fail(self, mock_msgbox, mock_deps):
+    @patch("ui.controllers.recording_controller.show_message_dialog")
+    def test_start_training_capture_health_check_fail(self, mock_dialog, mock_deps):
         """start_training_capture should fail when health check fails."""
         mock_deps["health_check"] = Mock(return_value=False)
         rc = RecordingController(**mock_deps)
@@ -257,7 +258,8 @@ class TestTrainingCapture:
         result = rc.start_training_capture()
 
         assert result is False
-        mock_msgbox.warning.assert_called_once()
+        mock_dialog.assert_called_once()
+        assert mock_dialog.call_args.kwargs["tone"] == "warning"
 
 
 class TestOutputDirectory:

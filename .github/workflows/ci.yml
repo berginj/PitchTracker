@@ -45,7 +45,7 @@ jobs:
         continue-on-error: true
 
       - name: Run tests
-        run: python -m pytest --tb=short -q
+        run: python -m pytest -n auto --dist loadscope --tb=short -q
 
   security:
     runs-on: ubuntu-latest

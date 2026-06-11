@@ -78,7 +78,7 @@ class TestErrorRecovery(unittest.TestCase):
             raise ValueError("Simulated detection failure")
 
         pool.set_detect_callback(failing_detector)
-        pool.start(queue_size=6)
+        pool.start(queue_size=64)
 
         # Clear any startup errors
         self.received_errors.clear()
@@ -148,7 +148,7 @@ class TestErrorRecovery(unittest.TestCase):
             return []  # Return empty detections on success
 
         pool.set_detect_callback(intermittent_detector)
-        pool.start(queue_size=6)
+        pool.start(queue_size=64)
 
         try:
             # Send frames
@@ -236,19 +236,28 @@ class TestErrorRecovery(unittest.TestCase):
 
     def test_disk_space_warnings_published(self):
         """Test that disk space warnings are published to error bus."""
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
         from app.pipeline.recording.session_recorder import SessionRecorder
 
-        # Create session recorder with very high thresholds
-        # (so we're always below them)
         recorder = SessionRecorder(self.config, self.test_dir)
-        recorder._warning_disk_gb = 999999.0  # Unreasonably high
-        recorder._critical_disk_gb = 999998.0
 
         # Clear startup errors
         self.received_errors.clear()
 
-        # Start session (will trigger disk check)
-        session_dir, warning = recorder.start_session("test_session", "test_pitch")
+        # Simulate very low free space (10GB < the 50GB start_session requires)
+        # so the initial disk check returns a warning message.
+        low_usage = SimpleNamespace(
+            total=100 * (1024**3),
+            used=90 * (1024**3),
+            free=10 * (1024**3),
+        )
+        with patch(
+            "app.pipeline.recording.session_recorder.shutil.disk_usage",
+            return_value=low_usage,
+        ):
+            session_dir, warning = recorder.start_session("test_session", "test_pitch")
 
         # Should have warning message
         self.assertNotEqual(warning, "", "Expected disk space warning")
@@ -256,7 +265,13 @@ class TestErrorRecovery(unittest.TestCase):
         # Note: Recording thread monitors continuously, but we triggered initial check
         # The warning message is returned directly, error bus used during monitoring
 
-        recorder.stop_session()
+        recorder.stop_session(
+            config_path="configs/default.yaml",
+            pitch_id="test_pitch",
+            session_name="test_session",
+            mode="review",
+            measured_speed_mph=None,
+        )
 
     def test_error_recovery_resets_error_counters(self):
         """Test that error counters reset when detection recovers."""
@@ -277,7 +292,7 @@ class TestErrorRecovery(unittest.TestCase):
                 return []
 
         pool.set_detect_callback(recovering_detector)
-        pool.start(queue_size=6)
+        pool.start(queue_size=64)
 
         # Clear startup errors
         self.received_errors.clear()

@@ -223,8 +223,8 @@ class TestApplyDetectorConfig:
         settings_manager._apply_detector_to_service.assert_called_once()
         settings_manager._status_label.setText.assert_called_with("Detector settings applied.")
 
-    @patch("ui.controllers.settings_manager.QtWidgets.QMessageBox")
-    def test_apply_detector_config_ml_no_path(self, mock_msgbox, settings_manager):
+    @patch("ui.controllers.settings_manager.show_message_dialog")
+    def test_apply_detector_config_ml_no_path(self, mock_dialog, settings_manager):
         """apply_detector_config should fail if ML mode without model path."""
         settings_manager._detector_type = "ml"
         settings_manager._detector_model_path = ""
@@ -232,7 +232,8 @@ class TestApplyDetectorConfig:
         result = settings_manager.apply_detector_config()
 
         assert result is False
-        mock_msgbox.warning.assert_called_once()
+        mock_dialog.assert_called_once()
+        assert mock_dialog.call_args.kwargs["tone"] == "warning"
 
 
 class TestStrikeZoneSettings:

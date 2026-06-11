@@ -66,8 +66,7 @@ class TestConfigService:
         """Test setting ball type."""
         service.set_ball_type("softball")
 
-        config = service.get_config()
-        assert config.ball.type == "softball"
+        assert service.get_ball_type() == "softball"
 
     def test_get_ball_radius_baseball(self, service):
         """Test getting ball radius for baseball."""

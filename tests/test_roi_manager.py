@@ -247,18 +247,19 @@ class TestProposeRightLane:
             get_camera_serials=Mock(return_value=("left", "right")),
         )
 
-    @patch("ui.controllers.roi_manager.QtWidgets.QMessageBox")
-    def test_propose_right_lane_no_left_lane(self, mock_msgbox, roi_manager):
+    @patch("ui.controllers.roi_manager.show_message_dialog")
+    def test_propose_right_lane_no_left_lane(self, mock_dialog, roi_manager):
         """propose_right_lane should fail without left lane."""
         parent = Mock()
 
         result = roi_manager.propose_right_lane(parent, (640, 480), (640, 480))
 
         assert result is False
-        mock_msgbox.information.assert_called_once()
+        mock_dialog.assert_called_once()
+        assert mock_dialog.call_args.kwargs["tone"] == "info"
 
-    @patch("ui.controllers.roi_manager.QtWidgets.QMessageBox")
-    def test_propose_right_lane_no_frames(self, mock_msgbox, roi_manager):
+    @patch("ui.controllers.roi_manager.show_message_dialog")
+    def test_propose_right_lane_no_frames(self, mock_dialog, roi_manager):
         """propose_right_lane should fail without frame data."""
         parent = Mock()
         roi_manager.set_roi_mode("lane")
@@ -267,7 +268,8 @@ class TestProposeRightLane:
         result = roi_manager.propose_right_lane(parent, None, None)
 
         assert result is False
-        mock_msgbox.warning.assert_called_once()
+        mock_dialog.assert_called_once()
+        assert mock_dialog.call_args.kwargs["tone"] == "warning"
 
     def test_propose_right_lane_success(self, roi_manager):
         """propose_right_lane should calculate right lane from left."""

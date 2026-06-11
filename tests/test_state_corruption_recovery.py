@@ -52,6 +52,34 @@ class TestStateCorruptionRecovery(unittest.TestCase):
         except Exception:
             pass
 
+    def _feed_active(self, base_ns, count, x_scale=0.1):
+        """Drive the state machine with `count` active frames.
+
+        Transitions are driven by ``update()``; ``add_observation`` only stores
+        data for the current phase. We feed both so the resulting PitchData has
+        observations attached.
+        """
+        for i in range(count):
+            t = base_ns + i * 33_000_000  # ~30 FPS
+            obs = StereoObservation(
+                t_ns=t,
+                left=(100.0 + i * 10, 200.0),
+                right=(150.0 + i * 10, 200.0),
+                X=x_scale * i,
+                Y=0.5,
+                Z=10.0 - i * 0.5,
+                quality=0.9,
+                confidence=0.9,
+            )
+            self.state_machine.add_observation(obs)
+            self.state_machine.update(frame_ns=t, lane_count=1, plate_count=1, obs_count=1)
+
+    def _feed_gap(self, base_ns, count):
+        """Drive the state machine with `count` inactive (gap) frames."""
+        for i in range(count):
+            t = base_ns + i * 33_000_000
+            self.state_machine.update(frame_ns=t, lane_count=0, plate_count=0, obs_count=0)
+
     def test_on_pitch_start_callback_exception_recovers_state(self):
         """Test that exception in on_pitch_start callback recovers state properly."""
         # Set up callback that throws exception
@@ -63,27 +91,13 @@ class TestStateCorruptionRecovery(unittest.TestCase):
 
         self.state_machine.set_callbacks(on_pitch_start=failing_start_callback)
 
-        # Create observations to trigger pitch start
+        # Feed exactly enough active frames to trigger the single transition
+        # attempt (min_active_frames=3). On failure the machine reverts to
+        # RAMP_UP without consuming more frames.
         base_ns = int(time.time() * 1e9)
-        observations = [
-            StereoObservation(
-                t_ns=base_ns + i * 33_000_000,  # ~30 FPS
-                left=(100.0 + i * 10, 200.0),
-                right=(150.0 + i * 10, 200.0),
-                X=0.1 * i,
-                Y=0.5,
-                Z=10.0 - i * 0.5,
-                quality=0.9,
-                confidence=0.9,
-            )
-            for i in range(5)
-        ]
+        self._feed_active(base_ns, 3)
 
-        # Feed observations to state machine
-        for obs in observations:
-            self.state_machine.add_observation(obs)
-
-        # Callback should have been invoked and failed
+        # Callback should have been invoked once and failed
         self.assertEqual(len(callback_invocations), 1)
         self.assertEqual(callback_invocations[0], ("start", 1))
 
@@ -120,32 +134,15 @@ class TestStateCorruptionRecovery(unittest.TestCase):
             on_pitch_end=failing_end_callback,
         )
 
-        # Create observations to trigger pitch start and end
+        # Feed active frames to reach ACTIVE (start callback fires once)
         base_ns = int(time.time() * 1e9)
-        active_observations = [
-            StereoObservation(
-                t_ns=base_ns + i * 33_000_000,
-                left=(100.0 + i * 10, 200.0),
-                right=(150.0 + i * 10, 200.0),
-                X=0.1 * i,
-                Y=0.5,
-                Z=10.0 - i * 0.5,
-                quality=0.9,
-                confidence=0.9,
-            )
-            for i in range(5)
-        ]
-
-        # Feed observations to trigger ACTIVE state
-        for obs in active_observations:
-            self.state_machine.add_observation(obs)
+        self._feed_active(base_ns, 5)
 
         # Should have transitioned to ACTIVE
         self.assertEqual(len(start_invocations), 1)
 
-        # Now trigger end by sending frames with no observations
-        for i in range(10):
-            self.state_machine.process_frame(base_ns + (i + 10) * 33_000_000)
+        # Now trigger end by sending gap frames (end_gap_frames=5)
+        self._feed_gap(base_ns + 5 * 33_000_000, 10)
 
         # End callback should have been invoked and failed
         self.assertEqual(len(end_invocations), 1)
@@ -175,56 +172,18 @@ class TestStateCorruptionRecovery(unittest.TestCase):
 
         self.state_machine.set_callbacks(on_pitch_start=intermittent_start_callback)
 
-        # First pitch - will fail
+        # First pitch - will fail (feed exactly the transition threshold)
         base_ns = int(time.time() * 1e9)
-        pitch1_observations = [
-            StereoObservation(
-                t_ns=base_ns + i * 33_000_000,
-                left=(100.0 + i * 10, 200.0),
-                right=(150.0 + i * 10, 200.0),
-                X=0.1 * i,
-                Y=0.5,
-                Z=10.0,
-                quality=0.9,
-                confidence=0.9,
-            )
-            for i in range(5)
-        ]
+        self._feed_active(base_ns, 3)
 
-        for obs in pitch1_observations:
-            self.state_machine.add_observation(obs)
-
-        # Should have failed
+        # Should have failed and reverted to RAMP_UP
         self.assertEqual(len(successful_pitches), 0)
         self.assertEqual(self.state_machine.get_phase(), PitchPhase.RAMP_UP)
 
-        # Second pitch - should succeed
-        # Wait a bit and send new observations
-        time.sleep(0.1)
+        # Reset to INACTIVE by feeding a gap frame, then run a clean second pitch
+        self._feed_gap(base_ns + 3 * 33_000_000, 2)
         base_ns2 = base_ns + 1_000_000_000  # 1 second later
-
-        pitch2_observations = [
-            StereoObservation(
-                t_ns=base_ns2 + i * 33_000_000,
-                left=(100.0 + i * 10, 200.0),
-                right=(150.0 + i * 10, 200.0),
-                X=0.2 * i,
-                Y=0.5,
-                Z=10.0,
-                quality=0.9,
-                confidence=0.9,
-            )
-            for i in range(5)
-        ]
-
-        # Reset state to INACTIVE first
-        # Feed gap frames to reset
-        for i in range(10):
-            self.state_machine.process_frame(base_ns + (i + 20) * 33_000_000)
-
-        # Now feed second pitch observations
-        for obs in pitch2_observations:
-            self.state_machine.add_observation(obs)
+        self._feed_active(base_ns2, 5, x_scale=0.2)
 
         # Should have succeeded
         self.assertGreater(
@@ -244,20 +203,9 @@ class TestStateCorruptionRecovery(unittest.TestCase):
 
         self.state_machine.set_callbacks(on_pitch_start=failing_callback)
 
-        # Feed observations
+        # Feed exactly the transition threshold so the callback fires once
         base_ns = int(time.time() * 1e9)
-        for i in range(5):
-            obs = StereoObservation(
-                t_ns=base_ns + i * 33_000_000,
-                left=(100.0 + i * 10, 200.0),
-                right=(150.0 + i * 10, 200.0),
-                X=0.1 * i,
-                Y=0.5,
-                Z=10.0,
-                quality=0.9,
-                confidence=0.9,
-            )
-            self.state_machine.add_observation(obs)
+        self._feed_active(base_ns, 3)
 
         # After callback failure, state should be reverted to RAMP_UP
         self.assertEqual(
@@ -281,22 +229,9 @@ class TestStateCorruptionRecovery(unittest.TestCase):
             on_pitch_end=failing_end,
         )
 
-        # Try to trigger multiple pitches
+        # Trigger a start-callback failure
         base_ns = int(time.time() * 1e9)
-
-        # First pitch
-        for i in range(5):
-            obs = StereoObservation(
-                t_ns=base_ns + i * 33_000_000,
-                left=(100.0 + i * 10, 200.0),
-                right=(150.0 + i * 10, 200.0),
-                X=0.1 * i,
-                Y=0.5,
-                Z=10.0,
-                quality=0.9,
-                confidence=0.9,
-            )
-            self.state_machine.add_observation(obs)
+        self._feed_active(base_ns, 3)
 
         # Should have at least one error
         tracking_errors = [e for e in self.received_errors if e.category == ErrorCategory.TRACKING]
@@ -316,18 +251,7 @@ class TestStateCorruptionRecovery(unittest.TestCase):
 
         # Trigger error
         base_ns = int(time.time() * 1e9)
-        for i in range(5):
-            obs = StereoObservation(
-                t_ns=base_ns + i * 33_000_000,
-                left=(100.0 + i * 10, 200.0),
-                right=(150.0 + i * 10, 200.0),
-                X=0.1 * i,
-                Y=0.5,
-                Z=10.0,
-                quality=0.9,
-                confidence=0.9,
-            )
-            self.state_machine.add_observation(obs)
+        self._feed_active(base_ns, 3)
 
         # Check error metadata
         tracking_errors = [e for e in self.received_errors if e.category == ErrorCategory.TRACKING]
