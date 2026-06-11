@@ -379,9 +379,12 @@ def test_validate_calibration_health_degrading(temp_config):
     """Test calibration health with degrading trend."""
     refiner = OnlineCalibrationRefiner(temp_config)
 
-    # Accumulate trajectories with increasing error
-    for i in range(30):
-        error = 1.0 + (i * 0.1)  # Error increases from 1.0 to 4.0
+    # Accumulate trajectories with clearly increasing error. Errors must stay
+    # within MAX_EPIPOLAR_ERROR (2.0px) to be accepted; using a per-step slope of
+    # 0.125 keeps the regression slope comfortably above the 0.1 "degrading"
+    # threshold rather than landing exactly on it (a floating-point knife-edge).
+    for i in range(13):
+        error = 0.5 + (i * 0.125)  # 0.5 -> 2.0 over 13 points, slope 0.125
         trajectory = create_high_quality_trajectory(epipolar_error=error)
         refiner.accumulate_trajectory(trajectory)
 
