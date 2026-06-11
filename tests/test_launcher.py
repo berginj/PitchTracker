@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -112,7 +113,6 @@ def test_main_shows_launcher_without_blocking_on_validation(
 
     monkeypatch.setattr(launcher, "create_required_directories", lambda: None)
     monkeypatch.setattr(launcher, "get_current_version", lambda: "1.0.0")
-    monkeypatch.setattr(launcher.QtWidgets, "QApplication", lambda _argv: app)
 
     def build_launcher() -> DummyLauncher:
         window = DummyLauncher()
@@ -126,8 +126,13 @@ def test_main_shows_launcher_without_blocking_on_validation(
         lambda code=0: (_ for _ in ()).throw(SystemExit(code)),
     )
 
-    with pytest.raises(SystemExit) as exc_info:
-        launcher.main()
+    # Patch QApplication only for the duration of main(). QtWidgets is the real
+    # PySide6 module shared with pytest-qt, so the substitution must be restored
+    # before this test returns; otherwise pytest-qt's per-test teardown calls
+    # QApplication.instance() on the stand-in and poisons every later test.
+    with patch.object(launcher.QtWidgets, "QApplication", lambda _argv: app):
+        with pytest.raises(SystemExit) as exc_info:
+            launcher.main()
 
     assert exc_info.value.code == 0
     assert len(created_windows) == 1
