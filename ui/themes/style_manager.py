@@ -134,6 +134,12 @@ class StyleManager:
         tab_widget.setProperty("controlRole", "tabs")
         self.polish(tab_widget)
 
+    def polish_form_controls(self, root: QtWidgets.QWidget) -> None:
+        """Apply shared input/button styling to common controls in a widget tree."""
+        from .dialog_helpers import polish_form_controls
+
+        polish_form_controls(root)
+
     def get_color(self, name: str) -> str:
         return getattr(self.theme, name, self.theme.text_primary)
 

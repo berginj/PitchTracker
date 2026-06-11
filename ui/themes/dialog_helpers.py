@@ -316,25 +316,56 @@ def show_choice_dialog(
     return None
 
 
+def _resolve_accept_button(
+    button_box: QtWidgets.QDialogButtonBox,
+) -> QtWidgets.QAbstractButton | None:
+    """Find the button to treat as primary when no StandardButton is given.
+
+    Prefers the standard Ok button, then the first AcceptRole button (covers
+    boxes built with custom ``addButton`` labels), then any button present.
+    """
+    ok_button = button_box.button(QtWidgets.QDialogButtonBox.StandardButton.Ok)
+    if ok_button is not None:
+        return ok_button
+
+    accept_role = QtWidgets.QDialogButtonBox.ButtonRole.AcceptRole
+    for button in button_box.buttons():
+        if button_box.buttonRole(button) == accept_role:
+            return button
+
+    buttons = button_box.buttons()
+    return buttons[0] if buttons else None
+
+
 def style_dialog_button_box(
     button_box: QtWidgets.QDialogButtonBox,
     *,
-    primary: QtWidgets.QDialogButtonBox.StandardButton | None = None,
+    primary: QtWidgets.QDialogButtonBox.StandardButton | bool | None = None,
     success: Iterable[QtWidgets.QDialogButtonBox.StandardButton] = (),
     danger: Iterable[QtWidgets.QDialogButtonBox.StandardButton] = (),
     ghost: Iterable[QtWidgets.QDialogButtonBox.StandardButton] = (),
 ) -> None:
-    """Apply consistent variants to a dialog button box."""
+    """Apply consistent variants to a dialog button box.
+
+    ``primary`` may be a specific ``StandardButton`` to highlight, or ``True``
+    to highlight the dialog's accept button (useful for boxes built with custom
+    ``addButton`` labels that have no ``StandardButton`` to look up).
+    """
     sm = get_style_manager()
 
     for button in button_box.buttons():
         sm.style_button(button, "default")
 
-    if primary is not None:
-        button = button_box.button(primary)
-        if button is not None:
-            sm.style_button(button, "primary")
-            button.setDefault(True)
+    if primary is True:
+        primary_button = _resolve_accept_button(button_box)
+    elif primary is not None and primary is not False:
+        primary_button = button_box.button(primary)
+    else:
+        primary_button = None
+
+    if primary_button is not None:
+        sm.style_button(primary_button, "primary")
+        primary_button.setDefault(True)
 
     for standard_button in success:
         button = button_box.button(standard_button)

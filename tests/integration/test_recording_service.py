@@ -7,7 +7,9 @@ import shutil
 import tempfile
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 from typing import List, Tuple
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -102,11 +104,16 @@ class TestRecordingServiceBasics:
 
         # Create temp directory for recordings
         temp_dir = Path(tempfile.mkdtemp())
+        ample_space = SimpleNamespace(total=500 * 1024**3, used=0, free=200 * 1024**3)
         try:
             service.set_record_directory(temp_dir)
 
-            # Start session
-            warning = service.start_session("test_session", config)
+            # Start session (patch disk check so the assertion is environment-independent)
+            with patch(
+                "app.pipeline.recording.session_recorder.shutil.disk_usage",
+                return_value=ample_space,
+            ):
+                warning = service.start_session("test_session", config)
             assert warning == ""  # No disk space warning
             assert service.is_recording_session()
             assert service.get_session_dir() is not None

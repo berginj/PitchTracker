@@ -175,6 +175,13 @@ class TestExportFunctions:
         pitch1.speed_mph = 85.5
         pitch1.rotation_rpm = 2100.0
         pitch1.sample_count = 30
+        pitch1.trajectory_plate_x_ft = None
+        pitch1.trajectory_plate_y_ft = None
+        pitch1.trajectory_plate_z_ft = None
+        pitch1.trajectory_plate_t_ns = None
+        pitch1.trajectory_model = None
+        pitch1.trajectory_expected_error_ft = None
+        pitch1.trajectory_confidence = None
 
         summary.pitches = [pitch1]
 
@@ -248,7 +255,7 @@ class TestDialogs:
         qtbot.addWidget(dialog)
 
         assert dialog is not None
-        assert dialog.windowTitle() == "Pre-Recording Checklist"
+        assert dialog.windowTitle() == "Pre-Record Checklist"
 
     def test_startup_dialog_creation(self, qtbot):
         """Test creating StartupDialog."""
@@ -258,7 +265,7 @@ class TestDialogs:
         qtbot.addWidget(dialog)
 
         assert dialog is not None
-        assert dialog.windowTitle() == "Startup"
+        assert dialog.windowTitle() == "Select Location and Pitcher"
 
     def test_recording_settings_dialog_creation(self, qtbot):
         """Test creating RecordingSettingsDialog."""

@@ -398,16 +398,11 @@ class TestFullPipeline(unittest.TestCase):
             # Stop capture
             service.stop_capture()
 
-            # Additional validation: Check that bundle contains expected attributes
+            # Additional validation: Check that bundle contains expected attributes.
+            # The RecordingBundle carries session_dir; session timing is persisted in
+            # the manifest (validated above as t_start_utc/t_end_utc), not on the bundle.
             self.assertIsNotNone(bundle.session_dir, "Bundle should have session_dir")
-            self.assertTrue(
-                hasattr(bundle, "t_start_ns"),
-                "Bundle should have start timestamp",
-            )
-            self.assertTrue(
-                hasattr(bundle, "t_end_ns"),
-                "Bundle should have end timestamp",
-            )
+            self.assertIsInstance(bundle.session_dir, Path, "Bundle session_dir should be a Path")
 
         except Exception:
             # Clean up on failure
