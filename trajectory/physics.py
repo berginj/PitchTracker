@@ -193,13 +193,54 @@ def _residuals(
     state = params[:6]
     k = params[6]
     dt = params[7]
+    # Integrate once across all (ascending) observation times instead of
+    # re-integrating from t=0 for every observation (O(N) vs O(N^2)).
+    predicted_states = _propagate_to_times(state, times_s + dt, k, wind)
     residuals = []
-    for t, pos in zip(times_s, positions):
-        predicted = _propagate(state, t + dt, k, wind)
+    for predicted, pos in zip(predicted_states, positions):
         residuals.extend(predicted[:3] - pos)
     residuals.append((k - k0) / max(sigma_k, 1e-6))
     residuals.append((dt - dt0) / max(sigma_dt, 1e-6))
     return np.array(residuals, dtype=float)
+
+
+def _propagate_to_times(
+    state: np.ndarray,
+    target_times: np.ndarray,
+    k: float,
+    wind: Optional[Tuple[float, float, float]],
+) -> List[np.ndarray]:
+    """Propagate the drag model to a sequence of target times.
+
+    For ascending target times this advances a single RK4 integration
+    incrementally between consecutive targets, making a full residual
+    evaluation O(total_steps) instead of O(N * total_steps). Each result is
+    equivalent (to integration round-off) to calling ``_propagate(state, t,
+    k, wind)`` independently. Targets <= 0 yield the initial state, and any
+    out-of-order (earlier) target falls back to a fresh propagation so
+    correctness never depends on the inputs being sorted.
+    """
+    wind_vec = np.array(wind, dtype=float) if wind else np.zeros(3, dtype=float)
+    base = np.asarray(state, dtype=float)
+    x = base.copy()
+    t_cur = 0.0
+    out: List[np.ndarray] = []
+    for target in target_times:
+        tt = float(target)
+        if tt <= 0.0:
+            out.append(base.copy())
+            continue
+        if tt < t_cur:
+            out.append(_propagate(state, tt, k, wind))
+            continue
+        dt_remaining = tt - t_cur
+        steps = max(1, int(dt_remaining / 0.002))
+        h = dt_remaining / steps
+        for _ in range(steps):
+            x = _rk4_step(x, h, k, wind_vec)
+        t_cur = tt
+        out.append(x.copy())
+    return out
 
 
 def _propagate(
@@ -243,11 +284,12 @@ def _integrate_trajectory(
     state = params[:6]
     k = params[6]
     dt_offset = params[7]
+    target_times = times_s + dt_offset
+    predicted_states = _propagate_to_times(state, target_times, k, wind)
     samples: List[TrackSample] = []
-    for t in times_s:
+    for t, predicted in zip(times_s, predicted_states):
         t_s = t + dt_offset
         t_ns = int(t0_ns + t_s * 1e9)
-        predicted = _propagate(state, t_s, k, wind)
         samples.append(
             TrackSample(
                 t_ns=t_ns,
