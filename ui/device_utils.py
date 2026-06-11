@@ -240,21 +240,37 @@ def probe_uvc_devices(use_cache: bool = True) -> list[dict[str, str]]:
 
         # Skip virtual/software cameras and non-camera devices
         name_lower = name.lower()
-        skip_terms = [
-            # Virtual cameras
+
+        # Virtual/software cameras: always filtered, even if named "...Camera"
+        virtual_terms = [
             "obs",
             "snap",
             "virtual",
             "screen",
             "desktop",
             "display",
-            # Printers and scanners (common brands and types)
+        ]
+
+        # Non-camera function devices (printers, scanners, document cameras, audio)
+        noncamera_terms = [
             "printer",
             "scanner",
             "scan",
             "print",
             "mfp",
             "multifunction",
+            "document camera",
+            "doc camera",
+            "document scanner",
+            "audio",
+            "microphone",
+            "mic",
+            "speaker",
+        ]
+
+        # Printer/scanner brand names: only filtered when the device is not
+        # clearly a standalone camera (e.g. "Brother MFP" vs "Brother Camera").
+        brand_terms = [
             "brother",
             "hp ",
             "epson",
@@ -264,25 +280,16 @@ def probe_uvc_devices(use_cache: bool = True) -> list[dict[str, str]]:
             "ricoh",
             "sharp mfp",
             "kyocera",
-            # Document cameras (often printers with scanner)
-            "document camera",
-            "doc camera",
-            "document scanner",
-            # Other non-camera devices
-            "audio",
-            "microphone",
-            "mic",
-            "speaker",
         ]
 
-        # Check if device name contains any skip terms
-        should_skip = any(skip in name_lower for skip in skip_terms)
-
-        # Additional check: if name contains "brother" or similar brand but also "cam"
-        # it might be a legitimate camera, so don't skip
-        if should_skip and "cam" in name_lower and "camera" in name_lower:
+        if any(term in name_lower for term in virtual_terms):
+            should_skip = True
+        elif any(term in name_lower for term in noncamera_terms):
+            should_skip = True
+        elif any(term in name_lower for term in brand_terms) and "camera" not in name_lower:
+            should_skip = True
+        else:
             should_skip = False
-            logger.debug(f"Keeping device that looks like camera despite brand match: {name}")
 
         if should_skip:
             logger.info(f"Filtering out non-camera device: {name}")

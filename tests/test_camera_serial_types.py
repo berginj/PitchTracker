@@ -58,7 +58,7 @@ class TestCameraSerialTypes:
         camera = UvcCamera()
 
         # Mock list_uvc_devices and cv2.VideoCapture
-        with patch("capture.uvc_backend._list_camera_devices") as mock_list, patch(
+        with patch("capture.device_discovery.list_uvc_devices") as mock_list, patch(
             "capture.uvc_backend.cv2.VideoCapture"
         ) as mock_capture:
             # Setup mock devices
