@@ -13,6 +13,7 @@ import time
 import tempfile
 import shutil
 from pathlib import Path
+from unittest.mock import patch, Mock
 
 from configs.settings import load_config
 from app.services.orchestrator import PipelineOrchestrator
@@ -61,16 +62,33 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
             except Exception as e:
                 print(f"Warning: Could not clean up test directory: {e}")
 
+    def _stop_session(self, recorder):
+        """Stop a recorder session with the required manifest arguments."""
+        recorder.stop_session(
+            config_path="test_config.yaml",
+            pitch_id="test_pitch",
+            session_name="test_session",
+            mode="test",
+            measured_speed_mph=None,
+        )
+
+    @staticmethod
+    def _disk_usage(free_gb: float):
+        """Build a fake shutil.disk_usage result with the given free space."""
+        free_bytes = int(free_gb * (1024**3))
+        return Mock(total=free_bytes * 2, used=free_bytes, free=free_bytes)
+
     def test_disk_space_warning_at_low_threshold(self):
         """Test that disk space warning is issued when below threshold."""
-        # Create session recorder with high warning threshold
+        # Create session recorder
         recorder = SessionRecorder(self.config, self.test_dir)
 
-        # Set unreasonably high threshold (will always trigger warning)
-        recorder._warning_disk_gb = 999999.0
-
-        # Start session
-        session_dir, warning = recorder.start_session("test_session", "test_pitch")
+        # Simulate very low free disk space so the startup check warns
+        with patch(
+            "app.pipeline.recording.session_recorder.shutil.disk_usage",
+            return_value=self._disk_usage(free_gb=1.0),
+        ):
+            session_dir, warning = recorder.start_session("test_session", "test_pitch")
 
         # Should have warning message
         self.assertNotEqual(
@@ -80,18 +98,19 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         )
         self.assertIn("disk", warning.lower())
 
-        recorder.stop_session()
+        self._stop_session(recorder)
 
     def test_no_warning_when_sufficient_disk_space(self):
         """Test that no warning is issued when disk space is sufficient."""
-        # Create session recorder with low threshold (always sufficient)
+        # Create session recorder
         recorder = SessionRecorder(self.config, self.test_dir)
 
-        # Set very low threshold (will never trigger warning)
-        recorder._warning_disk_gb = 0.001  # 1 MB
-
-        # Start session
-        session_dir, warning = recorder.start_session("test_session", "test_pitch")
+        # Simulate plenty of free disk space so no warning is produced
+        with patch(
+            "app.pipeline.recording.session_recorder.shutil.disk_usage",
+            return_value=self._disk_usage(free_gb=500.0),
+        ):
+            session_dir, warning = recorder.start_session("test_session", "test_pitch")
 
         # Should NOT have warning
         self.assertEqual(
@@ -100,7 +119,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
             f"Unexpected disk space warning: {warning}",
         )
 
-        recorder.stop_session()
+        self._stop_session(recorder)
 
     def test_disk_monitoring_publishes_to_error_bus(self):
         """Test that disk monitoring publishes warnings to error bus."""
@@ -113,20 +132,14 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         # Clear startup errors
         self.received_errors.clear()
 
-        # Start session and recording
+        # Start session (this also starts the monitoring thread)
         session_dir, warning = recorder.start_session("test_session", "test_pitch")
-        recorder.start_recording()
 
         # Let monitoring thread run
         time.sleep(6.0)  # Monitoring checks every 5 seconds
 
-        # Stop recording
-        recorder.stop_recording(
-            config_path="test_config.yaml",
-            pitch_id="test_pitch",
-            session_name="test_session",
-            record_mode="test",
-        )
+        # Stop session
+        self._stop_session(recorder)
 
         # Should have disk space warning on error bus
         disk_warnings = [e for e in self.received_errors if e.category == ErrorCategory.DISK_SPACE]
@@ -140,8 +153,6 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
                     warning.severity,
                     [ErrorSeverity.WARNING, ErrorSeverity.CRITICAL],
                 )
-
-        recorder.stop_session()
 
     def test_disk_critical_callback_auto_stops_recording(self):
         """Test that critical disk space triggers auto-stop callback."""
@@ -162,42 +173,26 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
             )
             time.sleep(0.5)
 
-            # Start recording
-            service.start_recording(
-                session_name="disk_test",
-                pitch_id="disk_pitch_001",
-                mode="test",
-            )
+            # Start recording (patch disk_usage so the startup disk check
+            # succeeds regardless of the config-derived record directory)
+            with patch(
+                "app.pipeline.recording.session_recorder.shutil.disk_usage",
+                return_value=self._disk_usage(free_gb=500.0),
+            ):
+                service.start_recording(
+                    session_name="disk_test",
+                    pitch_id="disk_pitch_001",
+                    mode="test",
+                )
 
-            # Mock the session recorder to have critical threshold
-            if service._session_recorder:
-                # Set very high critical threshold
-                service._session_recorder._critical_disk_gb = 999999.0
-
-                # Manually trigger the monitoring check
-                # (normally runs in background thread)
-                try:
-                    # Force a monitoring check by calling internal method
-                    # This will trigger critical callback if wired
-                    import shutil
-
-                    usage = shutil.disk_usage(self.test_dir)
-                    free_gb = usage.free / (1024**3)
-
-                    # Simulate critical condition
-                    if free_gb < service._session_recorder._critical_disk_gb:
-                        # This would normally be called by monitoring thread
-                        if hasattr(service, "_on_disk_critical"):
-                            service._on_disk_critical(free_gb, f"Critical: {free_gb:.1f}GB remaining")
-                except Exception:
-                    # If method doesn't exist or fails, that's okay
-                    # Main thing is verifying callback integration exists
-                    pass
+            # Verify the critical callback integration point exists
+            if hasattr(service, "_on_disk_critical"):
+                service._on_disk_critical(0.5, "Critical: 0.5GB remaining")
 
             time.sleep(0.5)
 
             # Stop recording if still running
-            if service._recording:
+            if service._recording_active:
                 service.stop_recording()
 
             # Stop capture
@@ -208,7 +203,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
 
         except Exception:
             try:
-                if service._recording:
+                if service._recording_active:
                     service.stop_recording()
                 service.stop_capture()
             except Exception:
@@ -225,9 +220,8 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         # Create session recorder
         recorder = SessionRecorder(self.config, self.test_dir)
 
-        # Start session and recording
+        # Start session (this also starts the monitoring thread)
         session_dir, warning = recorder.start_session("test_session", "test_pitch")
-        recorder.start_recording()
 
         # Thread count should increase (monitoring thread started)
         recording_threads = threading.active_count()
@@ -237,14 +231,8 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
             "Monitoring thread should be running during recording",
         )
 
-        # Stop recording and session
-        recorder.stop_recording(
-            config_path="test_config.yaml",
-            pitch_id="test_pitch",
-            session_name="test_session",
-            record_mode="test",
-        )
-        recorder.stop_session()
+        # Stop session
+        self._stop_session(recorder)
 
         # Give threads time to cleanup
         time.sleep(0.5)
@@ -265,52 +253,36 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         # Create session recorder
         recorder = SessionRecorder(self.config, self.test_dir)
 
-        # Start session and recording
+        # Start session (this also starts the monitoring thread)
         session_dir, warning = recorder.start_session("test_session", "test_pitch")
-        recorder.start_recording()
 
         # Let it run briefly
         time.sleep(1.0)
 
-        # Delete the test directory while monitoring
-        # (This simulates disk unmount or directory deletion)
+        # Stop session (should not crash even if the directory is removed)
         try:
-            # Note: This might fail on Windows due to file locks
-            # Just verify no crash if it succeeds
-            pass
-        except Exception:
-            pass
-
-        # Stop recording (should not crash)
-        try:
-            recorder.stop_recording(
-                config_path="test_config.yaml",
-                pitch_id="test_pitch",
-                session_name="test_session",
-                record_mode="test",
-            )
+            self._stop_session(recorder)
         except Exception:
             # Some error is expected if directory was deleted
             # Main thing is no crash/hang
             pass
-
-        recorder.stop_session()
 
     def test_session_recorder_init_checks_disk_space(self):
         """Test that SessionRecorder checks disk space during initialization."""
         # Create session recorder
         recorder = SessionRecorder(self.config, self.test_dir)
 
-        # Set unreasonably high threshold
-        recorder._warning_disk_gb = 999999.0
-
-        # Start session - should check disk space
-        session_dir, warning = recorder.start_session("test_session", "test_pitch")
+        # Start session with simulated low disk space - should warn
+        with patch(
+            "app.pipeline.recording.session_recorder.shutil.disk_usage",
+            return_value=self._disk_usage(free_gb=1.0),
+        ):
+            session_dir, warning = recorder.start_session("test_session", "test_pitch")
 
         # Should have warning
         self.assertNotEqual(warning, "", "Expected disk space warning on init")
 
-        recorder.stop_session()
+        self._stop_session(recorder)
 
 
 if __name__ == "__main__":
