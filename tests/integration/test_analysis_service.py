@@ -414,8 +414,14 @@ class TestAnalysisServiceRecentPitchPaths:
 
         service.stop_analysis()
 
+    @pytest.mark.timeout(300)
     def test_recent_pitch_paths_max_count(self):
-        """Test recent pitch paths respects maximum count."""
+        """Test recent pitch paths respects maximum count.
+
+        Publishes 15 pitches; each triggers a full physics trajectory fit
+        (~8s each on the slow drag model), so this needs a larger timeout
+        than the default 120s. See trajectory/physics.py perf note.
+        """
         bus = EventBus()
         config = create_test_config()
         service = AnalysisServiceImpl(bus, config)
