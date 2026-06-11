@@ -46,3 +46,7 @@ installer_output/
 # OS/editor noise
 .DS_Store
 Thumbs.db
+
+# Transient pytest probe logs
+*_out.txt
+*_err.txt

@@ -1,3 +1,0 @@
-tests/test_trajectory_physics.py::test_physics_fitter_ballistic_accuracy
-
-1 test collected in 4.12s
