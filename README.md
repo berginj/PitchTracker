@@ -78,7 +78,7 @@ python generate_charuco.py --paper a4
 
 **Quick setup:**
 ```bash
-# 1. Install Python 3.10+ (https://www.python.org/downloads/)
+# 1. Install Python 3.11+ (https://www.python.org/downloads/)
 
 # 2. Clone repository
 git clone https://github.com/berginj/PitchTracker.git

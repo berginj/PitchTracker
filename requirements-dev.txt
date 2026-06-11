@@ -15,3 +15,6 @@ safety==3.0.1
 
 # Test reliability (fail fast on hangs instead of blocking CI)
 pytest-timeout==2.3.1
+
+# Qt test harness (qtbot fixture used across UI tests)
+pytest-qt==4.5.0
