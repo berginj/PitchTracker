@@ -287,9 +287,9 @@ class TestLoadProfile:
         on_rois.assert_called_once()
         on_loaded.assert_called_once_with("TestProfile")
 
-    @patch("ui.controllers.profile_manager.QtWidgets.QMessageBox")
+    @patch("ui.controllers.profile_manager.show_message_dialog")
     @patch("ui.controllers.profile_manager.load_profile")
-    def test_load_profile_not_found(self, mock_load, mock_msgbox, profile_manager):
+    def test_load_profile_not_found(self, mock_load, mock_dialog, profile_manager):
         """load_profile should show error for missing profile."""
         profile_manager._profile_combo.currentText.return_value = "MissingProfile"
         mock_load.side_effect = FileNotFoundError("Profile not found")
@@ -298,11 +298,11 @@ class TestLoadProfile:
         result = profile_manager.load_profile(parent)
 
         assert result is False
-        mock_msgbox.warning.assert_called_once()
+        mock_dialog.assert_called_once()
 
-    @patch("ui.controllers.profile_manager.QtWidgets.QMessageBox")
+    @patch("ui.controllers.profile_manager.show_message_dialog")
     @patch("ui.controllers.profile_manager.load_profile")
-    def test_load_profile_generic_error(self, mock_load, mock_msgbox, profile_manager):
+    def test_load_profile_generic_error(self, mock_load, mock_dialog, profile_manager):
         """load_profile should handle generic errors gracefully."""
         profile_manager._profile_combo.currentText.return_value = "BrokenProfile"
         mock_load.side_effect = Exception("Unexpected error")
@@ -311,7 +311,8 @@ class TestLoadProfile:
         result = profile_manager.load_profile(parent)
 
         assert result is False
-        mock_msgbox.critical.assert_called_once()
+        mock_dialog.assert_called_once()
+        assert mock_dialog.call_args.kwargs.get("tone") == "error"
 
 
 class TestSaveProfile:
@@ -332,9 +333,9 @@ class TestSaveProfile:
         )
         return pm
 
-    @patch("ui.controllers.profile_manager.QtWidgets.QMessageBox")
+    @patch("ui.controllers.profile_manager.show_message_dialog")
     @patch("ui.controllers.profile_manager.list_profiles")
-    def test_save_profile_empty_name(self, mock_list, mock_msgbox, profile_manager):
+    def test_save_profile_empty_name(self, mock_list, mock_dialog, profile_manager):
         """save_profile should reject empty name."""
         profile_manager._profile_name_input.text.return_value = ""
         mock_list.return_value = []
@@ -343,11 +344,12 @@ class TestSaveProfile:
         result = profile_manager.save_profile(parent)
 
         assert result is False
-        mock_msgbox.warning.assert_called_once()
+        mock_dialog.assert_called_once()
+        assert mock_dialog.call_args.kwargs.get("tone") == "warning"
 
-    @patch("ui.controllers.profile_manager.QtWidgets.QMessageBox")
+    @patch("ui.controllers.profile_manager.show_message_dialog")
     @patch("ui.controllers.profile_manager.list_profiles")
-    def test_save_profile_invalid_characters(self, mock_list, mock_msgbox, profile_manager):
+    def test_save_profile_invalid_characters(self, mock_list, mock_dialog, profile_manager):
         """save_profile should reject names with invalid characters."""
         profile_manager._profile_name_input.text.return_value = "Profile@#$"
         mock_list.return_value = []
@@ -356,11 +358,12 @@ class TestSaveProfile:
         result = profile_manager.save_profile(parent)
 
         assert result is False
-        mock_msgbox.warning.assert_called_once()
+        mock_dialog.assert_called_once()
+        assert mock_dialog.call_args.kwargs.get("tone") == "warning"
 
-    @patch("ui.controllers.profile_manager.QtWidgets.QMessageBox")
+    @patch("ui.controllers.profile_manager.show_message_dialog")
     @patch("ui.controllers.profile_manager.list_profiles")
-    def test_save_profile_duplicate_name(self, mock_list, mock_msgbox, profile_manager):
+    def test_save_profile_duplicate_name(self, mock_list, mock_dialog, profile_manager):
         """save_profile should reject duplicate names."""
         profile_manager._profile_name_input.text.return_value = "ExistingProfile"
         mock_list.return_value = ["ExistingProfile", "Other"]
@@ -369,12 +372,13 @@ class TestSaveProfile:
         result = profile_manager.save_profile(parent)
 
         assert result is False
-        mock_msgbox.warning.assert_called_once()
+        mock_dialog.assert_called_once()
+        assert mock_dialog.call_args.kwargs.get("tone") == "warning"
 
-    @patch("ui.controllers.profile_manager.QtWidgets.QMessageBox")
+    @patch("ui.controllers.profile_manager.show_message_dialog")
     @patch("ui.controllers.profile_manager.current_serial")
     @patch("ui.controllers.profile_manager.list_profiles")
-    def test_save_profile_no_cameras(self, mock_list, mock_serial, mock_msgbox, profile_manager):
+    def test_save_profile_no_cameras(self, mock_list, mock_serial, mock_dialog, profile_manager):
         """save_profile should require at least one camera."""
         profile_manager._profile_name_input.text.return_value = "NewProfile"
         mock_list.return_value = []
@@ -384,7 +388,8 @@ class TestSaveProfile:
         result = profile_manager.save_profile(parent)
 
         assert result is False
-        mock_msgbox.information.assert_called_once()
+        mock_dialog.assert_called_once()
+        assert mock_dialog.call_args.kwargs.get("tone") == "info"
 
     @patch("ui.controllers.profile_manager.save_profile")
     @patch("ui.controllers.profile_manager.current_serial")
