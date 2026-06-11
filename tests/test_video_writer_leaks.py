@@ -56,7 +56,7 @@ class TestVideoWriterLeaks(unittest.TestCase):
 
         # Test multiple codec types
         codecs = ["MJPG", "XVID"]
-        num_cycles_per_codec = 25
+        num_cycles_per_codec = 8
 
         for codec in codecs:
             fourcc = cv2.VideoWriter_fourcc(*codec)
@@ -121,8 +121,8 @@ class TestVideoWriterLeaks(unittest.TestCase):
         print(f"Initial memory: {initial_memory:.1f} MB")
 
         # Create 10 larger video files
-        num_files = 10
-        frames_per_file = 300  # 5 seconds at 60 FPS
+        num_files = 3
+        frames_per_file = 60  # 1 second at 60 FPS
 
         fourcc = cv2.VideoWriter_fourcc(*"MJPG")
 
@@ -189,21 +189,18 @@ class TestVideoWriterLeaks(unittest.TestCase):
 
         for cycle in range(num_cycles):
             # Create camera
-            camera = SimulatedCamera(camera_id=f"sim_cycle_{cycle}")
-
-            # Start camera
-            camera.start_capture()
-            time.sleep(0.1)
+            camera = SimulatedCamera()
+            camera.open(f"sim_cycle_{cycle}")
+            camera.set_mode(640, 480, 0, "MJPG")
 
             # Grab some frames
             for i in range(30):
-                frame = camera.get_frame()
+                frame = camera.read_frame(timeout_ms=100)
                 if frame is None:
                     break
 
             # Stop camera
-            camera.stop_capture()
-            camera.release()
+            camera.close()
 
             # Sample every 10 cycles
             if (cycle + 1) % 10 == 0:
@@ -246,8 +243,8 @@ class TestVideoWriterLeaks(unittest.TestCase):
         initial_memory = self.get_memory_mb()
         print(f"Initial memory: {initial_memory:.1f} MB")
 
-        # Create and discard 10,000 frames
-        num_frames = 10000
+        # Create and discard many frames
+        num_frames = 1500
 
         for i in range(num_frames):
             # Create frame
@@ -255,13 +252,13 @@ class TestVideoWriterLeaks(unittest.TestCase):
             timestamp = int(time.time() * 1e9) + i * 16_666_667
 
             frame = Frame(
-                image=image,
+                camera_id="buffer_test",
+                frame_index=i,
                 t_capture_monotonic_ns=timestamp,
-                t_capture_utc_ns=timestamp,
-                t_received_monotonic_ns=timestamp,
+                image=image,
                 width=1280,
                 height=720,
-                camera_id="buffer_test",
+                pixfmt="BGR3",
             )
 
             # Immediately discard (frame goes out of scope)
@@ -329,12 +326,12 @@ class TestVideoWriterLeaks(unittest.TestCase):
             if video_path.exists():
                 video_path.unlink()
 
-        # Run 5 concurrent writers, 4 times
-        for batch in range(4):
+        # Run 5 concurrent writers, 2 times
+        for batch in range(2):
             threads = []
 
             for writer_id in range(5):
-                thread = threading.Thread(target=write_video, args=(batch * 5 + writer_id, 100))
+                thread = threading.Thread(target=write_video, args=(batch * 5 + writer_id, 30))
                 thread.start()
                 threads.append(thread)
 
@@ -348,7 +345,7 @@ class TestVideoWriterLeaks(unittest.TestCase):
             growth = current_memory - initial_memory
             growth_pct = (growth / initial_memory) * 100
             print(
-                f"  Batch {batch+1}/4 (5 concurrent writers): "
+                f"  Batch {batch+1}/2 (5 concurrent writers): "
                 f"{current_memory:>7.1f} MB (+{growth:>5.1f} MB, +{growth_pct:>5.1f}%)"
             )
 

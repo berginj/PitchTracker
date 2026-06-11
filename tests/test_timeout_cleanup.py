@@ -25,7 +25,7 @@ class TestTimeoutCleanup(unittest.TestCase):
         """Test that timeout raises CameraConnectionError."""
 
         def slow_operation():
-            time.sleep(5.0)
+            time.sleep(0.6)
             return "Should not reach here"
 
         with self.assertRaises(CameraConnectionError) as context:
@@ -71,7 +71,7 @@ class TestTimeoutCleanup(unittest.TestCase):
         initial_thread_count = threading.active_count()
 
         def slow_operation():
-            time.sleep(10.0)  # Will timeout
+            time.sleep(0.6)  # Will timeout
 
         # Run multiple timeout operations
         for _ in range(5):
@@ -123,7 +123,7 @@ class TestTimeoutCleanup(unittest.TestCase):
         """Test that timeout error message includes duration."""
 
         def slow_operation():
-            time.sleep(10.0)
+            time.sleep(0.6)
 
         with self.assertRaises(CameraConnectionError) as context:
             run_with_timeout(slow_operation, 0.3, "Camera open")
@@ -164,7 +164,7 @@ class TestTimeoutCleanup(unittest.TestCase):
                     results.append(result)
                 else:
                     # Odd indices timeout
-                    run_with_timeout(lambda: time.sleep(5.0), 0.1, "Test")
+                    run_with_timeout(lambda: time.sleep(0.6), 0.1, "Test")
             except CameraConnectionError:
                 errors.append(index)
 
@@ -188,7 +188,7 @@ class TestTimeoutCleanup(unittest.TestCase):
         """Test that timeout is logged."""
 
         def slow_operation():
-            time.sleep(10.0)
+            time.sleep(0.6)
 
         try:
             run_with_timeout(slow_operation, 0.1, "Test operation")
@@ -207,7 +207,7 @@ class TestTimeoutCleanup(unittest.TestCase):
         initial_thread_count = threading.active_count()
 
         def slow_operation():
-            time.sleep(10.0)
+            time.sleep(0.6)
 
         # Run many timeout operations
         for i in range(20):
@@ -238,7 +238,7 @@ class TestTimeoutVsOldImplementation(unittest.TestCase):
         """
 
         def slow_operation():
-            time.sleep(10.0)
+            time.sleep(0.6)
 
         initial_count = threading.active_count()
 

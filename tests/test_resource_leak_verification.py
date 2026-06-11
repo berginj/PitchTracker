@@ -54,7 +54,7 @@ class TestResourceLeakVerification(unittest.TestCase):
 
         # Run 50 operations that will timeout
         def slow_operation():
-            time.sleep(10.0)  # Way longer than timeout
+            time.sleep(0.6)  # Way longer than timeout
             return "shouldn't reach here"
 
         timeout_count = 0
@@ -107,13 +107,13 @@ class TestResourceLeakVerification(unittest.TestCase):
             # Process a few frames
             image = np.zeros((480, 640, 3), dtype=np.uint8)
             frame = Frame(
-                image=image,
+                camera_id="test",
+                frame_index=0,
                 t_capture_monotonic_ns=int(time.time() * 1e9),
-                t_capture_utc_ns=int(time.time() * 1e9),
-                t_received_monotonic_ns=int(time.time() * 1e9),
+                image=image,
                 width=640,
                 height=480,
-                camera_id="test",
+                pixfmt="BGR3",
             )
 
             for j in range(10):
@@ -165,13 +165,13 @@ class TestResourceLeakVerification(unittest.TestCase):
         # Process 1000 frames
         image = np.zeros((480, 640, 3), dtype=np.uint8)
         frame = Frame(
-            image=image,
+            camera_id="test",
+            frame_index=0,
             t_capture_monotonic_ns=int(time.time() * 1e9),
-            t_capture_utc_ns=int(time.time() * 1e9),
-            t_received_monotonic_ns=int(time.time() * 1e9),
+            image=image,
             width=640,
             height=480,
-            camera_id="test",
+            pixfmt="BGR3",
         )
 
         for i in range(1000):
@@ -238,13 +238,13 @@ class TestResourceLeakVerification(unittest.TestCase):
 
         for i in range(2000):
             frame = Frame(
-                image=image,
+                camera_id="test",
+                frame_index=0,
                 t_capture_monotonic_ns=int(time.time() * 1e9),
-                t_capture_utc_ns=int(time.time() * 1e9),
-                t_received_monotonic_ns=int(time.time() * 1e9),
+                image=image,
                 width=640,
                 height=480,
-                camera_id="test",
+                pixfmt="BGR3",
             )
             pool.enqueue_frame("left", frame)
             pool.enqueue_frame("right", frame)
