@@ -239,9 +239,9 @@ class TestPreCaptureCheck:
 
         assert result is True
 
-    @patch("ui.controllers.capture_controller.QtWidgets.QMessageBox")
+    @patch("ui.controllers.capture_controller.show_message_dialog")
     @patch("ui.controllers.capture_controller.validate_config_file")
-    def test_pre_capture_check_ml_no_model(self, mock_validate, mock_msgbox, mock_deps):
+    def test_pre_capture_check_ml_no_model(self, mock_validate, mock_dialog, mock_deps):
         """pre_capture_check should fail for ML mode without model path."""
         mock_deps["get_config"].return_value.detector.type = "ml"
         mock_deps["get_config"].return_value.detector.model_path = ""
@@ -250,21 +250,22 @@ class TestPreCaptureCheck:
         result = cc.pre_capture_check()
 
         assert result is False
-        mock_msgbox.critical.assert_called_once()
+        mock_dialog.assert_called_once()
+        assert mock_dialog.call_args.kwargs.get("tone") == "error"
 
-    @patch("ui.controllers.capture_controller.QtWidgets.QMessageBox")
+    @patch("ui.controllers.capture_controller.ask_confirmation")
     @patch("ui.controllers.capture_controller.validate_config_file")
-    def test_pre_capture_check_warning_no_roi(self, mock_validate, mock_msgbox, mock_deps, tmp_path):
+    def test_pre_capture_check_warning_no_roi(self, mock_validate, mock_confirm, mock_deps, tmp_path):
         """pre_capture_check should show warning for missing ROI file."""
         # Remove ROI file
         (tmp_path / "rois.json").unlink()
-        mock_msgbox.warning.return_value = mock_msgbox.Yes
+        mock_confirm.return_value = True
         cc = CaptureController(**mock_deps)
 
         result = cc.pre_capture_check()
 
-        # Should show warning but allow continue if user clicks Yes
-        mock_msgbox.warning.assert_called_once()
+        # Should ask for confirmation but allow continue if user accepts
+        mock_confirm.assert_called_once()
         assert result is True
 
 

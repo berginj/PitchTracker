@@ -185,8 +185,10 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
             self.recorder._monitoring_disk = False
             monitor_thread.join(timeout=2.0)
 
-        # Count warning messages - should only log once even with multiple iterations
-        warning_count = sum(1 for msg in log_context.output if "Low disk space" in msg)
+        # Count warning messages - the component logs a throttled warning and
+        # the error bus also logs the published event; filter on the component
+        # log's text to assert throttling (once per minute) specifically.
+        warning_count = sum(1 for msg in log_context.output if "Consider ending session soon" in msg)
         self.assertEqual(warning_count, 1)
 
     @patch("shutil.disk_usage")

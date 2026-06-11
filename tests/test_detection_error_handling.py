@@ -136,8 +136,10 @@ class TestDetectionErrorHandling(unittest.TestCase):
                 self.pool._detect_frame("left", frame)
                 time.sleep(0.1)  # 100ms between calls
 
-        # Should only log once (throttled to 5 seconds)
-        error_logs = [msg for msg in log_context.output if "Detection failed" in msg]
+        # Should only log once (throttled to 5 seconds). The component emits a
+        # throttled "error #N" log; the error bus also logs the published event,
+        # so filter on the component log to assert throttling specifically.
+        error_logs = [msg for msg in log_context.output if "error #" in msg]
         self.assertEqual(len(error_logs), 1)
 
     def test_error_stats_per_camera(self):
