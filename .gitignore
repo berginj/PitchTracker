@@ -50,3 +50,5 @@ Thumbs.db
 # Transient pytest probe logs
 *_out.txt
 *_err.txt
+durpid.txt
+xdpid.txt

@@ -9,7 +9,14 @@ from typing import List, Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.review import PitchScore, ReviewService
-from ui.review.widgets import ParameterPanel, PitchListWidget, PlaybackControls, TimelineWidget, VideoDisplayWidget
+from ui.review.widgets import (
+    ParameterPanel,
+    PitchListWidget,
+    PlaybackControls,
+    TimelineWidget,
+    TrajectoryDiagnosticsPanel,
+    VideoDisplayWidget,
+)
 from ui.themes import apply_standard_layout, ask_confirmation, get_style_manager, show_message_dialog
 from visualization.trajectory_renderer import (
     RenderStyle,
@@ -213,7 +220,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         # Left section: Videos + timeline + controls
         left_section = self._build_video_and_controls_section()
 
-        # Right section: Parameter panel + pitch list
+        # Right section: Parameter panel + trajectory diagnostics + pitch list
         right_section = self._build_right_panel()
 
         # Main horizontal layout
@@ -228,7 +235,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         return container
 
     def _build_right_panel(self) -> QtWidgets.QWidget:
-        """Build right panel with parameters and pitch list.
+        """Build right panel with parameters, diagnostics, and pitch list.
 
         Returns:
             Widget with right panel layout
@@ -237,8 +244,12 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._parameter_panel = ParameterPanel()
         self._parameter_panel.parameter_changed.connect(self._on_parameters_changed)
 
+        # Trajectory diagnostics panel
+        self._trajectory_diagnostics_panel = TrajectoryDiagnosticsPanel()
+
         # Pitch list widget
         self._pitch_list = PitchListWidget()
+        self._pitch_list.pitch_highlighted.connect(self._on_pitch_highlighted)
         self._pitch_list.pitch_selected.connect(self._on_pitch_selected)
         self._pitch_list.pitch_scored.connect(self._on_pitch_scored)
 
@@ -246,7 +257,8 @@ class ReviewWindow(QtWidgets.QMainWindow):
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._parameter_panel)
-        layout.addWidget(self._pitch_list)
+        layout.addWidget(self._trajectory_diagnostics_panel)
+        layout.addWidget(self._pitch_list, 1)
 
         container = QtWidgets.QWidget()
         container.setLayout(layout)
@@ -383,6 +395,10 @@ class ReviewWindow(QtWidgets.QMainWindow):
             # Load pitches into pitch list
             pitch_scores = self._service._pitch_scores
             self._pitch_list.load_pitches(session.pitches, pitch_scores)
+            if session.pitches:
+                self._show_trajectory_diagnostics_for_pitch(0)
+            else:
+                self._trajectory_diagnostics_panel.clear()
 
             # Initialize trajectory renderers for overlay
             self._init_trajectory_renderers()
@@ -425,6 +441,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._right_display.clear()
         self._timeline.reset()
         self._pitch_list.clear()
+        self._trajectory_diagnostics_panel.clear()
 
         # Clear trajectory state
         self._trajectory_renderer_left = None
@@ -742,6 +759,8 @@ class ReviewWindow(QtWidgets.QMainWindow):
         # Go to previous pitch
         target_idx = max(0, current_pitch_idx - 1)
         if target_idx < len(pitches):
+            self._load_trajectory_for_pitch(target_idx)
+            self._show_trajectory_diagnostics_for_pitch(target_idx)
             self._service.seek_to_pitch(target_idx)
             self._update_video_displays()
             self._timeline.set_current_frame(self._service.current_frame_index)
@@ -769,10 +788,16 @@ class ReviewWindow(QtWidgets.QMainWindow):
         # Go to next pitch
         target_idx = min(len(pitches) - 1, current_pitch_idx + 1)
         if target_idx >= 0:
+            self._load_trajectory_for_pitch(target_idx)
+            self._show_trajectory_diagnostics_for_pitch(target_idx)
             self._service.seek_to_pitch(target_idx)
             self._update_video_displays()
             self._timeline.set_current_frame(self._service.current_frame_index)
             self._status_bar.showMessage(f"Jumped to pitch {target_idx + 1}/{len(pitches)}")
+
+    def _on_pitch_highlighted(self, pitch_index: int) -> None:
+        """Preview diagnostics for the highlighted pitch row."""
+        self._show_trajectory_diagnostics_for_pitch(pitch_index)
 
     def _on_pitch_selected(self, pitch_index: int) -> None:
         """Handle pitch selection from list.
@@ -785,6 +810,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         # Load trajectory for selected pitch
         self._load_trajectory_for_pitch(pitch_index)
+        self._show_trajectory_diagnostics_for_pitch(pitch_index)
 
         # Seek to pitch
         self._service.seek_to_pitch(pitch_index)
@@ -793,6 +819,19 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         pitch = self._service.session.pitches[pitch_index]
         self._status_bar.showMessage(f"Navigated to pitch: {pitch.pitch_id}")
+
+    def _show_trajectory_diagnostics_for_pitch(self, pitch_index: int) -> None:
+        """Load diagnostics for a pitch index, or clear if unavailable."""
+        if not self._service.session:
+            self._trajectory_diagnostics_panel.clear()
+            return
+
+        pitches = self._service.session.pitches
+        if pitch_index < 0 or pitch_index >= len(pitches):
+            self._trajectory_diagnostics_panel.clear()
+            return
+
+        self._trajectory_diagnostics_panel.load_pitch(pitches[pitch_index])
 
     def _on_pitch_scored(self, pitch_id: str, score: PitchScore) -> None:
         """Handle pitch scoring.

@@ -21,11 +21,14 @@ class PitchListWidget(QtWidgets.QWidget):
     - Statistics summary
 
     Signals:
+        pitch_highlighted: Emitted when the selected/highlighted row changes
+            (int pitch_index, or -1 when no pitch is selected)
         pitch_selected: Emitted when user clicks "Go to Pitch" (int pitch_index)
         pitch_scored: Emitted when pitch is scored (str pitch_id, PitchScore score)
     """
 
     # Signals
+    pitch_highlighted = QtCore.Signal(int)
     pitch_selected = QtCore.Signal(int)
     pitch_scored = QtCore.Signal(str, PitchScore)
 
@@ -226,6 +229,7 @@ class PitchListWidget(QtWidgets.QWidget):
         self._good_btn.setEnabled(has_selection)
         self._partial_btn.setEnabled(has_selection)
         self._missed_btn.setEnabled(has_selection)
+        self.pitch_highlighted.emit(current_row if 0 <= current_row < len(self._pitches) else -1)
 
     def _score_current_pitch(self, score: PitchScore) -> None:
         """Score the currently selected pitch.
