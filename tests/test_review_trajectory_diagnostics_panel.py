@@ -1,23 +1,22 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from PySide6 import QtWidgets
 
 from app.review import PitchScore
 
-try:
+if TYPE_CHECKING:
     from pytestqt.qtbot import QtBot
-
-    HAS_PYTEST_QT = True
-except ImportError:
-    HAS_PYTEST_QT = False
-    QtBot = None
 
 from ui.review.widgets.trajectory_diagnostics_panel import TrajectoryDiagnosticsPanel
 
+
+HAS_PYTEST_QT = importlib.util.find_spec("pytestqt") is not None
 
 requires_pytest_qt = pytest.mark.skipif(
     not HAS_PYTEST_QT,

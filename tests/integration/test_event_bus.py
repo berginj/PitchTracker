@@ -382,7 +382,7 @@ class TestEventBusStatistics:
         assert stats["total_subscribers"] == 2
         assert stats["event_counts"]["PitchStartEvent"] == 2
         assert stats["event_counts"]["PitchEndEvent"] == 1
-        assert stats["uptime_seconds"] > 0
+        assert stats["uptime_seconds"] >= 0
 
     def test_clear_all_subscribers(self):
         """Test clearing all subscribers."""

@@ -106,17 +106,12 @@ class TestOpenCVIndexProbing:
     def test_probe_opencv_indices_parallel(self):
         """Parallel probing should check all indices simultaneously."""
         with patch("cv2.VideoCapture") as mock_cap:
-            mock_instance = MagicMock()
-            mock_cap.return_value = mock_instance
+            def video_capture_side_effect(index, *_args):
+                cap = MagicMock()
+                cap.isOpened.return_value = index in {0, 2}
+                return cap
 
-            # Cameras at indices 0 and 2
-            def is_opened_side_effect(*args, **kwargs):
-                # Check which index was opened
-                if mock_cap.call_count in (1, 3):  # Indices 0 and 2
-                    return True
-                return False
-
-            mock_instance.isOpened.side_effect = is_opened_side_effect
+            mock_cap.side_effect = video_capture_side_effect
 
             indices = probe_opencv_indices(max_index=4, parallel=True, use_cache=False)
 
