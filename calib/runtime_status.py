@@ -91,9 +91,9 @@ def describe_runtime_calibration(
         "ok": False,
         "mode": "missing",
         "message": "Stereo calibration not found.",
-            "path": str(calib_path),
-            "profile_id": profile_id,
-        }
+        "path": str(calib_path),
+        "profile_id": profile_id,
+    }
 
 
 def _matrix_message(quality: str, rms: Optional[float], path: Path, calibration_mode: str) -> str:

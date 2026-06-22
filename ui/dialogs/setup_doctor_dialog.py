@@ -7,7 +7,7 @@ from typing import Optional
 
 from PySide6 import QtCore, QtWidgets
 
-from app.services.rig_profile import CRITICAL, PASS, WARN, RigProfile, RigProfileService, RigProfileValidation
+from app.services.rig_profile import PASS, WARN, RigProfile, RigProfileService, RigProfileValidation
 from app.services.setup_doctor import STAGE_NAMES, SetupDoctorReport, SetupDoctorStageResult, SetupDoctorWorkflow
 from configs.settings import AppConfig
 from ui.themes import apply_standard_layout, get_style_manager, polish_form_controls
