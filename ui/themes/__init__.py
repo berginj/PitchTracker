@@ -17,7 +17,7 @@ Usage:
     button = GlassButton("Click me", parent, variant="primary")
 
     # Switch modes
-    sm.set_mode("setup")  # Bolder glass for setup wizard
+    sm.set_mode("setup")  # Bolder glass for Setup Doctor
 """
 
 from .glass_theme import GlassTheme, default_theme

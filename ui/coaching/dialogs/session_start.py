@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import time
-from pathlib import Path
 from typing import Optional
 
 from PySide6 import QtWidgets
 
+from app.services.rig_profile import CRITICAL, WARN, RigProfileService
 from configs.app_state import load_state
 from configs.settings import AppConfig
 from ui.themes import (
@@ -281,62 +281,33 @@ class SessionStartDialog(QtWidgets.QDialog):
 
     def _build_calibration_status(self) -> QtWidgets.QWidget:
         """Build calibration status indicator with quality metrics."""
-        from calib.runtime_status import describe_runtime_calibration
-        from calib.quick_calibrate import load_calibration_quality
-
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout()
         apply_standard_layout(layout, margins=(0, 0, 0, 0), spacing=8)
 
-        status = describe_runtime_calibration()
-        Path("calibration/stereo_calibration.npz")
-        has_calibration = status["mode"] == "full_matrix"
-        quality = load_calibration_quality() if has_calibration else None
-
-        if status["mode"] == "missing":
+        validation = RigProfileService().validate_for_runtime(config=self._config)
+        if validation.state == CRITICAL:
+            notice, _ = build_notice("Setup Doctor reports a critical rig issue.", tone="error")
+            detail_label = QtWidgets.QLabel("\n".join(validation.issues))
+            self._style_manager.style_label(detail_label, "muted")
+            layout.addWidget(notice)
+            layout.addWidget(detail_label)
+        elif validation.state == WARN:
             notice, _ = build_notice(
-                "No calibration found. Run the setup wizard before starting a production session.",
+                "Setup Doctor has warnings for this rig.",
                 tone="warning",
             )
-            detail_label = QtWidgets.QLabel("You can continue, but measurements may be inaccurate.")
-            self._style_manager.style_label(detail_label, "muted")
-            layout.addWidget(notice)
-            layout.addWidget(detail_label)
-        elif status["mode"] == "scalar_fallback":
-            notice, _ = build_notice(
-                "Calibration is using simplified scalar fallback.",
-                tone="warning",
-            )
-            detail_label = QtWidgets.QLabel(status["message"])
-            self._style_manager.style_label(detail_label, "muted")
-            layout.addWidget(notice)
-            layout.addWidget(detail_label)
-        elif status["mode"] == "invalid_matrix_file":
-            notice, _ = build_notice(
-                "Calibration file is invalid.",
-                tone="error",
-            )
-            detail_label = QtWidgets.QLabel(status["message"])
-            self._style_manager.style_label(detail_label, "muted")
-            layout.addWidget(notice)
-            layout.addWidget(detail_label)
-        elif quality:
-            rating = quality["rating"]
-            rms = quality["rms_error_px"]
-            description = quality["description"]
-            tone = "success" if rating in {"EXCELLENT", "GOOD"} else ("warning" if rating == "ACCEPTABLE" else "error")
-
-            notice, _ = build_notice(f"Calibration quality: {rating}", tone=tone)
-            detail_label = QtWidgets.QLabel(f"RMS error: {rms:.3f} px. {description}")
+            detail_label = QtWidgets.QLabel("\n".join(validation.warnings))
             self._style_manager.style_label(detail_label, "muted")
             layout.addWidget(notice)
             layout.addWidget(detail_label)
         else:
             notice, _ = build_notice(
-                "Calibration loaded. Quality metrics are not available for this file.",
-                tone="info",
+                "Setup Doctor runtime checks passed.",
+                tone="success",
             )
-            detail_label = QtWidgets.QLabel("Run a new calibration to capture quality diagnostics.")
+            profile_id = validation.diagnostics.get("profile_id", "active")
+            detail_label = QtWidgets.QLabel(f"Profile: {profile_id}")
             self._style_manager.style_label(detail_label, "muted")
             layout.addWidget(notice)
             layout.addWidget(detail_label)
@@ -412,32 +383,6 @@ class SessionStartDialog(QtWidgets.QDialog):
             )
             return
 
-        from calib.quick_calibrate import load_calibration_quality
-
-        calibration_file = Path("calibration/stereo_calibration.npz")
-        if not calibration_file.exists():
-            if not ask_confirmation(
-                self,
-                "No Calibration",
-                "No calibration was found. Session measurements may not work correctly.\n\nContinue anyway?",
-                tone="warning",
-            ):
-                return
-        else:
-            quality = load_calibration_quality()
-            if quality and quality["rating"] == "POOR":
-                if not ask_confirmation(
-                    self,
-                    "Poor Calibration Quality",
-                    f"Calibration quality is POOR (RMS: {quality['rms_error_px']:.3f} px)\n\n"
-                    f"{quality['description']}\n\n"
-                    "This may result in inaccurate measurements.\n"
-                    "Re-calibrate for better results?\n\n"
-                    "Continue anyway?",
-                    tone="warning",
-                ):
-                    return
-
         left_serial = self._left_camera_combo.currentData()
         right_serial = self._right_camera_combo.currentData()
         if not left_serial or not right_serial:
@@ -448,6 +393,28 @@ class SessionStartDialog(QtWidgets.QDialog):
                 tone="warning",
             )
             return
+
+        validation = RigProfileService().validate_for_runtime(
+            config=self._config,
+            left_serial=str(left_serial),
+            right_serial=str(right_serial),
+        )
+        if validation.state == CRITICAL:
+            show_message_dialog(
+                self,
+                "Setup Doctor Critical",
+                "Fix the following before starting a coaching session:\n\n" + "\n".join(validation.issues),
+                tone="error",
+            )
+            return
+        if validation.state == WARN:
+            if not ask_confirmation(
+                self,
+                "Setup Doctor Warnings",
+                "Continue with the following warnings?\n\n" + "\n".join(validation.warnings),
+                tone="warning",
+            ):
+                return
 
         self.pitcher_name = self._pitcher_name
         self.session_name = self._session_name

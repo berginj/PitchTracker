@@ -277,14 +277,14 @@ python generate_charuco.py --output my_board.png
 
 ### Step-by-Step Process
 
-#### 1. Launch Calibration Wizard
+#### 1. Launch Setup Doctor
 
 ```
-Tools → Calibration Wizard → Intrinsic Calibration
+Calibration -> Setup Doctor
 ```
 
 - Follow on-screen instructions
-- Calibrate left camera first, then right
+- Confirm camera identity, stability, overlap, and focus before capturing board images
 
 #### 2. Prepare Checkerboard
 
@@ -341,11 +341,11 @@ Capture at least:
   - **1.0-2.0 pixels:** Acceptable
   - **>2.0 pixels:** Poor (redo calibration)
 
-#### 6. Repeat for Second Camera
+#### 6. Confirm Production Readiness
 
-- Follow same process for other camera
-- Use same checkerboard pattern
-- Aim for similar RMS error
+- Setup Doctor saves the active rig profile only after validation
+- Quick calibration is diagnostic/fallback-only and does not mark the rig production-ready
+- Resolve CRITICAL findings before coaching; WARN findings require operator confirmation
 
 ---
 
@@ -374,10 +374,10 @@ Use measuring tape:
 3. Be accurate (±1cm affects 3D accuracy)
 ```
 
-#### 2. Launch Extrinsic Calibration
+#### 2. Run Full Stereo Calibration
 
 ```
-Tools → Calibration Wizard → Extrinsic Calibration
+Calibration -> Setup Doctor -> Full Stereo Calibration
 ```
 
 - Enter measured camera separation distance

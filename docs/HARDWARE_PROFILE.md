@@ -222,7 +222,7 @@ python generate_charuco.py --cols 4 --rows 5 --size 25
 
 **Verification After Printing:**
 1. Measure actual square size with ruler
-2. If ≠30mm, note actual size for calibration wizard "Advanced Settings"
+2. If the measured size is not 30mm, note the actual size for Setup Doctor board metadata
 3. Ensure all ArUco markers are clearly visible and undamaged
 
 ---
@@ -716,7 +716,7 @@ python -c "import cv2; [print(f'Camera {i}: {cv2.VideoCapture(i).isOpened()}') f
 - **Troubleshooting:** `docs/user/TROUBLESHOOTING.md`
 - **FAQ:** `docs/user/FAQ.md`
 - **Installation:** `docs/INSTALLATION.md`
-- **Setup Wizard:** Built into PitchTracker application
+- **Setup Doctor:** Built into PitchTracker under Calibration -> Setup Doctor
 
 ---
 

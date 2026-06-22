@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import cv2
+import numpy as np
 
 from contracts import Frame
 from exceptions import CameraConnectionError
@@ -39,6 +40,7 @@ class OpenCVCamera(CameraDevice):
         self._pixfmt = "GRAY8"
         self._flip_180 = False
         self._rotation_correction = 0.0  # Degrees to rotate for alignment correction
+        self._vertical_offset_px = 0
 
     @retry_on_failure(
         policy=RetryPolicy(
@@ -119,7 +121,14 @@ class OpenCVCamera(CameraDevice):
             raise
 
     def set_mode(
-        self, width: int, height: int, fps: int, pixfmt: str, flip_180: bool = False, rotation_correction: float = 0.0
+        self,
+        width: int,
+        height: int,
+        fps: int,
+        pixfmt: str,
+        flip_180: bool = False,
+        rotation_correction: float = 0.0,
+        vertical_offset_px: int = 0,
     ) -> None:
         """Configure camera resolution, framerate, and pixel format.
 
@@ -130,6 +139,7 @@ class OpenCVCamera(CameraDevice):
             pixfmt: Pixel format ("GRAY8", "RGB24", etc.)
             flip_180: Rotate frame 180° (for upside-down camera mount)
             rotation_correction: Degrees to rotate for alignment correction (e.g., -3.7)
+            vertical_offset_px: Shift image up by this many pixels after rotation.
 
         Raises:
             RuntimeError: If camera not opened
@@ -146,6 +156,7 @@ class OpenCVCamera(CameraDevice):
         self._pixfmt = pixfmt
         self._flip_180 = flip_180
         self._rotation_correction = rotation_correction
+        self._vertical_offset_px = vertical_offset_px
 
         self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -213,6 +224,11 @@ class OpenCVCamera(CameraDevice):
             h, w = frame.shape[:2]
             center = (w // 2, h // 2)
             M = cv2.getRotationMatrix2D(center, self._rotation_correction, 1.0)
+            frame = cv2.warpAffine(frame, M, (w, h))
+
+        if self._vertical_offset_px:
+            h, w = frame.shape[:2]
+            M = np.float32([[1, 0, 0], [0, 1, -self._vertical_offset_px]])
             frame = cv2.warpAffine(frame, M, (w, h))
 
         now_ns = time.monotonic_ns()

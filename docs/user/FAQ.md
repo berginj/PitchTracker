@@ -49,7 +49,7 @@
 2. Run the `.exe` installer
 3. Follow the installation wizard
 4. Launch from desktop shortcut or Start menu
-5. Complete first-time setup wizard
+5. Complete first-time Setup Doctor checks
 
 ### Q: Do I need Python or programming knowledge?
 
@@ -158,26 +158,25 @@ Without calibration, you'll only see 2D camera views.
 
 ### Q: How do I calibrate the cameras?
 
-**A:** Follow the Calibration Wizard:
+**A:** Follow Setup Doctor from Calibration -> Setup Doctor:
 
-1. **Intrinsic Calibration** (camera parameters):
-   - Tools → Calibration Wizard → Intrinsic
-   - Print checkerboard pattern (provided in app)
-   - Show pattern to each camera at various angles
-   - Capture 20-30 images per camera
-   - App calculates lens distortion and focal length
+1. **Rig checks**:
+   - Confirm left/right camera identity
+   - Verify stable focus, exposure, overlap, and toe-in
+   - Use software correction for stable rotation/roll/vertical offset
 
-2. **Extrinsic Calibration** (camera positions):
-   - Tools → Calibration Wizard → Extrinsic
+2. **Full Stereo Calibration**:
+   - Print the ChArUco/checkerboard pattern provided in the app
    - Measure exact distance between cameras
-   - Show pattern to both cameras simultaneously
-   - App calculates relative camera positions
+   - Show pattern to both cameras simultaneously at 10+ varied poses
+   - Run full matrix calibration for production readiness
 
-3. **Strike Zone Calibration**:
-   - Tools → Setup → Strike Zone
+3. **ROI and runtime validation**:
+   - Draw lane and plate ROIs
    - Define plate position
    - Set batter height
    - Adjust strike zone bounds
+   - Run Setup Doctor dry-run and resolve any CRITICAL findings
 
 Detailed guide: [CALIBRATION_TIPS.md](./CALIBRATION_TIPS.md)
 

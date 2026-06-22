@@ -1,4 +1,4 @@
-"""Structured calibration error helpers for the setup wizard."""
+"""Structured calibration error helpers for legacy setup utilities."""
 
 from __future__ import annotations
 

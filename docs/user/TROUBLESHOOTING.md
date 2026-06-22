@@ -476,7 +476,7 @@ If video corrupted but session exists:
 **Symptoms:**
 - "Calibration failed" error
 - RMS error too high
-- Can't complete calibration wizard
+- Can't complete Setup Doctor calibration
 
 **Solutions:**
 

@@ -189,17 +189,19 @@ This checks:
 
 ## Step 7: First-Time Setup
 
-### Launch Setup Wizard
+### Launch Setup Doctor
 
 ```bash
 python launcher.py
 ```
 
-The Setup Wizard will guide you through:
+Open Calibration -> Setup Doctor. Setup Doctor will guide you through:
 
-1. **Camera Selection** - Choose left and right cameras
-2. **Camera Calibration** - Capture checkerboard images for stereo calibration
-3. **Strike Zone Setup** - Define the strike zone dimensions
+1. **Camera Identity and Stability** - Choose left and right cameras and verify stable capture
+2. **Orientation and Overlap** - Apply stable software corrections and flag physical adjustments
+3. **Full Stereo Calibration** - Capture ChArUco/checkerboard poses for production calibration
+4. **ROI Setup** - Save lane and plate ROIs into the active rig profile
+5. **Runtime Dry-Run** - Confirm production startup can use the active rig profile
 
 ### What You'll Need for Calibration
 
@@ -313,7 +315,7 @@ deactivate
 After successful installation:
 
 1. **Read the user guide:** `docs/USER_GUIDE.md` (if exists)
-2. **Run the Setup Wizard:** `python launcher.py`
+2. **Run Setup Doctor:** `python launcher.py`, then Calibration -> Setup Doctor
 3. **Calibrate your cameras:** See `docs/STEREO_BASELINE_EXPLAINED.md`
 4. **Check camera alignment:** See `docs/BASELINE_WORKFLOW.md`
 5. **Start tracking pitches!**

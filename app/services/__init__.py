@@ -37,3 +37,20 @@ __all__ = [
     "SubprocessToolingService",
     "get_tooling_service",
 ]
+from app.services.rig_profile import (
+    CRITICAL,
+    PASS,
+    WARN,
+    RigProfile,
+    RigProfileService,
+    RigProfileValidation,
+)
+
+__all__ = [
+    "CRITICAL",
+    "PASS",
+    "WARN",
+    "RigProfile",
+    "RigProfileService",
+    "RigProfileValidation",
+]

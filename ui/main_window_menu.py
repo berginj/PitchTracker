@@ -42,7 +42,7 @@ class MainWindowMenuMixin:
         calibration_menu = menu_bar.addMenu("Calibration")
         guide_action = calibration_menu.addAction("Calibration Guide")
         guide_action.setShortcut(QtGui.QKeySequence("Ctrl+G"))
-        wizard_action = calibration_menu.addAction("Calibration Wizard")
+        wizard_action = calibration_menu.addAction("Setup Doctor")
         wizard_action.setShortcut(QtGui.QKeySequence("Ctrl+W"))
         quick_action = calibration_menu.addAction("Quick Calibrate")
         quick_action.setShortcut(QtGui.QKeySequence("Ctrl+Q"))
