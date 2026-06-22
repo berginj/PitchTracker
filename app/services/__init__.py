@@ -18,6 +18,14 @@ from .detection import DetectionService, ObservationCallback
 from .recording import RecordingService, RecordingCallback
 from .analysis import AnalysisService
 from .tooling import ToolingService, SubprocessToolingService, get_tooling_service
+from .rig_profile import (
+    CRITICAL,
+    PASS,
+    WARN,
+    RigProfile,
+    RigProfileService,
+    RigProfileValidation,
+)
 
 __all__ = [
     # Capture service
@@ -36,17 +44,7 @@ __all__ = [
     "ToolingService",
     "SubprocessToolingService",
     "get_tooling_service",
-]
-from app.services.rig_profile import (
-    CRITICAL,
-    PASS,
-    WARN,
-    RigProfile,
-    RigProfileService,
-    RigProfileValidation,
-)
-
-__all__ = [
+    # Rig profile service
     "CRITICAL",
     "PASS",
     "WARN",

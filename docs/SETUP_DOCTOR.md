@@ -2,6 +2,10 @@
 
 Use this checklist for real fixed-rig validation before a coaching session.
 
+Setup Doctor runs the stages below in order. Each stage produces `PASS`, `WARN`,
+or `CRITICAL`; coaching startup blocks only on `CRITICAL`. Saving the report
+writes `setup_report.json` next to the active rig profile.
+
 1. Camera assignment
    - Confirm left and right serials match the active rig profile.
    - Confirm the selected backend matches the active rig profile.
