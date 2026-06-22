@@ -58,17 +58,29 @@ CI blocking gates: schema-mirror check, file-length guard, critical flake8 error
 ### Pipeline Flow
 
 ```
-Cameras (capture/) → Detection (detect/) → Stereo Matching (stereo/)
-  → Tracking (track/) → Trajectory Fitting (trajectory/) → Metrics (metrics/)
+CaptureService → FrameCapturedEvent
+  → DetectionService → ObservationDetectedEvent / RayObservationDetectedEvent
+  → PipelineOrchestrator → PitchStateMachineV2
+  → PitchStartEvent / PitchEndEvent
+  → RecordingService + AnalysisService
+  → PitchAnalyzedEvent → RecordingService / UI observers
 ```
 
-Each stage is a separate top-level module with a single responsibility. The pipeline is orchestrated by `app/pipeline_service.py` (`InProcessPipelineService`), which runs detection on async thread pools and updates the Qt UI on the main thread.
+The preferred runtime entry point is `app.services.orchestrator.PipelineOrchestrator`,
+wrapped by `app.qt_pipeline_service.QtPipelineService` for Qt usage. The legacy
+`app/pipeline_service.py` (`InProcessPipelineService`) remains as a compatibility
+path only; new runtime work should use the service/EventBus architecture.
 
 ### Key Modules
 
 | Module | Responsibility |
 |--------|---------------|
-| `app/` | Pipeline orchestration, services, Qt integration, review workflows |
+| `app/services/orchestrator/` | Service wiring, lifecycle, and pitch event publishing |
+| `app/services/capture/` | Camera lifecycle, frames, preview stats |
+| `app/services/detection/` | Detector setup, ROI gates, stereo/ray observations |
+| `app/services/recording/` | Session/pitch videos, observations, manifests |
+| `app/services/analysis/` | Pitch summaries, session summaries, trajectory analysis |
+| `app/` | Pipeline contracts, Qt integration, review workflows |
 | `ui/` | PySide6 UI: main window, dialogs, setup wizard, coaching, themes |
 | `detect/` | Classical blob detector + ONNX ML detector, lane gates, filters |
 | `stereo/` | Left-right frame pairing, epipolar matching, triangulation |
@@ -81,6 +93,10 @@ Each stage is a separate top-level module with a single responsibility. The pipe
 | `configs/` | YAML → immutable `AppConfig` dataclass, validators |
 | `log_config/` | Loguru setup: console (INFO) + rotating file logs (DEBUG/ERROR) |
 | `schema/` | JSON schemas for session summaries and versioning |
+
+Calibration belongs to Setup Doctor/tooling paths for v1.5.0-pilot. Do not add
+calibration work to `PipelineOrchestrator` unless the architecture decision is
+explicitly changed in `docs/ARCHITECTURE_CURRENT_STATE.md`.
 
 ### Entry Points
 

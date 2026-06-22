@@ -1,7 +1,7 @@
 # PitchTracker - Quick Start Guide
 
-**Last Updated:** 2026-01-19
-**Version:** 2.0
+**Last Updated:** 2026-06-22
+**Version:** v1.5.0-pilot
 
 Get up and running with PitchTracker in 30 minutes!
 
@@ -14,7 +14,7 @@ Before starting, gather:
 - [ ] **Two USB cameras** (1280x720 @ 60fps or 30fps)
 - [ ] **USB 3.0 cables** (< 3 feet, high quality)
 - [ ] **Camera mounts/tripods**
-- [ ] **Checkerboard pattern** (printed on rigid surface)
+- [ ] **ChArUco/checkerboard pattern** (printed on rigid surface)
 - [ ] **Ruler or measuring tape** (for camera distance)
 - [ ] **Computer** with Windows 10/11, 8GB+ RAM, 100GB+ free disk space
 
@@ -25,7 +25,7 @@ Before starting, gather:
 ### Download & Install
 
 1. Download latest installer from GitHub releases
-2. Run `PitchTracker-Setup-vX.X.X.exe`
+2. Run `PitchTracker-Setup-v1.5.0-pilot.exe`
 3. Follow installation wizard
 4. Launch PitchTracker from desktop shortcut
 

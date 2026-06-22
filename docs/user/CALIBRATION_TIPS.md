@@ -1,7 +1,7 @@
 # PitchTracker - Calibration Tips & Best Practices
 
-**Last Updated:** 2026-01-27
-**Version:** 1.2.1
+**Last Updated:** 2026-06-22
+**Version:** v1.5.0-pilot
 
 ---
 
@@ -32,7 +32,7 @@ Calibration is the process of teaching the application about your camera setup. 
 
 ✅ **With Calibration:**
 - Accurate 3D ball position
-- Correct velocity (±1 mph)
+- More reliable velocity measurement once reference validation is complete
 - Precise strike zone mapping
 - Reliable pitch metrics
 
@@ -715,14 +715,14 @@ Tools → Camera Sync Test:
 
 ## Further Resources
 
-- **Video Tutorial:** [YouTube link] (if available)
+- **Video Tutorial:** Not yet published
 - **Checkerboard Pattern:** Tools → Print Calibration Pattern
-- **Support Forum:** forum.pitchtracker.example.com/calibration
+- **Support:** Use the pilot support channel provided with your installation package
 - **Sample Profiles:** docs/calibration/examples/
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2026-01-18
-**For Version:** PitchTracker 1.2.0
+**Document Version:** 1.1
+**Last Updated:** 2026-06-22
+**For Version:** PitchTracker v1.5.0-pilot
 

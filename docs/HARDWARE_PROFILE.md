@@ -1,16 +1,16 @@
-# PitchTracker Known-Good Hardware Profile
+# PitchTracker Candidate Known-Good Hardware Profile
 
 **Document Type:** Hardware Specification & Setup Guide
 **Date:** March 26, 2026
 **Version:** 1.0 (for v1.5.0-pilot)
-**Status:** PILOT VALIDATED
+**Status:** In validation testing; field evidence required before public known-good claims
 **Owner:** Engineering + Operations
 
 ---
 
 ## Executive Summary
 
-This document defines the **validated hardware configuration** for PitchTracker v1.5.0-pilot. These specifications represent **known-good setups** that have been tested and validated to provide reliable pitch tracking performance.
+This document defines the **candidate hardware configuration** for PitchTracker v1.5.0-pilot. Treat these specifications as the pilot baseline until field deployments and reference validation confirm the final known-good profile.
 
 **Purpose:**
 - Provide pilot partners with clear hardware requirements
@@ -41,9 +41,9 @@ This document defines the **validated hardware configuration** for PitchTracker 
 
 ## 1. Camera Specifications
 
-### Validated Camera Models (Known-Good)
+### Candidate Camera Models
 
-#### Tier 1: Recommended (Pilot-Tested)
+#### Tier 1: Recommended Baseline
 **Logitech C920 HD Pro Webcam**
 - **Resolution:** 1920×1080 @ 30 FPS or 1280×720 @ 60 FPS
 - **Field of View:** 78° diagonal
@@ -52,7 +52,7 @@ This document defines the **validated hardware configuration** for PitchTracker 
 - **Cost:** $60-80 per camera
 - **Pros:** Widely available, reliable drivers, good low-light performance
 - **Cons:** Plastic construction, limited mounting options
-- **Pilot Status:** ✅ VALIDATED (used in initial testing)
+- **Pilot Status:** Baseline candidate; confirm field validation before public claims
 
 **Logitech BRIO 4K**
 - **Resolution:** 1920×1080 @ 60 FPS or 3840×2160 @ 30 FPS
@@ -62,7 +62,7 @@ This document defines the **validated hardware configuration** for PitchTracker 
 - **Cost:** $150-200 per camera
 - **Pros:** Higher frame rate option, better optics, 4K capability
 - **Cons:** More expensive, requires USB 3.0
-- **Pilot Status:** ⏳ TESTING (recommended for high-velocity tracking)
+- **Pilot Status:** Testing candidate; do not claim validated until field evidence exists
 
 #### Tier 2: Compatible (Not Yet Validated)
 **Microsoft LifeCam HD-3000**
@@ -240,7 +240,7 @@ python generate_charuco.py --cols 4 --rows 5 --size 25
 
 ### Option 1: Tripods (Recommended for Pilots)
 
-**Validated Setup:**
+**Baseline Setup To Validate:**
 - **2× Photo/Video Tripods** with 1/4"-20 screw mount
 - **Height:** Adjustable 2-6 feet
 - **Stability:** Weighted base or sandbag on tripod feet
@@ -408,7 +408,7 @@ Most webcams are USB-powered (no external power needed). If using industrial cam
 - **Youth:** 46-54 feet (depending on age)
 - **Softball:** 43 feet (fastpitch)
 
-**Note:** PitchTracker validated for 54-60.5 feet. Other distances untested but should work (may require calibration adjustment).
+**Note:** Treat 54-60.5 feet as the priority validation range. Other distances may work but require calibration and accuracy confirmation.
 
 ---
 
@@ -501,7 +501,7 @@ Use this checklist for pilot partner hardware preparation:
 
 ---
 
-## 9. Known-Good Setup Examples
+## 9. Candidate Setup Examples
 
 ### Example 1: Budget Pilot Setup ($200-300 total)
 - **Cameras:** 2× Logitech C920 ($120-160)
@@ -722,7 +722,7 @@ python -c "import cv2; [print(f'Camera {i}: {cv2.VideoCapture(i).isOpened()}') f
 
 ## Appendix A: Hardware Compatibility Matrix
 
-| Component | Tier 1 (Validated) | Tier 2 (Compatible) | Tier 3 (Untested) |
+| Component | Tier 1 (Pilot Baseline) | Tier 2 (Compatible) | Tier 3 (Untested) |
 |-----------|-------------------|---------------------|-------------------|
 | **Cameras** | Logitech C920, BRIO | MS LifeCam HD-3000, ELP USB | Generic webcams |
 | **Mounts** | Amazon Basics, Manfrotto | JOBY GorillaPod | DIY PVC, custom |
@@ -731,7 +731,7 @@ python -c "import cv2; [print(f'Camera {i}: {cv2.VideoCapture(i).isOpened()}') f
 | **OS** | Windows 11 | Windows 10 | macOS, Linux (unsupported) |
 
 **Legend:**
-- **Tier 1:** Pilot-tested, known to work well
+- **Tier 1:** Recommended pilot baseline; requires field validation evidence before public claims
 - **Tier 2:** Should work, not explicitly tested
 - **Tier 3:** May work, no guarantees
 
@@ -765,8 +765,8 @@ python -c "import cv2; [print(f'Camera {i}: {cv2.VideoCapture(i).isOpened()}') f
 
 ---
 
-**Document Status:** COMPLETE - Ready for pilot distribution
+**Document Status:** Candidate baseline - requires owner confirmation before external pilot distribution
 **Owner:** Engineering Lead
 **Reviewed By:** Operations, Product
-**Last Updated:** March 26, 2026
-**Version:** 1.0
+**Last Updated:** 2026-06-22
+**Version:** 1.1

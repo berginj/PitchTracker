@@ -336,7 +336,7 @@ Data collected enables training 4 models to eliminate manual setup:
 ### Deprecated
 - `app/pipeline/pitch_tracking.py` (V1) - Archived to `archive/deprecated/pitch_tracking_v1.py`
   - V1 had 12 critical issues causing data loss and timing errors
-  - V2 is production-ready replacement with all issues fixed
+  - V2 is the supported replacement for the pilot runtime path
   - V1 preserved for reference only
 
 ### Documentation

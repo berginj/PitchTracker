@@ -1,6 +1,6 @@
 # PitchTracker - Frequently Asked Questions
 
-**Last Updated:** 2026-01-18
+**Last Updated:** 2026-06-22
 **Version:** 1.2.0
 
 ---
@@ -45,7 +45,7 @@
 ### Q: How do I install PitchTracker?
 
 **A:**
-1. Download the latest installer from [GitHub Releases](https://github.com/yourorg/pitchtracker/releases)
+1. Download the pilot installer from [GitHub Releases](https://github.com/berginj/PitchTracker/releases)
 2. Run the `.exe` installer
 3. Follow the installation wizard
 4. Launch from desktop shortcut or Start menu
@@ -424,10 +424,8 @@ Indoor tips:
 
 **A:**
 - **Documentation:** Check docs/ folder or GitHub wiki
-- **GitHub Issues:** Report bugs or request features
-- **Email Support:** support@pitchtracker.example.com
-- **Community Forum:** forum.pitchtracker.example.com
-- **Discord:** discord.gg/pitchtracker
+- **GitHub Issues:** Use the structured Pilot Feedback or Validation Report issue forms
+- **Pilot Support:** Use the contact channel provided with your pilot installation package
 
 ---
 
@@ -481,12 +479,12 @@ Note: Downgrading may lose new features.
 
 - **Troubleshooting Guide:** [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
 - **Calibration Guide:** [CALIBRATION_TIPS.md](./CALIBRATION_TIPS.md)
-- **GitHub Issues:** [Report a Bug](https://github.com/yourorg/pitchtracker/issues)
+- **GitHub Issues:** [Report a Bug](https://github.com/berginj/PitchTracker/issues)
 - **Documentation:** Full docs in `docs/` folder
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2026-01-18
+**Document Version:** 1.1
+**Last Updated:** 2026-06-22
 **For Version:** PitchTracker 1.2.0
 

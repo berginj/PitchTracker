@@ -333,7 +333,6 @@ For issues or questions:
 
 ---
 
-**Last Updated**: 2025-02-10
-**System Version**: 1.0.0
-**Total Code**: ~3,000 lines
-**Test Coverage**: 51 tests
+**Last Updated**: 2026-06-22
+**System Version**: v1.5.0-pilot
+**Note**: Original implementation metrics in this guide may be historical; use `docs/CURRENT_STATUS.md` for current release status.

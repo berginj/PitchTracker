@@ -16,10 +16,14 @@ Welcome to the PitchTracker documentation. This directory contains guides for us
 
 ## Strategy & Governance
 
+- [CURRENT_STATUS.md](CURRENT_STATUS.md) - Current pilot status, release identity, and open decisions
+- [USER_PERSONAS.md](USER_PERSONAS.md) - Pilot-phase user profiles and workflow context
+- [GITHUB_FEEDBACK_INTAKE.md](GITHUB_FEEDBACK_INTAKE.md) - Structured GitHub issue intake for pilot feedback and validation
 - [PRODUCT_STRATEGY.md](PRODUCT_STRATEGY.md) - Capability contract, roadmap philosophy, decision filter
 - [PILOT_PROGRAM.md](PILOT_PROGRAM.md) - Partner recruitment and execution plan
 - [VERSION_ALIGNMENT.md](VERSION_ALIGNMENT.md) - Version governance (v1.5.0-pilot locked)
 - [CAPABILITY_CONTRACT_ENFORCEMENT.md](CAPABILITY_CONTRACT_ENFORCEMENT.md) - Feature approval process
+- [DOCUMENTATION_ALIGNMENT_REVIEW.md](DOCUMENTATION_ALIGNMENT_REVIEW.md) - Current documentation consistency review and open guidance questions
 
 ---
 
@@ -45,7 +49,7 @@ Welcome to the PitchTracker documentation. This directory contains guides for us
 - [STATE_CORRUPTION_RECOVERY.md](STATE_CORRUPTION_RECOVERY.md) - Error recovery mechanisms
 - [CALIBRATION_TROUBLESHOOTING.md](CALIBRATION_TROUBLESHOOTING.md) - Calibration issues
 - [CHECKERBOARD_DETECTION_TIPS.md](CHECKERBOARD_DETECTION_TIPS.md) - Detection tips
-- [HARDWARE_PROFILE.md](HARDWARE_PROFILE.md) - Validated hardware specifications
+- [HARDWARE_PROFILE.md](HARDWARE_PROFILE.md) - Candidate pilot hardware specifications
 
 ### Testing & Performance
 - [TEST_SUITE_DOCUMENTATION.md](TEST_SUITE_DOCUMENTATION.md) - Test suite structure
@@ -79,4 +83,4 @@ When updating documentation:
 
 ---
 
-**Last Updated:** 2026-06-10
+**Last Updated:** 2026-06-22

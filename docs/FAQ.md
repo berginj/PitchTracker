@@ -1,7 +1,7 @@
 # PitchTracker - Frequently Asked Questions (FAQ)
 
-**Last Updated:** 2026-01-19
-**Version:** 2.0
+**Last Updated:** 2026-06-22
+**Version:** v1.5.0-pilot
 
 ---
 
@@ -32,7 +32,7 @@
 
 **A:**
 1. Download the latest installer from GitHub releases
-2. Run `PitchTracker-Setup-vX.X.X.exe`
+2. Run `PitchTracker-Setup-v1.5.0-pilot.exe`
 3. Follow the installation wizard
 4. Launch from desktop shortcut or Start menu
 5. Run Setup Doctor on first launch
@@ -416,5 +416,5 @@ During Review Mode:
 
 ---
 
-**Document Version:** 1.0
-**Covers PitchTracker:** v1.0.0+
+**Document Version:** 1.1
+**Covers PitchTracker:** v1.5.0-pilot

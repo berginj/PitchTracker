@@ -1,8 +1,8 @@
 # PitchTracker Test Suite Documentation
 
-**Version:** 1.5.0 (Pre-release)
-**Date:** 2026-01-19
-**Status:** Comprehensive Test Documentation
+**Version:** v1.5.0-pilot
+**Date:** 2026-06-22
+**Status:** Historical test-suite documentation; rerun current tests before external release claims
 
 ---
 
@@ -839,7 +839,7 @@ python -m benchmarks.memory --duration 300
 
 ## Summary
 
-**Test Suite Status:** ✅ Production Ready
+**Test Suite Status:** Historical baseline; current full-suite result required before release publication
 
 **Coverage:**
 - Unit Tests: Comprehensive (389+ tests)

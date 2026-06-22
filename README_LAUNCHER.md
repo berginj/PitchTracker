@@ -1,5 +1,7 @@
 # PitchTracker - Quick Start Guide
 
+**Applies To:** v1.5.0-pilot
+
 ## Installation
 
 ### Prerequisites
@@ -124,7 +126,7 @@ For issues or questions:
 
 ## Version
 
-**Current Version:** 1.0.0
+**Current Version:** v1.5.0-pilot
 
 **Components:**
 - Setup Wizard - Complete (6 steps)
