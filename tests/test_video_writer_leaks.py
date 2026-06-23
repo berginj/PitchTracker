@@ -239,7 +239,22 @@ class TestVideoWriterLeaks(unittest.TestCase):
         print("Frame Buffer Management Test")
         print("=" * 60)
 
+        # Warm up NumPy/OpenCV allocator paths so the assertion measures
+        # retained frame buffers, not one-time allocator/cache initialization.
+        warmup_image = np.random.randint(0, 255, (720, 1280, 3), dtype=np.uint8)
+        warmup_frame = Frame(
+            camera_id="buffer_test",
+            frame_index=-1,
+            t_capture_monotonic_ns=int(time.time() * 1e9),
+            image=warmup_image,
+            width=1280,
+            height=720,
+            pixfmt="BGR3",
+        )
+        del warmup_frame
+        del warmup_image
         gc.collect()
+        time.sleep(0.2)
         initial_memory = self.get_memory_mb()
         print(f"Initial memory: {initial_memory:.1f} MB")
 

@@ -1,7 +1,7 @@
 # Version Alignment and Pilot Build Lock
 
-**Last Updated:** 2026-06-22
-**Status:** Aligned in repo; external release/package confirmation pending
+**Last Updated:** 2026-06-23
+**Status:** Aligned in repo; pilot release published; refreshed installer rebuilt
 **Owner:** Product/Engineering
 
 ---
@@ -91,13 +91,21 @@ Repo-local checks:
 - [x] active docs have a current status reference in `docs/CURRENT_STATUS.md`
 - [x] stale architecture current-state doc has been replaced
 
-External checks still requiring owner confirmation for today's release:
+External/release checks:
 
-- [ ] Git tag `v1.5.0-pilot` has been created and pushed
-- [ ] GitHub release `v1.5.0-pilot` has been published
-- [ ] installer has been built as `PitchTracker-Setup-v1.5.0-pilot.exe`
+- [x] Git tag `v1.5.0-pilot` has been created and pushed
+- [x] GitHub release `v1.5.0-pilot` has been published
+- [x] installer has been built as `PitchTracker-Setup-v1.5.0-pilot.exe`
 - [ ] installer has been smoke-tested on a clean Windows machine
-- [ ] current full test run has been recorded for release notes
+- [x] current full test run has been recorded for release notes
+- [x] refreshed installer contents exclude runtime-local config/cache state
+
+Refreshed installer built 2026-06-23:
+
+- Path: `installer_output/PitchTracker-Setup-v1.5.0-pilot.exe`
+- Size: `92,200,172` bytes
+- SHA256:
+  `F211FC39FA4468281DA7B5BAED67581049ABADDC266EED1A4DA59039A1C999A2`
 
 ---
 

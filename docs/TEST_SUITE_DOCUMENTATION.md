@@ -1,8 +1,8 @@
 # PitchTracker Test Suite Documentation
 
 **Version:** v1.5.0-pilot
-**Date:** 2026-06-22
-**Status:** Historical test-suite documentation; rerun current tests before external release claims
+**Date:** 2026-06-23
+**Status:** Current full-suite run recorded for v1.5.0-pilot P2 cleanup
 
 ---
 
@@ -10,10 +10,17 @@
 
 This document provides exhaustive documentation of the PitchTracker test suite, including all test modules, test counts, coverage areas, and execution details.
 
-**Total Tests:** 389+ tests across all modules
-**Pass Rate:** 98%+ (all critical tests passing)
+**Latest Full Run:** `841 passed, 32 skipped, 23 warnings in 514.55s`
+**Total Collected:** 873 tests
+**Pass Rate:** 100% of executed tests
 **Test Framework:** pytest 7.4.3
-**Python Version:** 3.13.9
+**Python Version:** 3.13.14
+
+Command:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+```
 
 ---
 

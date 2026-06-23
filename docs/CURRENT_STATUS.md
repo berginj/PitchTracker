@@ -1,9 +1,9 @@
 # PitchTracker Current Status
 
-**Last Updated:** 2026-06-22
+**Last Updated:** 2026-06-23
 **Release Identity:** v1.5.0-pilot
 **Internal App Version:** `1.5.0` (`contracts/versioning.py`)
-**Status:** Release candidate for controlled facility deployments; validation testing in progress
+**Status:** Pilot prerelease published; validation testing in progress
 
 ---
 
@@ -65,15 +65,16 @@ documented in `docs/ARCHITECTURE_CURRENT_STATE.md` and `agents.md`.
 
 | Area | Current State | Required Next Step |
 | --- | --- | --- |
-| Version identity | Aligned around v1.5.0-pilot | Release current version today |
-| External release | Not yet tagged or published | Build, smoke-test, tag, and publish v1.5.0-pilot |
+| Version identity | Aligned around v1.5.0-pilot | Keep patch releases on `v1.5.x-pilot` if needed |
+| External release | `v1.5.0-pilot` tag/release published | Validate the published installer on a clean Windows machine |
+| Installer contents | Rebuilt 2026-06-23 with runtime-local config state excluded | Use checksum below for any redistributed refreshed installer |
 | Architecture docs | Service-oriented docs current | Keep calibration boundary explicit for pilot |
 | Hardware profile | In validation testing | Record tested camera/mount evidence |
 | Camera alignment | Blocking pilot start | Complete alignment and document results |
 | Velocity accuracy | Protocol exists; validation testing in progress | Run reference-equipment validation |
 | Location accuracy | Not yet published | Define and run target-grid validation |
 | Pilot personas | Canonical doc added | Confirm with real pilot operators |
-| Test suite claims | Historical docs exist | Run current suite before publishing external claims |
+| Test suite claims | Current full suite run recorded 2026-06-23 | Keep warning list visible in release notes if externally cited |
 | GitHub feedback | Structured issue forms added | Triage `pilot-feedback` and `validation` issues |
 | TAG Sports | Partnership docs active; waiting on TAG feedback | Update plan after response |
 
@@ -84,8 +85,8 @@ documented in `docs/ARCHITECTURE_CURRENT_STATE.md` and `agents.md`.
 1. Which exact camera alignment result is sufficient to start the pilot?
 2. What smoke-test checklist must pass before publishing today's release?
 3. What support contact should be published as the real pilot support channel?
-4. Should `PipelineOrchestrator.run_calibration()` remain an explicit
-   setup/tooling boundary for v1.5.0-pilot?
+4. What policy should govern replacing the already-published installer with
+   the refreshed package that excludes runtime-local config state?
 
 ---
 
@@ -93,7 +94,7 @@ documented in `docs/ARCHITECTURE_CURRENT_STATE.md` and `agents.md`.
 
 1. Finish camera alignment work required to unblock the pilot.
 2. Run validation tests and record results through GitHub validation issues.
-3. Build and publish the current v1.5.0-pilot release today.
+3. Smoke-test the refreshed installer on a clean Windows machine.
 4. Update public-facing support/contact channels.
 5. Keep new feature work behind the capability contract until pilot feedback
    proves demand.
@@ -116,6 +117,24 @@ Two choices exist:
   validated. This keeps the pilot runtime simpler and safer, but callers must
   use the setup/tooling workflow instead of calling `run_calibration()`.
 
-Recommendation for v1.5.0-pilot: keep calibration outside the runtime
-orchestrator, document the boundary, and replace the current generic
-`NotImplementedError` with an actionable message in a later code pass.
+Decision for v1.5.0-pilot: keep calibration outside the runtime orchestrator.
+`PipelineOrchestrator.run_calibration()` now rejects the call with an
+actionable setup/tooling message that points callers to Setup Doctor and
+`SubprocessToolingService`.
+
+---
+
+## 2026-06-23 P2 Cleanup Record
+
+- Full test suite: `841 passed, 32 skipped, 23 warnings in 514.55s`.
+- Event metadata audit added: `docs/EVENT_METADATA_AUDIT.md`.
+- Calibration boundary made actionable in `PipelineOrchestrator.run_calibration()`.
+- Packaging allowlist added for PyInstaller config data.
+- Rebuilt installer: `installer_output/PitchTracker-Setup-v1.5.0-pilot.exe`.
+- Installer size: `92,200,172` bytes.
+- Installer SHA256:
+  `F211FC39FA4468281DA7B5BAED67581049ABADDC266EED1A4DA59039A1C999A2`.
+- Verified bundled config data contains only `default.yaml` and
+  `snapdragon.yaml`; runtime-local `app_state.json`, `roi.json`,
+  `pitchers.json`, `.first_run_done`, `locations`, and cache directories are
+  excluded.

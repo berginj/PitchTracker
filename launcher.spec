@@ -10,9 +10,15 @@ import os
 
 block_cipher = None
 
-# Data files to include
+# Data files to include.
+#
+# Keep runtime-local state out of the frozen app. The ignored files under
+# configs/ such as roi.json, pitchers.json, app_state.json, locations/, and
+# .first_run_done are generated on an operator machine and must not ship in the
+# installer.
 datas = [
-    ('configs', 'configs'),
+    ('configs/default.yaml', 'configs'),
+    ('configs/snapdragon.yaml', 'configs'),
     ('assets', 'assets'),
     ('README_LAUNCHER.md', '.'),
     ('LICENSE', '.'),

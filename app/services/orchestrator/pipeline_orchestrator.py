@@ -412,7 +412,7 @@ class PipelineOrchestrator(PipelineService):
             return self._recording_paused
 
     def run_calibration(self, profile_id: str) -> CalibrationProfile:
-        """Run calibration and return a profile summary.
+        """Reject runtime calibration and point callers to setup tooling.
 
         Args:
             profile_id: Calibration profile identifier
@@ -420,11 +420,19 @@ class PipelineOrchestrator(PipelineService):
         Returns:
             CalibrationProfile with metadata
 
-        Note: Calibration runs in separate calibration pipeline
+        Raises:
+            NotImplementedError: Calibration is intentionally owned by setup
+                tooling for the pilot runtime.
         """
-        # Future Enhancement: Implement calibration via separate pipeline
-        logger.warning("run_calibration(%s) is not implemented in PipelineOrchestrator", profile_id)
-        raise NotImplementedError("Calibration not yet implemented in orchestrator")
+        message = (
+            "Calibration is not run by PipelineOrchestrator in v1.5.0-pilot. "
+            "Use Setup Doctor or app.services.tooling.SubprocessToolingService "
+            "to create and validate the rig profile, then start capture with "
+            "that validated profile. The orchestrator owns runtime capture, "
+            "recording, detection, and analysis only."
+        )
+        logger.warning("run_calibration(%s) rejected: %s", profile_id, message)
+        raise NotImplementedError(message)
 
     def get_stats(self) -> Dict[str, Dict[str, float]]:
         """Return capture stats for both cameras.
