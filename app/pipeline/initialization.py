@@ -146,6 +146,7 @@ class PipelineInitializer:
                 epipolar_epsilon_px=float(config.stereo.epipolar_epsilon_px),
                 z_min_ft=float(config.stereo.z_min_ft),
                 z_max_ft=float(config.stereo.z_max_ft),
+                time_sync_offset_ns=int(config.stereo.time_sync_offset_ns),
             )
             return CalibratedStereoMatcher(calibrated_geometry)
 
@@ -164,6 +165,7 @@ class PipelineInitializer:
             epipolar_epsilon_px=float(config.stereo.epipolar_epsilon_px),
             z_min_ft=float(config.stereo.z_min_ft),
             z_max_ft=float(config.stereo.z_max_ft),
+            time_sync_offset_ns=int(config.stereo.time_sync_offset_ns),
         )
         return SimpleStereoMatcher(geometry)
 

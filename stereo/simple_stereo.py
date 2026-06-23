@@ -18,11 +18,13 @@ class StereoGeometry:
     epipolar_epsilon_px: float
     z_min_ft: float = 3.0
     z_max_ft: float = 80.0
+    time_sync_offset_ns: int = 0
 
 
 class SimpleStereoMatcher(StereoMatcher):
     def __init__(self, geometry: StereoGeometry) -> None:
         self._geometry = geometry
+        self._time_sync_offset_ns = int(getattr(geometry, "time_sync_offset_ns", 0))
 
     def match(self, left, right) -> Optional[StereoMatch]:
         if abs(left.v - right.v) > self._geometry.epipolar_epsilon_px:
@@ -43,8 +45,9 @@ class SimpleStereoMatcher(StereoMatcher):
         y_ft = (match.left.v - self._geometry.cy) * z_ft / self._geometry.focal_length_px
         in_range = self._geometry.z_min_ft <= z_ft <= self._geometry.z_max_ft
         quality = 1.0 if in_range else 0.0
+        timestamp_ns, _ = self.pair_timestamp(match.left.t_capture_monotonic_ns, match.right.t_capture_monotonic_ns)
         return StereoObservation(
-            t_ns=match.left.t_capture_monotonic_ns,
+            t_ns=timestamp_ns,
             left=(match.left.u, match.left.v),
             right=(match.right.u, match.right.v),
             X=float(x_ft),
@@ -55,5 +58,8 @@ class SimpleStereoMatcher(StereoMatcher):
         )
 
     def pair_timestamp(self, left_ns: int, right_ns: int) -> Tuple[int, bool]:
+        if self._time_sync_offset_ns != 0:
+            right_ns_adj = int(right_ns + self._time_sync_offset_ns)
+            return (left_ns + right_ns_adj) // 2, True
         mid = (left_ns + right_ns) // 2
-        return mid, True
+        return mid, False

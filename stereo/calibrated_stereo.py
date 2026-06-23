@@ -29,6 +29,7 @@ class CalibratedStereoGeometry:
     epipolar_epsilon_px: float
     z_min_ft: float
     z_max_ft: float
+    time_sync_offset_ns: int = 0
 
     @classmethod
     def from_npz(
@@ -37,6 +38,7 @@ class CalibratedStereoGeometry:
         epipolar_epsilon_px: float,
         z_min_ft: float,
         z_max_ft: float,
+        time_sync_offset_ns: int = 0,
     ) -> "CalibratedStereoGeometry":
         data = np.load(path, allow_pickle=True)
         img_size_raw = data["img_size"]
@@ -49,6 +51,13 @@ class CalibratedStereoGeometry:
             if "F" in data
             else _fundamental_from_rt(mtx_left, mtx_right, rmat, tvec)
         )
+
+        # Basic validation of loaded arrays
+        if mtx_left.shape != (3, 3) or mtx_right.shape != (3, 3):
+            raise ValueError("Loaded calibration matrices must be 3x3")
+        if tvec.shape not in ((3, 1), (3,)):
+            raise ValueError("Loaded translation vector has unexpected shape")
+
         return cls(
             mtx_left=mtx_left,
             dist_left=np.asarray(data["dist_left"], dtype=np.float64),
@@ -61,6 +70,7 @@ class CalibratedStereoGeometry:
             epipolar_epsilon_px=float(epipolar_epsilon_px),
             z_min_ft=float(z_min_ft),
             z_max_ft=float(z_max_ft),
+            time_sync_offset_ns=int(time_sync_offset_ns),
         )
 
 
@@ -71,6 +81,8 @@ class CalibratedStereoMatcher(StereoMatcher):
         self._geometry = geometry
         self._p_left = geometry.mtx_left @ np.hstack([np.eye(3), np.zeros((3, 1))])
         self._p_right = geometry.mtx_right @ np.hstack([geometry.R, geometry.T])
+        # Time sync offset in nanoseconds to be applied to right timestamps when pairing
+        self._time_sync_offset_ns = int(getattr(geometry, "time_sync_offset_ns", 0))
 
     def match(self, left, right) -> Optional[StereoMatch]:
         error = self._symmetric_epipolar_error(left.u, left.v, right.u, right.v)
@@ -91,7 +103,7 @@ class CalibratedStereoMatcher(StereoMatcher):
         xyz_ft = xyz_mm / MM_PER_FOOT
         z_ft = float(xyz_ft[2])
         in_range = self._geometry.z_min_ft <= z_ft <= self._geometry.z_max_ft
-        timestamp_ns, _ = self.pair_timestamp(
+        timestamp_ns, applied = self.pair_timestamp(
             match.left.t_capture_monotonic_ns,
             match.right.t_capture_monotonic_ns,
         )
@@ -108,7 +120,14 @@ class CalibratedStereoMatcher(StereoMatcher):
         )
 
     def pair_timestamp(self, left_ns: int, right_ns: int) -> Tuple[int, bool]:
-        return (left_ns + right_ns) // 2, True
+        """Apply configured time sync offset (added to right timestamp) before averaging.
+
+        Returns (paired_timestamp_ns, offset_applied_bool)
+        """
+        if self._time_sync_offset_ns != 0:
+            right_ns_adj = int(right_ns + self._time_sync_offset_ns)
+            return (left_ns + right_ns_adj) // 2, True
+        return (left_ns + right_ns) // 2, False
 
     def _symmetric_epipolar_error(self, left_u: float, left_v: float, right_u: float, right_v: float) -> float:
         left_pt = np.array([left_u, left_v, 1.0], dtype=np.float64)

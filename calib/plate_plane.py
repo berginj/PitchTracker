@@ -59,22 +59,39 @@ def _estimate_plate_z(config_path: Path, left: Path, right: Path) -> Optional[fl
     right_center = _detect_plate_center(right_img)
     if left_center is None or right_center is None:
         return None
-    cx = config.stereo.cx or (config.camera.width / 2.0)
-    cy = config.stereo.cy or (config.camera.height / 2.0)
-    SimpleStereoMatcher(
-        StereoGeometry(
-            baseline_ft=config.stereo.baseline_ft,
-            focal_length_px=config.stereo.focal_length_px,
-            cx=float(cx),
-            cy=float(cy),
-            epipolar_epsilon_px=float(config.stereo.epipolar_epsilon_px),
-            z_min_ft=float(config.stereo.z_min_ft),
-            z_max_ft=float(config.stereo.z_max_ft),
-        )
-    )
-    disparity = left_center[0] - right_center[0]
+
+    # Prefer using saved calibration if available to undistort points before disparity calc
+    calib_path = Path("calibration/stereo_calibration.npz")
+    if calib_path.exists():
+        try:
+            data = np.load(calib_path, allow_pickle=True)
+            mtx_left = np.asarray(data["mtx_left"])
+            dist_left = np.asarray(data["dist_left"])
+            mtx_right = np.asarray(data["mtx_right"])
+            dist_right = np.asarray(data["dist_right"])
+
+            # Build points for undistortion (pixel coords)
+            left_pts = np.array([[[left_center[0], left_center[1]]]], dtype=np.float64)
+            right_pts = np.array([[[right_center[0], right_center[1]]]], dtype=np.float64)
+
+            # Undistort to pixel coordinates using camera matrix as P
+            und_left = cv2.undistortPoints(left_pts, mtx_left, dist_left, P=mtx_left)
+            und_right = cv2.undistortPoints(right_pts, mtx_right, dist_right, P=mtx_right)
+
+            # Extract x pixel coords
+            left_x = float(und_left[0, 0, 0])
+            right_x = float(und_right[0, 0, 0])
+            disparity = left_x - right_x
+        except Exception:
+            # Fall back to raw pixel centers
+            disparity = left_center[0] - right_center[0]
+    else:
+        disparity = left_center[0] - right_center[0]
+
     if abs(disparity) < 0.5:
         return None
+
+    # Use focal/baseline from config (baseline in ft)
     z_ft = (config.stereo.focal_length_px * config.stereo.baseline_ft) / disparity
     return float(z_ft)
 

@@ -110,10 +110,19 @@ def load_stereo_ray_camera_models(path: Path) -> Dict[str, RayCameraModel]:
 
     mtx_left = np.asarray(data["mtx_left"], dtype=np.float64)
     mtx_right = np.asarray(data["mtx_right"], dtype=np.float64)
+
+    # Basic validation
+    if mtx_left.shape != (3, 3) or mtx_right.shape != (3, 3):
+        raise ValueError("Calibration matrices must be 3x3")
+
     dist_left = _distortion_tuple(np.asarray(data["dist_left"], dtype=np.float64))
     dist_right = _distortion_tuple(np.asarray(data["dist_right"], dtype=np.float64))
     rmat = np.asarray(data["R"], dtype=np.float64)
-    t_ft = np.asarray(data["T"], dtype=np.float64).reshape(3) / MM_PER_FOOT
+    t_raw = np.asarray(data["T"], dtype=np.float64)
+    if t_raw.size not in (3, 3):
+        # reshape tolerant
+        t_raw = t_raw.reshape(3)
+    t_ft = t_raw.reshape(3) / MM_PER_FOOT
     fmat = np.asarray(data["F"], dtype=np.float64) if "F" in data else None
 
     left = RayCameraModel(
