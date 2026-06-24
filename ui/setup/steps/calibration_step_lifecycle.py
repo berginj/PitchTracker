@@ -244,36 +244,34 @@ class CalibrationStepLifecycleMixin:
         self._pattern_cols = self._pattern_cols_spin.value()
         self._pattern_rows = self._pattern_rows_spin.value()
         self._update_pattern_info()
-        self._user_changed_pattern = True  # User manually changed, allow re-detection
-        self._pattern_locked = False  # Unlock to allow new auto-detection
+        self._user_changed_pattern = True
+        self._pattern_locked = not self._auto_detect_pattern_checkbox.isChecked()
         logger.debug("User changed ChArUco pattern to {}x{}", self._pattern_cols, self._pattern_rows)
 
     def _on_square_size_changed(self, value: float) -> None:
         """Handle square size change."""
         self._square_mm = value
         self._update_pattern_info()
-        self._user_changed_pattern = True  # User manually changed, allow re-detection
-        self._pattern_locked = False  # Unlock to allow new auto-detection
+        self._user_changed_pattern = True
+        self._pattern_locked = not self._auto_detect_pattern_checkbox.isChecked()
         logger.debug("User changed ChArUco square size to {:.1f}mm", self._square_mm)
 
     def _update_pattern_info(self) -> None:
         """Update the pattern info label."""
-        lock_status = " 🔒 <b>LOCKED</b> (change settings to unlock)" if self._pattern_locked else " 🔓 Auto-detecting..."
-        self._pattern_info.setText(
-            f"<b>Looking for:</b> {self._pattern_cols}x{self._pattern_rows} ChArUco board with {self._square_mm:.0f}mm squares.{lock_status}<br>"
-            f"<b>Stereo tip:</b> Board can be partially visible - ChArUco is robust to occlusion. "
-            f"Move it to different positions and angles in the shared view area. Capture 10+ poses for good calibration."
-        )
-
-        # Update pattern info label with current detection
-        if self._pattern_locked and self._cached_dict_name:
+        auto_enabled = self._auto_detect_pattern_checkbox.isChecked()
+        if auto_enabled and self._pattern_locked and self._cached_dict_name:
             dict_display = self._cached_dict_name.replace("DICT_", "").replace("_", " ")
             self._pattern_info_label.setText(f"Detected: {self._pattern_cols}×{self._pattern_rows} ({dict_display})")
             self._set_pattern_info_state(self._pattern_info_label.text(), "success")
-        elif self._cached_dict_name:
+        elif auto_enabled and self._cached_dict_name:
             dict_display = self._cached_dict_name.replace("DICT_", "").replace("_", " ")
             self._pattern_info_label.setText(f"Scanning... ({dict_display})")
             self._set_pattern_info_state(self._pattern_info_label.text(), "warning")
+        elif auto_enabled:
+            self._pattern_info_label.setText("Auto-detection enabled; scanning...")
+            self._set_pattern_info_state(self._pattern_info_label.text(), "warning")
         else:
-            self._pattern_info_label.setText("No pattern detected")
+            self._pattern_info_label.setText(
+                f"Manual board: {self._pattern_cols}x{self._pattern_rows}, {self._square_mm:.1f} mm"
+            )
             self._set_pattern_info_state(self._pattern_info_label.text(), "info")

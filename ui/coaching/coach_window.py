@@ -358,15 +358,15 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         def _warm_cache():
             try:
-                from ui.device_utils import probe_uvc_devices, probe_opencv_indices
+                from ui.device_utils import DEFAULT_OPENCV_MAX_INDEX, probe_uvc_devices, probe_opencv_indices
 
                 logger.debug("Background: Warming camera cache...")
 
                 # Warm UVC device cache (2-4 seconds on first run)
                 probe_uvc_devices(use_cache=True)
 
-                # Warm OpenCV indices cache (3-6 seconds on first run, checks 10 cameras)
-                probe_opencv_indices(max_index=10, use_cache=True)
+                # Warm OpenCV indices cache with the same reliable scan used by the dialogs.
+                probe_opencv_indices(max_index=DEFAULT_OPENCV_MAX_INDEX, parallel=False, use_cache=True)
 
                 logger.info("Background: Camera cache warmed successfully")
 

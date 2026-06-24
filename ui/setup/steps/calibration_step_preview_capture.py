@@ -157,15 +157,43 @@ class CalibrationStepPreviewCaptureMixin:
                 False,
                 f"Capture rejected because focus is too soft (left={left_blur:.0f}, right={right_blur:.0f}).",
             )
-        if left_ids is None or right_ids is None:
-            return False, "Capture rejected because the ChArUco board was not detected in both saved frames."
-        shared = set(int(x) for x in left_ids) & set(int(x) for x in right_ids)
-        if len(shared) < 8:
+
+        if left_ids is not None and right_ids is not None:
+            shared = set(int(x) for x in left_ids) & set(int(x) for x in right_ids)
+            if len(shared) >= 8:
+                return True, f"{len(shared)} shared ChArUco corners"
+
+        left_checkerboard = self._detect_checkerboard_corner_count(left_image)
+        right_checkerboard = self._detect_checkerboard_corner_count(right_image)
+        if left_checkerboard >= 8 and right_checkerboard >= 8:
             return (
-                False,
-                f"Capture rejected because only {len(shared)} shared ChArUco corners were visible in both cameras.",
+                True,
+                f"checkerboard fallback accepted (left={left_checkerboard}, right={right_checkerboard} corners)",
             )
-        return True, f"{len(shared)} shared ChArUco corners"
+
+        return (
+            False,
+            "Capture rejected because the calibration board was not detected in both saved frames.\n\n"
+            f"Expected board: {self._pattern_cols}x{self._pattern_rows} ChArUco, {self._square_mm:.1f}mm squares.\n"
+            f"Left: {_capture_detection_status(left_ids, left_checkerboard)}.\n"
+            f"Right: {_capture_detection_status(right_ids, right_checkerboard)}.\n\n"
+            "Keep the board still while clicking Capture, make sure it is visible in both cameras, "
+            "and enable Auto-Detection only if you are using a non-default board.",
+        )
+
+    def _detect_checkerboard_corner_count(self, image: np.ndarray) -> int:
+        """Return detected plain-checkerboard corner count for capture validation."""
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image.copy()
+
+        board_size = (self._pattern_cols - 1, self._pattern_rows - 1)
+        flags = cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE
+        ret, corners = cv2.findChessboardCorners(gray, board_size, flags)
+        if not ret or corners is None:
+            return 0
+        return int(len(corners))
 
     def _try_checkerboard_fallback(
         self, gray: np.ndarray, annotated: np.ndarray, blur_score: float, is_blurry: bool
@@ -376,3 +404,11 @@ class CalibrationStepPreviewCaptureMixin:
                 f"Failed to capture image pair:\n{str(e)}",
                 tone="error",
             )
+
+
+def _capture_detection_status(charuco_ids: np.ndarray | None, checkerboard_count: int) -> str:
+    if charuco_ids is not None:
+        return f"{len(charuco_ids)} ChArUco corners"
+    if checkerboard_count:
+        return f"{checkerboard_count} checkerboard fallback corners"
+    return "no ChArUco or checkerboard corners"

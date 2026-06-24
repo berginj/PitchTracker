@@ -151,11 +151,11 @@ class SettingsDialog(QtWidgets.QDialog):
 
     def _build_camera_group(self) -> QtWidgets.QGroupBox:
         """Build camera assignment group."""
-        from ui.device_utils import probe_opencv_indices
+        from ui.device_utils import DEFAULT_OPENCV_MAX_INDEX, probe_opencv_indices
 
         group = QtWidgets.QGroupBox("Camera Assignment")
 
-        indices = probe_opencv_indices(max_index=10, use_cache=True)
+        indices = probe_opencv_indices(max_index=DEFAULT_OPENCV_MAX_INDEX, parallel=False, use_cache=False)
 
         left_label = QtWidgets.QLabel("Left Camera")
         self._left_camera_combo = QtWidgets.QComboBox()

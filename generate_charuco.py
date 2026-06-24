@@ -10,7 +10,7 @@ to plain checkerboards because they:
 - Can be used at varying distances from cameras
 
 Usage:
-    python generate_charuco.py                  # Generate default 5x6 board
+    python generate_charuco.py                  # Generate default 6x6 board
     python generate_charuco.py --cols 7 --rows 5 --size 25 --output my_board.png
 """
 
@@ -24,7 +24,7 @@ import numpy as np
 
 
 def generate_charuco_board(
-    cols: int = 5,
+    cols: int = 6,
     rows: int = 6,
     square_mm: float = 30.0,
     output: str = "charuco_board.png",
@@ -34,7 +34,7 @@ def generate_charuco_board(
     """Generate ChArUco board for calibration.
 
     Args:
-        cols: Number of columns (default: 5)
+        cols: Number of columns (default: 6)
         rows: Number of rows (default: 6)
         square_mm: Square size in millimeters (default: 30)
         output: Output filename (default: charuco_board.png)
@@ -176,14 +176,14 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Generate default 5x6 board with 30mm squares (6x6_250 dictionary)
+  # Generate default 6x6 board with 30mm squares (6x6_250 dictionary)
   python generate_charuco.py
 
   # Generate board with 4x4 dictionary (smaller markers)
   python generate_charuco.py --dict 4x4_250
 
-  # Generate 5x6 board with 20mm squares and 6x6 dictionary
-  python generate_charuco.py --cols 5 --rows 6 --size 20 --dict 6x6_250
+  # Generate 6x6 board with 20mm squares and 6x6 dictionary
+  python generate_charuco.py --cols 6 --rows 6 --size 20 --dict 6x6_250
 
   # Generate larger 7x5 board with 25mm squares
   python generate_charuco.py --cols 7 --rows 5 --size 25
@@ -197,7 +197,7 @@ Available dictionaries:
         """,
     )
 
-    parser.add_argument("--cols", type=int, default=5, help="Number of columns (default: 5)")
+    parser.add_argument("--cols", type=int, default=6, help="Number of columns (default: 6)")
     parser.add_argument("--rows", type=int, default=6, help="Number of rows (default: 6)")
     parser.add_argument("--size", type=float, default=30.0, help="Square size in millimeters (default: 30.0)")
     parser.add_argument(

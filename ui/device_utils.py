@@ -15,6 +15,8 @@ from capture.uvc_backend import list_uvc_devices
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_OPENCV_MAX_INDEX = 16
+
 # Cache for device discovery to avoid repeated probes
 _uvc_cache: Optional[list[dict[str, str]]] = None
 _opencv_cache: Optional[list[int]] = None
@@ -132,11 +134,15 @@ def sort_cameras_prefer_arducam(devices: list[dict[str, str]]) -> list[dict[str,
     return arducam_devices + other_devices
 
 
-def probe_opencv_indices(max_index: int = 4, parallel: bool = False, use_cache: bool = True) -> list[int]:
+def probe_opencv_indices(
+    max_index: int = DEFAULT_OPENCV_MAX_INDEX,
+    parallel: bool = False,
+    use_cache: bool = True,
+) -> list[int]:
     """Probe for available OpenCV camera indices.
 
     Args:
-        max_index: Maximum index to check (default 4, was 8)
+        max_index: Maximum index to check (default 16)
         parallel: Use parallel probing for speed (default False for reliability)
         use_cache: Use cached results if available (default True)
 
@@ -147,7 +153,7 @@ def probe_opencv_indices(max_index: int = 4, parallel: bool = False, use_cache: 
         - Uses 3 second timeout per camera (increased for ArduCam devices)
         - Sequential mode (default): more reliable, handles USB bandwidth constraints
         - Parallel mode: faster but can cause USB contention and missed devices
-        - Reduced default max_index from 8 to 4 for faster discovery
+        - Default max_index scans 0-15 so four-camera rigs are not hidden
         - This is a fallback - prefer UVC devices in production
         - Results are cached to avoid repeated slow probes
     """
@@ -347,6 +353,7 @@ def probe_all_devices(use_cache: bool = True) -> tuple[list[dict[str, str]], lis
 __all__ = [
     "current_serial",
     "clear_device_cache",
+    "DEFAULT_OPENCV_MAX_INDEX",
     "probe_opencv_indices",
     "probe_uvc_devices",
     "probe_all_devices",

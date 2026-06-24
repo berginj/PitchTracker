@@ -91,9 +91,11 @@ class CalibrationStepCharucoDetectionMixin:
 
         # Increment frame counter
         self._dict_scan_counter += 1
+        auto_detect_enabled = self._auto_detect_pattern_checkbox.isChecked()
 
-        # Only rescan all dictionaries every 60 frames (~2 seconds at 30fps) or if no cached dict
-        if self._cached_dict_name is None or self._dict_scan_counter >= 60:
+        # Only rescan all dictionaries when auto-detection is explicitly enabled.
+        # Manual mode stays on the default dictionary to avoid noisy frame-by-frame guessing.
+        if auto_detect_enabled and (self._cached_dict_name is None or self._dict_scan_counter >= 60):
             self._dict_scan_counter = 0
 
             best_marker_corners = None
@@ -187,7 +189,9 @@ class CalibrationStepCharucoDetectionMixin:
                 )
         else:
             # Use cached dictionary for fast detection
-            dict_id = next(d[1] for d in DICTIONARIES_TO_TRY if d[0] == self._cached_dict_name)
+            dict_name_to_use = self._cached_dict_name or "DICT_6X6_250"
+            dict_id = next(d[1] for d in DICTIONARIES_TO_TRY if d[0] == dict_name_to_use)
+            self._cached_dict_name = dict_name_to_use
             aruco_dict = cv2.aruco.getPredefinedDictionary(dict_id)
 
             # Try newer API first (OpenCV 4.7+)
@@ -331,8 +335,8 @@ class CalibrationStepCharucoDetectionMixin:
             marker_id_list = marker_ids.flatten().tolist() if marker_ids is not None else []
             logger.debug("Detected ChArUco marker IDs: {}", marker_id_list)
 
-        # AUTO-DETECT: Try to infer pattern size from detected markers
-        # Only run if pattern not locked (user can unlock by manually changing settings)
+        # AUTO-DETECT: Try to infer pattern size from detected markers only
+        # when the operator explicitly enables it in Advanced Settings.
         import time
 
         current_time = time.time()

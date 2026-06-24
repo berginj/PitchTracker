@@ -200,7 +200,7 @@ Each pilot partner receives:
 ### Physical Materials
 - [ ] 2× USB cameras (if not owned) - Model: [TBD based on hardware profile]
 - [ ] Camera mounting hardware (tripods or custom mounts)
-- [ ] Printed ChArUco calibration board (30mm squares, 5×6 grid)
+- [ ] Printed ChArUco calibration board (30mm squares, 6×6 grid)
 - [ ] USB cables (15+ feet for camera placement flexibility)
 - [ ] Quick reference card (laminated, session start workflow)
 

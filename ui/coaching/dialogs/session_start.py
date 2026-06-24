@@ -148,6 +148,8 @@ class SessionStartDialog(QtWidgets.QDialog):
     def _build_camera_group(self) -> QtWidgets.QGroupBox:
         """Build camera selection group with saved camera defaults."""
         from ui.device_utils import (
+            DEFAULT_OPENCV_MAX_INDEX,
+            clear_device_cache,
             is_arducam_device,
             probe_opencv_indices,
             probe_uvc_devices,
@@ -167,9 +169,10 @@ class SessionStartDialog(QtWidgets.QDialog):
         last_left = state.get("last_left_camera")
         last_right = state.get("last_right_camera")
 
-        uvc_devices = probe_uvc_devices(use_cache=True)
+        clear_device_cache()
+        uvc_devices = probe_uvc_devices(use_cache=False)
         uvc_by_index = {i: dev for i, dev in enumerate(uvc_devices)}
-        indices = probe_opencv_indices(max_index=10, use_cache=True)
+        indices = probe_opencv_indices(max_index=DEFAULT_OPENCV_MAX_INDEX, parallel=False, use_cache=False)
         arducam_indices: list[int] = []
 
         if indices:
@@ -241,15 +244,34 @@ class SessionStartDialog(QtWidgets.QDialog):
 
     def _refresh_cameras(self) -> None:
         """Refresh camera list."""
-        from ui.device_utils import clear_device_cache
-
         clear_device_cache()
-        show_message_dialog(
-            self,
-            "Refresh Cameras",
-            "Camera cache cleared. Close and reopen this dialog to see the updated list.",
-            tone="info",
-        )
+        self._left_camera_combo.clear()
+        self._right_camera_combo.clear()
+        from ui.device_utils import DEFAULT_OPENCV_MAX_INDEX, probe_opencv_indices
+
+        indices = probe_opencv_indices(max_index=DEFAULT_OPENCV_MAX_INDEX, parallel=False, use_cache=False)
+        if indices:
+            for index in indices:
+                label = f"Camera {index}"
+                self._left_camera_combo.addItem(label, str(index))
+                self._right_camera_combo.addItem(label, str(index))
+            if self._right_camera_combo.count() >= 2:
+                self._right_camera_combo.setCurrentIndex(1)
+            show_message_dialog(
+                self,
+                "Refresh Cameras",
+                f"Found {len(indices)} camera index(es): {', '.join(str(i) for i in indices)}.",
+                tone="info",
+            )
+        else:
+            self._left_camera_combo.addItem("No cameras found - check USB connections", "")
+            self._right_camera_combo.addItem("No cameras found - check USB connections", "")
+            show_message_dialog(
+                self,
+                "Refresh Cameras",
+                "No cameras found. Check USB connections and try again.",
+                tone="error",
+            )
 
     def _build_settings_group(self) -> QtWidgets.QGroupBox:
         """Build quick settings group."""

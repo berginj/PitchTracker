@@ -133,10 +133,13 @@ class CalibrationStepCameraAdjustmentsMixin:
         if enabled:
             # Re-enable auto-detection
             self._pattern_locked = False
+            self._last_auto_detect_time = 0
+            self._update_pattern_info()
             logger.info("ChArUco pattern auto-detection enabled")
         else:
             # Disable auto-detection, use manual settings
             self._pattern_locked = True  # Lock prevents auto-detection
+            self._update_pattern_info()
             logger.info(
                 "ChArUco pattern auto-detection disabled; using manual settings {}x{} at {:.1f}mm",
                 self._pattern_cols,

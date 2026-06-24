@@ -133,23 +133,26 @@ python generate_charuco.py --output my_board.png
 - **Shown in:** Auto-swap dialog results
 
 **5. Multi-Pattern Detection:**
-- **What it shows:** Current detected pattern and dictionary
+- **What it shows:** Current manual pattern, or detected pattern and dictionary when auto-detection is enabled
 - **Display location:** Next to "Enable Auto-Detection" checkbox
 - **Information shown:**
-  - Pattern size (e.g., "5×6")
+  - Pattern size (default: "6×6")
   - Dictionary type (e.g., "6X6 250")
-  - Detection status: Scanning / Detected / Locked
+  - Detection status: Manual / Scanning / Detected
 - **Color coding:**
-  - GREEN: Pattern detected and locked
+  - GREEN: Pattern detected
   - ORANGE: Scanning for patterns
-  - GRAY: No pattern detected
+  - GRAY: Manual board settings
 
 **Auto-Detection Toggle:**
 - **Purpose:** Control whether system auto-detects board size
-- **Enabled** (default): Automatically detects ChArUco pattern size and dictionary
-- **Disabled:** Uses your manual pattern settings only
-- **When to disable:**
-  - Force specific board size
+- **Disabled** (default): Uses the manual 6×6, 30mm board settings
+- **Enabled:** Automatically detects ChArUco pattern size and dictionary
+- **When to enable:**
+  - Using a non-default board
+  - You do not know the board pattern or dictionary
+- **Keep disabled when:**
+  - Forcing a specific board size
   - Multiple boards in view causing confusion
   - Auto-detection causing issues
 

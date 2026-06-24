@@ -206,7 +206,7 @@ This document defines the **candidate hardware configuration** for PitchTracker 
 
 ### Board Dimensions
 
-**Printed Board Size (5×6 grid, 30mm squares):**
+**Printed Board Size (6×6 grid, 30mm squares):**
 - **Width:** ~150mm (5 columns × 30mm)
 - **Height:** ~180mm (6 rows × 30mm)
 - **Fits on:** US Letter or A4 paper

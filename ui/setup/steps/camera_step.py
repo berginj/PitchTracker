@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ui.device_utils import current_serial, probe_opencv_indices, probe_uvc_devices
+from ui.device_utils import DEFAULT_OPENCV_MAX_INDEX, current_serial, probe_opencv_indices, probe_uvc_devices
 from ui.setup.steps.base_step import BaseStep
 from ui.themes import (
     apply_standard_layout,
@@ -156,7 +156,7 @@ class CameraStep(BaseStep):
 
         try:
             if self._backend == "opencv":
-                indices = probe_opencv_indices(max_index=5)
+                indices = probe_opencv_indices(max_index=DEFAULT_OPENCV_MAX_INDEX, parallel=False, use_cache=False)
                 if not indices:
                     self._set_status_message("No cameras found. Check connections and try again.", "error")
                     return
