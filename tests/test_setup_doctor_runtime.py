@@ -162,10 +162,23 @@ def test_reload_rois_updates_detection_service(tmp_path: Path) -> None:
     orchestrator.reload_rois()
 
     lane_rois, plate_rois = calls[-1]
-    assert sorted(lane_rois) == ["left", "right"]
-    assert lane_rois["left"][0] == (10, 10)
-    assert lane_rois["right"][0] == (20, 10)
-    assert sorted(plate_rois) == ["left", "right"]
+    assert sorted(lane_rois) == ["left_cam", "right_cam"]
+    assert lane_rois["left_cam"][0] == (10, 10)
+    assert lane_rois["right_cam"][0] == (20, 10)
+    assert sorted(plate_rois) == ["left_cam", "right_cam"]
+
+
+def test_orchestrator_rejects_critical_rig_profile_before_startup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _activate_profile(tmp_path)
+    orchestrator = PipelineOrchestrator(backend="sim")
+
+    with pytest.raises(RuntimeError, match="Rig profile runtime validation is CRITICAL"):
+        orchestrator.start_capture(_config(), left_serial="wrong_left", right_serial="right_cam")
+
+    assert orchestrator.is_capturing() is False
 
 
 def test_orchestrator_startup_uses_active_profile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -178,8 +178,8 @@ class InProcessPipelineService(
                     self._plate_gate,
                     self._plate_stereo_gate,
                 ) = PipelineInitializer.load_rois(
-                    "left",
-                    "right",
+                    left_id or left_serial,
+                    right_id or right_serial,
                     roi_path=self._runtime_roi_path or Path("configs/roi.json"),
                     lane_path=Path("rois/shared_lane_rois.json"),
                 )

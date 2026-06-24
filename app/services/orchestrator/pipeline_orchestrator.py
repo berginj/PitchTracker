@@ -155,6 +155,10 @@ class PipelineOrchestrator(PipelineService):
             )
             if validation.state == CRITICAL:
                 logger.error(f"Rig profile runtime validation is CRITICAL: {validation.issues}")
+                raise RuntimeError(
+                    "Rig profile runtime validation is CRITICAL: "
+                    + "; ".join(validation.issues or ["unknown validation failure"])
+                )
             elif validation.warnings:
                 logger.warning(f"Rig profile runtime validation warnings: {validation.warnings}")
 
@@ -828,8 +832,8 @@ class PipelineOrchestrator(PipelineService):
             right_serial,
             lane_path=Path("rois/shared_lane_rois.json"),
         )
-        lane_rois = _serial_roi_map_to_labels(lane_by_serial, left_serial, right_serial)
-        plate_rois = _serial_roi_map_to_labels(plate_by_serial, left_serial, right_serial)
+        lane_rois = _serial_roi_map_to_camera_ids(lane_by_serial, left_serial, right_serial)
+        plate_rois = _serial_roi_map_to_camera_ids(plate_by_serial, left_serial, right_serial)
         if not lane_rois and not plate_rois:
             logger.warning(f"No runtime ROIs loaded from {self._runtime_roi_path}")
             return
@@ -840,7 +844,7 @@ class PipelineOrchestrator(PipelineService):
         )
 
 
-def _serial_roi_map_to_labels(
+def _serial_roi_map_to_camera_ids(
     roi_map: Dict[str, List[Tuple[float, float]]],
     left_serial: str,
     right_serial: str,
@@ -849,7 +853,7 @@ def _serial_roi_map_to_labels(
     right = roi_map.get("right") or roi_map.get(right_serial)
     output: Dict[str, List[Tuple[float, float]]] = {}
     if left is not None:
-        output["left"] = list(left)
+        output[left_serial] = list(left)
     if right is not None:
-        output["right"] = list(right)
+        output[right_serial] = list(right)
     return output
