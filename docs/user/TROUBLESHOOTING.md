@@ -476,7 +476,7 @@ If video corrupted but session exists:
 **Symptoms:**
 - "Calibration failed" error
 - RMS error too high
-- Can't complete calibration wizard
+- Can't complete Setup Doctor calibration
 
 **Solutions:**
 
@@ -815,17 +815,15 @@ Collect this information:
 
 ### Contact Options
 
-- **GitHub Issues:** [Report Bug](https://github.com/yourorg/pitchtracker/issues)
-- **Email:** support@pitchtracker.example.com
-- **Forum:** forum.pitchtracker.example.com
-- **Discord:** discord.gg/pitchtracker
+- **GitHub Issues:** [Report Bug](https://github.com/berginj/PitchTracker/issues) using the Pilot Feedback or Validation Report form
+- **Pilot Support:** Use the contact channel provided with your pilot installation package
 
 ### Include in Bug Report
 
 ```
 **Environment:**
-- OS: Windows 10/11 version XXXX
-- PitchTracker Version: 1.2.0
+- OS: Windows 10/11 version [version]
+- PitchTracker Version: v1.5.0-pilot
 - Cameras: [Model names]
 - CPU/RAM: [Specs]
 

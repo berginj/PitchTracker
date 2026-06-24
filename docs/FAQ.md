@@ -1,7 +1,7 @@
 # PitchTracker - Frequently Asked Questions (FAQ)
 
-**Last Updated:** 2026-01-19
-**Version:** 2.0
+**Last Updated:** 2026-06-22
+**Version:** v1.5.0-pilot
 
 ---
 
@@ -32,10 +32,10 @@
 
 **A:**
 1. Download the latest installer from GitHub releases
-2. Run `PitchTracker-Setup-vX.X.X.exe`
+2. Run `PitchTracker-Setup-v1.5.0-pilot.exe`
 3. Follow the installation wizard
 4. Launch from desktop shortcut or Start menu
-5. Run the Setup Wizard on first launch
+5. Run Setup Doctor on first launch
 
 ### Q: Do I need Python installed?
 
@@ -149,23 +149,23 @@
 
 ### Q: How do I calibrate the system?
 
-**A:** Use the Setup Wizard:
+**A:** Use Setup Doctor:
 1. **ROI (Region of Interest):**
    - Draw boxes around strike zone on both cameras
    - Make sure strike zone is fully visible
 
-2. **Intrinsic Calibration:**
-   - Use checkerboard pattern
-   - Take 20+ images from different angles
+2. **Full Stereo Calibration:**
+   - Use the ChArUco/checkerboard pattern
+   - Take 10+ stereo poses from different angles
    - Hold pattern steady for each capture
-
-3. **Stereo Calibration:**
    - Measure exact distance between cameras (in feet)
    - Enter distance accurately (measure from lens centers)
+   - Run full matrix calibration for production readiness
 
-4. **Validation:**
+3. **Validation:**
    - Test with known object at known distance
    - Verify 3D coordinates are reasonable
+   - Setup Doctor blocks coaching only on CRITICAL findings
 
 ### Q: How far apart should cameras be?
 
@@ -416,5 +416,5 @@ During Review Mode:
 
 ---
 
-**Document Version:** 1.0
-**Covers PitchTracker:** v1.0.0+
+**Document Version:** 1.1
+**Covers PitchTracker:** v1.5.0-pilot

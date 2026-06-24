@@ -323,7 +323,7 @@ Successfully reconnected left camera
 
 ### Known Issues
 
-None at this time. Reconnection is production-ready.
+None at this time. Reconnection is pilot-ready for controlled deployments.
 
 ---
 
@@ -538,7 +538,7 @@ reconnection_mgr = CameraReconnectionManager(
 - Error bus integration for UI notifications
 - Thread-safe state management
 - Comprehensive test coverage (10/10 tests passing)
-- Production-ready reliability
+- Pilot-ready reliability for controlled deployments
 
 ✅ **User Benefits:**
 - Handles temporary USB issues automatically
@@ -546,17 +546,17 @@ reconnection_mgr = CameraReconnectionManager(
 - Preserves all camera settings
 - Seamless recovery experience
 
-✅ **Production Ready:**
+✅ **Pilot Ready:**
 - Tested and validated
 - Integrated into pipeline service
 - Error handling comprehensive
 - Performance impact minimal
 
-**Status:** Feature complete and deployed in PitchTracker v1.2.0+
+**Status:** Feature complete for the v1.5.0-pilot runtime path
 
 ---
 
 **Document Version:** 1.0
-**Last Updated:** 2026-01-18
+**Last Updated:** 2026-06-22
 **Author:** PitchTracker Development Team
-**Next Review:** After beta deployment feedback
+**Next Review:** After pilot deployment feedback

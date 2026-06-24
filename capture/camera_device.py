@@ -25,8 +25,17 @@ class CameraDevice(ABC):
         """Open a camera by serial number."""
 
     @abstractmethod
-    def set_mode(self, width: int, height: int, fps: int, pixfmt: str) -> None:
-        """Configure resolution, frame rate, and pixel format."""
+    def set_mode(
+        self,
+        width: int,
+        height: int,
+        fps: int,
+        pixfmt: str,
+        flip_180: bool = False,
+        rotation_correction: float = 0.0,
+        vertical_offset_px: int = 0,
+    ) -> None:
+        """Configure resolution, frame rate, pixel format, and image transforms."""
 
     @abstractmethod
     def set_controls(

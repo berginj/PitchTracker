@@ -354,7 +354,7 @@ Potential improvements for V3:
 
 ## Summary
 
-The V2 integration is **complete and production-ready**. All critical issues from V1 have been addressed:
+The V2 integration is **complete and pilot-ready for controlled deployments**. All critical issues from V1 have been addressed:
 
 | Issue | V1 Status | V2 Status |
 |-------|-----------|-----------|
@@ -366,7 +366,7 @@ The V2 integration is **complete and production-ready**. All critical issues fro
 | False triggers | 🟠 Not filtered | ✅ Fixed |
 | Error handling | 🔴 Crashes | ✅ Fixed |
 
-**Recommendation:** Deploy V2 to production immediately.
+**Recommendation:** Use V2 for the v1.5.0-pilot runtime path.
 
 **Risk:** Low (V2 is more robust and well-tested than V1)
 

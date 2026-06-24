@@ -60,7 +60,7 @@ mkdir assets
 .\build_installer.ps1
 ```
 
-**Output:** `installer_output\PitchTracker-Setup-v1.0.0.exe`
+**Output:** `installer_output\PitchTracker-Setup-v1.5.0-pilot.exe`
 
 ---
 
@@ -90,7 +90,7 @@ python -m PyInstaller --clean launcher.spec
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 ```
 
-**Output:** `installer_output\PitchTracker-Setup-v1.0.0.exe`
+**Output:** `installer_output\PitchTracker-Setup-v1.5.0-pilot.exe`
 
 **Expected size:** ~100-150 MB (compressed)
 
@@ -197,16 +197,23 @@ If bundle is still too large:
 
 ### Updating Version Number
 
-Update in multiple locations:
+Current pilot release identity:
+
+- Internal app version: `1.5.0`
+- External release/tag: `v1.5.0-pilot`
+- Installer filename: `PitchTracker-Setup-v1.5.0-pilot.exe`
+
+Update in these locations when the release changes:
 
 1. **installer.iss** (line 6):
    ```inno
-   #define AppVersion "1.0.1"
+   #define AppVersion "1.5.1"
+   #define ReleaseTag "pilot"
    ```
 
 2. **launcher.py** (if version is shown in UI):
    ```python
-   APP_VERSION = "1.0.1"
+   APP_VERSION = "1.5.1"
    ```
 
 3. **README files** (document the version)
@@ -215,10 +222,10 @@ Update in multiple locations:
 
 ```powershell
 # Create version tag
-git tag -a v1.0.1 -m "Release version 1.0.1"
+git tag -a v1.5.1-pilot -m "Release version v1.5.1-pilot"
 
 # Push tag to origin
-git push origin v1.0.1
+git push origin v1.5.1-pilot
 ```
 
 ---
@@ -261,14 +268,14 @@ Recommended: Test in VMware/VirtualBox with clean Windows 10/11
 1. **Create release on GitHub:**
    ```powershell
    # Tag version (if not done)
-   git tag -a v1.0.0 -m "Release 1.0.0"
-   git push origin v1.0.0
+   git tag -a v1.5.0-pilot -m "Release v1.5.0-pilot"
+   git push origin v1.5.0-pilot
    ```
 
 2. **Upload installer:**
    - Go to GitHub → Releases → Create New Release
-   - Select tag (v1.0.0)
-   - Upload: `PitchTracker-Setup-v1.0.0.exe`
+   - Select tag (`v1.5.0-pilot`)
+   - Upload: `PitchTracker-Setup-v1.5.0-pilot.exe`
    - Add release notes
 
 3. **Update auto-updater URL:**
@@ -286,7 +293,7 @@ If distributing directly (not via GitHub):
 2. **Provide checksums:**
    ```powershell
    # Generate SHA256 checksum
-   Get-FileHash .\installer_output\PitchTracker-Setup-v1.0.0.exe -Algorithm SHA256
+   Get-FileHash .\installer_output\PitchTracker-Setup-v1.5.0-pilot.exe -Algorithm SHA256
    ```
 
 3. **Include installation guide:**
@@ -451,4 +458,4 @@ If you encounter build issues:
 ---
 
 **Last Updated:** 2026-01-16
-**Build System Version:** 1.0.0
+**Build System Version:** v1.5.0-pilot

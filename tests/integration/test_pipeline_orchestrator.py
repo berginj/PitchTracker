@@ -79,6 +79,18 @@ class TestPipelineOrchestratorBasics:
         # Should initialize without errors
         assert orchestrator is not None
 
+    def test_run_calibration_points_to_setup_tooling(self):
+        """Runtime calibration API should explain the setup/tooling boundary."""
+        orchestrator = PipelineOrchestrator(backend="sim")
+
+        with pytest.raises(NotImplementedError) as exc_info:
+            orchestrator.run_calibration("pilot-rig")
+
+        message = str(exc_info.value)
+        assert "Setup Doctor" in message
+        assert "SubprocessToolingService" in message
+        assert "runtime capture" in message
+
     def test_start_stop_capture(self):
         """Test starting and stopping capture."""
         orchestrator = PipelineOrchestrator(backend="sim")

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Pilot support guidance
+    url: https://github.com/berginj/PitchTracker/issues
+    about: Use the structured pilot feedback forms when possible so reports can be triaged consistently.

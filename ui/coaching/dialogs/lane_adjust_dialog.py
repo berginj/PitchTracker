@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from app.services.rig_profile import RigProfileService
 from configs.roi_io import load_rois, save_rois
 from ui.geometry import Rect
 from ui.themes import (
@@ -38,7 +39,9 @@ class LaneAdjustDialog(QtWidgets.QDialog):
 
         self._style_manager = get_style_manager()
         self._camera_service = camera_service
-        self._roi_path = Path("configs/roi.json")
+        profile_service = RigProfileService()
+        active_profile = profile_service.load_active()
+        self._roi_path = profile_service.roi_path(active_profile) if active_profile else Path("rois/shared_rois.json")
 
         self._lane_polygon: Optional[list[tuple[int, int]]] = None
         self._new_lane_polygon: Optional[list[tuple[int, int]]] = None
@@ -285,7 +288,16 @@ class LaneAdjustDialog(QtWidgets.QDialog):
             rois = load_rois(self._roi_path) if self._roi_path.exists() else {}
             plate = rois.get("plate")
             self._roi_path.parent.mkdir(parents=True, exist_ok=True)
-            save_rois(self._roi_path, self._new_lane_polygon, plate)
+            save_rois(
+                self._roi_path,
+                self._new_lane_polygon,
+                plate,
+                lane_by_camera={"left": self._new_lane_polygon},
+            )
+            try:
+                self._camera_service.reload_rois()
+            except Exception:
+                pass
 
             show_message_dialog(
                 self,

@@ -462,8 +462,8 @@ class CameraManager:
             logger.debug(f"Opening {camera_id} camera with serial: {serial}")
             new_camera.open(serial)
 
-            # Configure camera
-            self._configure_camera(new_camera, self._config)
+            # Configure camera using the same left/right-specific path as initial startup.
+            PipelineInitializer.configure_camera(new_camera, self._config, is_left=(camera_id == "left"))
 
             # Update camera reference
             if camera_id == "left":

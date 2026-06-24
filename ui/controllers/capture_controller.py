@@ -12,6 +12,7 @@ from typing import Optional, Callable, TYPE_CHECKING
 
 from PySide6 import QtWidgets
 
+from app.services.rig_profile import CRITICAL, WARN, RigProfileService
 from app.validation import ConfigValidator
 from exceptions import ConfigValidationError
 from log_config.logger import get_logger
@@ -150,6 +151,8 @@ class CaptureController:
         config_path = self._get_config_path()
         roi_path = self._get_roi_path()
         lane_path = self._get_lane_path()
+        left_serial = self._get_left_serial()
+        right_serial = self._get_right_serial()
 
         # Validate config file
         try:
@@ -184,6 +187,20 @@ class CaptureController:
             warnings.append(f"ROI file {roi_path} not found; lane/plate gating will be disabled.")
         if not lane_path.exists():
             warnings.append(f"Lane ROI overrides not found at {lane_path}; " "using shared lane ROI for both cameras.")
+
+        profile_service = RigProfileService(config_path=config_path)
+        active_profile = profile_service.load_active()
+        if active_profile is not None:
+            validation = profile_service.validate_for_runtime(
+                active_profile,
+                config=config,
+                left_serial=left_serial,
+                right_serial=right_serial,
+            )
+            if validation.state == CRITICAL:
+                errors.extend(validation.issues)
+            elif validation.state == WARN:
+                warnings.extend(validation.warnings)
 
         # Show errors
         if errors:

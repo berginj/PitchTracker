@@ -1,7 +1,7 @@
 # PitchTracker - Calibration Tips & Best Practices
 
-**Last Updated:** 2026-01-27
-**Version:** 1.2.1
+**Last Updated:** 2026-06-22
+**Version:** v1.5.0-pilot
 
 ---
 
@@ -32,7 +32,7 @@ Calibration is the process of teaching the application about your camera setup. 
 
 ✅ **With Calibration:**
 - Accurate 3D ball position
-- Correct velocity (±1 mph)
+- More reliable velocity measurement once reference validation is complete
 - Precise strike zone mapping
 - Reliable pitch metrics
 
@@ -277,14 +277,14 @@ python generate_charuco.py --output my_board.png
 
 ### Step-by-Step Process
 
-#### 1. Launch Calibration Wizard
+#### 1. Launch Setup Doctor
 
 ```
-Tools → Calibration Wizard → Intrinsic Calibration
+Calibration -> Setup Doctor
 ```
 
 - Follow on-screen instructions
-- Calibrate left camera first, then right
+- Confirm camera identity, stability, overlap, and focus before capturing board images
 
 #### 2. Prepare Checkerboard
 
@@ -341,11 +341,11 @@ Capture at least:
   - **1.0-2.0 pixels:** Acceptable
   - **>2.0 pixels:** Poor (redo calibration)
 
-#### 6. Repeat for Second Camera
+#### 6. Confirm Production Readiness
 
-- Follow same process for other camera
-- Use same checkerboard pattern
-- Aim for similar RMS error
+- Setup Doctor saves the active rig profile only after validation
+- Quick calibration is diagnostic/fallback-only and does not mark the rig production-ready
+- Resolve CRITICAL findings before coaching; WARN findings require operator confirmation
 
 ---
 
@@ -374,10 +374,10 @@ Use measuring tape:
 3. Be accurate (±1cm affects 3D accuracy)
 ```
 
-#### 2. Launch Extrinsic Calibration
+#### 2. Run Full Stereo Calibration
 
 ```
-Tools → Calibration Wizard → Extrinsic Calibration
+Calibration -> Setup Doctor -> Full Stereo Calibration
 ```
 
 - Enter measured camera separation distance
@@ -715,14 +715,14 @@ Tools → Camera Sync Test:
 
 ## Further Resources
 
-- **Video Tutorial:** [YouTube link] (if available)
+- **Video Tutorial:** Not yet published
 - **Checkerboard Pattern:** Tools → Print Calibration Pattern
-- **Support Forum:** forum.pitchtracker.example.com/calibration
+- **Support:** Use the pilot support channel provided with your installation package
 - **Sample Profiles:** docs/calibration/examples/
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2026-01-18
-**For Version:** PitchTracker 1.2.0
+**Document Version:** 1.1
+**Last Updated:** 2026-06-22
+**For Version:** PitchTracker v1.5.0-pilot
 

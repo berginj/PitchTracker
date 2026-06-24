@@ -239,7 +239,12 @@ class PitchAnalyzer:
 
     def _load_ray_camera_models(self) -> dict:
         try:
-            return load_stereo_ray_camera_models(Path("calibration/stereo_calibration.npz"))
+            from app.services.rig_profile import RigProfileService
+
+            service = RigProfileService()
+            profile = service.load_active()
+            calibration_path = service.calibration_path(profile) if profile is not None else Path("calibration/stereo_calibration.npz")
+            return load_stereo_ray_camera_models(calibration_path)
         except Exception as exc:
             logger.debug("Ray camera models unavailable: %s", exc)
             return {}

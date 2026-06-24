@@ -60,12 +60,14 @@ Automatically improves calibration parameters over time using pitch tracking dat
 ### Running Quick Calibration
 
 **Option 1: Via UI (Recommended)**
-1. Open PitchTracker setup wizard
-2. Navigate to calibration step
+1. Open PitchTracker Setup Doctor
+2. Navigate to the calibration diagnostics step
 3. Wait for automatic camera detection (~30 seconds)
 4. Select **Quick** mode from radio buttons
 5. Capture 3-5 ChArUco board poses
 6. Calibration completes automatically
+
+Quick calibration is diagnostic/fallback-only. Use full matrix calibration in Setup Doctor for a production-ready active rig profile.
 
 **Option 2: Via Command Line**
 ```bash
@@ -331,7 +333,6 @@ For issues or questions:
 
 ---
 
-**Last Updated**: 2025-02-10
-**System Version**: 1.0.0
-**Total Code**: ~3,000 lines
-**Test Coverage**: 51 tests
+**Last Updated**: 2026-06-22
+**System Version**: v1.5.0-pilot
+**Note**: Original implementation metrics in this guide may be historical; use `docs/CURRENT_STATUS.md` for current release status.

@@ -1,0 +1,81 @@
+name: Validation Report
+description: Structured results from camera alignment, velocity, location, or setup validation.
+title: "[Validation]: "
+labels:
+  - validation
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for controlled validation runs. Keep raw private media local unless the maintainer explicitly asks for it.
+  - type: dropdown
+    id: validation_type
+    attributes:
+      label: Validation type
+      options:
+        - Camera alignment
+        - Velocity accuracy
+        - Location accuracy
+        - Detection rate
+        - Setup Doctor dry-run
+        - Recording/replay integrity
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: app_version
+    attributes:
+      label: PitchTracker version
+      placeholder: v1.5.0-pilot
+    validations:
+      required: true
+  - type: input
+    id: rig_profile
+    attributes:
+      label: Rig profile or setup identifier
+      placeholder: bullpen-left-right-c920-2026-06
+    validations:
+      required: false
+  - type: textarea
+    id: setup
+    attributes:
+      label: Test setup
+      description: Camera models, spacing, mound distance, lighting, ball type, and reference device.
+    validations:
+      required: true
+  - type: textarea
+    id: protocol
+    attributes:
+      label: Protocol
+      description: Number of pitches, procedure, warmup excluded/included, target grid, or Setup Doctor stages.
+    validations:
+      required: true
+  - type: textarea
+    id: results
+    attributes:
+      label: Results
+      description: Include MAE, confidence interval, detection rate, alignment quality, pass/warn/critical status, or other measured outputs.
+    validations:
+      required: true
+  - type: textarea
+    id: failures
+    attributes:
+      label: Failures or anomalies
+      description: Missed detections, calibration warnings, bad alignment, environmental changes, or excluded samples.
+    validations:
+      required: false
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Artifacts
+      description: List local file paths, report filenames, screenshots, or anonymized summaries.
+    validations:
+      required: false
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I have removed athlete names, private video, and sensitive facility data unless explicitly authorized.
+          required: true

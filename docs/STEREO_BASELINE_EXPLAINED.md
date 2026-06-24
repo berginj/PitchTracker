@@ -77,13 +77,13 @@ For 60 ft pitch tracking with 1-pixel disparity error:
 ## Setting Baseline in PitchTracker
 
 ### Method 1: Manual Entry (Quick Start)
-- Setup Wizard → Step 2 → Baseline spinner
+- Calibration -> Setup Doctor -> camera/board metadata
 - Enter your measured value
 - Used for initial testing
 
 ### Method 2: Calibration (Accurate)
 - Capture 10+ checkerboard images
-- Click "Calibrate"
+- Run full stereo calibration
 - **Calibration measures baseline precisely** from images
 - More accurate than manual measurement (accounts for lens optical centers)
 
@@ -106,7 +106,7 @@ For 60 ft pitch tracking with 1-pixel disparity error:
 ## Changing Baseline
 
 **When you change camera spacing**, you must:
-1. Update baseline value (Setup Wizard or config file)
+1. Update baseline value (Setup Doctor or config file)
 2. **Re-run calibration** (focal length depends on baseline)
 3. Check camera alignment (wider = harder to align)
 

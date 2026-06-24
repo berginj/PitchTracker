@@ -1,7 +1,7 @@
 # PitchTracker - Quick Start Guide
 
-**Last Updated:** 2026-01-19
-**Version:** 2.0
+**Last Updated:** 2026-06-22
+**Version:** v1.5.0-pilot
 
 Get up and running with PitchTracker in 30 minutes!
 
@@ -14,7 +14,7 @@ Before starting, gather:
 - [ ] **Two USB cameras** (1280x720 @ 60fps or 30fps)
 - [ ] **USB 3.0 cables** (< 3 feet, high quality)
 - [ ] **Camera mounts/tripods**
-- [ ] **Checkerboard pattern** (printed on rigid surface)
+- [ ] **ChArUco/checkerboard pattern** (printed on rigid surface)
 - [ ] **Ruler or measuring tape** (for camera distance)
 - [ ] **Computer** with Windows 10/11, 8GB+ RAM, 100GB+ free disk space
 
@@ -25,15 +25,15 @@ Before starting, gather:
 ### Download & Install
 
 1. Download latest installer from GitHub releases
-2. Run `PitchTracker-Setup-vX.X.X.exe`
+2. Run `PitchTracker-Setup-v1.5.0-pilot.exe`
 3. Follow installation wizard
 4. Launch PitchTracker from desktop shortcut
 
 ### First Launch
 
-On first launch, you'll see the **Setup Wizard**.
+On first launch, open the **Setup Doctor**.
 - Don't skip it! Proper setup is critical for accuracy
-- You can re-run it later: Setup menu → Setup Wizard
+- You can re-run it later: Calibration menu -> Setup Doctor
 
 ---
 
@@ -70,11 +70,11 @@ On first launch, you'll see the **Setup Wizard**.
 
 ---
 
-## Step 3: Setup Wizard (15 minutes)
+## Step 3: Setup Doctor (15 minutes)
 
-The Setup Wizard will guide you through:
+Setup Doctor proves the fixed camera rig is ready for production and saves one active rig profile under `calibration/rigs/<profile_id>/`.
 
-### 3.1 Camera Selection
+### 3.1 Camera Identity and Stability
 
 - Select left and right cameras from dropdown
 - Test preview to verify correct cameras
@@ -82,7 +82,48 @@ The Setup Wizard will guide you through:
   - **Recommended:** 1280x720 @ 60fps
   - **Lower-end PC:** 1280x720 @ 30fps or 640x480 @ 30fps
 
-### 3.2 ROI (Region of Interest)
+### 3.2 Orientation, Overlap, and Toe-In
+
+**Purpose:** Confirm the cameras see the same pitch volume and that software corrections are stable.
+
+**Steps:**
+1. Verify both cameras are assigned correctly
+2. Check focus, exposure, and mount stability
+3. Apply stable software corrections for image-plane roll, rotation, or vertical offset
+4. Physically adjust focus, major toe-in, insufficient overlap, or unstable mounts
+
+**Success indicators:**
+- Camera identities remain stable
+- Both cameras see the strike zone and pitch lane
+- Setup Doctor does not report critical overlap or alignment failures
+
+### 3.3 Full Stereo Calibration
+
+**Purpose:** Establish the production 3D coordinate system
+
+**Preparation:**
+- Print ChArUco/checkerboard pattern (9x6 or 10x7 squares)
+- Mount on rigid surface (foam board, cardboard)
+- Don't use flimsy paper (it bends)
+
+**Steps:**
+1. Hold the board where both cameras can see it
+2. Capture at least 10 good stereo poses from different positions:
+   - Center of view
+   - Four corners
+   - Various distances
+   - Various angles (tilted, rotated)
+3. Run full matrix calibration
+4. Verify RMS and Setup Doctor quality diagnostics
+
+**Success indicators:**
+- Calibration quality is PASS or WARN
+- Quick calibration is not marked production-ready; use it only as a diagnostic or fallback
+- Test measurement shows reasonable depth (Z coordinate)
+
+**If fails:** See TROUBLESHOOTING.md -> Calibration Issues
+
+### 3.4 ROI (Region of Interest)
 
 **Purpose:** Define strike zone area for detection
 
@@ -99,59 +140,19 @@ The Setup Wizard will guide you through:
 - Includes some background above/below
 - Both cameras need good view of same area
 
-### 3.3 Intrinsic Calibration
-
-**Purpose:** Correct for lens distortion
-
-**Preparation:**
-- Print checkerboard pattern (9x6 or 10x7 squares)
-- Mount on rigid surface (foam board, cardboard)
-- Don't use flimsy paper (it bends)
+### 3.5 Runtime Dry-Run and Strike Zone Configuration
 
 **Steps:**
-1. Hold checkerboard in camera view
-2. Click "Capture" when pattern detected (corners shown in green)
-3. Take 20-30 images from different positions:
-   - Center of view
-   - Four corners
-   - Various distances
-   - Various angles (tilted, rotated)
-4. Click "Calibrate" when done
-5. Repeat for second camera
-6. Click "Next"
-
-**Success indicators:**
-- Green checkmark appears
-- Reprojection error < 1.0 pixels (excellent), < 2.0 (acceptable)
-
-**If fails:** See TROUBLESHOOTING.md → Calibration Issues
-
-### 3.4 Stereo Calibration
-
-**Purpose:** Establish 3D coordinate system
-
-**Steps:**
-1. Enter exact distance between cameras (in feet)
-   - Measure from lens center to lens center
-   - Be precise! This is critical for accuracy
-2. Verify cameras see overlapping area
-3. Click "Calibrate"
-4. Verify 3D coordinates look reasonable
-
-**Success indicators:**
-- Green checkmark appears
-- Test measurement shows reasonable depth (Z coordinate)
-
-### 3.5 Strike Zone Configuration
-
-**Steps:**
-1. Enter batter height (inches)
+1. Run Setup Doctor runtime dry-run
+2. Resolve any CRITICAL findings before coaching
+3. Confirm WARN findings are acceptable for this session
+4. Enter batter height (inches)
    - Default: 66" (5'6")
    - Adjust for actual batter
-2. Strike zone automatically calculated per MLB rules
-3. Click "Finish"
+5. Strike zone automatically calculated per MLB rules
+6. Click "Finish"
 
-**Setup Complete!** PitchTracker is now ready to use.
+**Setup Complete!** PitchTracker is ready to use when Setup Doctor reports PASS or operator-confirmed WARN.
 
 ---
 

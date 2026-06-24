@@ -10,6 +10,7 @@ Manages detection pipeline:
 from __future__ import annotations
 
 from collections import deque
+from pathlib import Path
 import threading
 from typing import Dict, List, Optional, Tuple
 
@@ -84,6 +85,7 @@ class DetectionServiceImpl(DetectionService):
         # Lane ROIs (optional)
         self._lane_rois: Optional[Dict[str, List[Tuple[float, float]]]] = None
         self._plate_rois: Optional[Dict[str, List[Tuple[float, float]]]] = None
+        self._calibration_path: Optional[Path] = None
         self._latest_observations: deque[StereoObservation] = deque(maxlen=64)
 
         # Stats tracking
@@ -183,7 +185,10 @@ class DetectionServiceImpl(DetectionService):
                 raise RuntimeError("Threading not configured. Call configure_threading() first.")
 
             # Build stereo matcher
-            stereo_matcher = self._initializer.create_stereo_matcher(self._config)
+            stereo_matcher = self._initializer.create_stereo_matcher(
+                self._config,
+                self._calibration_path or Path("calibration/stereo_calibration.npz"),
+            )
 
             # Build processor
             lane_gate, plate_gate, stereo_gate, plate_stereo_gate = self._build_gates()
@@ -381,6 +386,12 @@ class DetectionServiceImpl(DetectionService):
                     plate_stereo_gate=plate_stereo_gate,
                 )
             logger.info(f"Lane ROIs set for cameras: {list(lane_rois.keys())}")
+
+    def set_runtime_calibration_path(self, calibration_path: Optional[Path]) -> None:
+        """Set the calibration file used when detection starts."""
+        with self._lock:
+            self._calibration_path = Path(calibration_path) if calibration_path is not None else None
+            logger.info(f"Runtime calibration path set to {self._calibration_path}")
 
     def is_running(self) -> bool:
         """Check if detection is currently running.

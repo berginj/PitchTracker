@@ -18,7 +18,7 @@ This document lists all keyboard shortcuts available in the PitchTracker applica
 | Shortcut | Action | Description |
 |----------|--------|-------------|
 | **Ctrl+G** | Calibration Guide | Open the calibration guide documentation |
-| **Ctrl+W** | Calibration Wizard | Launch the full calibration wizard |
+| **Ctrl+W** | Setup Doctor | Launch rig readiness checks |
 | **Ctrl+Q** | Quick Calibrate | Open quick calibration dialog |
 | **Ctrl+Shift+P** | Plate Plane Calibrate | Calibrate the plate plane position |
 

@@ -58,7 +58,11 @@ class PipelineService(ABC):
 
     @abstractmethod
     def run_calibration(self, profile_id: str) -> CalibrationProfile:
-        """Run calibration and return a profile summary."""
+        """Run calibration and return a profile summary.
+
+        Runtime implementations may reject this call when calibration is owned
+        by setup/tooling services rather than the active capture pipeline.
+        """
 
     @abstractmethod
     def get_stats(self) -> Dict[str, Dict[str, float]]:

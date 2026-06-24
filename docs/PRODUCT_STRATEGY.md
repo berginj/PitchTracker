@@ -30,13 +30,13 @@ This is not a prototype. This is a functional product with depth.
 The product's commercial readiness lags its engineering readiness:
 - **Setup friction is high**: ChArUco board printing, dual camera positioning, ROI calibration, strike zone configuration. This is a 30-60 minute setup process requiring technical literacy.
 - **Trust is unproven**: No published accuracy validation, no comparison to trusted references (Rapsodo, TrackMan), no defined operating envelope.
-- **Release discipline is inconsistent**: Version strings, test reporting, and "production ready" claims don't present a unified truth externally.
+- **Release discipline needs enforcement**: Version strings are now aligned around v1.5.0-pilot, but test reporting, installer publication, and "ready" claims still need a single verified release record.
 - **Market positioning is unclear**: The product appears aimed at everyone but is realistically suitable for facilities and academies today, not casual users.
 - **Feature breadth outpaces adoption proof**: Multiple dashboards, game modes, and analytics exist before pilot evidence shows which ones actually matter.
 
 **What is likely true:**
 
-PitchTracker is **production-ready for controlled environments** with technical operators. It is **not yet ready for casual consumer adoption** without substantial setup simplification. The product is strongest as a facility/academy tool where:
+PitchTracker is **pilot-ready for controlled environments** with technical operators. It is **not yet ready for casual consumer adoption** without substantial setup simplification and published validation. The product is strongest as a facility/academy tool where:
 - Technical setup is one-time
 - Cameras remain fixed
 - Operators can be trained
@@ -143,7 +143,7 @@ The following areas represent strategic assets that should continue advancing:
 | # | Action | Objective | Owner | Outcome | Priority | Risk |
 |---|--------|-----------|-------|---------|----------|------|
 | 1 | **Create Known-Good Hardware Profile** | Define validated camera models, mounting specs, lighting requirements | Engineering + Founder | Published hardware spec doc, tested config | **P0** | Low—mostly documentation |
-| 2 | **Establish Canonical Release Build** | Lock v1.2.1 as pilot baseline, freeze feature additions to pilot branch | Engineering | Tagged release, installer with consistent version strings | **P0** | Low—version discipline |
+| 2 | **Establish Canonical Release Build** | Lock v1.5.0-pilot as pilot baseline, freeze feature additions to pilot branch | Engineering | Tagged release, installer with consistent version strings | **P0** | Low—version discipline |
 | 3 | **Clean Up Version Signals** | Align README, installer name, status docs, test reports to single version truth | Product/Founder | Externally consistent messaging | **P0** | Low—documentation only |
 | 4 | **Draft Accuracy Validation Plan** | Design test protocol: compare PitchTracker to trusted reference (radar gun, known trajectory) | Engineering + Founder | Test protocol document | **P0** | Medium—requires equipment access |
 | 5 | **Identify 2-3 Pilot Partners** | Recruit facilities/academies willing to run structured 4-week pilots | Founder | Signed pilot agreements with success criteria | **P0** | High—requires outreach and partner buy-in |
@@ -638,7 +638,7 @@ Before adding a capability to the roadmap:
 
 ## Top 5 Actions to Do First
 
-1. **Lock v1.2.1 as canonical pilot build**
+1. **Lock v1.5.0-pilot as canonical pilot build**
    Freeze feature additions. Align version strings across README, installer, status docs. Make this the source of truth.
 
 2. **Design and execute velocity validation test**

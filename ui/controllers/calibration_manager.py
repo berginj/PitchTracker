@@ -15,9 +15,9 @@ from calib.plate_plane import estimate_and_write
 from configs.settings import load_config, AppConfig
 from ui.dialogs import (
     CalibrationGuide,
-    CalibrationWizardDialog,
     PlatePlaneDialog,
     QuickCalibrateDialog,
+    SetupDoctorDialog,
 )
 from log_config.logger import get_logger
 from ui.themes import show_message_dialog
@@ -26,6 +26,9 @@ if TYPE_CHECKING:
     from PySide6.QtWidgets import QLabel
 
 logger = get_logger(__name__)
+
+# Compatibility name for older tests/callers. The route now opens Setup Doctor.
+CalibrationWizardDialog = SetupDoctorDialog
 
 
 class CalibrationManager:
@@ -64,7 +67,7 @@ class CalibrationManager:
         self._get_config = get_config
         self._set_config = set_config
 
-        # Track open wizard dialog (only one at a time)
+        # Track open Setup Doctor dialog (only one at a time).
         self._calibration_wizard: Optional[CalibrationWizardDialog] = None
 
         logger.debug(f"CalibrationManager initialized with config path: {config_path}")
@@ -80,28 +83,46 @@ class CalibrationManager:
         logger.debug("Calibration guide closed")
 
     def run_calibration_wizard(self) -> None:
-        """Open or focus the calibration wizard dialog.
+        """Open or focus the Setup Doctor dialog.
 
-        The wizard provides guided calibration with camera detection
-        and step-by-step instructions.
+        The compatibility method name is kept for older callers.
         """
-        # If wizard already open, bring it to front
+        # If Setup Doctor is already open, bring it to front.
         if self._calibration_wizard is not None:
-            logger.debug("Calibration wizard already open, raising window")
+            logger.debug("Setup Doctor already open, raising window")
             self._calibration_wizard.raise_()
             self._calibration_wizard.activateWindow()
             return
 
-        logger.info("Opening calibration wizard")
-        wizard = CalibrationWizardDialog(self._parent)
+        logger.info("Opening Setup Doctor")
+        backend = "uvc"
+        left_serial = None
+        right_serial = None
+        try:
+            service = getattr(self._parent, "_service", None)
+            backend = getattr(service, "_backend", backend)
+            device_manager = getattr(self._parent, "_device_manager", None)
+            if device_manager is not None:
+                left_serial = device_manager.get_left_serial()
+                right_serial = device_manager.get_right_serial()
+        except Exception:
+            pass
+        wizard = CalibrationWizardDialog(
+            self._parent,
+            config=self._get_config(),
+            config_path=self._config_path,
+            backend=backend,
+            left_serial=left_serial,
+            right_serial=right_serial,
+        )
         wizard.setModal(False)
         wizard.finished.connect(self._on_wizard_closed)
         self._calibration_wizard = wizard
         wizard.show()
 
     def _on_wizard_closed(self) -> None:
-        """Handle calibration wizard being closed."""
-        logger.debug("Calibration wizard closed")
+        """Handle Setup Doctor being closed."""
+        logger.debug("Setup Doctor closed")
         self._calibration_wizard = None
 
     def open_quick_calibrate(self) -> None:
@@ -192,5 +213,5 @@ class CalibrationManager:
 
     @property
     def wizard_is_open(self) -> bool:
-        """Check if calibration wizard is currently open."""
+        """Check if Setup Doctor is currently open."""
         return self._calibration_wizard is not None
