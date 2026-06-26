@@ -19,7 +19,15 @@ from .tooling import (
     TrainingReportRequest,
     TrainingReportResult,
 )
-from .setup import SyncCheckResult
+from .setup import (
+    CalibrationQualityReport,
+    CoarseRectificationResult,
+    ExposureLockResult,
+    FocusLockResult,
+    StereoCalibrationProfile,
+    StereoOverlapResult,
+    SyncCheckResult,
+)
 
 __all__ = [
     "Detection",
@@ -38,4 +46,10 @@ __all__ = [
     "TrainingReportRequest",
     "TrainingReportResult",
     "SyncCheckResult",
+    "FocusLockResult",
+    "ExposureLockResult",
+    "StereoOverlapResult",
+    "CoarseRectificationResult",
+    "StereoCalibrationProfile",
+    "CalibrationQualityReport",
 ]
