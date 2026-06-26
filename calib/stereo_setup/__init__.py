@@ -15,6 +15,13 @@ straight into manifests and the calibration quality report.
 
 from __future__ import annotations
 
+from calib.stereo_setup.focus_lock import (
+    DEFAULT_SHARPNESS_THRESHOLD,
+    ExposureLockInput,
+    ExposureValues,
+    evaluate_exposure_lock,
+    evaluate_focus_lock,
+)
 from calib.stereo_setup.overlap import OverlapConfig, validate_overlap
 from calib.stereo_setup.rectify import (
     RectifyConfig,
@@ -28,4 +35,9 @@ __all__ = [
     "RectifyConfig",
     "coarse_rectify",
     "rectify_from_correspondences",
+    "DEFAULT_SHARPNESS_THRESHOLD",
+    "ExposureLockInput",
+    "ExposureValues",
+    "evaluate_exposure_lock",
+    "evaluate_focus_lock",
 ]
