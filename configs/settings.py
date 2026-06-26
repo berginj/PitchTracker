@@ -52,6 +52,7 @@ class StereoConfig:
     max_jump_in: float
     use_frame_index_pairing: bool = False  # Use frame indices instead of timestamps for pairing
     frame_index_tolerance: int = 1  # Allow frame indices to differ by this amount
+    time_sync_offset_ns: int = 0  # Systematic left/right time-sync bias applied before pairing (refined online)
 
 
 @dataclass(frozen=True)
@@ -243,6 +244,7 @@ def load_config(path: Path) -> AppConfig:
             max_jump_in=stereo_data["max_jump_in"],
             use_frame_index_pairing=stereo_data.get("use_frame_index_pairing", False),
             frame_index_tolerance=stereo_data.get("frame_index_tolerance", 1),
+            time_sync_offset_ns=int(stereo_data.get("time_sync_offset_ns", 0)),
         )
         tracking = TrackingConfig(**data["tracking"])
         metrics = MetricsConfig(
