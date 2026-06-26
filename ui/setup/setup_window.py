@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from log_config.logger import get_logger
+from ui.setup.state_machine import SetupStateMachine
 from ui.setup.steps import (
     BaseStep,
     CameraStep,
@@ -15,6 +16,11 @@ from ui.setup.steps import (
     ExportStep,
     RoiStep,
     ValidationStep,
+)
+from ui.setup.wizard_spec import (
+    WIZARD_STEP_ORDER,
+    WizardStep,
+    build_wizard_spec,
 )
 from ui.themes import (
     GlassButton,
@@ -50,37 +56,33 @@ class SetupWindow(QtWidgets.QMainWindow):
         self._style_manager.set_mode("setup")
 
         self._backend = backend
-        self._current_step_index = 0
         self._steps: List[BaseStep] = []
+        self._widget_by_step: Dict[WizardStep, BaseStep] = {}
 
-        # Initialize steps
+        # Build the ordered step widgets, then drive navigation through the
+        # tested, Qt-free SetupStateMachine engine instead of an ad-hoc index.
         self._init_steps()
+        optional = tuple(step for step in WIZARD_STEP_ORDER if self._widget_by_step[step].is_optional())
+        self._machine = SetupStateMachine(build_wizard_spec(optional=optional))
 
         # Build UI
         self._build_ui()
 
         # Show first step
-        self._show_step(0)
+        self._show_current()
 
     def _init_steps(self) -> None:
-        """Initialize all wizard steps."""
-        # Step 1: Camera Setup
-        self._steps.append(CameraStep(self._backend))
-
-        # Step 2: Stereo Calibration
-        self._steps.append(CalibrationStep(self._backend))
-
-        # Step 3: ROI Configuration
-        self._steps.append(RoiStep(self._backend))
-
-        # Step 4: Detector Tuning
-        self._steps.append(DetectorStep())
-
-        # Step 5: System Validation
-        self._steps.append(ValidationStep())
-
-        # Step 6: Export Package
-        self._steps.append(ExportStep())
+        """Initialize all wizard steps in canonical order."""
+        widgets: Dict[WizardStep, BaseStep] = {
+            WizardStep.CAMERAS: CameraStep(self._backend),
+            WizardStep.CALIBRATION: CalibrationStep(self._backend),
+            WizardStep.ROI: RoiStep(self._backend),
+            WizardStep.DETECTOR: DetectorStep(),
+            WizardStep.VALIDATION: ValidationStep(),
+            WizardStep.EXPORT: ExportStep(),
+        }
+        self._widget_by_step = widgets
+        self._steps = [widgets[step] for step in WIZARD_STEP_ORDER]
 
     def _build_ui(self) -> None:
         """Build wizard UI with step indicator, content area, and navigation."""
@@ -138,14 +140,7 @@ class SetupWindow(QtWidgets.QMainWindow):
 
     def _build_step_indicator(self) -> QtWidgets.QWidget:
         """Build step indicator bar showing progress."""
-        step_names = [
-            "1. Cameras",
-            "2. Calibration",
-            "3. ROI",
-            "4. Detector",
-            "5. Validate",
-            "6. Export",
-        ]
+        step_names = [self._machine.title_for(step) for step in self._machine.steps]
 
         indicator_layout = QtWidgets.QHBoxLayout()
         indicator_layout.setContentsMargins(0, 0, 0, 0)
@@ -213,105 +208,111 @@ class SetupWindow(QtWidgets.QMainWindow):
 
         return nav_layout
 
+    def _current_step(self) -> WizardStep:
+        """The machine's current wizard step."""
+        return self._machine.current
+
+    def _current_widget(self) -> BaseStep:
+        """The widget for the machine's current step."""
+        return self._widget_by_step[self._machine.current]
+
     def _update_step_indicator(self) -> None:
         """Update step indicator to show current step."""
+        current = self._machine.current
         for i, label in enumerate(self._step_labels):
-            is_current = i == self._current_step_index
-            is_complete = i < len(self._steps) and self._steps[i].is_complete()
+            step = self._machine.steps[i]
+            is_current = step == current
+            is_complete = self._widget_by_step[step].is_complete()
             self._apply_step_style(label, i, is_current, is_complete)
 
     def _update_navigation_buttons(self) -> None:
         """Update button states based on current step."""
         # Back button
-        self._back_button.setEnabled(self._current_step_index > 0)
+        self._back_button.setEnabled(self._machine.can_go_back())
 
-        # Skip button
-        current_step = self._steps[self._current_step_index]
-        self._skip_button.setVisible(current_step.is_optional())
+        # Skip button (only for optional steps that may be skipped)
+        self._skip_button.setVisible(self._machine.can_skip())
 
         # Next/Finish buttons
-        is_last_step = self._current_step_index >= len(self._steps) - 1
+        is_last_step = self._machine.current_index >= len(self._machine.steps) - 1
         self._next_button.setVisible(not is_last_step)
         self._finish_button.setVisible(is_last_step)
 
-    def _show_step(self, index: int) -> None:
-        """Show step at given index."""
-        if index < 0 or index >= len(self._steps):
-            return
-
-        # Exit current step
-        if 0 <= self._current_step_index < len(self._steps):
-            self._steps[self._current_step_index].on_exit()
-
-        # Update index
-        self._current_step_index = index
+    def _show_current(self) -> None:
+        """Render the machine's current step."""
+        index = self._machine.current_index
+        current_step = self._machine.current
+        current_widget = self._widget_by_step[current_step]
 
         # Show new step
         self._content_stack.setCurrentIndex(index)
-        current_step = self._steps[index]
 
-        # Special handling for certain steps
-        if index == 1 and isinstance(current_step, CalibrationStep):
-            # Pass camera serials and backend from Step 1 to Step 2
-            camera_step = self._steps[0]
-            if isinstance(camera_step, CameraStep):
-                left_serial = camera_step.get_left_serial()
-                right_serial = camera_step.get_right_serial()
-                backend = camera_step.get_backend()
-                logger.debug(
-                    "Transitioning to calibration step with left_serial={!r}, right_serial={!r}, backend={!r}",
-                    left_serial,
-                    right_serial,
-                    backend,
-                )
-                if left_serial and right_serial:
-                    current_step.set_camera_serials(left_serial, right_serial)
-                    current_step._backend = backend  # Update backend
-                    logger.debug("Camera serials passed to calibration step")
-                else:
-                    logger.warning(
-                        "Cannot enter calibration step without both camera serials. left_serial={!r}, right_serial={!r}",
-                        left_serial,
-                        right_serial,
-                    )
-                    show_message_dialog(
-                        self,
-                        "Cameras Not Selected",
-                        "Please select both left and right cameras in Step 1 before proceeding to calibration.\n\n"
-                        f"Left camera: {'✓ Selected' if left_serial else '✗ Not selected'}\n"
-                        f"Right camera: {'✓ Selected' if right_serial else '✗ Not selected'}",
-                    )
+        # Pass camera context forward to steps that need it.
+        self._propagate_camera_context(current_step, current_widget)
 
-        elif index == 2 and isinstance(current_step, RoiStep):
-            # Pass left camera serial and backend from Step 1 to Step 3
-            camera_step = self._steps[0]
-            if isinstance(camera_step, CameraStep):
-                left_serial = camera_step.get_left_serial()
-                backend = camera_step.get_backend()
-                if left_serial:
-                    current_step.set_camera_serial(left_serial)
-                    current_step._backend = backend  # Update backend
-
-        current_step.on_enter()
+        current_widget.on_enter()
 
         # Update UI
         self._update_step_indicator()
         self._update_navigation_buttons()
 
         # Update window title with step info
-        self.setWindowTitle(f"PitchTracker Setup - {current_step.get_title()}")
+        self.setWindowTitle(f"PitchTracker Setup - {current_widget.get_title()}")
+
+    def _propagate_camera_context(self, step: WizardStep, widget: BaseStep) -> None:
+        """Hand camera serials/backend from the camera step to dependents."""
+        camera_widget = self._widget_by_step[WizardStep.CAMERAS]
+        if not isinstance(camera_widget, CameraStep):
+            return
+
+        if step == WizardStep.CALIBRATION and isinstance(widget, CalibrationStep):
+            left_serial = camera_widget.get_left_serial()
+            right_serial = camera_widget.get_right_serial()
+            backend = camera_widget.get_backend()
+            logger.debug(
+                "Transitioning to calibration step with left_serial={!r}, right_serial={!r}, backend={!r}",
+                left_serial,
+                right_serial,
+                backend,
+            )
+            if left_serial and right_serial:
+                widget.set_camera_serials(left_serial, right_serial)
+                widget._backend = backend
+                logger.debug("Camera serials passed to calibration step")
+            else:
+                logger.warning(
+                    "Cannot enter calibration step without both camera serials. " "left_serial={!r}, right_serial={!r}",
+                    left_serial,
+                    right_serial,
+                )
+                show_message_dialog(
+                    self,
+                    "Cameras Not Selected",
+                    "Please select both left and right cameras in Step 1 before proceeding to calibration.\n\n"
+                    f"Left camera: {'Selected' if left_serial else 'Not selected'}\n"
+                    f"Right camera: {'Selected' if right_serial else 'Not selected'}",
+                )
+        elif step == WizardStep.ROI and isinstance(widget, RoiStep):
+            left_serial = camera_widget.get_left_serial()
+            backend = camera_widget.get_backend()
+            if left_serial:
+                widget.set_camera_serial(left_serial)
+                widget._backend = backend
 
     def _go_back(self) -> None:
         """Go to previous step."""
-        if self._current_step_index > 0:
-            self._show_step(self._current_step_index - 1)
+        if not self._machine.can_go_back():
+            return
+        self._current_widget().on_exit()
+        self._machine.go_back()
+        self._show_current()
 
     def _go_next(self) -> None:
         """Go to next step (with validation)."""
-        current_step = self._steps[self._current_step_index]
+        current_widget = self._current_widget()
 
         # Validate current step
-        is_valid, error_msg = current_step.validate()
+        is_valid, error_msg = current_widget.validate()
         if not is_valid:
             show_message_dialog(
                 self,
@@ -321,37 +322,38 @@ class SetupWindow(QtWidgets.QMainWindow):
             )
             return
 
-        # Mark as complete
-        current_step.set_complete(True)
+        # Mark as complete in both the widget and the state machine.
+        current_widget.set_complete(True)
+        self._machine.mark_complete(self._machine.current, True)
 
-        # Go to next step
-        if self._current_step_index < len(self._steps) - 1:
-            self._show_step(self._current_step_index + 1)
+        if not self._machine.can_advance():
+            return
+        current_widget.on_exit()
+        self._machine.advance()
+        self._show_current()
 
     def _skip_step(self) -> None:
         """Skip current step (if optional)."""
-        current_step = self._steps[self._current_step_index]
-
-        if not current_step.is_optional():
+        if not self._machine.can_skip():
             return
 
-        # Confirm skip
+        current_widget = self._current_widget()
         if ask_confirmation(
             self,
             "Skip Step",
-            f"Are you sure you want to skip '{current_step.get_title()}'?\n\n"
+            f"Are you sure you want to skip '{current_widget.get_title()}'?\n\n"
             "You can return to this step later if needed.",
         ):
-            # Go to next step without marking as complete
-            if self._current_step_index < len(self._steps) - 1:
-                self._show_step(self._current_step_index + 1)
+            current_widget.on_exit()
+            self._machine.skip()
+            self._show_current()
 
     def _finish_wizard(self) -> None:
         """Complete wizard and close window."""
-        current_step = self._steps[self._current_step_index]
+        current_widget = self._current_widget()
 
         # Validate final step
-        is_valid, error_msg = current_step.validate()
+        is_valid, error_msg = current_widget.validate()
         if not is_valid:
             show_message_dialog(
                 self,
@@ -362,7 +364,18 @@ class SetupWindow(QtWidgets.QMainWindow):
             return
 
         # Mark as complete
-        current_step.set_complete(True)
+        current_widget.set_complete(True)
+        self._machine.mark_complete(self._machine.current, True)
+
+        if not self._machine.can_finish():
+            missing = ", ".join(self._machine.title_for(s) for s in self._machine.missing_required())
+            show_message_dialog(
+                self,
+                "Setup Incomplete",
+                f"Complete the remaining required steps before finishing:\n\n{missing}",
+                tone="warning",
+            )
+            return
 
         # Show completion message
         show_message_dialog(
