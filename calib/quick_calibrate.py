@@ -27,6 +27,35 @@ class CornerDetection:
 
 MIN_CHARUCO_STEREO_CORNERS = 8
 
+# Stereo geometry sanity bounds. A baseline near zero means the two cameras are
+# effectively coincident (degenerate triangulation); an enormous or non-finite
+# RMS means the solve did not converge.
+MIN_BASELINE_FT = 0.02
+MAX_STEREO_RMS_PX = 50.0
+
+
+def _validate_stereo_geometry(rms_error: float, baseline_ft: float, fmat: np.ndarray) -> None:
+    """Reject degenerate stereo solutions before they reach config/disk.
+
+    Raises:
+        CalibrationExecutionError: if the geometry is non-finite, the baseline
+            is implausibly small, or the RMS reprojection error is absurd.
+    """
+    from exceptions import CalibrationExecutionError
+
+    if not np.isfinite(rms_error) or rms_error > MAX_STEREO_RMS_PX:
+        raise CalibrationExecutionError(
+            f"Stereo calibration RMS error is implausible ({rms_error}); the "
+            "solve did not converge. Recapture with better board coverage."
+        )
+    if not np.isfinite(baseline_ft) or abs(baseline_ft) < MIN_BASELINE_FT:
+        raise CalibrationExecutionError(
+            f"Estimated baseline {baseline_ft:.4f} ft is too small; the cameras "
+            "appear coincident or the geometry is degenerate."
+        )
+    if fmat is None or not np.all(np.isfinite(np.asarray(fmat, dtype=np.float64))):
+        raise CalibrationExecutionError("Fundamental matrix is non-finite; stereo geometry is degenerate.")
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Quick stereo calibration to update config.")
@@ -652,6 +681,8 @@ def quick_calibrate(
     # Quality rating with adjusted thresholds for quick mode
     quality = _rate_quick_calibration_quality(rms_error, num_pairs)
 
+    _validate_stereo_geometry(rms_error, baseline_ft, F)
+
     # Print quality assessment
     print(f"\n{quality['emoji']} Quick Calibration Quality: {quality['rating']}")
     print(f"   {quality['description']}")
@@ -847,6 +878,8 @@ def _calibrate(
     num_images = len(objpoints_scaled)
     quality = _rate_calibration_quality(rms_error, num_images)
 
+    _validate_stereo_geometry(rms_error, baseline_ft, F)
+
     # Print quality assessment
     print(f"\n{quality['emoji']} Calibration Quality: {quality['rating']}")
     print(f"   {quality['description']}")
@@ -925,8 +958,7 @@ def _save_calibration_file(updates: dict) -> None:
     # Extract quality info for saving
     quality = updates.get("quality", {})
 
-    np.savez(
-        calib_path,
+    save_kwargs = dict(
         # Camera matrices
         mtx_left=updates["mtx_left"],
         mtx_right=updates["mtx_right"],
@@ -949,6 +981,14 @@ def _save_calibration_file(updates: dict) -> None:
         calibration_mode=updates.get("calibration_mode", "FULL"),
         production_ready=updates.get("calibration_mode", "FULL") != "QUICK",
     )
+    # Persist the epipolar geometry so the runtime loader uses the calibrated
+    # fundamental/essential matrices directly instead of recomputing F from R,T.
+    if updates.get("F") is not None:
+        save_kwargs["F"] = np.asarray(updates["F"], dtype=np.float64)
+    if updates.get("E") is not None:
+        save_kwargs["E"] = np.asarray(updates["E"], dtype=np.float64)
+
+    np.savez(calib_path, **save_kwargs)
     report = {
         "calibration_mode": updates.get("calibration_mode", "FULL"),
         "rms_error_px": updates.get("rms_error_px", 0.0),
@@ -982,7 +1022,9 @@ def load_calibration_quality(calib_path: Optional[Path] = None) -> Optional[dict
 
             service = RigProfileService()
             profile = service.load_active()
-            calib_path = service.calibration_path(profile) if profile is not None else Path("calibration/stereo_calibration.npz")
+            calib_path = (
+                service.calibration_path(profile) if profile is not None else Path("calibration/stereo_calibration.npz")
+            )
         except Exception:
             calib_path = Path("calibration/stereo_calibration.npz")
 

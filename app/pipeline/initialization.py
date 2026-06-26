@@ -16,8 +16,11 @@ from detect.config import DetectorConfig as CvDetectorConfig
 from detect.config import FilterConfig, Mode
 from detect.lane import LaneGate, LaneRoi
 from detect.ml_detector import MlDetector
+from log_config.logger import get_logger
 from stereo import CalibratedStereoGeometry, CalibratedStereoMatcher, StereoLaneGate, StereoMatcher
 from stereo.simple_stereo import SimpleStereoMatcher, StereoGeometry
+
+logger = get_logger(__name__)
 
 
 class PipelineInitializer:
@@ -135,16 +138,26 @@ class PipelineInitializer:
     def create_stereo_matcher(
         config: AppConfig,
         calibration_path: Path = Path("calibration/stereo_calibration.npz"),
+        allow_non_production_calibration: bool = False,
     ) -> StereoMatcher:
         """Create stereo matcher from config.
 
+        A saved calibration is only used for live tracking when it is marked
+        ``production_ready`` (full calibration), unless
+        ``allow_non_production_calibration`` is set. Quick-mode calibrations are
+        for setup feedback only and must not silently drive triangulation.
+
         Args:
             config: Application configuration with stereo settings
+            calibration_path: Path to the stereo calibration NPZ
+            allow_non_production_calibration: Permit non-production NPZ files
 
         Returns:
-            Initialized SimpleStereoMatcher
+            Initialized stereo matcher (calibrated when a valid NPZ exists)
         """
-        if calibration_path.exists():
+        if calibration_path.exists() and PipelineInitializer._calibration_is_usable(
+            calibration_path, allow_non_production_calibration
+        ):
             calibrated_geometry = CalibratedStereoGeometry.from_npz(
                 calibration_path,
                 epipolar_epsilon_px=float(config.stereo.epipolar_epsilon_px),
@@ -172,6 +185,34 @@ class PipelineInitializer:
             time_sync_offset_ns=int(config.stereo.time_sync_offset_ns),
         )
         return SimpleStereoMatcher(geometry)
+
+    @staticmethod
+    def _calibration_is_usable(calibration_path: Path, allow_non_production: bool) -> bool:
+        """Return True when the saved calibration may drive live triangulation.
+
+        Legacy NPZ files without a ``production_ready`` flag are treated as
+        usable for backward compatibility. Files explicitly marked
+        non-production (quick-mode) are rejected unless ``allow_non_production``
+        is set.
+        """
+        if allow_non_production:
+            return True
+        try:
+            data = np.load(calibration_path, allow_pickle=True)
+        except Exception as exc:
+            logger.warning("Could not read calibration {}: {}", calibration_path, exc)
+            return False
+        if "production_ready" not in data:
+            return True
+        production_ready = bool(data["production_ready"])
+        if not production_ready:
+            logger.warning(
+                "Ignoring non-production (quick-mode) calibration {} for live "
+                "tracking; run a full calibration or pass "
+                "allow_non_production_calibration=True.",
+                calibration_path,
+            )
+        return production_ready
 
     def initialize_detector_config(self, config: AppConfig) -> None:
         """Initialize detector configuration from app config.
