@@ -231,7 +231,7 @@ class SetupStateMachine:
                 "prerequisites first."
             )
         self._index += 1
-        logger.debug("Setup advanced to %s", self.current.value)
+        logger.debug("Setup advanced to {}", self.current.value)
         return self.current
 
     def can_skip(self) -> bool:
@@ -249,7 +249,7 @@ class SetupStateMachine:
         if not self.can_skip():
             raise SetupTransitionError(f"Step {self.current.value} is not skippable.")
         self._index += 1
-        logger.debug("Setup skipped to %s", self.current.value)
+        logger.debug("Setup skipped to {}", self.current.value)
         return self.current
 
     def can_go_back(self) -> bool:

@@ -28,6 +28,13 @@ from .setup import (
     StereoOverlapResult,
     SyncCheckResult,
 )
+from .catalog import (
+    CameraCapabilities,
+    CameraCatalogEntry,
+    CameraMode,
+    KnownDevice,
+    KnownGoodSettings,
+)
 
 __all__ = [
     "Detection",
@@ -52,4 +59,9 @@ __all__ = [
     "CoarseRectificationResult",
     "StereoCalibrationProfile",
     "CalibrationQualityReport",
+    "CameraMode",
+    "CameraCapabilities",
+    "KnownGoodSettings",
+    "CameraCatalogEntry",
+    "KnownDevice",
 ]

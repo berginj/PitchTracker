@@ -188,7 +188,7 @@ class DeviceManager:
 
         if left_ok or right_ok:
             logger.info(
-                "Restored camera assignment left=%s right=%s",
+                "Restored camera assignment left={} right={}",
                 self._left_input.currentData(),
                 self._right_input.currentData(),
             )
@@ -203,4 +203,4 @@ class DeviceManager:
         if right_id:
             state[STATE_KEY_RIGHT] = str(right_id)
         save_state(state)
-        logger.info("Persisted camera assignment left=%s right=%s", left_id, right_id)
+        logger.info("Persisted camera assignment left={} right={}", left_id, right_id)
