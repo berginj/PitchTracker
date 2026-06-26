@@ -53,7 +53,28 @@ def _find_feature_matches(img1: np.ndarray, img2: np.ndarray, max_features: int)
     pts1 = np.float32([kp1[m.queryIdx].pt for m in good_matches])
     pts2 = np.float32([kp2[m.trainIdx].pt for m in good_matches])
 
+    # Geometrically verify with RANSAC so outlier matches do not pollute the
+    # downstream vertical/horizontal/rotation/scale alignment estimates.
+    pts1, pts2 = _ransac_filter(pts1, pts2)
+
     return pts1, pts2
+
+
+def _ransac_filter(pts1: np.ndarray, pts2: np.ndarray, min_inliers: int = 12) -> Tuple[np.ndarray, np.ndarray]:
+    """Keep only RANSAC fundamental-matrix inlier correspondences.
+
+    Falls back to the unfiltered points when there are too few correspondences
+    or too few inliers to trust the filter.
+    """
+    if pts1.shape[0] < min_inliers:
+        return pts1, pts2
+    fmat, mask = cv2.findFundamentalMat(pts1, pts2, cv2.FM_RANSAC, 3.0, 0.99)
+    if fmat is None or mask is None:
+        return pts1, pts2
+    inliers = mask.ravel().astype(bool)
+    if int(inliers.sum()) < min_inliers:
+        return pts1, pts2
+    return pts1[inliers], pts2[inliers]
 
 
 def _analyze_vertical(pts1: np.ndarray, pts2: np.ndarray) -> dict:
