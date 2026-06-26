@@ -90,17 +90,12 @@ def _collect_corners(
     detections: List[CornerDetection] = []
     img_size: Tuple[int, int] | None = None
 
-    # Create ChArUco board
-    aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+    # Create ChArUco board (shared factory ensures the marker ratio matches
+    # what generated boards and the detector expect).
+    from calib.charuco import get_dictionary, make_charuco_board
 
-    try:
-        # Try newer API first (OpenCV 4.7+)
-        board = cv2.aruco.CharucoBoard(
-            (pattern_size[0], pattern_size[1]), square_mm, square_mm * 0.75, aruco_dict  # Marker size is 75% of square
-        )
-    except (AttributeError, TypeError):
-        # Fall back to older API
-        board = cv2.aruco.CharucoBoard_create(pattern_size[0], pattern_size[1], square_mm, square_mm * 0.75, aruco_dict)
+    aruco_dict = get_dictionary()
+    board = make_charuco_board(pattern_size[0], pattern_size[1], square_mm, aruco_dict)
 
     # Get detector parameters
     try:

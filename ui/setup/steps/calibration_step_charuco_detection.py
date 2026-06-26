@@ -6,6 +6,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
+from calib.charuco import make_aruco_detector, make_charuco_board
 from log_config.logger import get_logger
 
 logger = get_logger(__name__)
@@ -22,33 +23,14 @@ class CalibrationStepCharucoDetectionMixin:
         dict_name = self._cached_dict_name or "DICT_6X6_250"
         dictionary_id = getattr(cv2.aruco, dict_name, cv2.aruco.DICT_6X6_250)
         aruco_dict = cv2.aruco.getPredefinedDictionary(dictionary_id)
-        try:
-            detector_params = cv2.aruco.DetectorParameters()
-            detector = cv2.aruco.ArucoDetector(aruco_dict, detector_params)
-            marker_corners, marker_ids, _ = detector.detectMarkers(gray)
-        except AttributeError:
-            detector_params = cv2.aruco.DetectorParameters_create()
-            marker_corners, marker_ids, _ = cv2.aruco.detectMarkers(gray, aruco_dict, parameters=detector_params)
+        detect = make_aruco_detector(aruco_dict, aggressive=False)
+        marker_corners, marker_ids, _ = detect(gray)
 
         blur_score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
         if marker_ids is None or len(marker_ids) == 0:
             return None, blur_score
 
-        try:
-            board = cv2.aruco.CharucoBoard(
-                (self._pattern_cols, self._pattern_rows),
-                self._square_mm,
-                self._square_mm * 0.75,
-                aruco_dict,
-            )
-        except (AttributeError, TypeError):
-            board = cv2.aruco.CharucoBoard_create(
-                self._pattern_cols,
-                self._pattern_rows,
-                self._square_mm,
-                self._square_mm * 0.75,
-                aruco_dict,
-            )
+        board = make_charuco_board(self._pattern_cols, self._pattern_rows, self._square_mm, aruco_dict)
         try:
             num_corners, _, charuco_ids = cv2.aruco.interpolateCornersCharuco(marker_corners, marker_ids, gray, board)
         except TypeError:
@@ -110,47 +92,8 @@ class CalibrationStepCharucoDetectionMixin:
 
             for dict_name, dict_id in DICTIONARIES_TO_TRY:
                 aruco_dict = cv2.aruco.getPredefinedDictionary(dict_id)
-
-                # Try newer API first (OpenCV 4.7+)
-                try:
-                    detector_params = cv2.aruco.DetectorParameters()
-                    # Make detection more permissive
-                    detector_params.adaptiveThreshWinSizeMin = 3
-                    detector_params.adaptiveThreshWinSizeMax = 23
-                    detector_params.adaptiveThreshWinSizeStep = 10
-                    detector_params.adaptiveThreshConstant = 7
-                    detector_params.minMarkerPerimeterRate = 0.01
-                    detector_params.maxMarkerPerimeterRate = 4.0
-                    detector_params.polygonalApproxAccuracyRate = 0.05
-                    detector_params.minCornerDistanceRate = 0.05
-                    detector_params.minDistanceToBorder = 1
-                    detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
-                    detector_params.cornerRefinementWinSize = 5
-                    detector_params.cornerRefinementMaxIterations = 30
-                    detector_params.cornerRefinementMinAccuracy = 0.1
-
-                    detector = cv2.aruco.ArucoDetector(aruco_dict, detector_params)
-                    marker_corners, marker_ids, rejected = detector.detectMarkers(gray)
-                except AttributeError:
-                    # Fall back to older API
-                    detector_params = cv2.aruco.DetectorParameters_create()
-                    detector_params.adaptiveThreshWinSizeMin = 3
-                    detector_params.adaptiveThreshWinSizeMax = 23
-                    detector_params.adaptiveThreshWinSizeStep = 10
-                    detector_params.adaptiveThreshConstant = 7
-                    detector_params.minMarkerPerimeterRate = 0.01
-                    detector_params.maxMarkerPerimeterRate = 4.0
-                    detector_params.polygonalApproxAccuracyRate = 0.05
-                    detector_params.minCornerDistanceRate = 0.05
-                    detector_params.minDistanceToBorder = 1
-                    detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
-                    detector_params.cornerRefinementWinSize = 5
-                    detector_params.cornerRefinementMaxIterations = 30
-                    detector_params.cornerRefinementMinAccuracy = 0.1
-
-                    marker_corners, marker_ids, rejected = cv2.aruco.detectMarkers(
-                        gray, aruco_dict, parameters=detector_params
-                    )
+                detect = make_aruco_detector(aruco_dict, aggressive=True)
+                marker_corners, marker_ids, rejected = detect(gray)
 
                 # Check if this dictionary found more markers
                 num_found = len(marker_ids) if marker_ids is not None else 0
@@ -193,46 +136,8 @@ class CalibrationStepCharucoDetectionMixin:
             dict_id = next(d[1] for d in DICTIONARIES_TO_TRY if d[0] == dict_name_to_use)
             self._cached_dict_name = dict_name_to_use
             aruco_dict = cv2.aruco.getPredefinedDictionary(dict_id)
-
-            # Try newer API first (OpenCV 4.7+)
-            try:
-                detector_params = cv2.aruco.DetectorParameters()
-                detector_params.adaptiveThreshWinSizeMin = 3
-                detector_params.adaptiveThreshWinSizeMax = 23
-                detector_params.adaptiveThreshWinSizeStep = 10
-                detector_params.adaptiveThreshConstant = 7
-                detector_params.minMarkerPerimeterRate = 0.03
-                detector_params.maxMarkerPerimeterRate = 4.0
-                detector_params.polygonalApproxAccuracyRate = 0.05
-                detector_params.minCornerDistanceRate = 0.05
-                detector_params.minDistanceToBorder = 3
-                detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
-                detector_params.cornerRefinementWinSize = 5
-                detector_params.cornerRefinementMaxIterations = 30
-                detector_params.cornerRefinementMinAccuracy = 0.1
-
-                detector = cv2.aruco.ArucoDetector(aruco_dict, detector_params)
-                marker_corners, marker_ids, rejected = detector.detectMarkers(gray)
-            except AttributeError:
-                # Fall back to older API
-                detector_params = cv2.aruco.DetectorParameters_create()
-                detector_params.adaptiveThreshWinSizeMin = 3
-                detector_params.adaptiveThreshWinSizeMax = 23
-                detector_params.adaptiveThreshWinSizeStep = 10
-                detector_params.adaptiveThreshConstant = 7
-                detector_params.minMarkerPerimeterRate = 0.03
-                detector_params.maxMarkerPerimeterRate = 4.0
-                detector_params.polygonalApproxAccuracyRate = 0.05
-                detector_params.minCornerDistanceRate = 0.05
-                detector_params.minDistanceToBorder = 3
-                detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
-                detector_params.cornerRefinementWinSize = 5
-                detector_params.cornerRefinementMaxIterations = 30
-                detector_params.cornerRefinementMinAccuracy = 0.1
-
-                marker_corners, marker_ids, rejected = cv2.aruco.detectMarkers(
-                    gray, aruco_dict, parameters=detector_params
-                )
+            detect = make_aruco_detector(aruco_dict, aggressive=False)
+            marker_corners, marker_ids, rejected = detect(gray)
 
         # Get dict name for display (either from cache or from scan)
         best_dict_name = self._cached_dict_name if self._cached_dict_name else "DICT_6X6_250"
@@ -397,19 +302,7 @@ class CalibrationStepCharucoDetectionMixin:
         cv2.aruco.drawDetectedMarkers(annotated, marker_corners, marker_ids)
 
         # Create ChArUco board
-        try:
-            # Try newer API first (OpenCV 4.7+)
-            board = cv2.aruco.CharucoBoard(
-                (self._pattern_cols, self._pattern_rows),
-                self._square_mm,
-                self._square_mm * 0.75,  # Marker size is 75% of square
-                aruco_dict,
-            )
-        except (AttributeError, TypeError):
-            # Fall back to older API
-            board = cv2.aruco.CharucoBoard_create(
-                self._pattern_cols, self._pattern_rows, self._square_mm, self._square_mm * 0.75, aruco_dict
-            )
+        board = make_charuco_board(self._pattern_cols, self._pattern_rows, self._square_mm, aruco_dict)
 
         # Interpolate ChArUco corners
         # Log only occasionally to avoid spam

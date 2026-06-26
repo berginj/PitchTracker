@@ -59,8 +59,12 @@ def generate_charuco_board(
 
     dictionary = cv2.aruco.getPredefinedDictionary(DICT_MAP[dict_name.lower()])
 
-    # Marker size is typically 73% of square size (prevents marker overlap)
-    marker_mm = square_mm * 0.73
+    # Marker size as a fraction of square size. Must match what the detection
+    # code expects (calib.charuco.MARKER_RATIO); a mismatch breaks corner
+    # interpolation during calibration.
+    from calib.charuco import MARKER_RATIO
+
+    marker_mm = square_mm * MARKER_RATIO
 
     # Create board (sizes in meters for OpenCV)
     board = cv2.aruco.CharucoBoard((cols, rows), square_mm / 1000, marker_mm / 1000, dictionary)  # Convert mm to meters
