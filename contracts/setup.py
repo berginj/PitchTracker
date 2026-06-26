@@ -315,8 +315,24 @@ class StereoCalibrationProfile:
             "schema_version": self.schema_version,
         }
 
+    @classmethod
+    def from_payload(cls, data: Dict[str, object]) -> "StereoCalibrationProfile":
+        """Reconstruct from a dict produced by to_payload (tolerant of gaps)."""
+        return cls(
+            baseline_in=float(data.get("baseline_in", 0.0) or 0.0),
+            rms_reprojection_px=float(data.get("rms_reprojection_px", 0.0) or 0.0),
+            epipolar_error_px=float(data.get("epipolar_error_px", 0.0) or 0.0),
+            image_width=int(data.get("image_width", 0) or 0),
+            image_height=int(data.get("image_height", 0) or 0),
+            source=str(data.get("source", "") or ""),
+            production_ready=bool(data.get("production_ready", False)),
+            calibration_file=str(data.get("calibration_file", "") or ""),
+            created_utc=str(data.get("created_utc", "") or ""),
+            app_version=str(data.get("app_version", "") or ""),
+            schema_version=str(data.get("schema_version", "") or ""),
+        )
 
-# Overall calibration quality grades.
+
 QUALITY_GRADE_EXCELLENT = "EXCELLENT"
 QUALITY_GRADE_GOOD = "GOOD"
 QUALITY_GRADE_MARGINAL = "MARGINAL"

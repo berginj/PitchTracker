@@ -121,6 +121,32 @@ def test_stereo_calibration_profile_payload():
     assert payload["production_ready"] is False
 
 
+def test_stereo_calibration_profile_payload_round_trips():
+    profile = StereoCalibrationProfile(
+        baseline_in=8.5,
+        rms_reprojection_px=0.41,
+        epipolar_error_px=0.27,
+        image_width=1280,
+        image_height=720,
+        source="charuco",
+        production_ready=True,
+        calibration_file="stereo_calibration.npz",
+        created_utc="2024-01-01T00:00:00Z",
+        app_version="1.5.0",
+        schema_version="1.0",
+    )
+    restored = StereoCalibrationProfile.from_payload(profile.to_payload())
+    assert restored == profile
+
+
+def test_stereo_calibration_profile_from_payload_tolerates_missing_keys():
+    restored = StereoCalibrationProfile.from_payload({"source": "quick"})
+    assert restored.source == "quick"
+    assert restored.production_ready is False
+    assert restored.baseline_in == 0.0
+    assert restored.image_width == 0
+
+
 def test_quality_report_nests_optional_results():
     report = CalibrationQualityReport(
         grade=QUALITY_GRADE_GOOD,

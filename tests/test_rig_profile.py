@@ -144,3 +144,40 @@ def test_legacy_fallback_uses_existing_legacy_paths(tmp_path: Path, monkeypatch:
     assert profile.profile_id == "legacy"
     assert service.calibration_path(profile) == Path("calibration/stereo_calibration.npz")
     assert service.roi_path(profile) == Path("rois/shared_rois.json")
+
+
+def test_rig_profile_nests_typed_stereo_profile_and_round_trips():
+    from contracts.setup import StereoCalibrationProfile
+
+    stereo = StereoCalibrationProfile(
+        baseline_in=8.0,
+        rms_reprojection_px=0.4,
+        epipolar_error_px=0.3,
+        image_width=1280,
+        image_height=720,
+        source="charuco",
+        production_ready=True,
+        calibration_file="stereo_calibration.npz",
+        created_utc="2024-01-01T00:00:00Z",
+        app_version="1.5.0",
+        schema_version="1.0",
+    )
+    profile = RigProfile(
+        schema_version="1.0",
+        profile_id="rig-1",
+        created_utc="2024-01-01T00:00:00Z",
+        updated_utc="2024-01-01T00:00:00Z",
+        backend="uvc",
+        stereo_profile=stereo,
+    )
+    assert profile.production_ready is True
+
+    restored = RigProfile.from_dict(json.loads(json.dumps(profile.to_dict())))
+    assert restored.stereo_profile == stereo
+    assert restored.production_ready is True
+
+
+def test_rig_profile_without_stereo_profile_is_not_production_ready():
+    profile = RigProfile.from_dict({"profile_id": "legacy"})
+    assert profile.stereo_profile is None
+    assert profile.production_ready is False

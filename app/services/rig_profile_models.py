@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
 from configs.settings import AppConfig
-
+from contracts.setup import StereoCalibrationProfile
 
 SCHEMA_VERSION = "1.0"
 PASS = "PASS"
@@ -37,10 +37,15 @@ class RigProfile:
     quality_metrics: dict[str, Any] = field(default_factory=dict)
     runtime_validation_status: Optional[str] = None
     diagnostics: dict[str, Any] = field(default_factory=dict)
+    stereo_profile: Optional[StereoCalibrationProfile] = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "RigProfile":
         now = utc_now_iso()
+        stereo_raw = data.get("stereo_profile")
+        stereo_profile = (
+            StereoCalibrationProfile.from_payload(dict(stereo_raw)) if isinstance(stereo_raw, Mapping) else None
+        )
         return cls(
             schema_version=str(data.get("schema_version", SCHEMA_VERSION)),
             profile_id=str(data["profile_id"]),
@@ -56,6 +61,7 @@ class RigProfile:
             quality_metrics=dict(data.get("quality_metrics") or {}),
             runtime_validation_status=data.get("runtime_validation_status"),
             diagnostics=dict(data.get("diagnostics") or {}),
+            stereo_profile=stereo_profile,
         )
 
     @classmethod
@@ -103,6 +109,11 @@ class RigProfile:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+    @property
+    def production_ready(self) -> bool:
+        """True only when a nested, production-validated stereo profile exists."""
+        return bool(self.stereo_profile and self.stereo_profile.production_ready)
 
 
 @dataclass(frozen=True)
