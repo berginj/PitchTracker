@@ -17,12 +17,19 @@ from ui.device_utils import (
     probe_opencv_indices,
     probe_uvc_devices,
 )
+from configs.app_state import load_state, save_state
 from log_config.logger import get_logger
 
 if TYPE_CHECKING:
     pass
 
 logger = get_logger(__name__)
+
+# app_state keys for stable left/right camera assignment by hardware id (serial
+# for UVC, index string for OpenCV). Persisting these lets the rig come back up
+# with the same physical camera on each side across restarts and re-enumeration.
+STATE_KEY_LEFT = "camera_left_id"
+STATE_KEY_RIGHT = "camera_right_id"
 
 
 class DeviceManager:
@@ -101,10 +108,8 @@ class DeviceManager:
                 status += f" ({arducam_count} ArduCam)"
             self._status_label.setText(status + ".")
 
-            # Auto-select first two cameras
-            if len(devices) >= 2:
-                self._left_input.setCurrentIndex(0)
-                self._right_input.setCurrentIndex(1)
+            # Restore prior left/right assignment by serial; fall back to order.
+            self._apply_saved_or_default_selection()
         else:
             self._status_label.setText("No UVC devices found.")
 
@@ -141,12 +146,61 @@ class DeviceManager:
                 status += f" ({arducam_count} ArduCam)"
             self._status_label.setText(status + ".")
 
-            # Auto-select first two cameras
-            if len(indices) >= 2:
-                self._left_input.setCurrentIndex(0)
-                self._right_input.setCurrentIndex(1)
+            # Restore prior left/right assignment by id; fall back to order.
+            self._apply_saved_or_default_selection()
         else:
             self._status_label.setText("No OpenCV camera indices available.")
 
         logger.info(f"OpenCV refresh: {len(indices)} indices, {arducam_count} ArduCam")
         return len(indices)
+
+    def _available_ids(self) -> list[str]:
+        """Ordered list of hardware ids currently in the left combobox."""
+        return [self._left_input.itemData(i) for i in range(self._left_input.count())]
+
+    def _select_id(self, combo: QtWidgets.QComboBox, device_id: Optional[str]) -> bool:
+        """Select ``device_id`` in ``combo`` if present. Returns True on success."""
+        if not device_id:
+            return False
+        index = combo.findData(device_id)
+        if index < 0:
+            return False
+        combo.setCurrentIndex(index)
+        return True
+
+    def _apply_saved_or_default_selection(self) -> None:
+        """Restore persisted left/right ids, else auto-select first two distinct."""
+        ids = self._available_ids()
+        if len(ids) < 1:
+            return
+
+        state = load_state()
+        left_ok = self._select_id(self._left_input, state.get(STATE_KEY_LEFT))
+        right_ok = self._select_id(self._right_input, state.get(STATE_KEY_RIGHT))
+
+        if not left_ok:
+            self._left_input.setCurrentIndex(0)
+        if not right_ok:
+            # Prefer a different physical device than the left side.
+            left_id = self._left_input.currentData()
+            fallback = next((i for i, d in enumerate(ids) if d != left_id), 0)
+            self._right_input.setCurrentIndex(fallback)
+
+        if left_ok or right_ok:
+            logger.info(
+                "Restored camera assignment left=%s right=%s",
+                self._left_input.currentData(),
+                self._right_input.currentData(),
+            )
+
+    def persist_selection(self) -> None:
+        """Persist the current left/right assignment by hardware id."""
+        state = load_state()
+        left_id = self._left_input.currentData()
+        right_id = self._right_input.currentData()
+        if left_id:
+            state[STATE_KEY_LEFT] = str(left_id)
+        if right_id:
+            state[STATE_KEY_RIGHT] = str(right_id)
+        save_state(state)
+        logger.info("Persisted camera assignment left=%s right=%s", left_id, right_id)

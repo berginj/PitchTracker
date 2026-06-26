@@ -19,7 +19,10 @@ from ui.themes import show_message_dialog
 
 class MainWindowActionsMixin:
     def _start_capture(self) -> None:
-        self._capture_controller.start_capture()
+        if self._capture_controller.start_capture():
+            # Persist the confirmed left/right assignment by hardware id so the
+            # rig reopens with the same physical camera on each side.
+            self._device_manager.persist_selection()
 
     def _stop_capture(self) -> None:
         self._capture_controller.stop_capture()

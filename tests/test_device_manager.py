@@ -13,6 +13,44 @@ import pytest
 from ui.controllers.device_manager import DeviceManager
 
 
+class FakeCombo:
+    """Minimal QComboBox stand-in supporting the data APIs DeviceManager uses."""
+
+    def __init__(self):
+        self._items: list[tuple[str, object]] = []
+        self._current = -1
+        self.addItem = Mock(side_effect=self._add_item)
+        self.setCurrentIndex = Mock(side_effect=self._set_current_index)
+        self.setText = Mock()
+
+    def _add_item(self, label, data=None):
+        self._items.append((label, data))
+
+    def clear(self):
+        self._items = []
+        self._current = -1
+
+    def count(self):
+        return len(self._items)
+
+    def itemData(self, index):
+        return self._items[index][1]
+
+    def findData(self, data):
+        for i, (_, value) in enumerate(self._items):
+            if value == data:
+                return i
+        return -1
+
+    def _set_current_index(self, index):
+        self._current = index
+
+    def currentData(self):
+        if 0 <= self._current < len(self._items):
+            return self._items[self._current][1]
+        return None
+
+
 class TestDeviceManagerInit:
     """Tests for DeviceManager initialization."""
 
@@ -72,13 +110,10 @@ class TestRefreshUvcDevices:
     @pytest.fixture
     def device_manager(self):
         """Create DeviceManager for UVC backend."""
-        left = Mock()
-        right = Mock()
-        status = Mock()
         return DeviceManager(
-            left_input=left,
-            right_input=right,
-            status_label=status,
+            left_input=FakeCombo(),
+            right_input=FakeCombo(),
+            status_label=Mock(),
             get_backend=Mock(return_value="uvc"),
         )
 
@@ -109,9 +144,10 @@ class TestRefreshUvcDevices:
         assert count == 0
         device_manager._status_label.setText.assert_called_with("No UVC devices found.")
 
+    @patch("ui.controllers.device_manager.load_state", return_value={})
     @patch("ui.controllers.device_manager.probe_uvc_devices")
     @patch("ui.controllers.device_manager.is_arducam_device")
-    def test_refresh_uvc_auto_select(self, mock_is_arducam, mock_probe, device_manager):
+    def test_refresh_uvc_auto_select(self, mock_is_arducam, mock_probe, mock_state, device_manager):
         """refresh_devices should auto-select first two cameras."""
         mock_probe.return_value = [
             {"serial": "SN001", "friendly_name": "Camera 1"},
@@ -124,6 +160,23 @@ class TestRefreshUvcDevices:
         device_manager._left_input.setCurrentIndex.assert_called_with(0)
         device_manager._right_input.setCurrentIndex.assert_called_with(1)
 
+    @patch("ui.controllers.device_manager.probe_uvc_devices")
+    @patch("ui.controllers.device_manager.is_arducam_device")
+    def test_refresh_uvc_restores_saved_assignment(self, mock_is_arducam, mock_probe, device_manager):
+        """Persisted left/right ids should be restored regardless of order."""
+        mock_probe.return_value = [
+            {"serial": "SN001", "friendly_name": "Camera 1"},
+            {"serial": "SN002", "friendly_name": "Camera 2"},
+        ]
+        mock_is_arducam.return_value = False
+
+        saved = {"camera_left_id": "SN002", "camera_right_id": "SN001"}
+        with patch("ui.controllers.device_manager.load_state", return_value=saved):
+            device_manager.refresh_devices()
+
+        assert device_manager._left_input.currentData() == "SN002"
+        assert device_manager._right_input.currentData() == "SN001"
+
 
 class TestRefreshOpencvDevices:
     """Tests for OpenCV device refresh."""
@@ -131,13 +184,10 @@ class TestRefreshOpencvDevices:
     @pytest.fixture
     def device_manager(self):
         """Create DeviceManager for OpenCV backend."""
-        left = Mock()
-        right = Mock()
-        status = Mock()
         return DeviceManager(
-            left_input=left,
-            right_input=right,
-            status_label=status,
+            left_input=FakeCombo(),
+            right_input=FakeCombo(),
+            status_label=Mock(),
             get_backend=Mock(return_value="opencv"),
         )
 
@@ -196,8 +246,8 @@ class TestArducamCounting:
     def device_manager(self):
         """Create DeviceManager."""
         return DeviceManager(
-            left_input=Mock(),
-            right_input=Mock(),
+            left_input=FakeCombo(),
+            right_input=FakeCombo(),
             status_label=Mock(),
             get_backend=Mock(return_value="uvc"),
         )
@@ -217,6 +267,36 @@ class TestArducamCounting:
 
         status_text = device_manager._status_label.setText.call_args[0][0]
         assert "1 ArduCam" in status_text
+
+
+class TestPersistSelection:
+    """Tests for persisting left/right assignment by hardware id."""
+
+    @pytest.fixture
+    def device_manager(self):
+        left = FakeCombo()
+        right = FakeCombo()
+        left.addItem("SN001 - Cam", "SN001")
+        left.addItem("SN002 - Cam", "SN002")
+        right.addItem("SN001 - Cam", "SN001")
+        right.addItem("SN002 - Cam", "SN002")
+        left.setCurrentIndex(1)  # SN002 on the left
+        right.setCurrentIndex(0)  # SN001 on the right
+        return DeviceManager(
+            left_input=left,
+            right_input=right,
+            status_label=Mock(),
+            get_backend=Mock(return_value="uvc"),
+        )
+
+    @patch("ui.controllers.device_manager.save_state")
+    @patch("ui.controllers.device_manager.load_state", return_value={})
+    def test_persist_selection_saves_ids(self, mock_load, mock_save, device_manager):
+        device_manager.persist_selection()
+
+        saved = mock_save.call_args[0][0]
+        assert saved["camera_left_id"] == "SN002"
+        assert saved["camera_right_id"] == "SN001"
 
 
 if __name__ == "__main__":
