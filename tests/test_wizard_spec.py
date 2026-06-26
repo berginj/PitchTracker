@@ -44,7 +44,7 @@ def test_machine_drives_full_required_traversal():
         if machine.can_advance():
             machine.advance()
 
-    assert machine.current == WizardStep.EXPORT
+    assert machine.current == WizardStep.QUALITY_REPORT
     assert machine.can_finish()
 
 
@@ -70,4 +70,6 @@ def test_optional_step_can_be_skipped_and_still_finish():
     machine.mark_complete(WizardStep.VALIDATION, True)
     machine.advance()
     machine.mark_complete(WizardStep.EXPORT, True)
+    machine.advance()
+    machine.mark_complete(WizardStep.QUALITY_REPORT, True)
     assert machine.can_finish()

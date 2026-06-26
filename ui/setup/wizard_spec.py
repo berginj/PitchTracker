@@ -33,6 +33,7 @@ class WizardStep(Enum):
     DETECTOR = "detector"
     VALIDATION = "validation"
     EXPORT = "export"
+    QUALITY_REPORT = "quality_report"
 
 
 # Presentation order and human-readable titles for the step indicator.
@@ -43,6 +44,7 @@ WIZARD_STEP_ORDER: Tuple[WizardStep, ...] = (
     WizardStep.DETECTOR,
     WizardStep.VALIDATION,
     WizardStep.EXPORT,
+    WizardStep.QUALITY_REPORT,
 )
 
 WIZARD_STEP_TITLES = {
@@ -52,6 +54,7 @@ WIZARD_STEP_TITLES = {
     WizardStep.DETECTOR: "4. Detector",
     WizardStep.VALIDATION: "5. Validate",
     WizardStep.EXPORT: "6. Export",
+    WizardStep.QUALITY_REPORT: "7. Quality",
 }
 
 

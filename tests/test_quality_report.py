@@ -148,6 +148,43 @@ def test_missing_steps_are_warned_but_metrics_still_grade():
     assert any("was not run" in w for w in report.warnings)
 
 
+def test_metrics_only_summary_grades_on_metrics_when_steps_not_required():
+    report = build_quality_report(
+        rms_reprojection_px=0.3,
+        epipolar_error_px=0.3,
+        baseline_in=8.0,
+        require_steps=False,
+    )
+    # Metrics-only end-of-setup summary: not-run steps are warnings, not failures.
+    assert report.grade == QUALITY_GRADE_EXCELLENT
+    assert report.passed is True
+    assert any("was not run" in w for w in report.warnings)
+
+
+def test_metrics_only_summary_still_fails_on_bad_metrics():
+    report = build_quality_report(
+        rms_reprojection_px=4.0,
+        epipolar_error_px=0.3,
+        baseline_in=8.0,
+        require_steps=False,
+    )
+    assert report.grade == QUALITY_GRADE_FAIL
+    assert report.passed is False
+
+
+def test_metrics_only_summary_still_fails_on_failed_step():
+    # Even in metrics-only mode, a step that ran and FAILED must fail the rig.
+    report = build_quality_report(
+        rms_reprojection_px=0.3,
+        epipolar_error_px=0.3,
+        baseline_in=8.0,
+        require_steps=False,
+        overlap=_overlap(passed=False),
+    )
+    assert report.grade == QUALITY_GRADE_FAIL
+    assert report.passed is False
+
+
 def test_extra_warnings_are_appended_and_payload_serializes():
     report = build_quality_report(
         rms_reprojection_px=0.3,

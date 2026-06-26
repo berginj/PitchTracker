@@ -58,11 +58,15 @@ def _collect_warnings(
     rectification: Optional[CoarseRectificationResult],
     focus_locks: Sequence[FocusLockResult],
     exposure_locks: Sequence[ExposureLockResult],
+    require_steps: bool = True,
 ) -> tuple[List[str], bool]:
     """Gather operator-facing warnings and whether every step passed.
 
-    Returns (warnings, all_steps_passed). A missing step is treated as a
-    warning (it was skipped) but does not by itself fail the rig.
+    Returns (warnings, all_steps_passed). A missing step is surfaced as a
+    warning; when ``require_steps`` is True it also fails the rig (the operator
+    cannot earn a passing grade without running the validation steps). When
+    ``require_steps`` is False (metrics-only summary), a missing step is a
+    warning only and does not by itself fail the rig.
     """
     warnings: List[str] = []
     all_passed = True
@@ -70,7 +74,8 @@ def _collect_warnings(
     def _note(result, label: str) -> None:
         nonlocal all_passed
         if result is None:
-            all_passed = False
+            if require_steps:
+                all_passed = False
             warnings.append(f"{label} step was not run.")
             return
         if not result.passed:
@@ -107,6 +112,7 @@ def build_quality_report(
     focus_locks: Optional[Sequence[FocusLockResult]] = None,
     exposure_locks: Optional[Sequence[ExposureLockResult]] = None,
     extra_warnings: Optional[Sequence[str]] = None,
+    require_steps: bool = True,
 ) -> CalibrationQualityReport:
     """Aggregate step verdicts + final metrics into a graded report.
 
@@ -124,6 +130,9 @@ def build_quality_report(
         focus_locks: Optional per-camera focus-lock results.
         exposure_locks: Optional per-camera exposure-lock results.
         extra_warnings: Additional warnings to fold in (e.g. quick-mode notice).
+        require_steps: When True (default), a not-run validation step fails the
+            rig. Set False for a metrics-only end-of-setup summary, where a
+            not-run step is a warning only and the grade follows the metrics.
 
     Returns:
         A frozen :class:`CalibrationQualityReport`.
@@ -132,7 +141,9 @@ def build_quality_report(
     exposure_list = list(exposure_locks or [])
 
     metric_grade = _metric_grade(rms_reprojection_px, epipolar_error_px)
-    warnings, all_steps_passed = _collect_warnings(sync, overlap, rectification, focus_list, exposure_list)
+    warnings, all_steps_passed = _collect_warnings(
+        sync, overlap, rectification, focus_list, exposure_list, require_steps=require_steps
+    )
     if extra_warnings:
         warnings.extend(extra_warnings)
 

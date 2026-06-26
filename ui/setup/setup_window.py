@@ -14,6 +14,7 @@ from ui.setup.steps import (
     CalibrationStep,
     DetectorStep,
     ExportStep,
+    QualityReportStep,
     RoiStep,
     ValidationStep,
 )
@@ -44,6 +45,7 @@ class SetupWindow(QtWidgets.QMainWindow):
     4. Detector tuning
     5. System validation
     6. Export calibration package
+    7. Calibration quality report
     """
 
     def __init__(self, backend: str = "uvc", parent: Optional[QtWidgets.QWidget] = None):
@@ -80,6 +82,7 @@ class SetupWindow(QtWidgets.QMainWindow):
             WizardStep.DETECTOR: DetectorStep(),
             WizardStep.VALIDATION: ValidationStep(),
             WizardStep.EXPORT: ExportStep(),
+            WizardStep.QUALITY_REPORT: QualityReportStep(),
         }
         self._widget_by_step = widgets
         self._steps = [widgets[step] for step in WIZARD_STEP_ORDER]

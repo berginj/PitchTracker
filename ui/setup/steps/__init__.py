@@ -5,6 +5,7 @@ from .camera_step import CameraStep
 from .calibration_step import CalibrationStep
 from .detector_step import DetectorStep
 from .export_step import ExportStep
+from .quality_report_step import QualityReportStep
 from .roi_step import RoiStep
 from .validation_step import ValidationStep
 
@@ -16,4 +17,5 @@ __all__ = [
     "DetectorStep",
     "ValidationStep",
     "ExportStep",
+    "QualityReportStep",
 ]
