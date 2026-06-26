@@ -23,6 +23,7 @@ from calib.stereo_setup.focus_lock import (
     evaluate_focus_lock,
 )
 from calib.stereo_setup.overlap import OverlapConfig, validate_overlap
+from calib.stereo_setup.quality_report import build_quality_report
 from calib.stereo_setup.rectify import (
     RectifyConfig,
     coarse_rectify,
@@ -32,6 +33,7 @@ from calib.stereo_setup.rectify import (
 __all__ = [
     "OverlapConfig",
     "validate_overlap",
+    "build_quality_report",
     "RectifyConfig",
     "coarse_rectify",
     "rectify_from_correspondences",
