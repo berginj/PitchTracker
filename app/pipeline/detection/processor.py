@@ -71,6 +71,11 @@ class DetectionProcessor:
         self._plate_observations = deque(maxlen=12)
 
         # Stereo buffering
+        # Guards _left_buffer/_right_buffer and the pop-match cycle in
+        # _match_stereo_buffers(). Both capture threads (left and right) call
+        # process_detection_result() concurrently, so every mutation of these
+        # deques must hold this lock to avoid data races / undefined behavior.
+        self._stereo_buffer_lock = threading.Lock()
         self._left_buffer: deque[Tuple[Frame, list[Detection]]] = deque(maxlen=6)
         self._right_buffer: deque[Tuple[Frame, list[Detection]]] = deque(maxlen=6)
 
@@ -79,6 +84,7 @@ class DetectionProcessor:
         self._total_paired_frames = 0
         self._dropped_frames_sync = 0
         self._last_sync_warning_time = 0.0
+        self._frame_index_pairing_warned = False
 
         # State (thread-safe)
         self._detect_lock = threading.Lock()
@@ -155,14 +161,21 @@ class DetectionProcessor:
 
         self._emit_ray_observations(label, frame, detections)
 
-        # Buffer for stereo matching
-        if label == "left":
-            self._left_buffer.append((frame, detections))
-        else:
-            self._right_buffer.append((frame, detections))
+        # Buffer for stereo matching. The deque mutation and pairing decision
+        # run under the buffer lock (both capture threads touch the deques),
+        # but the heavy per-pair processing (triangulation, callbacks) is done
+        # AFTER releasing the lock to avoid serializing capture threads and to
+        # avoid any re-entrant deadlock from downstream callbacks.
+        with self._stereo_buffer_lock:
+            if label == "left":
+                self._left_buffer.append((frame, detections))
+            else:
+                self._right_buffer.append((frame, detections))
 
-        # Try to match stereo pairs
-        self._match_stereo_buffers()
+            matched_pairs = self._match_stereo_buffers()
+
+        for left_frame, right_frame, left_dets, right_dets in matched_pairs:
+            self._process_stereo_pair(left_frame, right_frame, left_dets, right_dets)
 
     def get_latest_detections(self) -> Dict[str, list[Detection]]:
         """Get latest detections for all cameras.
@@ -351,19 +364,32 @@ class DetectionProcessor:
             self._dropped_frames_sync,
         )
 
-    def _match_stereo_buffers(self) -> None:
+    def _match_stereo_buffers(self) -> List[Tuple[Frame, Frame, list[Detection], list[Detection]]]:
         """Match stereo pairs from buffered frames.
 
         Pairs left/right frames based on temporal proximity (or frame indices if enabled).
         Also monitors timestamp synchronization quality.
+
+        Must be called while holding ``self._stereo_buffer_lock``. Returns the list
+        of matched ``(left_frame, right_frame, left_dets, right_dets)`` tuples so the
+        caller can run the heavy per-pair processing outside the lock.
         """
+        pairs: List[Tuple[Frame, Frame, list[Detection], list[Detection]]] = []
         # Use frame-index pairing if enabled
         if self._config and self._config.stereo.use_frame_index_pairing:
-            self._match_by_frame_index()
+            if not self._frame_index_pairing_warned:
+                logger.warning(
+                    "use_frame_index_pairing is enabled: frame-index pairing assumes both "
+                    "cameras keep lockstep counters and desyncs permanently on any dropped "
+                    "frame. Prefer timestamp pairing unless cameras are hardware-synchronized."
+                )
+                self._frame_index_pairing_warned = True
+            self._match_by_frame_index(pairs)
         else:
-            self._match_by_timestamp()
+            self._match_by_timestamp(pairs)
+        return pairs
 
-    def _match_by_frame_index(self) -> None:
+    def _match_by_frame_index(self, pairs: List[Tuple[Frame, Frame, list[Detection], list[Detection]]]) -> None:
         """Match stereo pairs by frame index instead of timestamp.
 
         More reliable than timestamp matching if cameras maintain sync.
@@ -415,9 +441,9 @@ class DetectionProcessor:
             # Process the pair
             self._left_buffer.popleft()
             self._right_buffer.popleft()
-            self._process_stereo_pair(left_frame, right_frame, left_dets, right_dets)
+            pairs.append((left_frame, right_frame, left_dets, right_dets))
 
-    def _match_by_timestamp(self) -> None:
+    def _match_by_timestamp(self, pairs: List[Tuple[Frame, Frame, list[Detection], list[Detection]]]) -> None:
         """Match stereo pairs by timestamp (traditional method).
 
         Pairs frames based on temporal proximity within tolerance.
@@ -432,7 +458,7 @@ class DetectionProcessor:
             if self._config is not None:
                 tolerance = int(self._config.stereo.pairing_tolerance_ms * 1e6)
 
-            if tolerance and delta > tolerance:
+            if tolerance > 0 and delta > tolerance:
                 # Frames too far apart, drop the older one
                 self._dropped_frames_sync += 1
                 if left_frame.t_capture_monotonic_ns < right_frame.t_capture_monotonic_ns:
@@ -458,7 +484,7 @@ class DetectionProcessor:
             # Process the pair
             self._left_buffer.popleft()
             self._right_buffer.popleft()
-            self._process_stereo_pair(left_frame, right_frame, left_dets, right_dets)
+            pairs.append((left_frame, right_frame, left_dets, right_dets))
 
     def _process_stereo_pair(
         self,

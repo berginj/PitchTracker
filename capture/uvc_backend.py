@@ -224,6 +224,12 @@ class UvcCamera(CameraDevice):
             )
 
         ok, frame = self._capture.read()
+        # Stamp capture time immediately after read() returns, BEFORE any image
+        # post-processing (color convert, rotation, warp). This is host receive
+        # time, NOT hardware acquisition time — DirectShow/MSMF buffering means
+        # it can lag actual integration by up to a frame period. Stereo pairing
+        # tolerance must account for this (see StereoConfig.pairing_tolerance_ms).
+        now_ns = time.monotonic_ns()
         if not ok:
             self._stats.dropped += 1
             logger.warning(f"Failed to read frame from camera {self._serial}")
@@ -250,7 +256,6 @@ class UvcCamera(CameraDevice):
             M = np.float32([[1, 0, 0], [0, 1, -self._vertical_offset_px]])
             frame = cv2.warpAffine(frame, M, (w, h))
 
-        now_ns = time.monotonic_ns()
         if self._stats.last_frame_ns:
             delta_ns = now_ns - self._stats.last_frame_ns
             self._deltas_ns.append(delta_ns)

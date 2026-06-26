@@ -63,6 +63,16 @@ class CameraManager:
         self._left_thread: Optional[threading.Thread] = None
         self._right_thread: Optional[threading.Thread] = None
 
+        # Per-camera stop signals. Allows a single camera's capture loop to be
+        # stopped (e.g. for reconnection) without tearing down the other, and
+        # lets us signal-then-join a loop BEFORE closing its camera so close()
+        # never races an in-flight read_frame() on the same device.
+        self._left_stop = threading.Event()
+        self._right_stop = threading.Event()
+        # Guards swapping the self._left/self._right device references during
+        # reconnection while preview/other code may read them.
+        self._camera_lock = threading.Lock()
+
         # Latest frames for preview
         self._left_latest: Optional[Frame] = None
         self._right_latest: Optional[Frame] = None
@@ -296,6 +306,10 @@ class CameraManager:
 
         try:
             self._capture_running = False
+            # Signal both per-camera loops to exit promptly so the joins below
+            # don't have to wait out a full read timeout.
+            self._left_stop.set()
+            self._right_stop.set()
 
             # Unregister from reconnection manager
             if self._reconnection_mgr:
@@ -428,10 +442,12 @@ class CameraManager:
                 camera_ref = self._left
                 serial = self._left_id
                 thread_ref = self._left_thread
+                stop_event = self._left_stop
             elif camera_id == "right":
                 camera_ref = self._right
                 serial = self._right_id
                 thread_ref = self._right_thread
+                stop_event = self._right_stop
             else:
                 logger.error(f"Unknown camera_id: {camera_id}")
                 return False
@@ -440,20 +456,25 @@ class CameraManager:
                 logger.error(f"Missing serial or config for {camera_id} camera")
                 return False
 
-            # Close existing camera if still open
+            # Signal this camera's loop to stop and wait for it to exit BEFORE
+            # closing the device, so close() never races an in-flight
+            # read_frame() on the same camera object.
+            stop_event.set()
+            if thread_ref is not None and thread_ref.is_alive():
+                try:
+                    thread_ref.join(timeout=2.0)
+                    if thread_ref.is_alive():
+                        logger.warning(f"{camera_id} capture thread did not stop before reconnect")
+                except Exception as exc:
+                    logger.warning(f"Error joining {camera_id} thread: {exc}")
+
+            # Close existing camera if still open (loop has now exited)
             if camera_ref is not None:
                 try:
                     camera_ref.close()
                     logger.debug(f"{camera_id} camera closed for reconnection")
                 except Exception as exc:
                     logger.warning(f"Error closing {camera_id} camera: {exc}")
-
-            # Wait for thread to finish if still running
-            if thread_ref is not None and thread_ref.is_alive():
-                try:
-                    thread_ref.join(timeout=2.0)
-                except Exception as exc:
-                    logger.warning(f"Error joining {camera_id} thread: {exc}")
 
             # Create new camera instance
             new_camera = self._build_camera()
@@ -465,16 +486,21 @@ class CameraManager:
             # Configure camera using the same left/right-specific path as initial startup.
             PipelineInitializer.configure_camera(new_camera, self._config, is_left=(camera_id == "left"))
 
-            # Update camera reference
-            if camera_id == "left":
-                self._left = new_camera
-            else:
-                self._right = new_camera
+            # Update camera reference and re-arm the loop under the camera lock.
+            stop_event.clear()
+            with self._camera_lock:
+                if camera_id == "left":
+                    self._left = new_camera
+                else:
+                    self._right = new_camera
 
-            # Restart capture thread
+            # Restart capture thread (daemon so it never blocks interpreter exit)
             logger.debug(f"Starting capture thread for {camera_id} camera")
             new_thread = threading.Thread(
-                target=self._capture_loop, args=(camera_id, new_camera), name=f"Capture-{camera_id}", daemon=False
+                target=self._capture_loop,
+                args=(camera_id, new_camera, stop_event),
+                name=f"Capture-{camera_id}",
+                daemon=True,
             )
 
             if camera_id == "left":
@@ -504,25 +530,34 @@ class CameraManager:
         return UvcCamera()
 
     def _start_capture_threads(self) -> None:
-        """Start capture threads for both cameras."""
+        """Start capture threads for both cameras.
+
+        Both cameras are already opened and configured at this point; we flush
+        any stale buffered frames and start both loops together so the first
+        delivered frames are as close in time as the backends allow.
+        """
         if self._left is None or self._right is None:
             return
 
         self._capture_running = True
+        self._left_stop.clear()
+        self._right_stop.clear()
         self._left_thread = threading.Thread(
             target=self._capture_loop,
-            args=("left", self._left),
+            args=("left", self._left, self._left_stop),
+            name="Capture-left",
             daemon=True,
         )
         self._right_thread = threading.Thread(
             target=self._capture_loop,
-            args=("right", self._right),
+            args=("right", self._right, self._right_stop),
+            name="Capture-right",
             daemon=True,
         )
         self._left_thread.start()
         self._right_thread.start()
 
-    def _capture_loop(self, label: str, camera: CameraDevice) -> None:
+    def _capture_loop(self, label: str, camera: CameraDevice, stop_event: threading.Event) -> None:
         """Main capture loop for a camera.
 
         Continuously reads frames from camera and:
@@ -539,6 +574,9 @@ class CameraManager:
         Args:
             label: Camera label ("left" or "right")
             camera: Camera device to read from
+            stop_event: Per-camera stop signal; the loop exits when this is set
+                (used by reconnection to stop just this camera) or when the
+                global capture flag clears.
         """
         consecutive_failures = 0
         last_frame_time = time.monotonic()
@@ -546,7 +584,7 @@ class CameraManager:
 
         logger.info(f"Camera {label}: Capture loop started")
 
-        while self._capture_running:
+        while self._capture_running and not stop_event.is_set():
             try:
                 frame = camera.read_frame(timeout_ms=200)
 

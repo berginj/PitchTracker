@@ -224,10 +224,9 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
         # Stop preview
         self._preview_timer.stop()
 
-        # Close cameras
+        # Close cameras (CameraDevice exposes close(), not stop())
         if self._left_camera:
             try:
-                self._left_camera.stop()
                 self._left_camera.close()
             except Exception:
                 pass
@@ -236,7 +235,6 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
 
         if self._right_camera:
             try:
-                self._right_camera.stop()
                 self._right_camera.close()
             except Exception:
                 pass

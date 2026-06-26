@@ -244,8 +244,12 @@ class CaptureServiceImpl(CaptureService):
             event = FrameCapturedEvent(camera_id=camera_id, frame=frame, timestamp_ns=frame.t_capture_monotonic_ns)
             self._event_bus.publish(event)
 
-            # Invoke registered callbacks (for backward compatibility)
-            for callback in self._frame_callbacks:
+            # Invoke registered callbacks (for backward compatibility).
+            # Copy the list under the lock so concurrent on_frame_captured()
+            # registration can't mutate it mid-iteration on this thread.
+            with self._lock:
+                callbacks = list(self._frame_callbacks)
+            for callback in callbacks:
                 try:
                     callback(camera_id, frame)
                 except Exception as e:

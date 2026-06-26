@@ -209,6 +209,10 @@ class OpenCVCamera(CameraDevice):
         if self._capture is None:
             raise RuntimeError("Camera not opened.")
         ok, frame = self._capture.read()
+        # Stamp capture time immediately after read() returns, BEFORE image
+        # post-processing. Host receive time, not hardware acquisition time
+        # (see StereoConfig.pairing_tolerance_ms for pairing implications).
+        now_ns = time.monotonic_ns()
         if not ok:
             self._stats.dropped += 1
             raise TimeoutError("Failed to read frame.")
@@ -231,7 +235,6 @@ class OpenCVCamera(CameraDevice):
             M = np.float32([[1, 0, 0], [0, 1, -self._vertical_offset_px]])
             frame = cv2.warpAffine(frame, M, (w, h))
 
-        now_ns = time.monotonic_ns()
         if self._stats.last_frame_ns:
             delta_s = (now_ns - self._stats.last_frame_ns) / 1e9
             if delta_s > 0:
