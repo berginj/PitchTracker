@@ -19,6 +19,7 @@ from .tooling import (
     TrainingReportRequest,
     TrainingReportResult,
 )
+from .setup import SyncCheckResult
 
 __all__ = [
     "Detection",
@@ -36,4 +37,5 @@ __all__ = [
     "EnvironmentValidationResult",
     "TrainingReportRequest",
     "TrainingReportResult",
+    "SyncCheckResult",
 ]
