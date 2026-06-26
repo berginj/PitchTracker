@@ -79,29 +79,39 @@ class TestCameraManagerStartCapture:
         with patch.object(camera_manager, "_build_camera") as mock_build:
             mock_left = MagicMock()
             mock_right = MagicMock()
+            mock_left.read_frame.side_effect = TimeoutError()
+            mock_right.read_frame.side_effect = TimeoutError()
             mock_build.side_effect = [mock_left, mock_right]
 
-            camera_manager.start_capture(mock_config, "left_serial", "right_serial")
+            try:
+                camera_manager.start_capture(mock_config, "left_serial", "right_serial")
 
-            # Should have opened both cameras
-            mock_left.open.assert_called_once_with("left_serial")
-            mock_right.open.assert_called_once_with("right_serial")
+                # Should have opened both cameras
+                mock_left.open.assert_called_once_with("left_serial")
+                mock_right.open.assert_called_once_with("right_serial")
 
-            # Should be capturing
-            assert camera_manager.is_capturing()
+                # Should be capturing
+                assert camera_manager.is_capturing()
+            finally:
+                camera_manager.stop_capture()
 
     def test_start_capture_configures_cameras(self, camera_manager, mock_config, mock_initializer):
         """start_capture should configure cameras via initializer."""
         with patch.object(camera_manager, "_build_camera") as mock_build:
             mock_left = MagicMock()
             mock_right = MagicMock()
+            mock_left.read_frame.side_effect = TimeoutError()
+            mock_right.read_frame.side_effect = TimeoutError()
             mock_build.side_effect = [mock_left, mock_right]
 
             with patch.object(PipelineInitializer, "configure_camera") as mock_configure:
-                camera_manager.start_capture(mock_config, "left_serial", "right_serial")
+                try:
+                    camera_manager.start_capture(mock_config, "left_serial", "right_serial")
 
-                # Should have configured both cameras
-                assert mock_configure.call_count == 2
+                    # Should have configured both cameras
+                    assert mock_configure.call_count == 2
+                finally:
+                    camera_manager.stop_capture()
 
     def test_start_capture_starts_threads(self, camera_manager, mock_config):
         """start_capture should start capture threads."""

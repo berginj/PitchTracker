@@ -3,6 +3,7 @@
 
 #define AppName "PitchTracker"
 #define AppVersion "1.5.0"
+#define ReleaseTag "pilot"
 #define AppPublisher "PitchTracker Development Team"
 #define AppURL "https://github.com/berginj/PitchTracker"
 #define AppExeName "PitchTracker.exe"
@@ -19,7 +20,7 @@ AppUpdatesURL={#AppURL}/releases
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 OutputDir=installer_output
-OutputBaseFilename=PitchTracker-Setup-v{#AppVersion}
+OutputBaseFilename=PitchTracker-Setup-v{#AppVersion}-{#ReleaseTag}
 SetupIconFile=assets\icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes

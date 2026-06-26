@@ -42,7 +42,7 @@ The application includes automatic updates - you'll be notified when new version
 Before running the Setup Wizard, you'll need to print a calibration board. Use the included generator:
 
 ```bash
-# Generate default 5x6 board (30mm squares)
+# Generate default 6x6 board (30mm squares)
 python generate_charuco.py
 
 # Generate custom size board

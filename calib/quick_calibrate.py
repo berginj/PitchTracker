@@ -946,6 +946,8 @@ def _save_calibration_file(updates: dict) -> None:
         per_image_errors=updates.get("per_image_errors", []),
         quality_rating=quality.get("rating", "UNKNOWN"),
         quality_description=quality.get("description", ""),
+        calibration_mode=updates.get("calibration_mode", "FULL"),
+        production_ready=updates.get("calibration_mode", "FULL") != "QUICK",
     )
     report = {
         "calibration_mode": updates.get("calibration_mode", "FULL"),
@@ -975,7 +977,14 @@ def load_calibration_quality(calib_path: Optional[Path] = None) -> Optional[dict
         Dict with quality metrics or None if file doesn't exist or has no quality data
     """
     if calib_path is None:
-        calib_path = Path("calibration/stereo_calibration.npz")
+        try:
+            from app.services.rig_profile import RigProfileService
+
+            service = RigProfileService()
+            profile = service.load_active()
+            calib_path = service.calibration_path(profile) if profile is not None else Path("calibration/stereo_calibration.npz")
+        except Exception:
+            calib_path = Path("calibration/stereo_calibration.npz")
 
     if not calib_path.exists():
         return None
@@ -992,6 +1001,8 @@ def load_calibration_quality(calib_path: Optional[Path] = None) -> Optional[dict
             "num_images": int(data.get("num_images", 0)),
             "rating": str(data.get("quality_rating", "UNKNOWN")),
             "description": str(data.get("quality_description", "")),
+            "calibration_mode": str(data.get("calibration_mode", "FULL")),
+            "production_ready": bool(data.get("production_ready", True)),
         }
     except Exception:
         return None

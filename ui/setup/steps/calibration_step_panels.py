@@ -51,26 +51,21 @@ class CalibrationStepPanelsMixin:
         # Auto-detection toggle
         self._auto_detect_pattern_checkbox = QtWidgets.QCheckBox("Enable Auto-Detection")
         self._auto_detect_pattern_checkbox.setAccessibleName("Auto-detect Pattern")
-        self._auto_detect_pattern_checkbox.setChecked(True)  # ON by default
+        self._auto_detect_pattern_checkbox.setChecked(False)  # OFF by default
         self._auto_detect_pattern_checkbox.setToolTip(
             "When enabled, automatically detects ChArUco board size and dictionary.\n"
-            "When disabled, uses the manual pattern settings above.\n\n"
-            "Disable this if you want to force a specific board size\n"
-            "or if auto-detection is causing issues."
+            "When disabled, uses the manual 6x6, 30mm board settings above.\n\n"
+            "Enable only when using a different board and you want the app to infer it."
         )
         self._auto_detect_pattern_checkbox.stateChanged.connect(self._on_auto_detect_toggled)
 
         # Pattern detection info label
-        self._pattern_info_label = QtWidgets.QLabel("No pattern detected")
+        self._pattern_info_label = QtWidgets.QLabel("Manual board: 6x6, 30.0 mm")
         self._pattern_info_label.setToolTip("Shows currently detected ChArUco pattern and dictionary")
-        if self._charuco_metadata_path is not None:
-            self._set_pattern_info_state(
-                f"Loaded board metadata: {self._pattern_cols}x{self._pattern_rows}, {self._square_mm:.1f} mm",
-                "success",
-            )
-            self._pattern_locked = True
-        else:
-            self._set_pattern_info_state("No pattern detected", "info")
+        self._set_pattern_info_state(
+            f"Manual board: {self._pattern_cols}x{self._pattern_rows}, {self._square_mm:.1f} mm",
+            "info",
+        )
 
         board_layout.addWidget(pattern_label)
         board_layout.addWidget(self._pattern_cols_spin)

@@ -11,7 +11,11 @@
 
 The PitchTracker Pilot Program is a **structured 90-day evaluation** with 2-3 select baseball/softball facilities to validate product-market fit, measure accuracy, and refine the product before broader commercial release.
 
-**Program Dates:** April 2026 - June 2026 (flexible start dates per partner)
+**Original Program Window:** April 2026 - June 2026 (flexible start dates per partner)
+
+**Status Note (2026-06-22):** Pilot launch is pending camera alignment and
+validation. Treat the dates below as the original plan until the owner records
+actual deployment status.
 
 ### What This Is
 - **Structured validation program** with clear success metrics
@@ -20,7 +24,7 @@ The PitchTracker Pilot Program is a **structured 90-day evaluation** with 2-3 se
 - **No cost to pilot partners** during pilot period
 
 ### What This Is Not
-- Beta testing or bug hunting (product is stable)
+- Open-ended beta testing or bug hunting
 - Free trial with no commitment (we need active usage and feedback)
 - Support-light early access (we provide hands-on support)
 
@@ -101,11 +105,11 @@ Success is measured across 4 dimensions:
 **Measurement:** Session count from PitchTracker logs
 
 #### 2. Accuracy Validation (CRITICAL)
-**Target:** Velocity measurements within ±2 mph of reference equipment
-- **Excellent:** ±1 mph MAE (mean absolute error)
-- **Good:** ±1.5 mph MAE
-- **Acceptable:** ±2 mph MAE
-- **Failed:** >±2.5 mph MAE
+**Target:** Velocity measurements within reference-equipment bounds established by the validation protocol
+- **Excellent:** ≤1 mph MAE (mean absolute error)
+- **Good:** ≤1.5 mph MAE
+- **Acceptable:** ≤2 mph MAE
+- **Failed:** >2.5 mph MAE
 
 **Measurement:** Side-by-side comparison with Pocket Radar/Stalker/Rapsodo
 
@@ -134,7 +138,7 @@ Each facility gets scored on these metrics:
 | Metric | Weight | Target | Actual | Score |
 |--------|--------|--------|--------|-------|
 | Sessions Run | 30% | 20+ | ___ | ___/10 |
-| Velocity Accuracy | 30% | ±2 mph | ___ | ___/10 |
+| Velocity Accuracy | 30% | <=2 mph MAE target until validation protocol updates it | ___ | ___/10 |
 | Workflow Adoption | 20% | Self-service by week 2 | ___ | ___/10 |
 | User Satisfaction | 20% | "Would pay for this" | ___ | ___/10 |
 | **TOTAL** | **100%** | - | - | ___/10 |
@@ -172,7 +176,7 @@ Each facility gets scored on these metrics:
 - **Side-by-Side Testing** - Compare PitchTracker to reference equipment
 - **Data Collection** - 100+ pitches with both systems running
 - **Analysis** - Calculate MAE, detection rate, error bounds
-- **Checkpoint:** Accuracy within ±2 mph? If not, diagnose issues
+- **Checkpoint:** Accuracy within the validation target? If not, diagnose issues
 
 ### Weeks 11-12: Wrap-Up & Evaluation
 - **Final Feedback Session** - 30-60 minute structured interview
@@ -196,7 +200,7 @@ Each pilot partner receives:
 ### Physical Materials
 - [ ] 2× USB cameras (if not owned) - Model: [TBD based on hardware profile]
 - [ ] Camera mounting hardware (tripods or custom mounts)
-- [ ] Printed ChArUco calibration board (30mm squares, 5×6 grid)
+- [ ] Printed ChArUco calibration board (30mm squares, 6×6 grid)
 - [ ] USB cables (15+ feet for camera placement flexibility)
 - [ ] Quick reference card (laminated, session start workflow)
 
@@ -291,7 +295,7 @@ Hi [Name],
 I'm reaching out to invite [Facility Name] to participate in the PitchTracker Pilot Program - a 90-day structured evaluation of our stereo vision pitch tracking system.
 
 **What is PitchTracker?**
-PitchTracker uses dual cameras and computer vision to measure pitch velocity, movement, and location in real-time - similar to Rapsodo but at a fraction of the cost. We're now production-ready and seeking 2-3 pilot partners to validate accuracy and refine the product.
+PitchTracker uses dual cameras and computer vision to measure pitch velocity, movement, and location in real time. We're seeking 2-3 controlled facility pilots to validate accuracy, refine setup workflows, and define the operating envelope before broader commercial release.
 
 **Why [Facility Name]?**
 [Personalized: Mention why they're a good fit - session volume, pitcher development focus, etc.]
@@ -417,7 +421,7 @@ Aim for diversity across:
 - Test with reference equipment early (week 3-4)
 
 **Response:**
-- If MAE >±2.5 mph, diagnose immediately (lighting, calibration, detection settings)
+- If MAE >2.5 mph, diagnose immediately (lighting, calibration, detection settings)
 - Adjust parameters and re-test
 - Document limitations if fundamental accuracy issue
 - Be transparent with partner about findings
@@ -508,7 +512,7 @@ Track these metrics across all pilots:
 - Conversion rate: ≥66% (2/3 partners convert to commercial)
 
 ### Validation Results
-- Velocity MAE: ≤±2 mph across all pilots
+- Velocity MAE: <=2 mph across all pilots unless validation protocol updates the target
 - Detection rate: ≥90% across all sessions
 - Setup time: ≤60 minutes (initial), ≤15 minutes (subsequent sessions)
 - Support tickets per partner: ≤10 over 90 days

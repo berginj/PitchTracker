@@ -290,20 +290,24 @@ def _assess_quality(
     vertical_px: float, convergence_std: float, rotation_deg: float, correlation: float, scale_difference_percent: float
 ) -> str:
     """Assess overall alignment quality."""
-    # Critical - block calibration
-    if correlation < 0.3 or convergence_std > 40 or scale_difference_percent > 15:
+    del correlation
+    vertical_abs = abs(vertical_px)
+
+    # Critical - block calibration. Near-zero disparity correlation is not a
+    # failure; it is expected for well-parallel cameras.
+    if convergence_std > 40 or scale_difference_percent > 15:
         return "CRITICAL"
 
     # Poor - strong warning
-    if vertical_px > 20 or convergence_std > 20 or abs(rotation_deg) > 5 or scale_difference_percent > 10:
+    if vertical_abs > 20 or convergence_std > 20 or abs(rotation_deg) > 5 or scale_difference_percent > 10:
         return "POOR"
 
     # Acceptable - minor warning
-    if vertical_px > 10 or convergence_std > 10 or abs(rotation_deg) > 3 or scale_difference_percent > 5:
+    if vertical_abs > 10 or convergence_std > 10 or abs(rotation_deg) > 3 or scale_difference_percent > 5:
         return "ACCEPTABLE"
 
     # Good
-    if vertical_px > 5 or convergence_std > 5 or abs(rotation_deg) > 1 or scale_difference_percent > 2:
+    if vertical_abs > 5 or convergence_std > 5 or abs(rotation_deg) > 1 or scale_difference_percent > 2:
         return "GOOD"
 
     # Excellent

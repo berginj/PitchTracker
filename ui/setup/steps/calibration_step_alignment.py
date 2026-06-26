@@ -4,13 +4,8 @@ from __future__ import annotations
 
 
 import numpy as np
-from PySide6 import QtWidgets
 
 from log_config.logger import get_logger
-from ui.themes import (
-    show_choice_dialog,
-    show_message_dialog,
-)
 
 logger = get_logger(__name__)
 
@@ -19,170 +14,20 @@ class CalibrationStepAlignmentMixin:
     def _check_alignment_drift(self, left_img: np.ndarray, right_img: np.ndarray) -> bool:
         """Check if camera alignment has drifted since first capture.
 
-        Uses moving average of recent alignments to reduce false positives from single-frame anomalies.
+        Drift checks based on per-pose feature matching are intentionally non-blocking.
+        Calibration captures deliberately move and tilt the ChArUco board, and those scene
+        changes can look like toe-in or focal-length drift even when fixed cameras have
+        not moved. Keep the method as a compatibility hook, but do not interrupt capture.
 
         Args:
             left_img: Current left camera image
             right_img: Current right camera image
 
         Returns:
-            True if user chose to abort this capture (drift too large), False to continue
+            Always False so calibration capture can continue.
         """
-        if self._baseline_alignment is None or len(self._alignment_history) == 0:
-            return False  # No baseline, can't check drift
-
-        try:
-            from analysis.camera_alignment import analyze_alignment
-
-            # Analyze current alignment
-            current = analyze_alignment(left_img, right_img)
-
-            # Calculate moving average of recent alignments (last 3-5 captures)
-            # This reduces false positives from single-capture anomalies
-            window_size = min(5, len(self._alignment_history))
-            recent_alignments = self._alignment_history[-window_size:]
-
-            # Calculate average metrics from recent captures
-            avg_convergence = sum(a.convergence_std_px for a in recent_alignments) / len(recent_alignments)
-            avg_vertical = sum(a.vertical_mean_px for a in recent_alignments) / len(recent_alignments)
-            avg_rotation = sum(a.rotation_deg for a in recent_alignments) / len(recent_alignments)
-            avg_focal = sum(a.scale_difference_percent for a in recent_alignments) / len(recent_alignments)
-
-            # Calculate drift compared to moving average (more robust than single baseline)
-            toin_drift = abs(current.convergence_std_px - avg_convergence)
-            vertical_drift = abs(current.vertical_mean_px - avg_vertical)
-            rotation_drift = abs(current.rotation_deg - avg_rotation)
-            focal_drift = abs(current.scale_difference_percent - avg_focal)
-
-            # Dynamic threshold adjustment based on alignment history variance
-            # More stable mounts get tighter thresholds; less stable mounts get more tolerance
-            if len(recent_alignments) >= 3:
-                # Calculate standard deviation of recent measurements
-                import math
-
-                toin_std = math.sqrt(
-                    sum((a.convergence_std_px - avg_convergence) ** 2 for a in recent_alignments)
-                    / len(recent_alignments)
-                )
-                vertical_std = math.sqrt(
-                    sum((a.vertical_mean_px - avg_vertical) ** 2 for a in recent_alignments) / len(recent_alignments)
-                )
-                rotation_std = math.sqrt(
-                    sum((a.rotation_deg - avg_rotation) ** 2 for a in recent_alignments) / len(recent_alignments)
-                )
-                focal_std = math.sqrt(
-                    sum((a.scale_difference_percent - avg_focal) ** 2 for a in recent_alignments)
-                    / len(recent_alignments)
-                )
-
-                # Base thresholds for FIXED MOUNTS
-                base_toin_threshold = 15.0
-                base_vertical_threshold = 10.0
-                base_rotation_threshold = 5.0
-                base_focal_threshold = 5.0
-
-                # Adjust thresholds: if variance is high, be more tolerant (up to 1.5x)
-                # if variance is very low, be stricter (down to 0.7x)
-                toin_threshold = base_toin_threshold * max(0.7, min(1.5, 1.0 + toin_std / 10.0))
-                vertical_threshold = base_vertical_threshold * max(0.7, min(1.5, 1.0 + vertical_std / 5.0))
-                rotation_threshold = base_rotation_threshold * max(0.7, min(1.5, 1.0 + rotation_std / 2.0))
-                focal_threshold = base_focal_threshold * max(0.7, min(1.5, 1.0 + focal_std / 2.0))
-            else:
-                # Not enough history for dynamic adjustment, use fixed thresholds
-                toin_threshold = 15.0
-                vertical_threshold = 10.0
-                rotation_threshold = 5.0
-                focal_threshold = 5.0
-
-            # Determine if drift is significant using dynamic thresholds
-            significant_drift = (
-                toin_drift > toin_threshold
-                or vertical_drift > vertical_threshold
-                or rotation_drift > rotation_threshold
-                or focal_drift > focal_threshold
-            )
-
-            if not significant_drift:
-                return False  # No significant drift, continue
-
-            # Build drift warning message with dynamic thresholds
-            drift_details = []
-            if toin_drift > toin_threshold:
-                drift_details.append(
-                    f"  • Toe-in: {avg_convergence:.1f}px (avg) → "
-                    f"{current.convergence_std_px:.1f}px (Δ {toin_drift:.1f}px, threshold: {toin_threshold:.1f}px)"
-                )
-            if vertical_drift > vertical_threshold:
-                drift_details.append(
-                    f"  • Vertical: {avg_vertical:.1f}px (avg) → "
-                    f"{current.vertical_mean_px:.1f}px (Δ {vertical_drift:.1f}px, threshold: {vertical_threshold:.1f}px)"
-                )
-            if rotation_drift > rotation_threshold:
-                drift_details.append(
-                    f"  • Rotation: {avg_rotation:.1f}° (avg) → "
-                    f"{current.rotation_deg:.1f}° (Δ {rotation_drift:.1f}°, threshold: {rotation_threshold:.1f}°)"
-                )
-            if focal_drift > focal_threshold:
-                drift_details.append(
-                    f"  • Focal Length: {avg_focal:.1f}% (avg) → "
-                    f"{current.scale_difference_percent:.1f}% (Δ {focal_drift:.1f}%, threshold: {focal_threshold:.1f}%)"
-                )
-
-            warning_msg = (
-                f"⚠️ Camera alignment has drifted from recent captures!\n\n"
-                f"Changes detected (compared to last {window_size} captures):\n" + "\n".join(drift_details) + "\n\n"
-                "This can invalidate calibration. Recommendations:\n\n"
-                "• Click 'Restart' to clear captures and start over (recommended)\n"
-                "• Click 'Continue' to capture anyway (may reduce calibration quality)\n"
-                "• Click 'Cancel' to skip this capture and reposition cameras"
-            )
-
-            choice = show_choice_dialog(
-                self,
-                "Alignment Drift Detected",
-                warning_msg,
-                tone="warning",
-                choices=(
-                    ("restart", "Restart Calibration", "danger", QtWidgets.QMessageBox.ButtonRole.DestructiveRole),
-                    ("continue", "Continue Anyway", "primary", QtWidgets.QMessageBox.ButtonRole.AcceptRole),
-                    ("cancel", "Cancel Capture", "ghost", QtWidgets.QMessageBox.ButtonRole.RejectRole),
-                ),
-                default_choice="restart",
-            )
-
-            if choice == "restart":
-                # Restart calibration - clear all captures and alignment history
-                self._captures.clear()
-                self._baseline_alignment = None
-                self._alignment_history.clear()
-                self._capture_count_label.setText(f"Progress: 0/{self._min_captures} poses captured")
-                self._set_capture_progress_state(0, ready=False)
-                self._capture_progress_bar.setValue(0)
-                self._calibrate_button.setEnabled(False)
-
-                # Clear temp directory
-                self._clear_temp_images()
-
-                show_message_dialog(
-                    self,
-                    "Calibration Restarted",
-                    "All captures cleared. Please start capturing again with stable camera positions.",
-                    tone="success",
-                )
-                return True  # Abort this capture
-
-            elif choice == "cancel":
-                # Just skip this capture
-                return True  # Abort this capture
-
-            else:  # continue
-                # User chose to continue despite drift
-                return False  # Allow capture to proceed
-
-        except Exception as e:
-            # Don't block captures if drift detection fails
-            logger.warning("Alignment drift check failed; allowing capture to proceed: {}", e)
-            return False
+        del left_img, right_img
+        return False
 
     def _run_automatic_alignment_check(self) -> None:
         """Automatically run camera alignment check in background.

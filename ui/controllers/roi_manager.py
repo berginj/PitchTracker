@@ -12,7 +12,7 @@ from typing import Optional, Callable, Tuple, TYPE_CHECKING
 from PySide6 import QtWidgets
 
 from configs.lane_io import load_lane_rois, save_lane_rois
-from configs.roi_io import load_rois, save_rois
+from configs.roi_io import load_rois, load_runtime_roi_maps, save_rois
 from detect.lane import LaneRoi
 from ui.geometry import Rect, normalize_rect, polygon_to_rect, rect_to_polygon
 from log_config.logger import get_logger
@@ -178,11 +178,22 @@ class RoiManager:
         lane_right_poly = rect_to_polygon(self._lane_rect_right) if self._lane_rect_right else None
         plate_poly = rect_to_polygon(self._plate_rect)
 
-        # Save main ROI file
-        save_rois(self._roi_path, lane_poly, plate_poly)
+        lane_by_camera = None
+        if lane_poly is not None:
+            left_serial, right_serial = self._get_camera_serials()
+            left_id = left_serial or "left"
+            right_id = right_serial or "right"
+            lane_by_camera = {
+                left_id: lane_poly,
+                right_id: lane_right_poly or lane_poly,
+                "left": lane_poly,
+                "right": lane_right_poly or lane_poly,
+            }
+
+        save_rois(self._roi_path, lane_poly, plate_poly, lane_by_camera=lane_by_camera)
         logger.info(f"Saved ROIs to {self._roi_path}")
 
-        # Save per-camera lane ROIs
+        # Compatibility file for older helpers.
         if lane_poly is not None:
             left_serial, right_serial = self._get_camera_serials()
             left_id = left_serial or "left"
@@ -198,17 +209,26 @@ class RoiManager:
 
     def load_rois(self) -> None:
         """Load ROIs from configuration files."""
-        # Load main ROI file
+        left_serial, right_serial = self._get_camera_serials()
+        left_id = left_serial or "left"
+        right_id = right_serial or "right"
+        lane_rois_runtime, plate_rois_runtime = load_runtime_roi_maps(
+            self._roi_path,
+            left_id,
+            right_id,
+            lane_path=self._lane_path,
+        )
         rois = load_rois(self._roi_path)
-        self._lane_rect = polygon_to_rect(rois.get("lane"))
-        self._plate_rect = polygon_to_rect(rois.get("plate"))
+        self._lane_rect = polygon_to_rect(
+            lane_rois_runtime.get(left_id) or lane_rois_runtime.get("left") or rois.get("lane")
+        )
+        self._plate_rect = polygon_to_rect(
+            plate_rois_runtime.get(left_id) or plate_rois_runtime.get("left") or rois.get("plate")
+        )
         self._lane_rect_right = None
 
         # Load per-camera lane ROIs
         lane_rois = load_lane_rois(self._lane_path)
-        left_serial, right_serial = self._get_camera_serials()
-        left_id = left_serial or "left"
-        right_id = right_serial or "right"
 
         if lane_rois:
             left_lane = lane_rois.get(left_id) or lane_rois.get("left")
@@ -217,6 +237,10 @@ class RoiManager:
                 self._lane_rect = polygon_to_rect(left_lane.polygon)
             if right_lane:
                 self._lane_rect_right = polygon_to_rect(right_lane.polygon)
+        else:
+            right_lane = lane_rois_runtime.get(right_id) or lane_rois_runtime.get("right")
+            if right_lane:
+                self._lane_rect_right = polygon_to_rect(right_lane)
 
         if self._lane_rect or self._plate_rect:
             self._status_label.setText("ROIs loaded.")

@@ -159,8 +159,8 @@ class TestOpenCVIndexProbing:
             assert call_count_1 == call_count_2  # No additional calls
             assert indices1 == indices2
 
-    def test_probe_opencv_reduced_max_index(self):
-        """Default max_index should be 4 (reduced from 8)."""
+    def test_probe_opencv_default_max_index_covers_four_camera_rigs(self):
+        """Default max_index should scan enough indices for four-camera rigs."""
         with patch("cv2.VideoCapture") as mock_cap:
             mock_instance = MagicMock()
             mock_cap.return_value = mock_instance
@@ -169,8 +169,8 @@ class TestOpenCVIndexProbing:
             # Call with defaults
             probe_opencv_indices(parallel=False, use_cache=False)
 
-            # Should only check indices 0-3 (4 total)
-            assert mock_cap.call_count == 4
+            # Should check indices 0-15 by default.
+            assert mock_cap.call_count == 16
 
     def test_probe_opencv_timeout_protection(self):
         """Should timeout on stuck cameras (tested via integration)."""

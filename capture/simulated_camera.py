@@ -20,18 +20,31 @@ class SimulatedCamera(CameraDevice):
         self._fps = 0
         self._pixfmt = "GRAY8"
         self._flip_180 = False
+        self._rotation_correction = 0.0
+        self._vertical_offset_px = 0
         self._frame_index = 0
         self._last_frame_time = time.monotonic()
 
     def open(self, serial: str) -> None:
         self._serial = serial
 
-    def set_mode(self, width: int, height: int, fps: int, pixfmt: str, flip_180: bool = False) -> None:
+    def set_mode(
+        self,
+        width: int,
+        height: int,
+        fps: int,
+        pixfmt: str,
+        flip_180: bool = False,
+        rotation_correction: float = 0.0,
+        vertical_offset_px: int = 0,
+    ) -> None:
         self._width = width
         self._height = height
         self._fps = fps
         self._pixfmt = pixfmt
         self._flip_180 = flip_180
+        self._rotation_correction = rotation_correction
+        self._vertical_offset_px = vertical_offset_px
 
     def set_controls(
         self,
@@ -72,6 +85,18 @@ class SimulatedCamera(CameraDevice):
             import cv2
 
             image = cv2.rotate(image, cv2.ROTATE_180)
+
+        if abs(self._rotation_correction) > 0.1 or self._vertical_offset_px:
+            import cv2
+
+            h, w = image.shape[:2]
+            if abs(self._rotation_correction) > 0.1:
+                center = (w // 2, h // 2)
+                matrix = cv2.getRotationMatrix2D(center, self._rotation_correction, 1.0)
+                image = cv2.warpAffine(image, matrix, (w, h))
+            if self._vertical_offset_px:
+                matrix = np.float32([[1, 0, 0], [0, 1, -self._vertical_offset_px]])
+                image = cv2.warpAffine(image, matrix, (w, h))
 
         return Frame(
             camera_id=self._serial or "sim",

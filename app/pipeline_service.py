@@ -44,6 +44,7 @@ from app.pipeline.recording.pitch_recorder import PitchRecorder
 from app.pipeline.analysis.pitch_summary import PitchAnalyzer
 from app.pipeline.analysis.session_summary import SessionManager
 from app.pipeline.pitch_tracking_v2 import PitchStateMachineV2
+from app.services.rig_profile import RigProfileService
 
 logger = get_logger(__name__)
 
@@ -74,6 +75,9 @@ class InProcessPipelineService(
         self._config: Optional[AppConfig] = None
         self._config_service: Optional[ConfigService] = None
         self._config_path: Optional[Path] = None
+        self._rig_profile_service = RigProfileService()
+        self._runtime_calibration_path: Optional[Path] = None
+        self._runtime_roi_path: Optional[Path] = None
         self._record_dir: Optional[Path] = None
         self._record_session: Optional[str] = None
         self._record_mode: Optional[str] = None
@@ -131,6 +135,23 @@ class InProcessPipelineService(
         logger.info(f"Starting capture with left={left_serial}, right={right_serial}")
 
         try:
+            self._rig_profile_service = RigProfileService(
+                config_path=Path(config_path) if config_path else Path("configs/default.yaml")
+            )
+            rig_profile = self._rig_profile_service.load_active_or_legacy(
+                config,
+                backend=self._backend,
+                left_serial=left_serial,
+                right_serial=right_serial,
+            )
+            config = self._rig_profile_service.apply_profile_to_config(
+                config,
+                rig_profile,
+                preserve_camera_mode=True,
+            )
+            self._runtime_calibration_path = self._rig_profile_service.calibration_path(rig_profile)
+            self._runtime_roi_path = self._rig_profile_service.roi_path(rig_profile)
+
             self._config = config
             self._config_service = ConfigService(config)
             self._config_path = config_path
@@ -156,14 +177,19 @@ class InProcessPipelineService(
                     self._stereo_gate,
                     self._plate_gate,
                     self._plate_stereo_gate,
-                ) = PipelineInitializer.load_rois(left_id, right_id)
+                ) = PipelineInitializer.load_rois(
+                    left_id or left_serial,
+                    right_id or right_serial,
+                    roi_path=self._runtime_roi_path or Path("configs/roi.json"),
+                    lane_path=Path("rois/shared_lane_rois.json"),
+                )
             except Exception as exc:
                 logger.error(f"Failed to load ROIs: {exc}")
                 self._camera_mgr.stop_capture()
                 error_msg = (
                     f"Failed to load ROI configuration: {exc}\n\n"
                     f"Possible solutions:\n"
-                    f"  • Run the setup wizard to configure ROIs\n"
+                    f"  • Run Setup Doctor to configure ROIs\n"
                     f"  • Check that roi.yaml exists in the configs directory\n"
                     f"  • Verify camera serials match configured ROIs"
                 )
@@ -203,7 +229,10 @@ class InProcessPipelineService(
             # Initialize stereo
             try:
                 logger.debug("Initializing stereo")
-                self._stereo = PipelineInitializer.create_stereo_matcher(config)
+                self._stereo = PipelineInitializer.create_stereo_matcher(
+                    config,
+                    self._runtime_calibration_path or Path("calibration/stereo_calibration.npz"),
+                )
             except Exception as exc:
                 logger.error(f"Failed to initialize stereo: {exc}")
                 self._camera_mgr.stop_capture()
@@ -211,7 +240,7 @@ class InProcessPipelineService(
                     f"Failed to initialize stereo system: {exc}\n\n"
                     f"This usually indicates a calibration issue.\n\n"
                     f"Possible solutions:\n"
-                    f"  • Re-run camera calibration in the setup wizard\n"
+                    f"  • Re-run camera calibration from Setup Doctor\n"
                     f"  • Check that calibration.npz exists in the configs directory\n"
                     f"  • Verify baseline_ft and focal_length_px in default.yaml\n"
                     f"  • Ensure both cameras are properly configured"

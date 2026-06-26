@@ -25,6 +25,8 @@ from app.services.analysis import AnalysisServiceImpl
 from app.services.capture import CaptureServiceImpl
 from app.services.detection import DetectionServiceImpl
 from app.services.recording import RecordingServiceImpl
+from app.services.rig_profile import CRITICAL, RigProfile, RigProfileService
+from configs.roi_io import load_runtime_roi_maps
 from configs.settings import AppConfig
 from contracts import Detection, Frame, StereoObservation
 from detect.config import DetectorConfig as CvDetectorConfig
@@ -93,6 +95,12 @@ class PipelineOrchestrator(PipelineService):
         self._config_path: Optional[Path] = None
         self._record_dir: Optional[Path] = None
         self._manual_speed_mph: Optional[float] = None
+        self._left_serial: Optional[str] = None
+        self._right_serial: Optional[str] = None
+        self._rig_profile_service = RigProfileService()
+        self._active_rig_profile: Optional[RigProfile] = None
+        self._runtime_calibration_path: Optional[Path] = None
+        self._runtime_roi_path: Optional[Path] = None
 
         # State
         self._capturing = False
@@ -129,6 +137,39 @@ class PipelineOrchestrator(PipelineService):
             if self._capturing:
                 raise RuntimeError("Capture already started")
 
+            self._left_serial = left_serial
+            self._right_serial = right_serial
+            self._rig_profile_service = RigProfileService(config_path=Path(config_path) if config_path else Path("configs/default.yaml"))
+            self._active_rig_profile = self._rig_profile_service.load_active_or_legacy(
+                config,
+                backend=self._backend,
+                left_serial=left_serial,
+                right_serial=right_serial,
+            )
+            validation = self._rig_profile_service.validate_for_runtime(
+                self._active_rig_profile,
+                config=config,
+                backend=self._backend,
+                left_serial=left_serial,
+                right_serial=right_serial,
+            )
+            if validation.state == CRITICAL:
+                logger.error(f"Rig profile runtime validation is CRITICAL: {validation.issues}")
+                raise RuntimeError(
+                    "Rig profile runtime validation is CRITICAL: "
+                    + "; ".join(validation.issues or ["unknown validation failure"])
+                )
+            elif validation.warnings:
+                logger.warning(f"Rig profile runtime validation warnings: {validation.warnings}")
+
+            config = self._rig_profile_service.apply_profile_to_config(
+                config,
+                self._active_rig_profile,
+                preserve_camera_mode=True,
+            )
+            self._runtime_calibration_path = self._rig_profile_service.calibration_path(self._active_rig_profile)
+            self._runtime_roi_path = self._rig_profile_service.roi_path(self._active_rig_profile)
+
             # Store config
             self._config = config
             self._config_path = config_path
@@ -141,6 +182,8 @@ class PipelineOrchestrator(PipelineService):
                 self._detection_service = DetectionServiceImpl(self._event_bus, config)
             else:
                 self._detection_service.update_config(config)
+            self._detection_service.set_runtime_calibration_path(self._runtime_calibration_path)
+            self._apply_runtime_rois_to_detection(left_serial, right_serial)
 
             if self._recording_service is None:
                 self._recording_service = RecordingServiceImpl(self._event_bus)
@@ -373,7 +416,7 @@ class PipelineOrchestrator(PipelineService):
             return self._recording_paused
 
     def run_calibration(self, profile_id: str) -> CalibrationProfile:
-        """Run calibration and return a profile summary.
+        """Reject runtime calibration and point callers to setup tooling.
 
         Args:
             profile_id: Calibration profile identifier
@@ -381,11 +424,19 @@ class PipelineOrchestrator(PipelineService):
         Returns:
             CalibrationProfile with metadata
 
-        Note: Calibration runs in separate calibration pipeline
+        Raises:
+            NotImplementedError: Calibration is intentionally owned by setup
+                tooling for the pilot runtime.
         """
-        # Future Enhancement: Implement calibration via separate pipeline
-        logger.warning("run_calibration(%s) is not implemented in PipelineOrchestrator", profile_id)
-        raise NotImplementedError("Calibration not yet implemented in orchestrator")
+        message = (
+            "Calibration is not run by PipelineOrchestrator in v1.5.0-pilot. "
+            "Use Setup Doctor or app.services.tooling.SubprocessToolingService "
+            "to create and validate the rig profile, then start capture with "
+            "that validated profile. The orchestrator owns runtime capture, "
+            "recording, detection, and analysis only."
+        )
+        logger.warning("run_calibration(%s) rejected: %s", profile_id, message)
+        raise NotImplementedError(message)
 
     def get_stats(self) -> Dict[str, Dict[str, float]]:
         """Return capture stats for both cameras.
@@ -603,9 +654,21 @@ class PipelineOrchestrator(PipelineService):
                 self._detection_service.update_config(config)
 
     def reload_rois(self) -> None:
-        """Reload ROIs for compatibility with legacy UI callers."""
-        logger.warning("reload_rois() is deprecated compatibility surface and currently a no-op")
-        return None
+        """Reload ROIs from the active rig profile or legacy fallback."""
+        with self._lock:
+            if self._detection_service is None:
+                return
+            left_serial = self._left_serial or "left"
+            right_serial = self._right_serial or "right"
+            if self._active_rig_profile is None and self._config is not None:
+                self._active_rig_profile = self._rig_profile_service.load_active_or_legacy(
+                    self._config,
+                    backend=self._backend,
+                    left_serial=left_serial,
+                    right_serial=right_serial,
+                )
+                self._runtime_roi_path = self._rig_profile_service.roi_path(self._active_rig_profile)
+            self._apply_runtime_rois_to_detection(left_serial, right_serial)
 
     def update_mound_distance(self, distance_ft: float) -> None:
         """Update mound distance in the active configuration."""
@@ -758,3 +821,39 @@ class PipelineOrchestrator(PipelineService):
     @staticmethod
     def _make_pitch_id(pitch_index: int) -> str:
         return f"pitch_{pitch_index:05d}"
+
+    def _apply_runtime_rois_to_detection(self, left_serial: str, right_serial: str) -> None:
+        if self._detection_service is None or self._runtime_roi_path is None:
+            return
+
+        lane_by_serial, plate_by_serial = load_runtime_roi_maps(
+            self._runtime_roi_path,
+            left_serial,
+            right_serial,
+            lane_path=Path("rois/shared_lane_rois.json"),
+        )
+        lane_rois = _serial_roi_map_to_camera_ids(lane_by_serial, left_serial, right_serial)
+        plate_rois = _serial_roi_map_to_camera_ids(plate_by_serial, left_serial, right_serial)
+        if not lane_rois and not plate_rois:
+            logger.warning(f"No runtime ROIs loaded from {self._runtime_roi_path}")
+            return
+        self._detection_service.set_lane_rois(lane_rois, plate_rois or None)
+        logger.info(
+            f"Runtime ROIs loaded from {self._runtime_roi_path} "
+            f"(lane={sorted(lane_rois.keys())}, plate={sorted(plate_rois.keys())})"
+        )
+
+
+def _serial_roi_map_to_camera_ids(
+    roi_map: Dict[str, List[Tuple[float, float]]],
+    left_serial: str,
+    right_serial: str,
+) -> Dict[str, List[Tuple[float, float]]]:
+    left = roi_map.get("left") or roi_map.get(left_serial)
+    right = roi_map.get("right") or roi_map.get(right_serial)
+    output: Dict[str, List[Tuple[float, float]]] = {}
+    if left is not None:
+        output[left_serial] = list(left)
+    if right is not None:
+        output[right_serial] = list(right)
+    return output

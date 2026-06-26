@@ -130,11 +130,11 @@ def _query_pnp_devices(device_class: str) -> List[dict[str, str]]:
             ["powershell", "-NoProfile", "-Command", command],
             capture_output=True,
             text=True,
-            timeout=5.0,
+            timeout=10.0,
             check=False,
         )
     except subprocess.TimeoutExpired:
-        logger.warning(f"PowerShell query for {device_class} devices timed out after 5s")
+        logger.warning(f"PowerShell query for {device_class} devices timed out after 10s")
         return []
 
     if result.returncode != 0 or not result.stdout.strip():

@@ -2,13 +2,13 @@
 
 Shared contracts for PitchTracker apps (desktop and cloud).
 
-This directory holds machine-readable schemas plus the human context needed to
-use them well. The schemas stay payload-focused; personas and workflow context
-live in companion documents so the contracts can be understood without forcing
-persona-specific fields into every payload.
+This directory holds machine-readable schemas plus the contract-specific human
+context needed to use them well. Canonical product personas live in
+`../docs/USER_PERSONAS.md`; this package keeps schema mappings and workflow
+notes close to the contracts.
 
 ## Files
-- `PERSONAS.md` - Baseline end-user personas, jobs-to-be-done, discovery questions, and contract mapping.
+- `PERSONAS.md` - Contract mapping to canonical personas in `../docs/USER_PERSONAS.md`.
 - `schema/version.json` - Contract schema version (semver).
 - `schema/session_summary.schema.json` - JSON Schema for session summaries.
 - `schema/session_upload.schema.json` - JSON Schema for session uploads to analytics.
@@ -39,11 +39,8 @@ mirror fails the test suite.
 
 ## Persona and Workflow Context
 
-See `PERSONAS.md` before changing schemas. It defines the current baseline
-personas inferred from the product:
-- Setup Technician / Installer
-- Coach / Session Operator
-- Pitcher / Athlete Review Recipient
+See `../docs/USER_PERSONAS.md` before changing schemas, then use
+`PERSONAS.md` for schema-specific persona and workflow mapping.
 
 ## Contract Map
 
@@ -56,7 +53,8 @@ personas inferred from the product:
 
 ## Guidance
 - Keep machine-readable schemas focused on portable payload structure.
-- Put persona definitions, jobs-to-be-done, and discovery questions in `PERSONAS.md`.
+- Put canonical persona definitions, jobs-to-be-done, and discovery questions in `../docs/USER_PERSONAS.md`.
+- Put schema-specific persona mappings in `PERSONAS.md`.
 - Prefer schema `description` and `$comment` fields for workflow context before adding new required persona fields.
 - If a workflow introduces a new durable artifact, add a contract for that artifact instead of overloading an unrelated schema.
 

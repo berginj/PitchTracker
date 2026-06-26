@@ -358,15 +358,15 @@ class CoachWindow(QtWidgets.QMainWindow):
 
         def _warm_cache():
             try:
-                from ui.device_utils import probe_uvc_devices, probe_opencv_indices
+                from ui.device_utils import DEFAULT_OPENCV_MAX_INDEX, probe_uvc_devices, probe_opencv_indices
 
                 logger.debug("Background: Warming camera cache...")
 
                 # Warm UVC device cache (2-4 seconds on first run)
                 probe_uvc_devices(use_cache=True)
 
-                # Warm OpenCV indices cache (3-6 seconds on first run, checks 10 cameras)
-                probe_opencv_indices(max_index=10, use_cache=True)
+                # Warm OpenCV indices cache with the same reliable scan used by the dialogs.
+                probe_opencv_indices(max_index=DEFAULT_OPENCV_MAX_INDEX, parallel=False, use_cache=True)
 
                 logger.info("Background: Camera cache warmed successfully")
 
@@ -422,35 +422,15 @@ class CoachWindow(QtWidgets.QMainWindow):
                 self._set_status_message("Starting cameras...", "info")
                 QtWidgets.QApplication.processEvents()
 
-                # Use configurable resolution for coaching app
-                # Create modified config with user-selected camera settings
-                from configs.settings import CameraConfig
-
-                coaching_camera_config = CameraConfig(
-                    width=self._camera_width,
-                    height=self._camera_height,
-                    fps=self._camera_fps,
-                    pixfmt=self._config.camera.pixfmt,
-                    exposure_us=self._config.camera.exposure_us,
-                    gain=self._config.camera.gain,
-                    wb_mode=self._config.camera.wb_mode,
-                    wb=self._config.camera.wb,
-                    queue_depth=self._config.camera.queue_depth,
-                    color_mode=self._camera_color_mode,
-                )
-
-                coaching_config = self._config.__class__(
-                    camera=coaching_camera_config,
-                    stereo=self._config.stereo,
-                    tracking=self._config.tracking,
-                    metrics=self._config.metrics,
-                    recording=self._config.recording,
-                    ui=self._config.ui,
-                    telemetry=self._config.telemetry,
-                    detector=self._config.detector,
-                    strike_zone=self._config.strike_zone,
-                    ball=self._config.ball,
-                    upload=self._config.upload,
+                coaching_config = replace(
+                    self._config,
+                    camera=replace(
+                        self._config.camera,
+                        width=self._camera_width,
+                        height=self._camera_height,
+                        fps=self._camera_fps,
+                        color_mode=self._camera_color_mode,
+                    ),
                 )
 
                 self._service.start_capture(
@@ -713,34 +693,15 @@ class CoachWindow(QtWidgets.QMainWindow):
                     current_mode.clear()
                     QtWidgets.QApplication.processEvents()
 
-                    # Create new camera config with updated settings
-                    from configs.settings import CameraConfig
-
-                    coaching_camera_config = CameraConfig(
-                        width=self._camera_width,
-                        height=self._camera_height,
-                        fps=self._camera_fps,
-                        pixfmt=self._config.camera.pixfmt,
-                        exposure_us=self._config.camera.exposure_us,
-                        gain=self._config.camera.gain,
-                        wb_mode=self._config.camera.wb_mode,
-                        wb=self._config.camera.wb,
-                        queue_depth=self._config.camera.queue_depth,
-                        color_mode=self._camera_color_mode,
-                    )
-
-                    coaching_config = self._config.__class__(
-                        camera=coaching_camera_config,
-                        stereo=self._config.stereo,
-                        tracking=self._config.tracking,
-                        metrics=self._config.metrics,
-                        recording=self._config.recording,
-                        ui=self._config.ui,
-                        telemetry=self._config.telemetry,
-                        detector=self._config.detector,
-                        strike_zone=self._config.strike_zone,
-                        ball=self._config.ball,
-                        upload=self._config.upload,
+                    coaching_config = replace(
+                        self._config,
+                        camera=replace(
+                            self._config.camera,
+                            width=self._camera_width,
+                            height=self._camera_height,
+                            fps=self._camera_fps,
+                            color_mode=self._camera_color_mode,
+                        ),
                     )
 
                     # Start capture with new settings

@@ -280,29 +280,29 @@ The system meets all performance targets:
 3. Run full benchmark suite (not quick mode)
 4. Record results in this section
 
-**Reference Hardware (TBD):**
+**Reference Hardware (pending measurement):**
 ```
-CPU: [TBD]
-RAM: [TBD]
-GPU: [TBD] (if using GPU acceleration)
+CPU: pending measurement
+RAM: pending measurement
+GPU: pending measurement, if using GPU acceleration
 OS: Windows 10/11
 Python: 3.11+
 ```
 
-**Expected Performance (TBD):**
+**Expected Performance (pending measurement):**
 ```
 Throughput:
-  • 720p: [TBD] FPS
-  • 1080p: [TBD] FPS
+  • 720p: pending FPS
+  • 1080p: pending FPS
 
 Latency:
-  • P50: [TBD] ms
-  • P95: [TBD] ms
-  • P99: [TBD] ms
+  • P50: pending ms
+  • P95: pending ms
+  • P99: pending ms
 
 Memory:
-  • Initial: [TBD] MB
-  • Growth: [TBD]% over 5 minutes
+  • Initial: pending MB
+  • Growth: pending percent over 5 minutes
 ```
 
 ---

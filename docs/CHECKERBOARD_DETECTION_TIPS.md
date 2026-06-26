@@ -47,7 +47,7 @@ If your cameras support it:
   ```
 
 ### 5. **Reduce Detection Stride** (Software Tweak)
-The calibration wizard checks for checkerboard every N frames. For difficult detection:
+Setup Doctor's calibration capture checks for checkerboard/ChArUco targets every N frames. For difficult detection:
 - Increase detection attempts (current: every 10 frames)
 - This gives more chances to detect during movement/lighting variations
 
@@ -105,7 +105,7 @@ This approach works because:
 
 To test if checkerboard is detectable:
 1. Start capture with both cameras
-2. Open calibration wizard → "Calibration Target" step
+2. Open Setup Doctor -> calibration target step
 3. Watch the indicator - should turn GREEN when detected
 4. Watch the focus score overlay - should be GREEN (200+)
 5. Try moving/tilting checkerboard slowly

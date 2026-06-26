@@ -11,6 +11,7 @@ from typing import Callable, Optional, TYPE_CHECKING
 from PySide6 import QtWidgets
 
 from ui.device_utils import (
+    DEFAULT_OPENCV_MAX_INDEX,
     current_serial,
     is_arducam_device,
     probe_opencv_indices,
@@ -86,7 +87,7 @@ class DeviceManager:
         Returns:
             Number of devices found
         """
-        devices = probe_uvc_devices()  # Already sorted with ArduCam first
+        devices = probe_uvc_devices(use_cache=False)  # Already sorted with ArduCam first
         arducam_count = sum(1 for d in devices if is_arducam_device(d.get("friendly_name", "")))
 
         for device in devices:
@@ -117,9 +118,9 @@ class DeviceManager:
             Number of devices found
         """
         # Get friendly names from UVC to identify ArduCam devices
-        uvc_devices = probe_uvc_devices()
+        uvc_devices = probe_uvc_devices(use_cache=False)
         uvc_by_index = {i: dev for i, dev in enumerate(uvc_devices)}
-        indices = probe_opencv_indices()
+        indices = probe_opencv_indices(max_index=DEFAULT_OPENCV_MAX_INDEX, parallel=False, use_cache=False)
         arducam_count = 0
 
         for index in indices:

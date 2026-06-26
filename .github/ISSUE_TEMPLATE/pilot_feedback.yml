@@ -1,0 +1,111 @@
+name: Pilot Feedback
+description: Structured feedback from a facility, coach, operator, or installer.
+title: "[Pilot Feedback]: "
+labels:
+  - pilot-feedback
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form after a setup, practice session, validation run, or pilot check-in. Avoid uploading athlete video or private data unless explicitly requested.
+  - type: dropdown
+    id: reporter_role
+    attributes:
+      label: Reporter role
+      options:
+        - Setup technician / installer
+        - Coach / session operator
+        - Facility owner / program director
+        - Support / maintenance operator
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: facility_context
+    attributes:
+      label: Facility or context
+      description: Use a non-sensitive name or shorthand if needed.
+      placeholder: Indoor academy, high-school bullpen, test rig, etc.
+    validations:
+      required: true
+  - type: input
+    id: app_version
+    attributes:
+      label: PitchTracker version
+      placeholder: v1.5.0-pilot
+    validations:
+      required: true
+  - type: dropdown
+    id: workflow_area
+    attributes:
+      label: Workflow area
+      options:
+        - Camera alignment
+        - Setup Doctor
+        - Calibration
+        - ROI setup
+        - Live coaching
+        - Recording
+        - Review mode
+        - Export/import
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Impact
+      options:
+        - Blocks pilot use
+        - Slows setup or session
+        - Confusing but workable
+        - Improvement request
+        - Positive feedback
+    validations:
+      required: true
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: Describe the observed issue, feedback, or result.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: Leave blank for positive feedback if not applicable.
+    validations:
+      required: false
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps or session context
+      description: Include setup steps, session flow, camera alignment state, or validation context.
+      placeholder: "1. Opened Setup Doctor\n2. Selected cameras\n3. Ran alignment check..."
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Hardware, OS, cameras, lighting, mound distance, ball type, and reference device if relevant.
+      placeholder: "Windows 11, Logitech C920 pair, indoor lighting, 60.5 ft, Pocket Radar..."
+    validations:
+      required: false
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Logs or artifacts
+      description: Mention logs, setup reports, screenshots, or session IDs. Do not attach private video unless explicitly authorized.
+    validations:
+      required: false
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I have removed athlete names, private video, and sensitive facility data unless explicitly authorized.
+          required: true

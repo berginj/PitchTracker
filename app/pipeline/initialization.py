@@ -8,8 +8,7 @@ from typing import Dict, Optional, Tuple
 import numpy as np
 
 from capture import CameraDevice
-from configs.lane_io import load_lane_rois
-from configs.roi_io import load_rois
+from configs.roi_io import load_runtime_roi_maps
 from configs.settings import AppConfig
 from contracts import Frame
 from detect.classical_detector import ClassicalDetector
@@ -54,8 +53,10 @@ class PipelineInitializer:
             # Override to color format when color_mode is enabled
             pixfmt = "YUYV" if pixfmt == "GRAY8" else pixfmt
 
-        # Select flip setting based on which camera this is
+        # Select transform settings based on which camera this is.
         flip_180 = config.camera.flip_left if is_left else config.camera.flip_right
+        rotation_correction = config.camera.rotation_left if is_left else config.camera.rotation_right
+        vertical_offset_px = 0 if is_left else config.camera.vertical_offset_px
 
         camera.set_mode(
             config.camera.width,
@@ -63,6 +64,8 @@ class PipelineInitializer:
             config.camera.fps,
             pixfmt,
             flip_180=flip_180,
+            rotation_correction=rotation_correction,
+            vertical_offset_px=vertical_offset_px,
         )
         camera.set_controls(
             config.camera.exposure_us,
@@ -73,7 +76,10 @@ class PipelineInitializer:
 
     @staticmethod
     def load_rois(
-        left_id: str, right_id: str
+        left_id: str,
+        right_id: str,
+        roi_path: Path = Path("configs/roi.json"),
+        lane_path: Path = Path("configs/lane_roi.json"),
     ) -> Tuple[
         Optional[list[tuple[float, float]]],
         Optional[LaneGate],
@@ -83,7 +89,7 @@ class PipelineInitializer:
     ]:
         """Load ROIs from config files.
 
-        Loads lane and plate ROIs from roi.json and lane_roi.json config files.
+        Loads lane and plate ROIs from active rig-profile or legacy ROI files.
 
         Args:
             left_id: Left camera serial number
@@ -92,10 +98,7 @@ class PipelineInitializer:
         Returns:
             Tuple of (lane_polygon, lane_gate, stereo_gate, plate_gate, plate_stereo_gate)
         """
-        rois = load_rois(Path("configs/roi.json"))
-        lane = rois.get("lane")
-        plate = rois.get("plate")
-        lane_rois = load_lane_rois(Path("configs/lane_roi.json"))
+        lane_rois, plate_rois = load_runtime_roi_maps(roi_path, left_id, right_id, lane_path=lane_path)
 
         lane_polygon = None
         lane_gate = None
@@ -103,34 +106,36 @@ class PipelineInitializer:
         plate_gate = None
         plate_stereo_gate = None
 
-        # Load lane ROI
-        if lane:
-            lane_polygon = [(float(x), float(y)) for x, y in lane]
-            lane_roi_left = LaneRoi(polygon=[(float(x), float(y)) for x, y in lane])
-            lane_roi_right = lane_roi_left
-
-            # Check for per-camera lane ROIs
-            if lane_rois:
-                lane_left = lane_rois.get(left_id) or lane_rois.get("left")
-                lane_right = lane_rois.get(right_id) or lane_rois.get("right")
-                if lane_left is not None:
-                    lane_roi_left = lane_left
-                if lane_right is not None:
-                    lane_roi_right = lane_right
-
-            lane_gate = LaneGate(roi_by_camera={left_id: lane_roi_left, right_id: lane_roi_right})
+        if lane_rois:
+            left_lane = lane_rois.get(left_id) or lane_rois.get("left")
+            right_lane = lane_rois.get(right_id) or lane_rois.get("right")
+            first_lane = left_lane or right_lane
+            if first_lane:
+                lane_polygon = [(float(x), float(y)) for x, y in first_lane]
+            roi_by_camera = {}
+            if left_lane:
+                roi_by_camera[left_id] = LaneRoi(polygon=[(float(x), float(y)) for x, y in left_lane])
+            if right_lane:
+                roi_by_camera[right_id] = LaneRoi(polygon=[(float(x), float(y)) for x, y in right_lane])
+            lane_gate = LaneGate(roi_by_camera=roi_by_camera)
             stereo_gate = StereoLaneGate(lane_gate=lane_gate)
 
-        # Load plate ROI
-        if plate:
-            plate_roi = LaneRoi(polygon=[(float(x), float(y)) for x, y in plate])
-            plate_gate = LaneGate(roi_by_camera={left_id: plate_roi, right_id: plate_roi})
+        if plate_rois:
+            plate_gate = LaneGate(
+                roi_by_camera={
+                    camera_id: LaneRoi(polygon=[(float(x), float(y)) for x, y in points])
+                    for camera_id, points in plate_rois.items()
+                }
+            )
             plate_stereo_gate = StereoLaneGate(lane_gate=plate_gate)
 
         return lane_polygon, lane_gate, stereo_gate, plate_gate, plate_stereo_gate
 
     @staticmethod
-    def create_stereo_matcher(config: AppConfig) -> StereoMatcher:
+    def create_stereo_matcher(
+        config: AppConfig,
+        calibration_path: Path = Path("calibration/stereo_calibration.npz"),
+    ) -> StereoMatcher:
         """Create stereo matcher from config.
 
         Args:
@@ -139,7 +144,6 @@ class PipelineInitializer:
         Returns:
             Initialized SimpleStereoMatcher
         """
-        calibration_path = Path("calibration/stereo_calibration.npz")
         if calibration_path.exists():
             calibrated_geometry = CalibratedStereoGeometry.from_npz(
                 calibration_path,

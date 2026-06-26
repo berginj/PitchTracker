@@ -7,6 +7,7 @@ from pathlib import Path
 from PySide6 import QtCore, QtWidgets
 
 from app.services.orchestrator import PipelineOrchestrator
+from app.services.rig_profile import RigProfileService
 from configs.settings import load_config
 from contracts.versioning import APP_VERSION
 from detect.config import Mode
@@ -68,8 +69,14 @@ class MainWindow(
         self._service = PipelineOrchestrator(backend=backend)
         self._timer = QtCore.QTimer(self)
         self._timer.timeout.connect(self._update_preview)
-        self._roi_path = Path("rois/shared_rois.json")
-        self._lane_path = Path("rois/shared_lane_rois.json")
+        self._rig_profile_service = RigProfileService(config_path=self._config_path_value)
+        self._active_rig_profile = self._rig_profile_service.load_active_or_legacy(self._config, backend=backend)
+        self._roi_path = self._rig_profile_service.roi_path(self._active_rig_profile)
+        self._lane_path = (
+            Path("rois/shared_lane_rois.json")
+            if self._active_rig_profile.profile_id == "legacy"
+            else self._rig_profile_service.profile_dir(self._active_rig_profile.profile_id) / "lane_roi_compat.json"
+        )
         # Note: ROI state now managed by RoiManager
         # Note: Replay state now managed by ReplayController
         # Note: _pitcher_name and _location_profile now managed by ProfileManager

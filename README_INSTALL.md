@@ -1,5 +1,7 @@
 # PitchTracker Installation
 
+**Applies To:** v1.5.0-pilot
+
 Thank you for installing PitchTracker!
 
 ## System Requirements
@@ -92,7 +94,7 @@ C:\Program Files\PitchTracker\
 
 For help and support:
 
-- **Documentation:** README_LAUNCHER.md
+- **Documentation:** README_LAUNCHER.md and docs/CURRENT_STATUS.md
 - **Issues:** https://github.com/berginj/PitchTracker/issues
 - **Email:** [Your support email]
 
@@ -102,5 +104,5 @@ This software is provided under the terms specified in the LICENSE file.
 
 ---
 
-**Version:** 1.0.0
+**Version:** v1.5.0-pilot
 **Installation Date:** [Automatically populated during install]

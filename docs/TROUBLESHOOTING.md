@@ -571,7 +571,7 @@ If settings corrupted or want to start fresh:
    - %APPDATA%\PitchTracker\state.json
    ```
 3. Restart PitchTracker
-4. Run Setup Wizard again
+4. Run Setup Doctor again
 
 ### Performance Profiling
 
