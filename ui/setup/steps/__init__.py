@@ -3,10 +3,12 @@
 from .base_step import BaseStep
 from .camera_step import CameraStep
 from .calibration_step import CalibrationStep
+from .charuco_finetune_step import CharucoFinetuneStep
 from .detector_step import DetectorStep
 from .export_step import ExportStep
 from .focus_lock_step import FocusLockStep
 from .overlap_step import OverlapStep
+from .persist_profile_step import PersistProfileStep
 from .quality_report_step import QualityReportStep
 from .rectify_step import RectifyStep
 from .roi_step import RoiStep
@@ -26,4 +28,6 @@ __all__ = [
     "FocusLockStep",
     "OverlapStep",
     "RectifyStep",
+    "CharucoFinetuneStep",
+    "PersistProfileStep",
 ]

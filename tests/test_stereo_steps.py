@@ -22,8 +22,10 @@ from ui.setup.state_machine import (  # noqa: E402
 )
 from ui.setup.stereo_steps import PlaceholderStep, build_stereo_step_widgets  # noqa: E402
 from ui.setup.steps import (  # noqa: E402
+    CharucoFinetuneStep,
     FocusLockStep,
     OverlapStep,
+    PersistProfileStep,
     QualityReportStep,
     RectifyStep,
     SyncCheckStep,
@@ -47,12 +49,12 @@ def test_genuine_gate_steps_use_real_widgets(qapp):
     assert isinstance(widgets[SetupStep.FOCUS_EXPOSURE_LOCK], FocusLockStep)
     assert isinstance(widgets[SetupStep.OVERLAP_VALIDATION], OverlapStep)
     assert isinstance(widgets[SetupStep.COARSE_RECTIFY], RectifyStep)
+    assert isinstance(widgets[SetupStep.CHARUCO_FINE_TUNE], CharucoFinetuneStep)
+    assert isinstance(widgets[SetupStep.PERSIST_PROFILE], PersistProfileStep)
     assert isinstance(widgets[SetupStep.QUALITY_REPORT], QualityReportStep)
-    # Hardware/integration-bound steps are honest placeholders for now.
+    # Only the live-capture-bound steps remain honest placeholders for now.
     assert isinstance(widgets[SetupStep.SELECT_CAMERAS], PlaceholderStep)
     assert isinstance(widgets[SetupStep.PAIRED_PREVIEW], PlaceholderStep)
-    assert isinstance(widgets[SetupStep.CHARUCO_FINE_TUNE], PlaceholderStep)
-    assert isinstance(widgets[SetupStep.PERSIST_PROFILE], PlaceholderStep)
 
 
 def test_every_widget_renders_on_enter(qapp):

@@ -23,8 +23,10 @@ from PySide6 import QtCore, QtWidgets
 from ui.setup.state_machine import DEFAULT_SETUP_SPEC, SetupStep
 from ui.setup.steps import (
     BaseStep,
+    CharucoFinetuneStep,
     FocusLockStep,
     OverlapStep,
+    PersistProfileStep,
     QualityReportStep,
     RectifyStep,
     SyncCheckStep,
@@ -34,16 +36,12 @@ from ui.themes import apply_standard_layout, build_notice, style_status_label
 # Titles come from the canonical spec so the registry never drifts from it.
 _SPEC_TITLES = {spec.step: spec.title for spec in DEFAULT_SETUP_SPEC}
 
-# Steps that do not yet have a genuine widget (hardware/integration-bound).
+# Steps that do not yet have a genuine widget (live-capture bound).
 _PLACEHOLDER_NOTES = {
     SetupStep.SELECT_CAMERAS: "Camera discovery and stable left/right assignment is handled by the live "
     "camera workflow; a dedicated stereo selection widget is coming.",
     SetupStep.PAIRED_PREVIEW: "Live paired left/right preview requires connected cameras and is provided "
     "by the capture workflow; a dedicated preview widget is coming.",
-    SetupStep.CHARUCO_FINE_TUNE: "Optional ChArUco fine-tuning refines intrinsics after coarse rectification; "
-    "this step can be skipped to finish with the targetless calibration.",
-    SetupStep.PERSIST_PROFILE: "Calibration profile persistence is handled by the export/profile workflow; "
-    "a dedicated persist widget is coming.",
 }
 
 
@@ -95,6 +93,8 @@ def build_stereo_step_widgets() -> Dict[SetupStep, BaseStep]:
         SetupStep.FOCUS_EXPOSURE_LOCK: FocusLockStep(),
         SetupStep.OVERLAP_VALIDATION: OverlapStep(),
         SetupStep.COARSE_RECTIFY: RectifyStep(),
+        SetupStep.CHARUCO_FINE_TUNE: CharucoFinetuneStep(),
+        SetupStep.PERSIST_PROFILE: PersistProfileStep(),
         SetupStep.QUALITY_REPORT: QualityReportStep(),
     }
     for step, note in _PLACEHOLDER_NOTES.items():
