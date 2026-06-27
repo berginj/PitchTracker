@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -22,7 +22,12 @@ from ui.themes import (
 class StereoSetupWindow(QtWidgets.QMainWindow):
     """Window hosting the genuine stereo setup wizard on SetupStateMachine."""
 
-    def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
+    def __init__(
+        self,
+        parent: Optional[QtWidgets.QWidget] = None,
+        *,
+        widget_factory: Optional[Callable[[], Dict[SetupStep, BaseStep]]] = None,
+    ):
         super().__init__(parent)
         self.setWindowTitle("PitchTracker Stereo Setup")
         self.resize(1200, 800)
@@ -30,7 +35,8 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         self._style_manager = get_style_manager()
         self._style_manager.set_mode("setup")
 
-        self._widget_by_step: Dict[SetupStep, BaseStep] = build_stereo_step_widgets()
+        factory = widget_factory or build_stereo_step_widgets
+        self._widget_by_step: Dict[SetupStep, BaseStep] = factory()
         self._machine = SetupStateMachine(DEFAULT_SETUP_SPEC)
         self._steps = [self._widget_by_step[spec.step] for spec in DEFAULT_SETUP_SPEC]
 
