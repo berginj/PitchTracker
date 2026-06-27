@@ -1,8 +1,8 @@
-# Create GitHub Release v1.5.0-pilot
+# Create GitHub Release v2.0.0-stereo
 # Run this script after authenticating with: gh auth login
 
-$ReleaseTag = "v1.5.0-pilot"
-$InstallerPath = "installer_output\PitchTracker-Setup-v1.5.0-pilot.exe"
+$ReleaseTag = "v2.0.0-stereo"
+$InstallerPath = "installer_output\PitchTracker-Setup-v2.0.0-stereo.exe"
 
 Write-Host "Creating GitHub Release $ReleaseTag..." -ForegroundColor Yellow
 Write-Host ""
@@ -19,24 +19,32 @@ Write-Host "Size:      $($installerSize.ToString('0.0')) MB" -ForegroundColor Gr
 Write-Host ""
 
 $releaseNotes = @"
-# PitchTracker v1.5.0-pilot
+# PitchTracker v2.0.0-stereo
 
-Canonical pilot build for controlled facility deployments.
+Stereo-foundation rebuild. The product now proves it can receive, pair,
+compare, and calibrate left/right camera images through a coherent setup
+state machine before any pitch-tracking logic runs.
 
 ## Installation
 
-1. Download ``PitchTracker-Setup-v1.5.0-pilot.exe``.
+1. Download ``PitchTracker-Setup-v2.0.0-stereo.exe``.
 2. Run the installer on Windows 10/11.
-3. Complete Setup Doctor before coaching use.
-4. Use a fixed dual-camera rig and the pilot hardware checklist.
+3. Complete the stereo setup wizard before coaching use.
+4. Use a fixed dual-camera rig and the hardware checklist.
 
 ## Included
 
+- Rebuilt stereo capture foundation: buffer-safe pairing, timestamp-at-read,
+  sync-check contract, and L/R persistence by hardware id
+- Qt-free setup state machine driving a 7-step stereo wizard
+  (cameras, calibration, ROI, detector, validation, export, quality report)
+- Targetless coarse stereo rectification with epipolar error scoring;
+  ChArUco demoted to optional fine-tuning
+- Manual fixed-focus and exposure-lock scoring before calibration
+- Left/right overlap + feature-match validation
+- Camera catalog service (carry-over of known devices by hardware id)
+- Durable calibration quality report with grading
 - Service-oriented pipeline runtime with ``PipelineOrchestrator``
-- Setup Doctor and rig profile workflow
-- Stereo capture, detection, recording, review, and analysis
-- Pattern detection and pitcher profile workflows
-- Local recording artifacts with manifests and summaries
 
 ## Known Limitations
 
@@ -49,9 +57,7 @@ Canonical pilot build for controlled facility deployments.
 
 - ``README.md``
 - ``docs/CURRENT_STATUS.md``
-- ``docs/VERSION_ALIGNMENT.md``
-- ``docs/HARDWARE_PROFILE.md``
-- ``docs/VELOCITY_VALIDATION_PROTOCOL.md``
+- ``CHANGELOG.md``
 
 **Full Changelog**: https://github.com/berginj/PitchTracker/blob/main/CHANGELOG.md
 "@

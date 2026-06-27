@@ -1,5 +1,54 @@
 # Changelog
 
+## 2.0.0-stereo (2026-06-26) - STEREO FOUNDATION REBUILD
+
+**Major version: the stereo camera foundation was rebuilt so the product proves
+it can receive, pair, compare, and calibrate left/right images before any
+pitch-tracking logic runs.**
+
+### Capture foundation (Phase A)
+- Buffer-lock and callback-iteration locking; fixed reconnect race and daemon flags
+- Timestamp-at-read and frame-index gating for reliable L/R pairing
+- Sync-start scaffolding + sync-check module and contract (`SyncCheckResult`)
+- L/R persistence by hardware id; `time_sync_offset_ns` config fix
+- Fixed validator `.stop()` crash
+
+### Setup state machine + stereo wizard (Phase B)
+- Qt-free `SetupStateMachine` with prerequisite/optional/skip guards
+- `wizard_spec.py` 7-step linear spec (cameras → calibration → ROI → detector →
+  validation → export → quality report) with non-blocking optionals
+- `SetupWindow` drives Back/Next/Skip/Finish, indicator, and camera context
+  through the state machine
+- Step 9 calibration quality-report widget with metrics-only grading
+
+### Hardware-interaction steps (Phase C)
+- `overlap.py`: ORB feature-match + homography/RANSAC overlap scoring
+- `rectify.py`: targetless coarse stereo rectification with epipolar error
+  before/after and degenerate-homography rejection
+- `focus_lock.py`: manual fixed-focus sharpness scoring and exposure-lock
+  validation (applied-vs-readback, autofocus flags)
+
+### Calibration hardening + ChArUco demotion (Phase D)
+- `StereoRectifier`; persist fundamental/essential matrices with degenerate
+  rejection and a `production_ready` guard
+- Shared ChArUco helpers and detector-parameter dedupe; RANSAC inlier filtering
+- ChArUco repositioned as optional fine-tuning, not the primary setup dependency
+
+### Profiles, reporting, cleanup (Phase E)
+- Removed dead `Calibrator` ABC and result dataclasses
+- Nested typed `StereoCalibrationProfile` into `RigProfile`
+- Durable `CalibrationQualityReport` aggregator for the quality-report step
+
+### Camera catalog
+- `DeviceProfile` / `CameraCatalogEntry` contracts and `CameraCatalogService`
+  with local cache and publish/pull carry-over of known devices by hardware id
+
+### Versioning
+- `APP_VERSION` 2.0.0; installer artifact `PitchTracker-Setup-v2.0.0-stereo.exe`
+- Full test suite: 972 passed / 32 skipped / 0 failed
+
+---
+
 ## 1.5.0-pilot (2026-03-26) - PILOT BUILD LOCK
 
 **This version is locked as the canonical pilot build for structured facility deployments.**

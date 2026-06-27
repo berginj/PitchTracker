@@ -19,7 +19,7 @@ from urllib.request import urlopen
 from loguru import logger
 
 # Version information
-CURRENT_VERSION = "1.5.0"  # Updated to match canonical pilot build (March 2026)
+CURRENT_VERSION = "2.0.0"  # Stereo-foundation rebuild release (June 2026)
 GITHUB_REPO = "berginj/PitchTracker"
 UPDATE_CHECK_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
