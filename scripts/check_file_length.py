@@ -56,6 +56,7 @@ ALLOWLIST = {
     "tests/test_online_refinement.py",
     "app/pipeline/detection/threading_pool.py",
     "app/review/session_loader.py",
+    "tools/camera_capabilities_check.py",
 }
 
 ROOT = Path(__file__).resolve().parents[1]

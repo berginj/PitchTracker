@@ -60,7 +60,7 @@ Run the diagnostic tool to verify the fix:
 ```bash
 cd C:\Users\berginjohn\app\pitchtracker
 git pull origin investigate/high-quality-capture
-python diagnose_camera_detection.py
+python tools/diagnose_camera_detection.py
 ```
 
 This will test detection 5 times and report:
@@ -203,7 +203,7 @@ INFO - Found 2 OpenCV cameras: [0, 1]
 
 2. **Run diagnostic:**
    ```bash
-   python diagnose_camera_detection.py
+   python tools/diagnose_camera_detection.py
    ```
 
 3. **Test coaching app:**
@@ -219,7 +219,7 @@ INFO - Found 2 OpenCV cameras: [0, 1]
 ## Related Files
 
 - `ui/device_utils.py` - Camera detection logic (FIXED)
-- `diagnose_camera_detection.py` - Diagnostic tool (NEW)
+- `tools/diagnose_camera_detection.py` - Diagnostic tool (NEW)
 - `docs/CAMERA_DETECTION_ISSUES.md` - Detailed analysis (NEW)
 - `docs/CAMERA_TEST_LOGGING.md` - Logging guide (EXISTING)
 
@@ -227,7 +227,7 @@ INFO - Found 2 OpenCV cameras: [0, 1]
 
 If ArduCam devices still not detected consistently after these fixes:
 
-1. Run `python diagnose_camera_detection.py` and share output
+1. Run `python tools/diagnose_camera_detection.py` and share output
 2. Check `docs/CAMERA_DETECTION_ISSUES.md` for hardware recommendations
 3. Verify USB setup (ports, hubs, cables)
 4. Check Windows Device Manager for USB errors

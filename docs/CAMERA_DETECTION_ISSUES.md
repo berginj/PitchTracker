@@ -241,7 +241,7 @@ indices = probe_opencv_indices(use_cache=False)
 
 ### Run the diagnostic tool:
 ```bash
-python diagnose_camera_detection.py
+python tools/diagnose_camera_detection.py
 ```
 
 This will test detection 5 times and report:
