@@ -6,12 +6,14 @@ setup flow (the architecture-note target). This module maps each
 genuine stereo wizard can run on the tested
 :class:`~ui.setup.state_machine.SetupStateMachine` engine.
 
-The four foundation gate steps (sync check, focus/exposure lock, overlap, coarse
-rectification) and the final quality report are real, synthetic-testable
-widgets. The remaining four steps (camera selection, paired preview, ChArUco
-fine-tuning, profile persistence) are hardware/integration-bound and are
-represented by an honest :class:`PlaceholderStep` until their widgets land, so
-the flow is navigable end-to-end without pretending those steps are done.
+All nine canonical steps are real, synthetic-testable widgets driven by
+injectable providers: camera selection, paired preview, sync check,
+focus/exposure lock, overlap, coarse rectification, optional ChArUco
+fine-tuning, profile persistence, and the final quality report. The flow is
+navigable end-to-end on the tested state machine without hardware.
+
+:class:`PlaceholderStep` is retained as an honest stand-in for any future step
+that has no genuine widget yet; it is currently unused by the registry.
 """
 
 from __future__ import annotations
@@ -23,9 +25,11 @@ from PySide6 import QtCore, QtWidgets
 from ui.setup.state_machine import DEFAULT_SETUP_SPEC, SetupStep
 from ui.setup.steps import (
     BaseStep,
+    CameraSelectStep,
     CharucoFinetuneStep,
     FocusLockStep,
     OverlapStep,
+    PairedPreviewStep,
     PersistProfileStep,
     QualityReportStep,
     RectifyStep,
@@ -36,13 +40,8 @@ from ui.themes import apply_standard_layout, build_notice, style_status_label
 # Titles come from the canonical spec so the registry never drifts from it.
 _SPEC_TITLES = {spec.step: spec.title for spec in DEFAULT_SETUP_SPEC}
 
-# Steps that do not yet have a genuine widget (live-capture bound).
-_PLACEHOLDER_NOTES = {
-    SetupStep.SELECT_CAMERAS: "Camera discovery and stable left/right assignment is handled by the live "
-    "camera workflow; a dedicated stereo selection widget is coming.",
-    SetupStep.PAIRED_PREVIEW: "Live paired left/right preview requires connected cameras and is provided "
-    "by the capture workflow; a dedicated preview widget is coming.",
-}
+# Steps that do not yet have a genuine widget. Empty: all nine are built.
+_PLACEHOLDER_NOTES: Dict[SetupStep, str] = {}
 
 
 class PlaceholderStep(BaseStep):
@@ -85,10 +84,11 @@ def build_stereo_step_widgets() -> Dict[SetupStep, BaseStep]:
 
     Returns:
         A mapping with an entry for every step in :data:`DEFAULT_SETUP_SPEC`.
-        Built gate steps use their genuine widgets; the remaining steps use an
-        honest :class:`PlaceholderStep`.
+        Every step uses its genuine, provider-driven widget.
     """
     widgets: Dict[SetupStep, BaseStep] = {
+        SetupStep.SELECT_CAMERAS: CameraSelectStep(),
+        SetupStep.PAIRED_PREVIEW: PairedPreviewStep(),
         SetupStep.SYNC_CHECK: SyncCheckStep(),
         SetupStep.FOCUS_EXPOSURE_LOCK: FocusLockStep(),
         SetupStep.OVERLAP_VALIDATION: OverlapStep(),
