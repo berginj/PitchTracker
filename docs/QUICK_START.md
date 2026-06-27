@@ -1,7 +1,7 @@
 # PitchTracker - Quick Start Guide
 
 **Last Updated:** 2026-06-22
-**Version:** v1.5.0-pilot
+**Version:** v2.0.0-stereo
 
 Get up and running with PitchTracker in 30 minutes!
 
@@ -25,7 +25,7 @@ Before starting, gather:
 ### Download & Install
 
 1. Download latest installer from GitHub releases
-2. Run `PitchTracker-Setup-v1.5.0-pilot.exe`
+2. Run `PitchTracker-Setup-v2.0.0-stereo.exe`
 3. Follow installation wizard
 4. Launch PitchTracker from desktop shortcut
 

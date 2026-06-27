@@ -1,7 +1,7 @@
 # Current Architecture: Service-Oriented Event Pipeline
 
-**Last Updated:** 2026-06-22
-**Applies To:** v1.5.0-pilot
+**Last Updated:** 2026-06-26
+**Applies To:** v2.0.0-stereo
 **Primary Entry Point:** `app.services.orchestrator.PipelineOrchestrator`
 
 ---
@@ -132,16 +132,35 @@ not reach through another service's private fields.
 
 ---
 
+## Stereo Setup Wizard (v2.0.0)
+
+Setup/calibration runs outside the runtime orchestrator in a dedicated, tested
+wizard under `ui/setup/` (see `ui/setup/README.md` for full detail):
+
+- `state_machine.py` defines the canonical 9-step flow (`SetupStep` +
+  `DEFAULT_SETUP_SPEC`) on a Qt-free `SetupStateMachine`.
+- `stereo_steps.py` builds a registry of nine genuine, provider-driven step
+  widgets; `stereo_setup_window.py` hosts them; `providers.py` supplies live
+  UVC-discovery and camera-backed preview adapters via
+  `build_live_stereo_step_widgets()`.
+- Each step keeps verdict logic in a Qt-free view-model with an injectable
+  provider, so the whole flow is testable with synthetic snapshots and the
+  `SimulatedCamera` backend.
+
+This keeps calibration/setup in setup/tooling paths; the runtime orchestrator
+only starts from a validated rig profile (see Current Known Gaps #1).
+
+---
+
 ## Current Known Gaps
 
 These are the main architecture issues to resolve before the service-based path
 can be considered fully complete:
 
 1. `PipelineOrchestrator.run_calibration()` is intentionally not implemented.
-   For v1.5.0-pilot, calibration should remain in Setup Doctor/tooling paths so
-   the runtime orchestrator only starts from a validated rig profile. The later
-   code fix should replace the generic `NotImplementedError` with an actionable
-   message that tells callers to use Setup Doctor/tooling.
+   Calibration remains in Setup Doctor/tooling and the stereo setup wizard so
+   the runtime orchestrator only starts from a validated rig profile. The
+   method rejects calls with an actionable message pointing to those paths.
 2. Event dataclasses do not yet carry the full message metadata described in
    `agents.md` (`correlation_id`, `session_id`, durable `schema_version`, and
    diagnostics fields where applicable). Runtime events are typed, but metadata

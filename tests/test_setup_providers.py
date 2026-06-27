@@ -19,6 +19,7 @@ from ui.setup.providers import (  # noqa: E402
     build_live_stereo_step_widgets,
     capture_paired_preview,
     discover_camera_selection,
+    make_camera_preview_provider,
     simulated_paired_preview,
 )
 
@@ -89,6 +90,54 @@ def test_simulated_paired_preview_passes():
     assert snap.right_ok is True
     assert snap.frames_observed == 3
     assert grade_preview(snap)[0] is True
+
+
+def test_make_camera_preview_provider_with_simulated_cameras_passes():
+    from capture.simulated_camera import SimulatedCamera
+
+    provider = make_camera_preview_provider(
+        "sim-left",
+        "sim-right",
+        camera_factory=SimulatedCamera,
+        frames=3,
+        tolerance_ms=50.0,
+    )
+
+    snap = provider()
+
+    assert snap.left_ok is True
+    assert snap.right_ok is True
+    assert grade_preview(snap)[0] is True
+
+
+class _OpenFailCamera:
+    def open(self, serial):
+        raise CameraError("camera unavailable", camera_id=serial)
+
+    def set_mode(self, *args, **kwargs):
+        return None
+
+    def read_frame(self, timeout_ms):
+        raise CameraError("no frames")
+
+    def close(self):
+        return None
+
+
+def test_make_camera_preview_provider_reports_open_failure():
+    provider = make_camera_preview_provider(
+        "dead-left",
+        "dead-right",
+        camera_factory=_OpenFailCamera,
+        frames=1,
+    )
+
+    snap = provider()
+
+    assert snap.left_ok is False
+    assert snap.right_ok is False
+    assert snap.frames_observed == 0
+    assert grade_preview(snap) == (False, "No frames received from either camera.")
 
 
 class _DeadCamera:

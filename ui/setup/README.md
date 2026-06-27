@@ -1,197 +1,113 @@
-# Setup Application Prototype
+# Stereo Setup Wizard (`ui/setup`)
 
-## Overview
+Genuine, test-driven 9-step stereo-rig setup wizard. The core principle of the
+v2.0.0 rebuild: **prove the product can receive, pair, compare, and calibrate
+left/right camera images before any pitch-tracking logic matters.** Every step
+is backed by real, synthetic-testable logic — there are no demo-only
+placeholders left in the flow.
 
-Wizard-based setup application for PitchTracker system configuration and calibration.
+## The 9 canonical steps
 
-**Status:** Prototype - Camera Setup Step Complete
+The flow is defined once by `SetupStep` + `DEFAULT_SETUP_SPEC` in
+`state_machine.py` and rendered by a widget registry:
 
-## Running the Prototype
+| # | `SetupStep` | Widget | Proves |
+|---|-------------|--------|--------|
+| 1 | `SELECT_CAMERAS` | `CameraSelectStep` | Distinct left/right cameras discovered and assigned by hardware id |
+| 2 | `PAIRED_PREVIEW` | `PairedPreviewStep` | Both streams deliver frames that pair within tolerance |
+| 3 | `SYNC_CHECK` | `SyncCheckStep` | Left/right timestamps are aligned |
+| 4 | `FOCUS_EXPOSURE_LOCK` | `FocusLockStep` | Manual fixed-focus sharpness + exposure/white-balance lock |
+| 5 | `OVERLAP_VALIDATION` | `OverlapStep` | Sufficient field-of-view overlap via ORB feature matching |
+| 6 | `COARSE_RECTIFY` | `RectifyStep` | Targetless coarse rectification reduces epipolar error |
+| 7 | `CHARUCO_FINE_TUNE` *(optional)* | `CharucoFinetuneStep` | Optional ChArUco fine-tuning of intrinsics |
+| 8 | `PERSIST_PROFILE` | `PersistProfileStep` | Calibration profile persisted (`StereoCalibrationProfile`) |
+| 9 | `QUALITY_REPORT` | `QualityReportStep` | Durable `CalibrationQualityReport` summary |
 
-```powershell
-# From project root
-python test_setup_wizard.py
-```
-
-Or with backend selection:
-```powershell
-# UVC cameras (default)
-python test_setup_wizard.py
-
-# OpenCV cameras
-python -c "from ui.setup import SetupWindow; from PySide6.QtWidgets import QApplication; import sys; app = QApplication(sys.argv); w = SetupWindow('opencv'); w.show(); sys.exit(app.exec())"
-```
-
-## Current Features
-
-### ✅ Wizard Framework
-- Step indicator with progress visualization
-- Navigation buttons (Back/Next/Skip)
-- Step validation before proceeding
-- Optional step support
-
-### ✅ Step 1: Camera Setup
-- Camera discovery (UVC or OpenCV backends)
-- Left/right camera selection
-- Validation (prevents same camera for both sides)
-- Auto-refresh on entry
-- Preview placeholders (preview implementation pending)
-
-### 🚧 Pending Steps
-
-**Step 2: Stereo Calibration**
-- Checkerboard capture widget
-- Corner detection
-- Calibration calculation
-- Quality validation
-
-**Step 3: ROI Configuration**
-- Lane gate (left) editing
-- Lane gate (right) editing
-- Plate region editing
-- Live detection testing
-
-**Step 4: Detector Tuning**
-- Classical detector threshold sliders
-- ML model upload
-- Detection preview
-- Test pitch capture
-
-**Step 5: System Validation**
-- Automated test runner
-- Detection quality tests
-- Stereo matching tests
-- Performance tests
-- Validation report generation
-
-**Step 6: Export Package**
-- Calibration package creation
-- PDF report generation
-- "Ready for coaching" marker
+ChArUco is positioned as **optional fine-tuning**, not the primary setup
+dependency. The wizard finishes on a working targetless calibration if step 7 is
+skipped.
 
 ## Architecture
 
 ```
 ui/setup/
-├── setup_window.py           # Wizard framework & navigation
-├── steps/
-│   ├── base_step.py          # Abstract base class for steps
-│   └── camera_step.py        # Step 1: Camera setup
-├── widgets/                   # Reusable widgets
-└── validation/                # Automated test runners
+├── state_machine.py          # SetupStep enum + DEFAULT_SETUP_SPEC + SetupStateMachine (Qt-free)
+├── stereo_steps.py           # build_stereo_step_widgets(): registry of all 9 step widgets
+├── stereo_setup_window.py    # StereoSetupWindow: hosts the registry over the canonical spec
+├── providers.py              # Real adapter providers + build_live_stereo_step_widgets()
+├── <step>_view.py            # Qt-free view-models (grade + present) per step
+└── steps/
+    ├── base_step.py          # BaseStep: get_title/get_description/validate/on_enter
+    └── <step>_step.py        # BaseStep widget per step (injectable provider)
+
+setup_window.py + wizard_spec.py  # Legacy 7-step wizard, retained for compatibility
 ```
 
-### BaseStep Interface
+### View-model + widget pattern
 
-All wizard steps inherit from `BaseStep` and must implement:
+Each step separates *logic* from *Qt* so it is unit-testable off-screen:
+
+- A Qt-free **view-model** (`*_view.py`) defines a frozen snapshot dataclass, a
+  pure `grade_*()` verdict function, and a `present_*()` formatter returning a
+  `ReportView` (shared `ReportRow`/`ReportView` from `quality_report_view.py`).
+- A **`BaseStep` widget** (`steps/*_step.py`) takes an injectable
+  `*_provider` callable (defaulting to an honest empty/no-hardware provider),
+  calls it in `on_enter()`, grades the result, and renders it.
+
+This means the entire wizard is exercised in tests with synthetic snapshots and
+the `SimulatedCamera` backend — no physical cameras required.
+
+### Live providers
+
+`providers.py` adapts real backends into the step snapshots:
+
+- `discover_camera_selection()` — `list_uvc_devices()` + `CameraCatalogService`
+  (carry-over side assignment by hardware id, model recognition).
+- `capture_paired_preview(left, right, ...)` — grabs a burst from any
+  `CameraDevice` pair (real `UvcCamera` or `SimulatedCamera`); a `CameraError`
+  marks a dead side honestly instead of raising.
+- `simulated_paired_preview()` / `make_camera_preview_provider()` — convenience
+  preview providers for demos/tests and live UVC capture respectively.
+- `build_live_stereo_step_widgets(catalog=, list_devices=, preview_provider=)` —
+  wires live discovery into step 1 and a real preview provider into step 2 while
+  leaving steps 3-9 on their file-based providers. All dependencies are
+  injectable so tests never touch hardware.
+
+`StereoSetupWindow(widget_factory=...)` accepts the live builder; the launcher's
+role selector exposes the genuine wizard alongside the legacy Setup Wizard.
+
+## BaseStep interface
 
 ```python
-def get_title(self) -> str:
-    """Return step title for step indicator."""
-
-def get_description(self) -> str:
-    """Return instructions shown to user."""
-
-def validate(self) -> tuple[bool, str]:
-    """Validate step completion.
-    Returns: (is_valid, error_message)
-    """
-
-def on_enter(self) -> None:
-    """Called when step becomes active."""
-
-def on_exit(self) -> None:
-    """Called when leaving step."""
-
-def is_optional(self) -> bool:
-    """Return True if step can be skipped."""
+def get_title(self) -> str: ...
+def get_description(self) -> str: ...
+def validate(self) -> tuple[bool, str]:   # (is_valid, error_message)
+def on_enter(self) -> None: ...
+def on_exit(self) -> None: ...
+def is_optional(self) -> bool: ...        # True only for CHARUCO_FINE_TUNE
 ```
 
-## UI Flow
+`BaseStep` does not use `@abstractmethod` because Qt's `QWidget` metaclass
+conflicts with `ABCMeta`; required methods `raise NotImplementedError` instead.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│ [1. Cameras] [2. Calibration] [3. ROI] [4. Detector] ...│  ← Step Indicator
-├─────────────────────────────────────────────────────────┤
-│                                                          │
-│              Current Step Content Here                   │  ← Step Widget
-│                                                          │
-│                                                          │
-├─────────────────────────────────────────────────────────┤
-│ [< Back]              [Skip Step]    [Next >]           │  ← Navigation
-└─────────────────────────────────────────────────────────┘
-```
+## Tests
 
-## Testing Checklist
+| Area | Tests |
+|------|-------|
+| State machine | `tests/test_setup_state_machine.py` |
+| Registry + full-flow integration | `tests/test_stereo_steps.py` |
+| Per-step view-models + widgets | `tests/test_<step>_view.py`, `tests/test_<step>_step.py` |
+| Window smoke | `tests/test_stereo_setup_window.py` |
+| Adapter providers + launch wiring | `tests/test_setup_providers.py` |
 
-### Camera Step Tests
-- [ ] Launch wizard, verify step indicator shows Camera step active
-- [ ] Click "Refresh Devices" - should discover cameras
-- [ ] Select same camera for both sides - validation should fail
-- [ ] Select different cameras - should allow Next
-- [ ] Click Back (should be disabled on first step)
-- [ ] Complete step and go to next (will show error since step 2 not implemented)
+Run off-screen with `$env:QT_QPA_PLATFORM="offscreen"`. The `*setup_window*`
+smoke tests pass deterministically in isolation; they can be flaky under
+`pytest -n auto` due to shared Qt state across xdist workers.
 
-## Next Steps
+## Status
 
-1. **Add Calibration Step** (2-3 hours)
-   - Create `calibration_step.py`
-   - Build checkerboard capture widget
-   - Integrate `calib.quick_calibrate`
-   - Add quality validation
-
-2. **Add ROI Step** (2 hours)
-   - Create `roi_step.py`
-   - Reuse existing `RoiLabel` widget
-   - Add detection testing
-
-3. **Add Detector Step** (2 hours)
-   - Create `detector_step.py`
-   - Build threshold tuning widget
-   - Add live detection preview
-
-4. **Add Validation Step** (2 hours)
-   - Create `validation_step.py`
-   - Build automated test runner
-   - Generate validation report
-
-5. **Add Export Step** (1 hour)
-   - Create `export_step.py`
-   - Package calibration files
-   - Generate PDF report
-
-## Design Decisions
-
-### Why Wizard Pattern?
-- ✅ Enforces proper setup sequence
-- ✅ Clear progress indication
-- ✅ Prevents skipping critical steps
-- ✅ Easy to add/reorder steps
-- ✅ Validation at each step
-
-### Why Separate from Main UI?
-- ✅ Focused workflow for setup tasks
-- ✅ Doesn't clutter coaching interface
-- ✅ Easier to train new installers
-- ✅ Can validate entire setup before deployment
-
-### Why Not ABC for BaseStep?
-- Qt's QWidget metaclass conflicts with ABC metaclass
-- Solution: Use `raise NotImplementedError` instead of `@abstractmethod`
-- Still enforces implementation through runtime errors
-- Cleaner without metaclass complexity
-
-## Known Issues
-
-1. Camera preview not yet implemented (shows placeholder)
-2. Only Step 1 (Camera) currently functional
-3. Backend parameter not fully tested with OpenCV
-4. No save/resume wizard state yet
-
-## Future Enhancements
-
-- Live camera preview in Step 1
-- Save/resume wizard progress
-- Export wizard log for troubleshooting
-- Remote assistance mode (share screen)
-- Calibration templates by venue type
+- ✅ All 9 steps are genuine, provider-driven, synthetic-testable widgets.
+- ✅ `StereoSetupWindow` + live provider registry wired into the launcher.
+- 🚧 Pending (hardware-bound, cannot run in CI): on-rig validation with the
+  Arducam global-shutter cameras; live camera-context propagation feeding a
+  real step-2 preview; end-to-end physical calibration producing `report.json`.

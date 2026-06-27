@@ -1,6 +1,6 @@
 # PitchTracker - Quick Start Guide
 
-**Applies To:** v1.5.0-pilot
+**Applies To:** v2.0.0-stereo
 
 ## Installation
 
@@ -126,9 +126,10 @@ For issues or questions:
 
 ## Version
 
-**Current Version:** v1.5.0-pilot
+**Current Version:** v2.0.0-stereo
 
 **Components:**
-- Setup Wizard - Complete (6 steps)
+- Stereo Setup Wizard (v2.0.0) - Complete (genuine 9-step flow)
+- Setup Wizard (legacy) - Complete (6 steps)
 - Coaching App - Complete (integrated with pipeline)
 - Unified Launcher - Complete

@@ -39,7 +39,6 @@ ALLOWLIST = {
     "analysis/trend_analyzer.py",
     "app/pipeline/camera_management.py",
     "ui/dialogs/calibration_wizard_dialog.py",
-    "launcher.py",
     "scripts/check_camera_alignment.py",
     "app/services/recording/implementation.py",
     "app/services/analysis/implementation.py",

@@ -1,4 +1,4 @@
-# Creating GitHub Release v1.5.0-pilot
+# Creating GitHub Release v2.0.0
 
 This document provides manual release instructions if `create_github_release.ps1`
 does not work.
@@ -14,21 +14,21 @@ gh auth login
 
 1. Go to https://github.com/berginj/PitchTracker/releases.
 2. Click "Draft a new release".
-3. Choose or create tag `v1.5.0-pilot`.
-4. Set the title to `PitchTracker v1.5.0-pilot`.
-5. Attach `installer_output\PitchTracker-Setup-v1.5.0-pilot.exe`.
+3. Choose or create tag `v2.0.0`.
+4. Set the title to `PitchTracker v2.0.0`.
+5. Attach `installer_output\PitchTracker-Setup-v2.0.0-stereo.exe`.
 6. Include release notes that state this is a controlled facility pilot build
    and that accuracy validation is still in progress.
 
 Suggested notes:
 
 ```markdown
-# PitchTracker v1.5.0-pilot
+# PitchTracker v2.0.0
 
 Canonical pilot build for controlled facility deployments.
 
 ## Install
-1. Download `PitchTracker-Setup-v1.5.0-pilot.exe`.
+1. Download `PitchTracker-Setup-v2.0.0-stereo.exe`.
 2. Run the installer on Windows 10/11.
 3. Complete Setup Doctor before coaching use.
 4. Use a fixed dual-camera rig and the pilot hardware checklist.
@@ -59,10 +59,10 @@ Full changelog: https://github.com/berginj/PitchTracker/blob/main/CHANGELOG.md
 ## Option 3: Using `gh` Directly
 
 ```powershell
-gh release create v1.5.0-pilot `
-  --title "PitchTracker v1.5.0-pilot" `
+gh release create v2.0.0 `
+  --title "PitchTracker v2.0.0" `
   --notes-file release_notes.md `
-  installer_output\PitchTracker-Setup-v1.5.0-pilot.exe
+  installer_output\PitchTracker-Setup-v2.0.0-stereo.exe
 ```
 
 ## Verification
@@ -70,9 +70,9 @@ gh release create v1.5.0-pilot `
 After creating the release:
 
 1. Verify the release page exists at
-   `https://github.com/berginj/PitchTracker/releases/tag/v1.5.0-pilot`.
+   `https://github.com/berginj/PitchTracker/releases/tag/v2.0.0`.
 2. Download the installer and confirm the filename is
-   `PitchTracker-Setup-v1.5.0-pilot.exe`.
+   `PitchTracker-Setup-v2.0.0-stereo.exe`.
 3. Smoke-test the installer on a clean Windows 10/11 machine.
 4. Record the test result in `docs/CURRENT_STATUS.md` or release notes.
 
@@ -90,13 +90,13 @@ Run:
 gh auth login
 ```
 
-### `tag v1.5.0-pilot does not exist`
+### `tag v2.0.0 does not exist`
 
 Create and push it:
 
 ```powershell
-git tag -a v1.5.0-pilot -m "Release v1.5.0-pilot"
-git push origin v1.5.0-pilot
+git tag -a v2.0.0 -m "Release v2.0.0"
+git push origin v2.0.0
 ```
 
 ### `installer not found`
@@ -112,7 +112,7 @@ Build the installer first:
 Edit or delete through GitHub UI, or use:
 
 ```powershell
-gh release edit v1.5.0-pilot
+gh release edit v2.0.0
 ```
 
 ---

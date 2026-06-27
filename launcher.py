@@ -24,182 +24,14 @@ _ensure_project_root_on_sys_path(project_root)
 os.chdir(project_root)
 
 from app.services.tooling import ToolingService, get_tooling_service  # noqa: E402
+from launcher_support import clear_python_cache  # noqa: E402
+from launcher_threads import StartupValidationThread, UpdateCheckThread  # noqa: E402
 from startup_validator import create_required_directories  # noqa: E402
+from ui.about_dialog import AboutDialog  # noqa: E402
 from ui.themes import get_style_manager  # noqa: E402
-from updater import check_for_updates, get_current_version  # noqa: E402
+from updater import get_current_version  # noqa: E402
 
-
-def clear_python_cache(verbose: bool = False, clear_memory: bool = True) -> None:
-    """Clear Python bytecode cache files to ensure fresh code loads.
-
-    This prevents issues where old .pyc files cause stale code to run
-    after git pull or code changes.
-
-    Args:
-        verbose: Print statistics about cleared files
-        clear_memory: Also clear project modules from sys.modules (default: True)
-    """
-    import shutil
-    import logging
-    import sys
-
-    logger = logging.getLogger(__name__)
-    pyc_count = 0
-    cache_count = 0
-    pyc_failures = []
-    cache_failures = []
-    modules_cleared = 0
-
-    # Remove all .pyc files
-    for p in Path(".").rglob("*.pyc"):
-        try:
-            p.unlink()
-            pyc_count += 1
-        except Exception as e:
-            pyc_failures.append((str(p), str(e)))
-            if verbose:
-                logger.warning(f"Failed to remove .pyc file {p}: {e}")
-
-    # Remove all __pycache__ directories
-    for p in Path(".").rglob("__pycache__"):
-        try:
-            shutil.rmtree(p)
-            cache_count += 1
-        except Exception as e:
-            cache_failures.append((str(p), str(e)))
-            if verbose:
-                logger.warning(f"Failed to remove __pycache__ directory {p}: {e}")
-
-    # Clear project modules from sys.modules to force reimport
-    if clear_memory:
-        project_root = Path(".").resolve()
-        modules_to_clear = []
-
-        for module_name, module in list(sys.modules.items()):
-            # Skip built-in modules and None entries
-            if module is None or not hasattr(module, "__file__"):
-                continue
-
-            # Skip if module has no file path (built-in)
-            if module.__file__ is None:
-                continue
-
-            try:
-                module_path = Path(module.__file__).resolve()
-                # Only clear modules that are from our project directory
-                # Exclude stdlib and site-packages
-                if project_root in module_path.parents or module_path.parent == project_root:
-                    # Don't clear the launcher module itself or critical startup modules
-                    if module_name not in ("__main__", "__mp_main__", "launcher", "startup_validator", "updater"):
-                        modules_to_clear.append(module_name)
-            except (ValueError, OSError):
-                # Skip modules with invalid paths
-                continue
-
-        # Clear the identified modules
-        for module_name in modules_to_clear:
-            try:
-                del sys.modules[module_name]
-                modules_cleared += 1
-            except KeyError:
-                # Module was already removed
-                pass
-
-    # Verify cache clearing succeeded
-    if verbose or pyc_failures or cache_failures:
-        # Count remaining cache files
-        remaining_pyc = sum(1 for _ in Path(".").rglob("*.pyc"))
-        remaining_cache = sum(1 for _ in Path(".").rglob("__pycache__"))
-
-        if verbose:
-            if pyc_count > 0 or cache_count > 0:
-                print(f"[Cache] Cleared {pyc_count} .pyc files and {cache_count} __pycache__ directories")
-            if modules_cleared > 0:
-                print(f"[Cache] Cleared {modules_cleared} project modules from memory")
-
-            # Verification results
-            if remaining_pyc > 0 or remaining_cache > 0:
-                print(
-                    f"[Cache] Verification: {remaining_pyc} .pyc files and {remaining_cache} __pycache__ directories remain"
-                )
-                if remaining_pyc > 0 or remaining_cache > 0:
-                    print("[Cache] Note: Remaining files may be in use by Python or other processes")
-            else:
-                print("[Cache] Verification: All cache files successfully cleared")
-
-        if pyc_failures or cache_failures:
-            total_failures = len(pyc_failures) + len(cache_failures)
-            print(f"[Cache] Warning: {total_failures} items could not be cleared (may be in use)")
-            if verbose:
-                print(
-                    f"[Cache] Failed items: {', '.join(f[0] for f in (pyc_failures + cache_failures)[:5])}"
-                    + (" ..." if total_failures > 5 else "")
-                )
-
-
-class AboutDialog(QtWidgets.QDialog):
-    """About dialog with version and project information."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("About PitchTracker")
-        self.resize(500, 400)
-        self._build_ui()
-
-    def _build_ui(self):
-        """Build about dialog UI."""
-        sm = get_style_manager()
-        layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(18)
-
-        # Title
-        title = QtWidgets.QLabel("PitchTracker")
-        title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        sm.style_label(title, "pageTitle")
-        layout.addWidget(title)
-
-        # Version
-        version = QtWidgets.QLabel(f"Version {get_current_version()}")
-        version.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        sm.style_label(version, "eyebrow")
-        layout.addWidget(version)
-
-        # Description
-        description = QtWidgets.QLabel(
-            "A dual-camera stereo vision system for baseball pitch tracking and analysis.\n\n"
-            "Features:\n"
-            "• Real-time pitch detection and tracking\n"
-            "• Stereo calibration and 3D trajectory reconstruction\n"
-            "• Strike zone analysis\n"
-            "• Session recording and metrics\n"
-            "• Role-based interfaces (Setup Wizard + Coaching App)"
-        )
-        description.setWordWrap(True)
-        sm.style_label(description, "muted")
-        layout.addWidget(description)
-
-        # Components
-        components = QtWidgets.QLabel(
-            "Key Components:\n"
-            "• Setup Wizard - Guided system configuration\n"
-            "• Coaching App - Real-time session management\n"
-            "• Pipeline Service - Detection and tracking engine\n"
-            "• Calibration Tools - Stereo camera calibration"
-        )
-        components.setWordWrap(True)
-        sm.style_label(components, "eyebrow")
-        layout.addWidget(components)
-
-        layout.addStretch()
-
-        # Close button
-        close_button = QtWidgets.QPushButton("Close")
-        sm.style_button(close_button, "primary")
-        close_button.clicked.connect(self.accept)
-        layout.addWidget(close_button)
-
-        self.setLayout(layout)
+__all__ = ["LauncherWindow", "clear_python_cache", "main"]
 
 
 class LauncherWindow(QtWidgets.QMainWindow):
@@ -330,6 +162,20 @@ class LauncherWindow(QtWidgets.QMainWindow):
         )
         self._setup_button.setAccessibleName("Launch Setup Wizard")
 
+        # Stereo Setup button
+        self._stereo_setup_button = self._create_role_button(
+            "Stereo Setup",
+            "For genuine stereo rig setup\n\n"
+            "- Live camera discovery\n"
+            "- Paired preview checks\n"
+            "- Alignment workflow\n"
+            "- Calibration quality review\n\n"
+            "Use for the 9-step stereo flow",
+            "#4CAF50",
+            self._launch_stereo_setup,
+        )
+        self._stereo_setup_button.setAccessibleName("Launch Stereo Setup")
+
         # Coaching App button
         self._coach_button = self._create_role_button(
             "Coaching Sessions",
@@ -345,6 +191,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
         self._coach_button.setAccessibleName("Launch Coaching App")
 
         layout.addWidget(self._setup_button)
+        layout.addWidget(self._stereo_setup_button)
         layout.addWidget(self._coach_button)
 
         widget.setLayout(layout)
@@ -463,6 +310,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
     def _set_role_buttons_enabled(self, enabled: bool) -> None:
         """Enable or disable launcher entry points."""
         self._setup_button.setEnabled(enabled)
+        self._stereo_setup_button.setEnabled(enabled)
         self._coach_button.setEnabled(enabled)
 
     def _update_warning_banner(self) -> None:
@@ -520,6 +368,22 @@ class LauncherWindow(QtWidgets.QMainWindow):
                 self,
                 "Launch Error",
                 f"Failed to launch Setup Wizard:\n{str(e)}\n\n" "Make sure all dependencies are installed.",
+            )
+            self.show()
+
+    def _launch_stereo_setup(self):
+        """Launch the canonical stereo setup wizard."""
+        try:
+            # Import here to avoid circular imports
+            from ui.setup.launcher_integration import launch_stereo_setup_window
+
+            self.stereo_setup_window = launch_stereo_setup_window(self, self._on_child_closed)
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Launch Error",
+                f"Failed to launch Stereo Setup:\n{str(e)}\n\n" "Make sure all dependencies are installed.",
             )
             self.show()
 
@@ -603,40 +467,6 @@ class LauncherWindow(QtWidgets.QMainWindow):
         """Show about dialog."""
         dialog = AboutDialog(self)
         dialog.exec()
-
-
-class UpdateCheckThread(QtCore.QThread):
-    """Background thread for checking updates without blocking UI."""
-
-    update_available = QtCore.Signal(dict)  # update_info
-
-    def run(self) -> None:
-        """Check for updates in background."""
-        try:
-            update_info = check_for_updates(timeout=5)
-            if update_info["available"]:
-                self.update_available.emit(update_info)
-        except Exception:
-            # Silently fail - don't bother user with update check errors
-            pass
-
-
-class StartupValidationThread(QtCore.QThread):
-    """Run startup validation in a subprocess without blocking the launcher UI."""
-
-    validation_complete = QtCore.Signal(list, list)
-    validation_failed = QtCore.Signal(str)
-
-    def __init__(self, tooling_service: ToolingService):
-        super().__init__()
-        self._tooling_service = tooling_service
-
-    def run(self) -> None:
-        try:
-            result = self._tooling_service.validate_environment()
-            self.validation_complete.emit(result.errors, result.warnings)
-        except Exception as exc:  # noqa: BLE001 - surface worker failures
-            self.validation_failed.emit(str(exc))
 
 
 def main():

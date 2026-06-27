@@ -17,11 +17,12 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence
 from capture.camera_device import CameraDevice
 from capture.device_discovery import list_uvc_devices
 from capture.simulated_camera import SimulatedCamera
+from capture.uvc_backend import UvcCamera
 from contracts.catalog import SIDE_UNASSIGNED
 from contracts.types import Frame
 from exceptions import CameraError
 from ui.setup.camera_select_view import CameraSelectionSnapshot, DiscoveredCamera
-from ui.setup.paired_preview_view import PairedPreviewSnapshot
+from ui.setup.paired_preview_view import PairedPreviewSnapshot, empty_preview_snapshot
 
 if TYPE_CHECKING:
     from ui.setup.state_machine import SetupStep
@@ -164,6 +165,32 @@ def simulated_paired_preview(
         right.close()
 
 
+def make_camera_preview_provider(
+    left_serial: str,
+    right_serial: str,
+    *,
+    camera_factory: Callable[[], CameraDevice] = UvcCamera,
+    frames: int = 5,
+    tolerance_ms: float = 8.0,
+) -> PreviewProvider:
+    """Create a paired-preview provider backed by the selected camera serials."""
+
+    def _provider() -> PairedPreviewSnapshot:
+        left = camera_factory()
+        right = camera_factory()
+        try:
+            left.open(left_serial)
+            right.open(right_serial)
+            return capture_paired_preview(left, right, frames=frames, tolerance_ms=tolerance_ms)
+        except CameraError:
+            return empty_preview_snapshot()
+        finally:
+            left.close()
+            right.close()
+
+    return _provider
+
+
 def build_live_stereo_step_widgets(
     *,
     catalog: Optional[object] = None,
@@ -205,5 +232,6 @@ __all__ = [
     "build_live_stereo_step_widgets",
     "capture_paired_preview",
     "discover_camera_selection",
+    "make_camera_preview_provider",
     "simulated_paired_preview",
 ]

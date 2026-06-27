@@ -39,13 +39,39 @@ pitch-tracking logic runs.**
 - Nested typed `StereoCalibrationProfile` into `RigProfile`
 - Durable `CalibrationQualityReport` aggregator for the quality-report step
 
+### Genuine 9-step stereo setup wizard
+- Canonical `SetupStep` enum + `DEFAULT_SETUP_SPEC` (9 steps) drive a tested,
+  Qt-free `SetupStateMachine` (prereq/optional/skip/back guards, `can_finish`)
+- Every step is a real, synthetic-testable widget backed by a Qt-free view-model
+  with an injectable provider (mirrors the step-9 quality-report pattern):
+  1. Select cameras, 2. Paired preview, 3. Sync check, 4. Focus/exposure lock,
+  5. Overlap validation, 6. Coarse rectify, 7. ChArUco fine-tune (optional),
+  8. Persist profile, 9. Quality report
+- `StereoSetupWindow` hosts the registry over the canonical spec with
+  Back/Next/Skip/Finish navigation and an injectable `widget_factory`
+- `ui/setup/providers.py`: real adapter providers — `discover_camera_selection`
+  (UVC discovery + camera catalog), `capture_paired_preview` (any `CameraDevice`
+  pair, honest per-side failure), `simulated_paired_preview`, and
+  `build_live_stereo_step_widgets` that wires live providers for steps 1-2 while
+  keeping the registry defaults empty/honest for hardware-free tests
+- Genuine stereo wizard wired into the role-selector launch path alongside the
+  legacy Setup Wizard
+
 ### Camera catalog
 - `DeviceProfile` / `CameraCatalogEntry` contracts and `CameraCatalogService`
   with local cache and publish/pull carry-over of known devices by hardware id
 
 ### Versioning
 - `APP_VERSION` 2.0.0; installer artifact `PitchTracker-Setup-v2.0.0-stereo.exe`
-- Full test suite: 972 passed / 32 skipped / 0 failed
+- Full test suite: 1051 passed / 32 skipped / 0 failed
+
+### Pending (hardware/integration-bound, tracked for the next wave)
+- On-rig validation of discovery + paired capture with the Arducam global-shutter
+  cameras
+- Live camera-context propagation feeding a real-camera step-2 preview provider
+- End-to-end physical stereo calibration producing the `report.json` the
+  gate/quality steps consume
+- Reference-equipment velocity/location accuracy validation
 
 ---
 

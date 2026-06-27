@@ -1,28 +1,62 @@
 # PitchTracker Current Status
 
-**Last Updated:** 2026-06-23
-**Release Identity:** v1.5.0-pilot
-**Internal App Version:** `1.5.0` (`contracts/versioning.py`)
-**Status:** Pilot prerelease published; validation testing in progress
+**Last Updated:** 2026-06-26
+**Release Identity:** v2.0.0-stereo
+**Internal App Version:** `2.0.0` (`contracts/versioning.py`)
+**Status:** Stereo-foundation rebuild complete in software; on-rig hardware validation pending
 
 ---
 
 ## Canonical Release
 
-The canonical pilot release is **v1.5.0-pilot**.
+The canonical release is **v2.0.0-stereo** (the stereo-foundation rebuild). The
+prior pilot build **v1.5.0-pilot** remains the last validated facility-pilot
+artifact.
 
-Use this label for:
+Use the v2.0.0-stereo label for:
 
-- installer filenames: `PitchTracker-Setup-v1.5.0-pilot.exe`
-- Git release/tag naming: `v1.5.0-pilot`
-- pilot documentation and partner communication
+- installer filenames: `PitchTracker-Setup-v2.0.0-stereo.exe`
+- Git release/tag naming: `v2.0.0-stereo`
+- documentation referencing the rebuilt stereo setup wizard
 
-Use the internal app version **1.5.0** for:
+Use the internal app version **2.0.0** for:
 
-- `contracts/versioning.py`
+- `contracts/versioning.py` (`APP_VERSION`, single source of truth)
 - `installer.iss` `AppVersion`
+- `updater.py` `CURRENT_VERSION`
 - update comparisons that expect numeric semantic versions
 - durable artifact `app_version` fields
+
+---
+
+## Stereo Foundation Rebuild (v2.0.0) — Completed
+
+The v2.0.0 rebuild proves the product can receive, pair, compare, and calibrate
+left/right images before any pitch-tracking logic runs.
+
+- **Capture foundation:** buffer/callback locking, timestamp-at-read + frame-index
+  gating for reliable L/R pairing, sync-start scaffolding, reconnect-race fix,
+  L/R persistence by hardware id.
+- **Camera catalog:** `CameraCatalogService` + contracts with publish/pull
+  carry-over of known devices by hardware id (Arducam global-shutter support).
+- **Genuine 9-step stereo wizard:** Qt-free `SetupStateMachine` + a registry of
+  nine real, synthetic-testable step widgets (select cameras → paired preview →
+  sync → focus/exposure → overlap → coarse rectify → optional ChArUco → persist
+  → quality report), each with an injectable provider and view-model.
+- **`StereoSetupWindow`** hosts the wizard and is wired into the role-selector
+  launch path alongside the legacy Setup Wizard.
+- **Real adapter providers** (`ui/setup/providers.py`): live UVC discovery + a
+  camera-backed paired-preview provider, with hardware-free test doubles.
+- **Test suite:** 1051 passed / 32 skipped / 0 failed.
+
+### Pending (hardware/integration-bound — cannot run in CI)
+
+1. On-rig validation of discovery + paired capture with the Arducam
+   global-shutter cameras.
+2. Live camera-context propagation feeding a real-camera step-2 preview provider
+   from the capture service.
+3. End-to-end physical stereo calibration producing the `report.json` the
+   gate/quality steps consume.
 
 ---
 
@@ -35,7 +69,8 @@ PitchTracker is suitable for controlled pilot deployments where:
 - pilots agree to structured usage feedback and validation collection
 - accuracy claims are treated as pending until reference-equipment testing is complete
 
-The pilot is currently pending camera alignment work and validation results.
+The stereo setup foundation is now rebuilt and fully covered by tests, but the
+pilot remains pending on-rig camera alignment work and validation results.
 PitchTracker should not yet be positioned as a casual self-service consumer
 product.
 
@@ -65,16 +100,15 @@ documented in `docs/ARCHITECTURE_CURRENT_STATE.md` and `agents.md`.
 
 | Area | Current State | Required Next Step |
 | --- | --- | --- |
-| Version identity | Aligned around v1.5.0-pilot | Keep patch releases on `v1.5.x-pilot` if needed |
-| External release | `v1.5.0-pilot` tag/release published | Validate the published installer on a clean Windows machine |
-| Installer contents | Rebuilt 2026-06-23 with runtime-local config state excluded | Use checksum below for any redistributed refreshed installer |
-| Architecture docs | Service-oriented docs current | Keep calibration boundary explicit for pilot |
-| Hardware profile | In validation testing | Record tested camera/mount evidence |
+| Version identity | Aligned around v2.0.0-stereo (`APP_VERSION` 2.0.0) | Keep patch releases on `v2.0.x-stereo` if needed |
+| Stereo setup wizard | Genuine 9-step wizard complete; 1051 tests green | Validate the flow on a physical stereo rig |
+| External release | `v2.0.0` tag pushed | Build + smoke-test the v2.0.0-stereo installer on a clean Windows machine |
+| Architecture docs | Service-oriented + stereo-setup docs current | Keep calibration boundary explicit |
+| Hardware profile | In validation testing | Record tested Arducam camera/mount evidence |
 | Camera alignment | Blocking pilot start | Complete alignment and document results |
 | Velocity accuracy | Protocol exists; validation testing in progress | Run reference-equipment validation |
 | Location accuracy | Not yet published | Define and run target-grid validation |
 | Pilot personas | Canonical doc added | Confirm with real pilot operators |
-| Test suite claims | Current full suite run recorded 2026-06-23 | Keep warning list visible in release notes if externally cited |
 | GitHub feedback | Structured issue forms added | Triage `pilot-feedback` and `validation` issues |
 | TAG Sports | Partnership docs active; waiting on TAG feedback | Update plan after response |
 

@@ -60,7 +60,7 @@ mkdir assets
 .\build_installer.ps1
 ```
 
-**Output:** `installer_output\PitchTracker-Setup-v1.5.0-pilot.exe`
+**Output:** `installer_output\PitchTracker-Setup-v2.0.0-stereo.exe`
 
 ---
 
@@ -90,7 +90,7 @@ python -m PyInstaller --clean launcher.spec
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 ```
 
-**Output:** `installer_output\PitchTracker-Setup-v1.5.0-pilot.exe`
+**Output:** `installer_output\PitchTracker-Setup-v2.0.0-stereo.exe`
 
 **Expected size:** ~100-150 MB (compressed)
 
@@ -200,8 +200,8 @@ If bundle is still too large:
 Current pilot release identity:
 
 - Internal app version: `1.5.0`
-- External release/tag: `v1.5.0-pilot`
-- Installer filename: `PitchTracker-Setup-v1.5.0-pilot.exe`
+- External release/tag: `v2.0.0`
+- Installer filename: `PitchTracker-Setup-v2.0.0-stereo.exe`
 
 Update in these locations when the release changes:
 
@@ -268,14 +268,14 @@ Recommended: Test in VMware/VirtualBox with clean Windows 10/11
 1. **Create release on GitHub:**
    ```powershell
    # Tag version (if not done)
-   git tag -a v1.5.0-pilot -m "Release v1.5.0-pilot"
-   git push origin v1.5.0-pilot
+   git tag -a v2.0.0 -m "Release v2.0.0"
+   git push origin v2.0.0
    ```
 
 2. **Upload installer:**
    - Go to GitHub → Releases → Create New Release
-   - Select tag (`v1.5.0-pilot`)
-   - Upload: `PitchTracker-Setup-v1.5.0-pilot.exe`
+   - Select tag (`v2.0.0`)
+   - Upload: `PitchTracker-Setup-v2.0.0-stereo.exe`
    - Add release notes
 
 3. **Update auto-updater URL:**
@@ -293,7 +293,7 @@ If distributing directly (not via GitHub):
 2. **Provide checksums:**
    ```powershell
    # Generate SHA256 checksum
-   Get-FileHash .\installer_output\PitchTracker-Setup-v1.5.0-pilot.exe -Algorithm SHA256
+   Get-FileHash .\installer_output\PitchTracker-Setup-v2.0.0-stereo.exe -Algorithm SHA256
    ```
 
 3. **Include installation guide:**
@@ -458,4 +458,4 @@ If you encounter build issues:
 ---
 
 **Last Updated:** 2026-01-16
-**Build System Version:** v1.5.0-pilot
+**Build System Version:** v2.0.0

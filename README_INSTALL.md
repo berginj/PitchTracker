@@ -1,6 +1,6 @@
 # PitchTracker Installation
 
-**Applies To:** v1.5.0-pilot
+**Applies To:** v2.0.0-stereo
 
 Thank you for installing PitchTracker!
 
@@ -104,5 +104,5 @@ This software is provided under the terms specified in the LICENSE file.
 
 ---
 
-**Version:** v1.5.0-pilot
+**Version:** v2.0.0-stereo
 **Installation Date:** [Automatically populated during install]
