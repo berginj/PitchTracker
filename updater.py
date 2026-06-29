@@ -29,6 +29,43 @@ def _default_ssl_context() -> ssl.SSLContext:
     return ssl.create_default_context()
 
 
+# Persisted update preferences (auto-update toggle, skipped version, etc.)
+UPDATE_SETTINGS_PATH = Path("configs") / "update_settings.json"
+
+
+def _read_update_settings() -> dict:
+    """Read persisted update settings, returning an empty dict on any error."""
+    try:
+        if UPDATE_SETTINGS_PATH.exists():
+            with open(UPDATE_SETTINGS_PATH) as f:
+                return json.load(f)
+    except Exception:
+        logger.exception("Failed to read update settings")
+    return {}
+
+
+def _write_update_settings(settings: dict) -> None:
+    """Persist update settings to disk."""
+    try:
+        UPDATE_SETTINGS_PATH.parent.mkdir(exist_ok=True)
+        with open(UPDATE_SETTINGS_PATH, "w") as f:
+            json.dump(settings, f, indent=2)
+    except Exception:
+        logger.exception("Failed to write update settings")
+
+
+def is_auto_update_enabled(default: bool = True) -> bool:
+    """Return whether silent automatic updates are enabled (default on)."""
+    return bool(_read_update_settings().get("auto_update_enabled", default))
+
+
+def set_auto_update_enabled(enabled: bool) -> None:
+    """Enable or disable silent automatic updates and persist the choice."""
+    settings = _read_update_settings()
+    settings["auto_update_enabled"] = bool(enabled)
+    _write_update_settings(settings)
+
+
 def parse_version(version_str: str) -> tuple[int, ...]:
     """Parse version string into tuple for comparison.
 
@@ -206,6 +243,7 @@ def download_update(
     dest_path: Optional[Path] = None,
     progress_callback: Optional[callable] = None,
     expected_sha256: Optional[str] = None,
+    require_checksum: bool = False,
 ) -> Optional[Path]:
     """Download update installer with optional integrity verification.
 
@@ -214,6 +252,10 @@ def download_update(
         dest_path: Destination file path (default: temp file)
         progress_callback: Callback(bytes_downloaded, total_bytes)
         expected_sha256: Expected SHA-256 hex digest for verification
+        require_checksum: When True, a missing or mismatched checksum is a hard
+            failure (the downloaded file is discarded and ``None`` is returned).
+            Production update flows should enable this so an unverified installer
+            is never launched.
 
     Returns:
         Path to downloaded file, or None if download or verification failed
@@ -258,6 +300,13 @@ def download_update(
                 logger.error("SHA-256 verification FAILED — download may be corrupted or tampered")
                 dest_path.unlink(missing_ok=True)
                 return None
+        elif require_checksum:
+            logger.error(
+                "No SHA-256 checksum available for this release — refusing to launch an "
+                "unverified installer. Download the update manually from GitHub releases."
+            )
+            dest_path.unlink(missing_ok=True)
+            return None
         else:
             logger.warning("No SHA-256 checksum available — skipping integrity verification")
 
