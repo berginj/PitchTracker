@@ -14,7 +14,7 @@ def _config():
     return load_config(Path(__file__).parent.parent / "configs" / "default.yaml")
 
 
-def _write_calibration(path: Path, *, mode: str = "FULL", quality: str = "GOOD") -> None:
+def _write_calibration(path: Path, *, mode: str = "FULL", quality: str = "GOOD", rms_error_px: float = 0.42) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez(
         path,
@@ -26,8 +26,9 @@ def _write_calibration(path: Path, *, mode: str = "FULL", quality: str = "GOOD")
         T=np.array([[304.8], [0.0], [0.0]]),
         img_size=np.array([1280, 720]),
         quality_rating=quality,
-        rms_error_px=0.42,
+        rms_error_px=rms_error_px,
         calibration_mode=mode,
+        production_ready=mode != "QUICK",
     )
 
 
@@ -131,6 +132,40 @@ def test_quick_calibration_profile_warns_not_production_ready(tmp_path: Path) ->
 
     assert validation.state == WARN
     assert any("Quick calibration" in item for item in validation.warnings)
+
+
+def test_quick_calibration_profile_is_critical_for_physical_backend(tmp_path: Path) -> None:
+    service = RigProfileService(base_dir=tmp_path / "rigs")
+    profile = _profile(service, mode="QUICK")
+
+    validation = service.validate_for_runtime(profile, config=_config(), backend="uvc")
+
+    assert validation.state == CRITICAL
+    assert any("Quick calibration" in item for item in validation.issues)
+
+
+def test_legacy_scalar_fallback_is_critical_for_physical_backend(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write_roi(Path("rois/shared_rois.json"))
+
+    service = RigProfileService(base_dir=tmp_path / "rigs")
+    profile = service.legacy_fallback(_config(), backend="uvc")
+
+    validation = service.validate_for_runtime(profile, config=_config(), backend="uvc")
+
+    assert validation.state == CRITICAL
+    assert any("Calibration file not found" in item for item in validation.issues)
+
+
+def test_high_rms_calibration_is_critical_for_physical_backend(tmp_path: Path) -> None:
+    service = RigProfileService(base_dir=tmp_path / "rigs")
+    profile = _profile(service)
+    _write_calibration(service.profile_dir(profile.profile_id) / profile.calibration_file, rms_error_px=3.2)
+
+    validation = service.validate_for_runtime(profile, config=_config(), backend="uvc")
+
+    assert validation.state == CRITICAL
+    assert any("RMS reprojection" in item for item in validation.issues)
 
 
 def test_legacy_fallback_uses_existing_legacy_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

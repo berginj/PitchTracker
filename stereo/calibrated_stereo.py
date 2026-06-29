@@ -11,6 +11,7 @@ import numpy as np
 
 from contracts import StereoObservation
 from stereo.association import StereoMatch, StereoMatcher
+from stereo.uncertainty import depth_only_covariance, quality_from_depth_sigma
 
 
 MM_PER_FOOT = 304.8
@@ -30,6 +31,8 @@ class CalibratedStereoGeometry:
     z_min_ft: float
     z_max_ft: float
     time_sync_offset_ns: int = 0
+    pixel_sigma_px: float = 0.5
+    max_full_confidence_depth_sigma_ft: float = 3.0
 
     @classmethod
     def from_npz(
@@ -98,16 +101,20 @@ class CalibratedStereoMatcher(StereoMatcher):
     def triangulate(self, match: StereoMatch) -> StereoObservation:
         left_pt = np.array([[match.left.u], [match.left.v]], dtype=np.float64)
         right_pt = np.array([[match.right.u], [match.right.v]], dtype=np.float64)
-        homogeneous = cv2.triangulatePoints(self._p_left, self._p_right, left_pt, right_pt)
-        xyz_mm = (homogeneous[:3] / homogeneous[3]).reshape(3)
-        xyz_ft = xyz_mm / MM_PER_FOOT
+        xyz_ft = self._triangulate_xyz_ft(left_pt, right_pt)
         z_ft = float(xyz_ft[2])
         in_range = self._geometry.z_min_ft <= z_ft <= self._geometry.z_max_ft
-        timestamp_ns, applied = self.pair_timestamp(
+        depth_sigma_ft = self._estimate_depth_sigma_ft(left_pt, right_pt)
+        quality = (
+            quality_from_depth_sigma(depth_sigma_ft, self._geometry.max_full_confidence_depth_sigma_ft)
+            if in_range
+            else 0.0
+        )
+        timestamp_ns, _ = self.pair_timestamp(
             match.left.t_capture_monotonic_ns,
             match.right.t_capture_monotonic_ns,
         )
-        confidence = match.score if in_range else 0.0
+        confidence = match.score * quality if in_range else 0.0
         return StereoObservation(
             t_ns=timestamp_ns,
             left=(match.left.u, match.left.v),
@@ -115,9 +122,38 @@ class CalibratedStereoMatcher(StereoMatcher):
             X=float(xyz_ft[0]),
             Y=float(xyz_ft[1]),
             Z=z_ft,
-            quality=1.0 if in_range else 0.0,
+            quality=quality,
+            covariance=depth_only_covariance(depth_sigma_ft),
             confidence=confidence,
         )
+
+    def _triangulate_xyz_ft(self, left_pt: np.ndarray, right_pt: np.ndarray) -> np.ndarray:
+        homogeneous = cv2.triangulatePoints(self._p_left, self._p_right, left_pt, right_pt)
+        xyz_mm = (homogeneous[:3] / homogeneous[3]).reshape(3)
+        return xyz_mm / MM_PER_FOOT
+
+    def _estimate_depth_sigma_ft(self, left_pt: np.ndarray, right_pt: np.ndarray) -> float:
+        pixel_sigma_px = float(getattr(self._geometry, "pixel_sigma_px", 0.0))
+        if pixel_sigma_px <= 0.0:
+            return 0.0
+        eps = 1.0
+        variance = 0.0
+        for point_index, coord_index in ((0, 0), (0, 1), (1, 0), (1, 1)):
+            plus_left = left_pt.copy()
+            minus_left = left_pt.copy()
+            plus_right = right_pt.copy()
+            minus_right = right_pt.copy()
+            if point_index == 0:
+                plus_left[coord_index, 0] += eps
+                minus_left[coord_index, 0] -= eps
+            else:
+                plus_right[coord_index, 0] += eps
+                minus_right[coord_index, 0] -= eps
+            z_plus = self._triangulate_xyz_ft(plus_left, plus_right)[2]
+            z_minus = self._triangulate_xyz_ft(minus_left, minus_right)[2]
+            dz_dpixel = (z_plus - z_minus) / (2.0 * eps)
+            variance += float(dz_dpixel * pixel_sigma_px) ** 2
+        return float(variance**0.5)
 
     def pair_timestamp(self, left_ns: int, right_ns: int) -> Tuple[int, bool]:
         """Apply configured time sync offset (added to right timestamp) before averaging.

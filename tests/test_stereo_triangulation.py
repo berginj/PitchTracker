@@ -207,6 +207,56 @@ def test_zero_disparity_handling():
     assert computed_depth == float("inf") or computed_depth > 1000.0
 
 
+def test_simple_stereo_keeps_full_confidence_when_depth_uncertainty_is_low():
+    geometry = StereoGeometry(
+        baseline_ft=1.0,
+        focal_length_px=1200.0,
+        cx=960.0,
+        cy=540.0,
+        epipolar_epsilon_px=3.0,
+        z_min_ft=3.0,
+        z_max_ft=80.0,
+    )
+    stereo = SimpleStereoMatcher(geometry)
+    left = Detection("left", 0, 100, 960.0, 540.0, 10.0, 1.0)
+    right = Detection("right", 0, 100, 936.0, 540.0, 10.0, 1.0)
+
+    match = stereo.match(left, right)
+    assert match is not None
+    obs = stereo.triangulate(match)
+
+    assert obs.Z == pytest.approx(50.0)
+    assert obs.quality == 1.0
+    assert obs.confidence == 1.0
+    assert obs.covariance is not None
+    assert obs.covariance[2][2] == pytest.approx(1.473139**2, rel=0.001)
+
+
+def test_simple_stereo_degrades_confidence_for_high_depth_uncertainty():
+    geometry = StereoGeometry(
+        baseline_ft=1.0,
+        focal_length_px=400.0,
+        cx=160.0,
+        cy=120.0,
+        epipolar_epsilon_px=3.0,
+        z_min_ft=3.0,
+        z_max_ft=80.0,
+    )
+    stereo = SimpleStereoMatcher(geometry)
+    left = Detection("left", 0, 100, 160.0, 120.0, 10.0, 1.0)
+    right = Detection("right", 0, 100, 152.0, 120.0, 10.0, 1.0)
+
+    match = stereo.match(left, right)
+    assert match is not None
+    obs = stereo.triangulate(match)
+
+    assert obs.Z == pytest.approx(50.0)
+    assert 0.65 < obs.quality < 0.70
+    assert obs.confidence == pytest.approx(obs.quality)
+    assert obs.covariance is not None
+    assert obs.covariance[2][2] == pytest.approx(4.419417**2, rel=0.001)
+
+
 def test_calibrated_stereo_triangulates_with_full_matrices():
     """Saved calibration matrices should support runtime triangulation."""
     baseline_ft = 1.0
@@ -244,6 +294,43 @@ def test_calibrated_stereo_triangulates_with_full_matrices():
     assert abs(obs.X) < 0.01
     assert obs.t_ns == 150
     assert obs.confidence == 1.0
+
+
+def test_calibrated_stereo_degrades_confidence_for_high_depth_uncertainty():
+    baseline_ft = 1.0
+    baseline_mm = baseline_ft * 304.8
+    focal_px = 400.0
+    cx = 160.0
+    cy = 120.0
+    k = np.array([[focal_px, 0.0, cx], [0.0, focal_px, cy], [0.0, 0.0, 1.0]], dtype=np.float64)
+    tx = np.array([[-baseline_mm], [0.0], [0.0]], dtype=np.float64)
+    f = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, baseline_mm], [0.0, -baseline_mm, 0.0]])
+    geometry = CalibratedStereoGeometry(
+        mtx_left=k,
+        dist_left=np.zeros(5),
+        mtx_right=k,
+        dist_right=np.zeros(5),
+        R=np.eye(3),
+        T=tx,
+        F=f,
+        img_size=(320, 240),
+        epipolar_epsilon_px=3.0,
+        z_min_ft=3.0,
+        z_max_ft=80.0,
+    )
+    matcher = CalibratedStereoMatcher(geometry)
+    left = Detection("left", 0, 100, cx, cy, 10.0, 1.0)
+    right = Detection("right", 0, 100, cx - 8.0, cy, 10.0, 1.0)
+
+    match = matcher.match(left, right)
+    assert match is not None
+    obs = matcher.triangulate(match)
+
+    assert obs.Z == pytest.approx(50.0)
+    assert 0.65 < obs.quality < 0.70
+    assert obs.confidence == pytest.approx(obs.quality)
+    assert obs.covariance is not None
+    assert obs.covariance[2][2] == pytest.approx(20.1562, rel=0.001)
 
 
 if __name__ == "__main__":

@@ -26,6 +26,7 @@ from app.services.capture import CaptureServiceImpl
 from app.services.detection import DetectionServiceImpl
 from app.services.recording import RecordingServiceImpl
 from app.services.rig_profile import CRITICAL, RigProfile, RigProfileService
+from calib.calibration_report import build_calibration_report
 from configs.roi_io import load_runtime_roi_maps
 from configs.settings import AppConfig
 from contracts import Detection, Frame, StereoObservation
@@ -101,6 +102,7 @@ class PipelineOrchestrator(PipelineService):
         self._active_rig_profile: Optional[RigProfile] = None
         self._runtime_calibration_path: Optional[Path] = None
         self._runtime_roi_path: Optional[Path] = None
+        self._runtime_calibration_report: Optional[dict] = None
 
         # State
         self._capturing = False
@@ -169,6 +171,10 @@ class PipelineOrchestrator(PipelineService):
             )
             self._runtime_calibration_path = self._rig_profile_service.calibration_path(self._active_rig_profile)
             self._runtime_roi_path = self._rig_profile_service.roi_path(self._active_rig_profile)
+            self._runtime_calibration_report = build_calibration_report(
+                self._runtime_calibration_path,
+                Path(config_path) if config_path else Path("configs/default.yaml"),
+            )
 
             # Store config
             self._config = config
@@ -190,6 +196,10 @@ class PipelineOrchestrator(PipelineService):
                 if self._record_dir is not None:
                     self._recording_service.set_record_directory(self._record_dir)
                 self._recording_service.set_manual_speed_mph(self._manual_speed_mph)
+            self._recording_service.set_calibration_context(
+                self._active_rig_profile.profile_id if self._active_rig_profile else None,
+                self._runtime_calibration_report,
+            )
 
             if self._analysis_service is None:
                 self._analysis_service = AnalysisServiceImpl(self._event_bus, config)

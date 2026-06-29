@@ -35,6 +35,12 @@ from .catalog import (
     KnownDevice,
     KnownGoodSettings,
 )
+from .evidence import (
+    Candidate2DEvidence,
+    Observation3DEvidence,
+    PitchVerdictEvidence,
+    StereoMatchEvidence,
+)
 
 __all__ = [
     "Detection",
@@ -64,4 +70,8 @@ __all__ = [
     "KnownGoodSettings",
     "CameraCatalogEntry",
     "KnownDevice",
+    "Candidate2DEvidence",
+    "StereoMatchEvidence",
+    "Observation3DEvidence",
+    "PitchVerdictEvidence",
 ]

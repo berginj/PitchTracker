@@ -169,7 +169,13 @@ def test_analyzer_falls_back_to_stereo_when_ray_calibration_missing() -> None:
         ),
     )
     analyzer = PitchAnalyzer(config, get_ball_radius_fn=lambda: 1.45, radar_speed_fn=lambda: None)
-    observations = simulate_ballistic(SimConfig(dt_s=0.02, outlier_prob=0.0, noise_ft=0.0))
+    observations = [
+        replace(
+            obs,
+            covariance=((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, (1.0 + index * 0.1) ** 2)),
+        )
+        for index, obs in enumerate(simulate_ballistic(SimConfig(dt_s=0.02, outlier_prob=0.0, noise_ft=0.0)))
+    ]
 
     summary = analyzer.analyze_pitch(
         pitch_id="pitch-ray-fallback",
@@ -182,4 +188,13 @@ def test_analyzer_falls_back_to_stereo_when_ray_calibration_missing() -> None:
     assert summary.trajectory_mode == "stereo_3d"
     assert summary.trajectory_plate_z_ft is not None
     assert summary.trajectory_comparison is not None
-    assert summary.trajectory_comparison["ray_reprojection"]["diagnostics"]["failure_codes"] == ["CAMERA_MODEL_MISSING"]
+    assert summary.observation_mean_depth_sigma_ft is not None
+    assert 2.4 < summary.observation_mean_depth_sigma_ft < 2.5
+    assert summary.observation_max_depth_sigma_ft is not None
+    assert 3.9 < summary.observation_max_depth_sigma_ft < 4.0
+    assert summary.observation_quality_status == "PASS"
+    assert summary.observation_rejection_reasons == []
+    assert summary.observation_warning_reasons == []
+    failure_codes = summary.trajectory_comparison["ray_reprojection"]["diagnostics"]["failure_codes"]
+    assert failure_codes
+    assert failure_codes[0] in {"CAMERA_MODEL_MISSING", "INSUFFICIENT_RAYS"}

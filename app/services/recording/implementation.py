@@ -92,6 +92,8 @@ class RecordingServiceImpl(RecordingService):
         self._mode: Optional[str] = None
         self._measured_speed_mph: Optional[float] = None
         self._last_pitch_id: Optional[str] = None
+        self._calibration_profile_id: Optional[str] = None
+        self._calibration_report: Optional[dict] = None
 
         # EventBus subscriptions (not subscribed until session starts)
         self._subscribed = False
@@ -184,6 +186,8 @@ class RecordingServiceImpl(RecordingService):
                 session_name=self._session_name,
                 mode=self._mode,
                 measured_speed_mph=self._measured_speed_mph,
+                calibration_profile_id=self._calibration_profile_id,
+                calibration_report=self._calibration_report,
             )
 
             session_dir = self._session_recorder.get_session_dir()
@@ -418,6 +422,13 @@ class RecordingServiceImpl(RecordingService):
         with self._lock:
             self._measured_speed_mph = speed_mph
             logger.info(f"Recording manual speed override set to: {speed_mph}")
+
+    def set_calibration_context(self, profile_id: Optional[str], report: Optional[dict]) -> None:
+        """Set calibration metadata captured in future session manifests."""
+        with self._lock:
+            self._calibration_profile_id = profile_id
+            self._calibration_report = dict(report) if report is not None else None
+            logger.info(f"Recording calibration context set to profile={profile_id}")
 
     def get_session_dir(self) -> Optional[Path]:
         """Get directory path for current session.

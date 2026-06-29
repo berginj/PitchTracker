@@ -7,6 +7,11 @@ from typing import Optional, Tuple
 
 from contracts import StereoObservation
 from stereo.association import StereoMatch, StereoMatcher
+from stereo.uncertainty import (
+    depth_only_covariance,
+    estimate_rectified_depth_uncertainty,
+    quality_from_depth_sigma,
+)
 
 
 @dataclass(frozen=True)
@@ -19,6 +24,9 @@ class StereoGeometry:
     z_min_ft: float = 3.0
     z_max_ft: float = 80.0
     time_sync_offset_ns: int = 0
+    pixel_sigma_px: float = 0.5
+    baseline_sigma_ft: float = 0.0
+    max_full_confidence_depth_sigma_ft: float = 3.0
 
 
 class SimpleStereoMatcher(StereoMatcher):
@@ -44,7 +52,19 @@ class SimpleStereoMatcher(StereoMatcher):
         x_ft = (match.left.u - self._geometry.cx) * z_ft / self._geometry.focal_length_px
         y_ft = (match.left.v - self._geometry.cy) * z_ft / self._geometry.focal_length_px
         in_range = self._geometry.z_min_ft <= z_ft <= self._geometry.z_max_ft
-        quality = 1.0 if in_range else 0.0
+        uncertainty = estimate_rectified_depth_uncertainty(
+            left_u_px=match.left.u,
+            right_u_px=match.right.u,
+            focal_length_px=self._geometry.focal_length_px,
+            baseline_ft=self._geometry.baseline_ft,
+            pixel_sigma_px=self._geometry.pixel_sigma_px,
+            baseline_sigma_ft=self._geometry.baseline_sigma_ft,
+        )
+        uncertainty_quality = quality_from_depth_sigma(
+            uncertainty.depth_sigma_ft,
+            self._geometry.max_full_confidence_depth_sigma_ft,
+        )
+        quality = uncertainty_quality if in_range else 0.0
         timestamp_ns, _ = self.pair_timestamp(match.left.t_capture_monotonic_ns, match.right.t_capture_monotonic_ns)
         return StereoObservation(
             t_ns=timestamp_ns,
@@ -54,7 +74,8 @@ class SimpleStereoMatcher(StereoMatcher):
             Y=float(y_ft),
             Z=float(z_ft),
             quality=quality,
-            confidence=match.score if in_range else 0.0,
+            covariance=depth_only_covariance(uncertainty.depth_sigma_ft),
+            confidence=match.score * quality if in_range else 0.0,
         )
 
     def pair_timestamp(self, left_ns: int, right_ns: int) -> Tuple[int, bool]:

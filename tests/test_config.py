@@ -16,6 +16,16 @@ def test_load_config() -> None:
     assert config.trajectory.primary_mode == "stereo_3d"
 
 
+def test_default_config_keeps_generic_scalar_stereo_fallback() -> None:
+    """Shared defaults must not contain a local rig calibration."""
+    config = load_config(Path("configs/default.yaml"))
+
+    assert config.stereo.baseline_ft == 1.625
+    assert config.stereo.focal_length_px == 1200.0
+    assert config.stereo.cx is None
+    assert config.stereo.cy is None
+
+
 def test_load_all_trajectory_modes(tmp_path: Path) -> None:
     data = yaml.safe_load(Path("configs/default.yaml").read_text())
     data["trajectory"]["primary_mode"] = "ray_reprojection"

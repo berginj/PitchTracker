@@ -46,6 +46,11 @@ class PitchSummary:
     observation_max_gap_ms: Optional[float] = None
     observation_z_span_ft: Optional[float] = None
     observation_mean_confidence: Optional[float] = None
+    observation_mean_depth_sigma_ft: Optional[float] = None
+    observation_max_depth_sigma_ft: Optional[float] = None
+    observation_quality_status: Optional[str] = None
+    observation_rejection_reasons: list[str] | None = None
+    observation_warning_reasons: list[str] | None = None
 
 
 @dataclass(frozen=True)

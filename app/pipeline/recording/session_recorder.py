@@ -215,6 +215,8 @@ class SessionRecorder:
         session_name: Optional[str],
         mode: Optional[str],
         measured_speed_mph: Optional[float],
+        calibration_profile_id: Optional[str] = None,
+        calibration_report: Optional[dict] = None,
     ) -> None:
         """Stop session recording.
 
@@ -251,6 +253,8 @@ class SessionRecorder:
             config_path=config_path,
             started_utc=self._session_started_utc,
             ended_utc=ended_utc,
+            calibration_profile_id=calibration_profile_id,
+            calibration_report=calibration_report,
         )
         (self._session_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
         self._session_started_utc = None

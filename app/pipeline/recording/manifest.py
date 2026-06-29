@@ -30,6 +30,8 @@ def create_session_manifest(
     config_path: str,
     started_utc: Optional[str] = None,
     ended_utc: Optional[str] = None,
+    calibration_profile_id: Optional[str] = None,
+    calibration_report: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Create session manifest.
 
@@ -55,7 +57,8 @@ def create_session_manifest(
             "t_start_utc": started_utc,
             "t_end_utc": ended_utc,
             "config_path": config_path or "configs/default.yaml",
-            "calibration_profile_id": None,
+            "calibration_profile_id": calibration_profile_id,
+            "calibration_report": calibration_report,
             "session_summary": "session_summary.json",
             "session_summary_csv": "session_summary.csv",
             "session_left_video": "session_left.avi",
@@ -112,6 +115,16 @@ def create_pitch_manifest(
                 "ray_rmse_px": summary.ray_rmse_px,
                 "estimated_camera_time_offset_ms": summary.estimated_camera_time_offset_ms,
                 "ray_failure_codes": summary.ray_failure_codes,
+            },
+            "observation_quality": {
+                "status": summary.observation_quality_status,
+                "rejection_reasons": summary.observation_rejection_reasons,
+                "warning_reasons": summary.observation_warning_reasons,
+                "mean_confidence": summary.observation_mean_confidence,
+                "mean_depth_sigma_ft": summary.observation_mean_depth_sigma_ft,
+                "max_depth_sigma_ft": summary.observation_max_depth_sigma_ft,
+                "max_gap_ms": summary.observation_max_gap_ms,
+                "z_span_ft": summary.observation_z_span_ft,
             },
             "left_video": left_video,
             "right_video": right_video,

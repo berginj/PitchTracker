@@ -166,6 +166,10 @@ class RecordingService(ABC):
         """Set a manual speed override for future manifest output."""
 
     @abstractmethod
+    def set_calibration_context(self, profile_id: Optional[str], report: Optional[dict]) -> None:
+        """Set calibration metadata for future session manifests."""
+
+    @abstractmethod
     def get_session_dir(self) -> Optional[Path]:
         """Get directory path for current session.
 

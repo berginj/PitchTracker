@@ -135,6 +135,11 @@ class PitchAnalyzer:
             observation_max_gap_ms=observation_stats["observation_max_gap_ms"],
             observation_z_span_ft=observation_stats["observation_z_span_ft"],
             observation_mean_confidence=observation_stats["observation_mean_confidence"],
+            observation_mean_depth_sigma_ft=observation_stats["observation_mean_depth_sigma_ft"],
+            observation_max_depth_sigma_ft=observation_stats["observation_max_depth_sigma_ft"],
+            observation_quality_status=observation_stats["observation_quality_status"],
+            observation_rejection_reasons=observation_stats["observation_rejection_reasons"],
+            observation_warning_reasons=observation_stats["observation_warning_reasons"],
         )
 
         return summary

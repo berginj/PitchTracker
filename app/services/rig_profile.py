@@ -9,6 +9,7 @@ from typing import Any, Mapping, Optional
 
 import numpy as np
 
+from calib.calibration_report import FAIL, build_calibration_report
 from calib.runtime_status import REQUIRED_MATRIX_KEYS
 from app.services.rig_profile_models import (
     CRITICAL,
@@ -174,7 +175,7 @@ class RigProfileService:
             warnings.append(f"Active rig backend is {profile.backend}, runtime requested {backend}.")
 
         _validate_serials(profile, left_serial, right_serial, issues)
-        self._validate_calibration_file(profile, issues, warnings, diagnostics)
+        self._validate_calibration_file(profile, backend, issues, warnings, diagnostics)
         self._validate_roi_file(profile, issues, warnings, diagnostics)
         _validate_config_modes(config, issues)
 
@@ -234,13 +235,16 @@ class RigProfileService:
     def _validate_calibration_file(
         self,
         profile: RigProfile,
+        backend: Optional[str],
         issues: list[str],
         warnings: list[str],
         diagnostics: dict[str, Any],
     ) -> None:
         path = self.calibration_path(profile)
+        production_geometry_required = _production_geometry_required(backend)
+        diagnostics["production_geometry_required"] = production_geometry_required
         if not path.exists():
-            if profile.profile_id == "legacy":
+            if profile.profile_id == "legacy" and not production_geometry_required:
                 warnings.append(f"Calibration file not found at {path}; runtime will use scalar stereo fallback.")
             else:
                 issues.append(f"Calibration file not found at {path}.")
@@ -260,14 +264,34 @@ class RigProfileService:
             diagnostics["calibration_quality"] = _npz_str(data, "quality_rating", "UNKNOWN")
             diagnostics["rms_error_px"] = _npz_float(data, "rms_error_px")
 
+            report = build_calibration_report(path, self.config_path)
+            diagnostics["calibration_report_status"] = report["status"]
+            diagnostics["calibration_report_errors"] = list(report["errors"])
+            diagnostics["calibration_report_warnings"] = list(report["warnings"])
+
+            if production_geometry_required and report["status"] == FAIL:
+                issues.extend(_prefix_findings("Production calibration gate failed", report["errors"]))
+            elif report["status"] == FAIL:
+                warnings.extend(_prefix_findings("Calibration report", report["errors"]))
+            if production_geometry_required:
+                warnings.extend(_prefix_findings("Calibration report", report["warnings"]))
+
             if mode == "QUICK":
-                warnings.append("Quick calibration is diagnostic/fallback-only and does not mark the rig production-ready.")
+                quick_message = "Quick calibration is diagnostic/fallback-only and does not mark the rig production-ready."
+                if production_geometry_required:
+                    issues.append(quick_message)
+                else:
+                    warnings.append(quick_message)
             elif mode not in {"FULL", "UNKNOWN"}:
                 warnings.append(f"Calibration mode is {mode}; full matrix calibration is the production default.")
 
             quality = str(diagnostics["calibration_quality"]).upper()
             if quality == "POOR":
-                warnings.append("Calibration quality is POOR; rerun full calibration before production if possible.")
+                poor_message = "Calibration quality is POOR; rerun full calibration before production if possible."
+                if production_geometry_required:
+                    issues.append(poor_message)
+                else:
+                    warnings.append(poor_message)
         except Exception as exc:
             issues.append(f"Calibration file could not be loaded: {exc}.")
             diagnostics["calibration_mode"] = "invalid_matrix_file"
@@ -357,6 +381,16 @@ def _validate_config_modes(config: Optional[AppConfig], issues: list[str]) -> No
     invalid = sorted({mode for mode in modes if mode not in allowed})
     if invalid:
         issues.append(f"Invalid trajectory mode(s): {', '.join(invalid)}.")
+
+
+def _production_geometry_required(backend: Optional[str]) -> bool:
+    """Return True when runtime should refuse diagnostic-only geometry."""
+    backend_name = str(backend or "").lower()
+    return backend_name not in {"", "sim", "simulated", "test"}
+
+
+def _prefix_findings(prefix: str, findings: list[str]) -> list[str]:
+    return [f"{prefix}: {item}" for item in findings]
 
 
 def _calibration_mode(profile: RigProfile, path: Path, data: Any) -> str:
