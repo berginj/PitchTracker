@@ -45,7 +45,7 @@ class StyleManager:
             return
 
         self.theme.mode = mode
-        if self._app is not None:
+        if self._app is not None and hasattr(self._app, "setStyleSheet"):
             self._app.setStyleSheet(self.theme.get_app_stylesheet())
         self._refresh_all_widgets()
 

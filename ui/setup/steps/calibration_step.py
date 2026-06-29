@@ -122,4 +122,5 @@ class CalibrationStep(
         self._preview_timer = QtCore.QTimer()
         self._preview_timer.timeout.connect(self._update_preview)
 
+
 __all__ = ["CalibrationStep"]
