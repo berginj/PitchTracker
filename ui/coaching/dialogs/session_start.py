@@ -244,10 +244,15 @@ class SessionStartDialog(QtWidgets.QDialog):
 
     def _refresh_cameras(self) -> None:
         """Refresh camera list."""
+        from ui.device_utils import (
+            DEFAULT_OPENCV_MAX_INDEX,
+            clear_device_cache,
+            probe_opencv_indices,
+        )
+
         clear_device_cache()
         self._left_camera_combo.clear()
         self._right_camera_combo.clear()
-        from ui.device_utils import DEFAULT_OPENCV_MAX_INDEX, probe_opencv_indices
 
         indices = probe_opencv_indices(max_index=DEFAULT_OPENCV_MAX_INDEX, parallel=False, use_cache=False)
         if indices:

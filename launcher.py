@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """PitchTracker unified launcher - role selector entry point."""
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -25,11 +24,16 @@ os.chdir(project_root)
 
 from app.services.tooling import ToolingService, get_tooling_service  # noqa: E402
 from launcher_support import clear_python_cache  # noqa: E402
-from launcher_threads import StartupValidationThread, UpdateCheckThread  # noqa: E402
+from launcher_threads import StartupValidationThread  # noqa: E402
+from launcher_updates import LauncherUpdateController  # noqa: E402
 from startup_validator import create_required_directories  # noqa: E402
 from ui.about_dialog import AboutDialog  # noqa: E402
 from ui.themes import get_style_manager  # noqa: E402
-from updater import get_current_version  # noqa: E402
+from updater import (  # noqa: E402
+    get_current_version,
+    is_auto_update_enabled,
+    set_auto_update_enabled,
+)
 
 __all__ = ["LauncherWindow", "clear_python_cache", "main"]
 
@@ -49,13 +53,14 @@ class LauncherWindow(QtWidgets.QMainWindow):
         self._validation_state = "pending"
         self._validation_service = validation_service or get_tooling_service()
         self._validation_thread: StartupValidationThread | None = None
+        self._update_controller = LauncherUpdateController(self)
         self.setWindowTitle("PitchTracker")
         self.resize(800, 600)
         self._build_ui()
 
         QtCore.QTimer.singleShot(0, self._start_environment_validation)
         # Check for updates after a short delay (non-blocking)
-        QtCore.QTimer.singleShot(2000, self._check_for_updates)
+        QtCore.QTimer.singleShot(2000, self._update_controller.check_for_updates)
 
     def _build_ui(self):
         """Build launcher UI."""
@@ -263,6 +268,16 @@ class LauncherWindow(QtWidgets.QMainWindow):
         about_button.clicked.connect(self._show_about)
         self._style_manager.style_button(about_button, "ghost")
 
+        # Auto-update toggle (persisted)
+        self._auto_update_checkbox = QtWidgets.QCheckBox("Install updates automatically")
+        self._auto_update_checkbox.setChecked(is_auto_update_enabled())
+        self._auto_update_checkbox.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self._auto_update_checkbox.setToolTip(
+            "When enabled, verified updates download and install automatically on launch."
+        )
+        self._auto_update_checkbox.toggled.connect(set_auto_update_enabled)
+
+        layout.addWidget(self._auto_update_checkbox)
         layout.addStretch()
         layout.addWidget(about_button)
 
@@ -417,51 +432,8 @@ class LauncherWindow(QtWidgets.QMainWindow):
         """Called when a child window is closed."""
         # Show launcher again
         self.show()
-
-    def _check_for_updates(self) -> None:
-        """Check for updates in background (non-blocking)."""
-        # Run update check in worker thread to avoid blocking UI
-        self._update_thread = UpdateCheckThread()
-        self._update_thread.update_available.connect(self._show_update_dialog)
-        self._update_thread.start()
-
-    def _show_update_dialog(self, update_info: dict) -> None:
-        """Show update dialog if update is available and not skipped.
-
-        Args:
-            update_info: Update information from check_for_updates()
-        """
-        # Check if user previously skipped this version
-        if self._is_version_skipped(update_info["version"]):
-            return
-
-        # Show update dialog
-        from ui.update_dialog import UpdateDialog
-
-        dialog = UpdateDialog(update_info, parent=self)
-        dialog.exec()
-
-    def _is_version_skipped(self, version: str) -> bool:
-        """Check if user previously skipped this version.
-
-        Args:
-            version: Version string to check
-
-        Returns:
-            True if version was skipped
-        """
-        try:
-            settings_file = Path("configs") / "update_settings.json"
-            if not settings_file.exists():
-                return False
-
-            with open(settings_file) as f:
-                settings = json.load(f)
-
-            return settings.get("skipped_version") == version
-
-        except Exception:
-            return False
+        # Install any update that was downloaded while a workflow was active.
+        self._update_controller.install_pending_update()
 
     def _show_about(self):
         """Show about dialog."""

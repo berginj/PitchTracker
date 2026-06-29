@@ -166,11 +166,48 @@ def test_capture_paired_preview_reports_dead_right_side():
     assert grade_preview(snap) == (False, "Right camera not delivering frames.")
 
 
+class _SkewedCamera:
+    """Fake camera that emits frames with a fixed monotonic timestamp.
+
+    Using injected timestamps keeps the offset deterministic, independent of
+    the host clock resolution (Windows monotonic ticks can be coarse enough
+    that two real reads land on the same tick, producing a 0ms offset).
+    """
+
+    def __init__(self, t_capture_monotonic_ns):
+        self._t = t_capture_monotonic_ns
+        self._index = 0
+
+    def set_mode(self, *args, **kwargs):
+        return None
+
+    def read_frame(self, timeout_ms):
+        from contracts.types import Frame
+
+        idx = self._index
+        self._index += 1
+        return Frame(
+            camera_id="fake",
+            frame_index=idx,
+            t_capture_monotonic_ns=self._t,
+            image=None,
+            width=64,
+            height=48,
+            pixfmt="GRAY8",
+        )
+
+    def close(self):
+        return None
+
+
 def test_capture_paired_preview_out_of_tolerance():
-    snap = simulated_paired_preview(frames=2, tolerance_ms=0.0)
-    # A zero tolerance forces an out-of-tolerance verdict despite live frames.
+    # 10ms skew between the two sides, well above the 1ms tolerance.
+    left = _SkewedCamera(0)
+    right = _SkewedCamera(10_000_000)
+    snap = capture_paired_preview(left, right, frames=2, tolerance_ms=1.0)
     assert snap.left_ok is True
     assert snap.right_ok is True
+    assert snap.pair_offset_ms == pytest.approx(10.0)
     assert snap.paired_within_tolerance is False
     assert grade_preview(snap)[0] is False
 

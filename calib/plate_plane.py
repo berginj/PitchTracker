@@ -12,7 +12,6 @@ import numpy as np
 import yaml
 
 from configs.settings import load_config
-from stereo.simple_stereo import SimpleStereoMatcher, StereoGeometry
 
 
 def parse_args() -> argparse.Namespace:

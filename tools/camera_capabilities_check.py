@@ -22,7 +22,7 @@ import psutil
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from ui.device_utils import probe_uvc_devices, probe_opencv_indices, is_arducam_device
+from ui.device_utils import probe_uvc_devices, probe_opencv_indices, is_arducam_device  # noqa: E402
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -425,7 +425,7 @@ def test_dual_camera(width: int, height: int, fps: int, duration_sec: int = 10, 
         }
 
         logger.info(f"Dual camera test SUCCESS: Left={result['effective_fps_left']:.1f}fps, Right={result['effective_fps_right']:.1f}fps, Errors={errors}")
-        print(f"✅ Dual camera test complete")
+        print("✅ Dual camera test complete")
         print(f"   Left: {frames_left} frames ({result['effective_fps_left']:.1f} fps)")
         print(f"   Right: {frames_right} frames ({result['effective_fps_right']:.1f} fps)")
         print(f"   Errors: {errors}")

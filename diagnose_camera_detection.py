@@ -18,7 +18,7 @@ import cv2
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from ui.device_utils import (
+from ui.device_utils import (  # noqa: E402
     probe_uvc_devices,
     probe_opencv_indices,
     is_arducam_device,
@@ -229,7 +229,7 @@ def main():
 
         # Wait before next attempt
         if attempt < num_attempts:
-            print(f"\nWaiting 2 seconds before next attempt...")
+            print("\nWaiting 2 seconds before next attempt...")
             time.sleep(2.0)
 
     # Summary

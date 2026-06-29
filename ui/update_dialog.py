@@ -169,7 +169,10 @@ class UpdateDialog(QtWidgets.QDialog):
         style_status_label(self._status_label, "warning", "Downloading update...")
 
         # Download in background thread
-        self._download_thread = DownloadThread(self._update_info["download_url"])
+        self._download_thread = DownloadThread(
+            self._update_info["download_url"],
+            expected_sha256=self._update_info.get("expected_sha256"),
+        )
         self._download_thread.progress.connect(self._on_progress)
         self._download_thread.finished.connect(self._on_download_finished)
         self._download_thread.error.connect(self._on_download_error)
@@ -286,9 +289,10 @@ class DownloadThread(QtCore.QThread):
     finished = QtCore.Signal(Path)  # installer_path
     error = QtCore.Signal(str)  # error_message
 
-    def __init__(self, url: str):
+    def __init__(self, url: str, expected_sha256: Optional[str] = None):
         super().__init__()
         self._url = url
+        self._expected_sha256 = expected_sha256
 
     def run(self) -> None:
         """Download update in background."""
@@ -297,12 +301,23 @@ class DownloadThread(QtCore.QThread):
             def progress_callback(downloaded, total):
                 self.progress.emit(downloaded, total)
 
-            installer_path = download_update(self._url, progress_callback=progress_callback)
+            installer_path = download_update(
+                self._url,
+                progress_callback=progress_callback,
+                expected_sha256=self._expected_sha256,
+                require_checksum=True,
+            )
 
             if installer_path:
                 self.finished.emit(installer_path)
+            elif not self._expected_sha256:
+                self.error.emit(
+                    "Update aborted: this release has no SHA-256 checksum, so the "
+                    "installer could not be verified. Please download it manually "
+                    "from GitHub releases."
+                )
             else:
-                self.error.emit("Download failed")
+                self.error.emit("Download failed or integrity verification failed")
 
         except Exception as e:
             self.error.emit(str(e))
