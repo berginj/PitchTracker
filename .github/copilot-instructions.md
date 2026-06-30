@@ -43,9 +43,11 @@ python scripts/check_file_length.py      # enforce the 500-line file cap
 python scripts/sync_schema.py --check    # verify root schema/ mirrors contracts-shared/
 ```
 
-CI blocking gates: schema-mirror check, file-length guard, critical flake8 errors
-(`--select=E9,F63,F7,F82`), and tests. Full-style flake8 and mypy run as advisory
-(`continue-on-error`) while the existing style/type debt is paid down.
+CI blocking gates (`.github/workflows/ci.yml`): schema-mirror check, file-length
+guard, **full-style flake8** (`flake8 . --count --statistics`, a hard gate — NOT
+just `E9,F63,F7,F82`), and tests. Only mypy (`continue-on-error: true`) and the
+`safety` security scan are advisory. Run `flake8 .` clean locally before pushing —
+any flake8 error fails CI and blocks the test job from reporting.
 
 ### Building the Installer
 
