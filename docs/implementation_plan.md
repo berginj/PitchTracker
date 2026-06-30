@@ -1,5 +1,8 @@
 # Implementation Plan
 
+> **Superseded by [ADR-0001: Core-Pipeline Rewrite](decisions/0001-core-pipeline.md).** This document is background/rationale; the authoritative decision, scope, and rebuild order live in the ADR.
+
+
 ## Minimal Viable Reliable System
 
 Build the geometry truth path before optimizing ball detection.

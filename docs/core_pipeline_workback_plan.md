@@ -1,5 +1,8 @@
 # Core Pipeline Workback Plan
 
+> **Superseded by [ADR-0001: Core-Pipeline Rewrite](decisions/0001-core-pipeline.md).** This document is background/rationale; the authoritative decision, scope, and rebuild order live in the ADR.
+
+
 ## Goal
 
 Make PitchTracker's 3D pitch path credible before investing more in detector tuning or UI polish. The plan works backward from a field-usable result: a pitch is accepted only when calibration, sync, detections, stereo geometry, triangulation, and path fitting all provide enough evidence to explain the result.

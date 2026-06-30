@@ -146,7 +146,7 @@ class OpenCVCamera(CameraDevice):
         """
         if self._capture is None:
             logger.error(f"Cannot set_mode on camera {self._serial}: not opened")
-            raise RuntimeError("Camera not opened.")
+            raise CameraConnectionError("Camera not opened.")
 
         logger.info(f"Camera {self._serial}: Configuring {width}x{height} @ {fps}fps ({pixfmt})")
 
@@ -196,7 +196,7 @@ class OpenCVCamera(CameraDevice):
         wb: Optional[int],
     ) -> None:
         if self._capture is None:
-            raise RuntimeError("Camera not opened.")
+            raise CameraConnectionError("Camera not opened.")
         if exposure_us > 0:
             self._capture.set(cv2.CAP_PROP_EXPOSURE, float(exposure_us) / 1_000_000.0)
         self._capture.set(cv2.CAP_PROP_GAIN, gain)
@@ -207,7 +207,7 @@ class OpenCVCamera(CameraDevice):
 
     def read_frame(self, timeout_ms: int) -> Frame:
         if self._capture is None:
-            raise RuntimeError("Camera not opened.")
+            raise CameraConnectionError("Camera not opened.")
         ok, frame = self._capture.read()
         # Stamp capture time immediately after read() returns, BEFORE image
         # post-processing. Host receive time, not hardware acquisition time

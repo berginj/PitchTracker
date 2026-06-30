@@ -196,7 +196,7 @@ class UvcCamera(CameraDevice):
         wb: Optional[int],
     ) -> None:
         if self._capture is None:
-            raise RuntimeError("Camera not opened.")
+            raise CameraConnectionError("Camera not opened.")
         if exposure_us > 0:
             self._capture.set(cv2.CAP_PROP_EXPOSURE, float(exposure_us) / 1_000_000.0)
         self._capture.set(cv2.CAP_PROP_GAIN, gain)

@@ -1,5 +1,8 @@
 # PitchTracker Architecture Audit
 
+> **Superseded by [ADR-0001: Core-Pipeline Rewrite](decisions/0001-core-pipeline.md).** This document is background/rationale; the authoritative decision, scope, and rebuild order live in the ADR.
+
+
 ## Summary
 
 PitchTracker has a useful service-oriented shell, but the core vision pipeline is still a mix of production boundaries and prototype geometry. The event-driven runtime in `app/services/` is worth preserving. The highest risk is inside calibration, scalar stereo fallback, detection confidence, stereo correspondence, and path-quality semantics.

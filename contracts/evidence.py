@@ -1,4 +1,12 @@
-"""Durable evidence records linking detections, stereo matches, observations, and verdicts."""
+"""Durable evidence records linking detections, stereo matches, observations, and verdicts.
+
+Status: STAGED, not yet runtime-wired. These contracts are defined ahead of the
+triangulation/stereo-matching rewrite (ADR-0001, subsystem 3) and are not yet
+populated by the live pipeline. Re-exported via ``contracts/__init__`` so the
+rebuilt core can adopt them without a contract migration. Do not assume any
+runtime code emits these records until ADR-0001 subsystem 3 lands.
+See ``docs/decisions/0001-core-pipeline.md``.
+"""
 
 from __future__ import annotations
 
