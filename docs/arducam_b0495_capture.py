@@ -24,7 +24,6 @@ from dataclasses import dataclass
 from typing import Optional, List, Tuple
 
 import cv2
-import numpy as np
 
 # ---------- Logging ----------
 logging.basicConfig(
@@ -41,6 +40,7 @@ USB3_MODES = [
     (960, 600, 80),
 ]
 USB2_FALLBACK = (960, 600, 10)
+
 
 # ---------- OpenCV capture property helpers ----------
 def _set_prop(cap: cv2.VideoCapture, prop: int, value: float) -> None:
@@ -290,7 +290,7 @@ Support Playbook
 
 Expected behavior (USB3):
 - Mode: 1920x1200 @ 50 fps, YUY2
-- Measured FPS: typically ~45–55 fps depending on system load
+- Measured FPS: typically ~45ï¿½55 fps depending on system load
 
 How to verify USB3 performance:
 - Use a direct USB3 port (blue port), avoid hubs.
@@ -298,7 +298,7 @@ How to verify USB3 performance:
 - If the camera is only hitting 960x600@10, suspect USB2 link.
 
 Known Windows pitfalls:
-- YUY2 at 1920x1200@50 is high bandwidth; some hubs/cables can’t handle it.
+- YUY2 at 1920x1200@50 is high bandwidth; some hubs/cables canï¿½t handle it.
 - MSMF backend sometimes throttles or drops to lower FPS for UVC devices.
 - DirectShow is generally more reliable for UVC control + YUY2 on Windows.
 
@@ -309,5 +309,5 @@ When to try MSMF:
 Common failure symptoms and fixes:
 - Low FPS: check USB port/cable/hub, reduce resolution or FPS.
 - No frames: switch backend, reboot camera, check power/USB.
-- Controls don’t change: OpenCV UVC control support is limited; use DirectShow COM (pywin32) or Media Foundation for full control.
+- Controls donï¿½t change: OpenCV UVC control support is limited; use DirectShow COM (pywin32) or Media Foundation for full control.
 """
