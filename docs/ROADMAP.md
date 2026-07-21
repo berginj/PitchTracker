@@ -19,7 +19,7 @@ contract are complete; it does not imply physical measurement accuracy.
 - [x] Validated-pair-first camera recommendation with capability fallback.
 - [x] Compact operator health/actions with detailed diagnostics on demand.
 - [x] Clean Windows application and installer build from commit `40158c1`.
-- [x] Automated regression run: 1,262 passed, 32 skipped, 0 failed.
+- [x] Automated regression run: 1,263 passed, 32 skipped, 0 failed.
 
 Implementation evidence is mapped in [PT_001_015_TRACEABILITY.md](PT_001_015_TRACEABILITY.md).
 

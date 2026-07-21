@@ -24,7 +24,7 @@ independently reviewed physical confirmation dataset has been approved.
 | Release installer asset | Not currently attached to the GitHub release |
 | Current `main` | Includes PT-001–PT-015, adversarial follow-ups, and setup snapshot/camera recommendation work beyond the tag |
 | Latest local clean build | Commit `40158c1`; PyInstaller and Inno Setup completed |
-| Full automated suite | 1,262 passed, 32 skipped, 0 failed |
+| Full automated suite | 1,263 passed, 32 skipped, 0 failed |
 | Physical accuracy approval | None; results must remain estimated/degraded/unavailable/rejected as evidence requires |
 
 The locally built installer must be smoke-tested on a clean Windows machine

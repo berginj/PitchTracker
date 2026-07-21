@@ -109,7 +109,7 @@ python -m pytest -q
 
 Latest recorded run on `main` at commit `40158c1`:
 
-- `1262 passed`
+- `1263 passed`
 - `32 skipped`
 - `0 failed`
 

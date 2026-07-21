@@ -14,7 +14,7 @@
 
 ## Corrections made in this review
 
-- Replaced obsolete 389/841/1051-test claims with the recorded 1,262-pass run
+- Replaced obsolete 389/841/1051-test claims with the recorded 1,263-pass run
   in canonical status/test pages.
 - Corrected the canonical setup workflow from six/nine steps to ten.
 - Replaced v1.5 pilot release guidance with v2.0 identity and the actual release
