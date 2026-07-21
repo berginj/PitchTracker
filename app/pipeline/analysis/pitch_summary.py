@@ -168,6 +168,7 @@ class PitchAnalyzer:
         )
 
         return summary
+
     def update_config(self, config: AppConfig) -> None:
         """Update configuration.
 

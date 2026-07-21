@@ -297,7 +297,6 @@ class LiveSetupContext:
         config = load_config(self.config_path)
         from app.pipeline.initialization import PipelineInitializer
         left_id, right_id = self.assigned_ids()
-        selection = {camera.hardware_id: camera for camera in self.selection().cameras}
         left = self.camera_factory()
         right = self.camera_factory()
         left_frames: list[Frame] = []
@@ -311,6 +310,7 @@ class LiveSetupContext:
                 "left": _normalize_mode(left.get_mode()),
                 "right": _normalize_mode(right.get_mode()),
             }
+
             def _burst(camera: CameraDevice) -> list[Frame]:
                 captured: list[Frame] = []
                 for _ in range(max(1, frames)):

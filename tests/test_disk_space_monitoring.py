@@ -73,6 +73,21 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         self.assertIn("Critical", message)
 
     @patch("shutil.disk_usage")
+    def test_disk_check_uses_existing_parent_before_record_directory_exists(self, mock_disk_usage):
+        """A clean install can check capacity before creating recordings/."""
+        missing_record_dir = self.temp_dir / "nested" / "recordings"
+        recorder = SessionRecorder(self.mock_config, missing_record_dir)
+        mock_usage = Mock()
+        mock_usage.free = 100 * (1024**3)
+        mock_disk_usage.return_value = mock_usage
+
+        has_space, warning = recorder._check_disk_space()
+
+        self.assertTrue(has_space)
+        self.assertEqual(warning, "")
+        mock_disk_usage.assert_called_once_with(self.temp_dir)
+
+    @patch("shutil.disk_usage")
     def test_warning_disk_space_logs_warning(self, mock_disk_usage):
         """Test that warning level disk space logs warnings."""
 

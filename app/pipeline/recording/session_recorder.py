@@ -64,6 +64,13 @@ class SessionRecorder:
         self._warning_disk_gb = 20.0  # Warn user if below this
         self._session_started_utc: Optional[str] = None
 
+    def _disk_usage_path(self) -> Path:
+        """Return the nearest existing path for filesystem capacity checks."""
+        probe = self._record_dir
+        while not probe.exists() and probe.parent != probe:
+            probe = probe.parent
+        return probe
+
     def _check_disk_space(self, required_gb: float = 50.0) -> tuple[bool, str]:
         """Check disk space and return warning message if low.
 
@@ -75,7 +82,7 @@ class SessionRecorder:
             - has_enough_space: True if >= required_gb, False otherwise
             - warning_message: Empty if enough space, warning text otherwise
         """
-        usage = shutil.disk_usage(self._record_dir)
+        usage = shutil.disk_usage(self._disk_usage_path())
         free_gb = usage.free / (1024**3)
 
         logger.info(f"Disk space check: {free_gb:.1f}GB available on {self._record_dir}")
@@ -115,7 +122,7 @@ class SessionRecorder:
 
         while self._monitoring_disk:
             try:
-                usage = shutil.disk_usage(self._record_dir)
+                usage = shutil.disk_usage(self._disk_usage_path())
                 free_gb = usage.free / (1024**3)
 
                 current_time = time.time()

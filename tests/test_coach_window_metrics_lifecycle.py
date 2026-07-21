@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from types import SimpleNamespace
 
-import pytest
-
 import ui.coaching.coach_window as coach_window_module
 from ui.coaching.coach_window import CoachWindow
 from ui.coaching.widgets.mode_widgets.game_mode_view import GameModeWidget

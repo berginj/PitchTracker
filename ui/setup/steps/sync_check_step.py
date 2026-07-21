@@ -110,6 +110,7 @@ class SyncCheckStep(BaseStep):
 
     def on_exit(self) -> None:
         self.cancel_pending()
+
     def refresh(self) -> None:
         """Rebuild and render the synchronization result from the provider."""
         if self._operation is not None:
