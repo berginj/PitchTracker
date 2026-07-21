@@ -30,10 +30,74 @@ from contracts.physical_validation import (
     approval_signature_hex,
 )
 from contracts.versioning import APP_VERSION
+from contracts.setup_snapshot import SetupSystemSnapshot
 
 
 def _config():
     return load_config(Path(__file__).parent.parent / "configs" / "default.yaml")
+
+
+def _valid_setup_snapshot(profile: RigProfile) -> dict:
+    digest = "a" * 64
+    mode = {"width": 1280, "height": 720, "fps": 60, "pixfmt": "GRAY8"}
+    camera = lambda hardware_id: {  # noqa: E731 - compact symmetric fixture
+        "hardware_id": hardware_id,
+        "friendly_name": hardware_id,
+        "recognized": True,
+        "global_shutter": True,
+        "negotiated_mode": mode,
+        "controls_readback": {"readback_verified": True},
+    }
+    snapshot = SetupSystemSnapshot.create(
+        snapshot_id="setup-test",
+        created_utc="2026-01-01T00:00:00Z",
+        rig_profile_id=profile.profile_id,
+        rig_profile_revision=profile.profile_revision,
+        sections={
+            "rig": {
+                "backend": profile.backend,
+                "camera_serials": dict(profile.camera_serials),
+            },
+            "software": {
+                "app_version": APP_VERSION,
+                "source_revision": "b" * 40,
+                "working_tree_dirty": False,
+            },
+            "host": {"os": "test", "python_version": "3.13"},
+            "cameras": {
+                "left": camera(profile.camera_serials["left"]),
+                "right": camera(profile.camera_serials["right"]),
+            },
+            "capture_qualification": {
+                "frame_count_left": 60,
+                "frame_count_right": 60,
+                "paired_count": 60,
+                "assessment": {"status": "PASS"},
+            },
+            "geometry": {
+                "calibration": {"sha256": digest, "production_ready": True},
+                "roi": {"sha256": digest},
+                "field_transform": {"sha256": digest, "passed": True},
+            },
+            "detection_tracking": {
+                "config_sha256": digest,
+                "association": {"algorithm": "greedy_v1"},
+            },
+            "trajectory_corrections": {
+                "primary_mode": "stereo_3d",
+                "correction_policy_sha256": digest,
+            },
+            "validation": {},
+        },
+        artifact_inventory={
+            "calibration": digest,
+            "roi": digest,
+            "field_transform": digest,
+            "config": digest,
+        },
+    )
+    assert snapshot.assessment.configuration_evidence_complete is True
+    return snapshot.to_payload()
 
 
 def _write_calibration(
@@ -52,10 +116,22 @@ def _write_calibration(
         dist_right=np.zeros(5),
         R=np.eye(3),
         T=np.array([[304.8], [0.0], [0.0]]),
+        F=np.eye(3),
         img_size=np.array([1280, 720]),
         quality_rating=quality,
         rms_error_px=rms_error_px,
         num_images_used=12,
+        per_image_errors=np.asarray(
+            [
+                {
+                    "left_rms": rms_error_px,
+                    "right_rms": rms_error_px,
+                    "combined_rms": rms_error_px,
+                }
+                for _ in range(12)
+            ],
+            dtype=object,
+        ),
     )
     if include_production_metadata:
         payload["calibration_mode"] = mode
@@ -469,7 +545,8 @@ def test_v2_accuracy_claim_requires_exact_artifacts_fingerprints_and_two_signatu
     keys = {"collector-key": b"collector-secret", "reviewer-key": b"reviewer-secret"}
     service = RigProfileService(base_dir=tmp_path / "rigs", approval_trust_keys=keys)
     profile = _profile(service, backend="uvc")
-    profile = service.save(replace(profile, field_transform=_field_transform()))
+    profile = replace(profile, field_transform=_field_transform())
+    profile = service.save(replace(profile, setup_snapshot=_valid_setup_snapshot(profile)))
     config = _config()
     bindings = _measurement_bindings(service, profile, config)
 
@@ -586,6 +663,15 @@ def test_v2_accuracy_claim_requires_exact_artifacts_fingerprints_and_two_signatu
     validation = service.validate_for_runtime(profile, config=config, backend="uvc")
     assert validation.diagnostics["trajectory_operationally_eligible"] is True
     assert validation.diagnostics["trajectory_accuracy_claim_eligible"] is True
+    assert validation.diagnostics["validated_configuration_ready"] is True, (
+        validation.state,
+        validation.warnings,
+        validation.diagnostics["setup_snapshot_blockers"],
+    )
+    recommended_pairs = service.previously_validated_camera_pairs()
+    assert recommended_pairs[0]["left_id"] == profile.camera_serials["left"]
+    assert recommended_pairs[0]["right_id"] == profile.camera_serials["right"]
+    assert recommended_pairs[0]["profile_id"] == profile.profile_id
 
     report_path.write_text(json.dumps({**report, "claim_ready": False}), encoding="utf-8")
     tampered = service.validate_for_runtime(profile, config=config, backend="uvc")

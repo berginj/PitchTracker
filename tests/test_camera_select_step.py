@@ -75,3 +75,27 @@ def test_camera_select_step_refresh_replaces_rows_and_completion(qapp: QtWidgets
     assert widget.validate() == (True, "")
     assert widget.is_complete() is True
     assert widget._metrics_form.rowCount() == 3
+
+
+def test_camera_select_step_preselects_recommended_pair(qapp: QtWidgets.QApplication) -> None:
+    snapshot = CameraSelectionSnapshot(
+        cameras=(
+            DiscoveredCamera("first", "First", recognized=True, global_shutter=True),
+            DiscoveredCamera("second", "Second", recognized=True, global_shutter=True),
+            DiscoveredCamera("third", "Third", recognized=True, global_shutter=True),
+        ),
+        recommended_left_id="third",
+        recommended_right_id="first",
+        recommendation_source="capability_score",
+        recommendation_reason="best pair",
+    )
+    assignments = []
+    widget = CameraSelectStep(
+        snapshot_provider=lambda: snapshot,
+        assignment_callback=lambda left, right: assignments.append((left, right)),
+    )
+
+    widget.on_enter()
+
+    assert widget._left_combo.currentData() == "third"
+    assert widget._right_combo.currentData() == "first"

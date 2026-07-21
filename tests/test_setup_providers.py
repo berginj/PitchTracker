@@ -85,6 +85,75 @@ def test_discover_applies_catalog_sides_and_recognition():
     assert grade_selection(snap)[0] is True
 
 
+def test_discover_recommends_previously_validated_pair_before_capability_ranking():
+    devices = [
+        *_devices(),
+        {"serial": "SPARE", "friendly_name": "Arducam Spare", "instance_id": "USB\\3"},
+    ]
+    catalog = _FakeCatalog(recognized_names={item["friendly_name"] for item in devices})
+
+    snap = discover_camera_selection(
+        list_devices=lambda: devices,
+        catalog=catalog,
+        requested_mode=(1280, 720, 60),
+        validated_pairs=(
+            {
+                "left_id": "RIGHTSER",
+                "right_id": "LEFTSER",
+                "profile_id": "rig-validated",
+                "profile_revision": 4,
+            },
+        ),
+    )
+
+    assert snap.recommended_left_id == "RIGHTSER"
+    assert snap.recommended_right_id == "LEFTSER"
+    assert snap.recommendation_source == "previously_validated_profile"
+    selected = {camera.hardware_id: camera for camera in snap.cameras}
+    assert selected["RIGHTSER"].previously_validated is True
+    assert selected["RIGHTSER"].recommended_side == SIDE_LEFT
+
+
+def test_discover_recommends_best_requested_mode_capability_pair():
+    from contracts.catalog import CameraCapabilities, CameraMode
+
+    class CapabilityCatalog:
+        def known_devices(self):
+            return []
+
+        def match_model(self, friendly_name):
+            requested = friendly_name in {"Requested A", "Requested B"}
+            modes = (
+                (CameraMode(1280, 720, 60), CameraMode(640, 480, 120))
+                if requested
+                else (CameraMode(1920, 1080, 30),)
+            )
+            return SimpleNamespace(
+                model="requested" if requested else "other",
+                global_shutter=True,
+                capabilities=CameraCapabilities(
+                    supported_modes=modes,
+                    controls=("exposure", "gain"),
+                    global_shutter=True,
+                    sync_capable=requested,
+                ),
+            )
+
+    devices = [
+        {"serial": "A", "friendly_name": "Requested A"},
+        {"serial": "B", "friendly_name": "Requested B"},
+        {"serial": "C", "friendly_name": "Other C"},
+    ]
+    snap = discover_camera_selection(
+        list_devices=lambda: devices,
+        catalog=CapabilityCatalog(),
+        requested_mode=(1280, 720, 60),
+    )
+
+    assert {snap.recommended_left_id, snap.recommended_right_id} == {"A", "B"}
+    assert snap.recommendation_source == "capability_score"
+
+
 def test_discover_empty_device_list():
     snap = discover_camera_selection(list_devices=lambda: [], catalog=None)
     assert snap.cameras == ()
@@ -449,3 +518,6 @@ def test_fake_live_persistence_writes_and_activates_profile(tmp_path, monkeypatc
     assert service.calibration_path(active).read_bytes() == b"fake-calibration"
     assert service.roi_path(active).read_text(encoding="utf-8") == "{}"
     assert active.artifact_hashes.keys() >= {"calibration", "roi"}
+    assert active.setup_snapshot["schema_version"] == "setup_system_snapshot.v2"
+    assert service.setup_snapshot_path(active).exists()
+    assert active.artifact_hashes.keys() >= {"setup_snapshot"}

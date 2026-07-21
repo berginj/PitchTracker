@@ -6,6 +6,9 @@ left/right camera images before any pitch-tracking logic matters.** Every step
 is backed by real, synthetic-testable logic — there are no demo-only
 placeholders left in the flow.
 
+The durable inventory and validated-configuration gate are specified in
+[`docs/SETUP_SNAPSHOT_REQUIREMENTS.md`](../../docs/SETUP_SNAPSHOT_REQUIREMENTS.md).
+
 ## The 10 canonical steps
 
 The flow is defined once by `SetupStep` + `DEFAULT_SETUP_SPEC` in
@@ -63,7 +66,10 @@ the `SimulatedCamera` backend — no physical cameras required.
 `providers.py` adapts real backends into the step snapshots:
 
 - `discover_camera_selection()` — `list_uvc_devices()` + `CameraCatalogService`
-  (carry-over side assignment by hardware id, model recognition).
+  (carry-over side assignment by hardware id, model recognition, and explicit
+  pair recommendation). It preselects the newest connected previously validated
+  pair; otherwise it ranks recognized global-shutter cameras against the
+  requested mode, synchronization, throughput, and control capabilities.
 - `capture_paired_preview(left, right, ...)` — grabs a burst from any
   `CameraDevice` pair (real `UvcCamera` or `SimulatedCamera`); a `CameraError`
   marks a dead side honestly instead of raising.
@@ -111,6 +117,8 @@ smoke tests pass deterministically in isolation; they can be flaky under
 
 - ✅ All 10 steps are provider-driven, evidence-gated, synthetic-testable widgets.
 - ✅ `StereoSetupWindow` + live provider registry wired into the launcher.
+- ✅ Persisted profiles include a content-addressed system snapshot; incomplete
+  evidence fails closed for physical accuracy claims.
 - 🚧 Pending (hardware-bound, cannot run in CI): prove DirectShow control
   readback semantics and end-to-end accuracy on the physical global-shutter
   rig. The wizard intentionally will not claim a control lock or validated

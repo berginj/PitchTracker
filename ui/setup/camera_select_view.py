@@ -15,7 +15,7 @@ wizard's camera-selection gate is testable with synthetic snapshots.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Optional, Tuple
 
 from contracts.catalog import SIDE_LEFT, SIDE_RIGHT, SIDE_UNASSIGNED
 from ui.setup.quality_report_view import ReportRow, ReportView
@@ -30,6 +30,20 @@ class DiscoveredCamera:
     side: str = SIDE_UNASSIGNED
     recognized: bool = False
     global_shutter: bool = False
+    model: str = ""
+    supported_modes: Tuple[Tuple[int, int, int], ...] = ()
+    controls: Tuple[str, ...] = ()
+    sync_capable: Optional[bool] = None
+    instance_id: Optional[str] = None
+    device_path: Optional[str] = None
+    usb_controller: Optional[str] = None
+    driver_version: Optional[str] = None
+    firmware_version: Optional[str] = None
+    capability_score: int = 0
+    recommended_side: str = SIDE_UNASSIGNED
+    recommendation_reason: str = ""
+    previously_validated: bool = False
+    validated_profile_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -37,6 +51,10 @@ class CameraSelectionSnapshot:
     """A renderable snapshot of discovered camera assignments."""
 
     cameras: Tuple[DiscoveredCamera, ...] = ()
+    recommended_left_id: str = ""
+    recommended_right_id: str = ""
+    recommendation_source: str = ""
+    recommendation_reason: str = ""
 
 
 def empty_camera_selection() -> CameraSelectionSnapshot:
@@ -82,6 +100,14 @@ def present_camera_selection(snapshot: CameraSelectionSnapshot) -> ReportView:
     headline = "Camera selection: ready" if passed else "Camera selection: incomplete"
 
     rows = [_camera_row(camera) for camera in snapshot.cameras]
+    if snapshot.recommended_left_id and snapshot.recommended_right_id:
+        rows.append(
+            ReportRow(
+                "Recommended pair",
+                f"{snapshot.recommended_left_id} / {snapshot.recommended_right_id} ({snapshot.recommendation_source})",
+                tone="success",
+            )
+        )
     rows.append(
         ReportRow(
             "Result",
@@ -102,12 +128,18 @@ def _headline_tone(snapshot: CameraSelectionSnapshot, passed: bool) -> str:
 def _camera_row(camera: DiscoveredCamera) -> ReportRow:
     label = camera.friendly_name or camera.hardware_id
     side = camera.side or "unassigned"
+    recommendation = (
+        f"; recommended {camera.recommended_side}"
+        if camera.recommended_side in {SIDE_LEFT, SIDE_RIGHT}
+        else ""
+    )
     if camera.recognized and camera.global_shutter:
-        value = f"{side} (recognized global shutter)"
+        validation = ", previously validated" if camera.previously_validated else ""
+        value = f"{side} (recognized global shutter{validation}{recommendation})"
     elif camera.recognized:
-        value = f"{side} (recognized, not global shutter)"
+        value = f"{side} (recognized, not global shutter{recommendation})"
     else:
-        value = side
+        value = f"{side}{recommendation}"
     return ReportRow(label, value)
 
 

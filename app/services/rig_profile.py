@@ -28,6 +28,7 @@ from app.services.rig_profile_models import (
 )
 from configs.settings import AppConfig
 from contracts.versioning import APP_VERSION
+from contracts.setup_snapshot import assess_setup_snapshot_payload, canonical_payload_sha256
 from contracts.physical_validation import (
     DATASET_SCHEMA,
     PROTOCOL_SCHEMA,
@@ -95,6 +96,10 @@ class RigProfileService:
             hashes["field_transform"] = payload_sha256(profile.field_transform)
         if profile.hardware_fingerprint:
             hashes["hardware_fingerprint"] = payload_sha256(profile.hardware_fingerprint)
+        if profile.setup_snapshot:
+            snapshot_path = self.setup_snapshot_path(profile)
+            _atomic_write_text(snapshot_path, json.dumps(profile.setup_snapshot, indent=2, sort_keys=True))
+            hashes["setup_snapshot"] = _sha256(snapshot_path)
         for approval in profile.trajectory_mode_approvals:
             if isinstance(approval, TrajectoryModeApprovalV2):
                 hashes[f"approval:{approval.approval_id}"] = payload_sha256(approval.to_payload())
@@ -165,6 +170,56 @@ class RigProfileService:
     def roi_path(self, profile: RigProfile) -> Path:
         return self._resolve_profile_file(profile, profile.roi_file)
 
+    def setup_snapshot_path(self, profile: RigProfile) -> Path:
+        return self._resolve_profile_file(profile, profile.setup_snapshot_file)
+
+    def previously_validated_camera_pairs(self) -> list[dict[str, Any]]:
+        """Return non-expired ACTIVE v2-approved pairs for recommendation only.
+
+        Runtime still re-verifies signatures and every artifact binding. Selection
+        history is never itself authorization for a physical accuracy claim.
+        """
+        pairs: list[dict[str, Any]] = []
+        if not self.base_dir.exists():
+            return pairs
+        now = datetime.now(timezone.utc)
+        for path in sorted(self.base_dir.glob("*/rig_profile.json")):
+            try:
+                profile = RigProfile.from_dict(json.loads(path.read_text(encoding="utf-8")))
+            except Exception:
+                continue
+            qualifying = []
+            for approval in profile.trajectory_mode_approvals:
+                if not isinstance(approval, TrajectoryModeApprovalV2):
+                    continue
+                try:
+                    expires = datetime.fromisoformat(approval.expires_utc.replace("Z", "+00:00"))
+                except ValueError:
+                    continue
+                if approval.lifecycle_state == "ACTIVE" and approval.claim_ready and expires > now:
+                    qualifying.append(approval)
+            if not qualifying:
+                continue
+            left = str(profile.camera_serials.get("left") or "")
+            right = str(profile.camera_serials.get("right") or "")
+            if not left or not right or left == right:
+                continue
+            pairs.append(
+                {
+                    "left_id": left,
+                    "right_id": right,
+                    "profile_id": profile.profile_id,
+                    "profile_revision": profile.profile_revision,
+                    "approval_ids": [approval.approval_id for approval in qualifying],
+                    "updated_utc": profile.updated_utc,
+                }
+            )
+        return sorted(
+            pairs,
+            key=lambda item: (str(item.get("updated_utc") or ""), int(item.get("profile_revision") or 0)),
+            reverse=True,
+        )
+
     def validate_for_runtime(
         self,
         profile: Optional[RigProfile] = None,
@@ -200,6 +255,23 @@ class RigProfileService:
             "roi_file": str(self.roi_path(profile)),
         }
 
+        snapshot_assessment = assess_setup_snapshot_payload(profile.setup_snapshot) if profile.setup_snapshot else None
+        diagnostics["setup_snapshot_present"] = snapshot_assessment is not None
+        diagnostics["setup_snapshot_configuration_evidence_complete"] = bool(
+            snapshot_assessment and snapshot_assessment.configuration_evidence_complete
+        )
+        diagnostics["setup_snapshot_blockers"] = list(snapshot_assessment.blockers) if snapshot_assessment else [
+            "SETUP_SNAPSHOT_MISSING"
+        ]
+        diagnostics["setup_snapshot_unavailable_fields"] = list(
+            snapshot_assessment.unavailable_fields if snapshot_assessment else ()
+        )
+        physical_runtime = _production_geometry_required(backend or profile.backend)
+        if profile.profile_id != "legacy" and physical_runtime and snapshot_assessment is None:
+            warnings.append("Canonical setup-system snapshot is missing; physical accuracy claims are blocked.")
+        elif physical_runtime and snapshot_assessment is not None and not snapshot_assessment.configuration_evidence_complete:
+            warnings.append("Canonical setup-system snapshot is incomplete; physical accuracy claims are blocked.")
+
         if backend and profile.backend and backend != profile.backend and profile.profile_id != "legacy":
             message = f"Active rig backend is {profile.backend}, runtime requested {backend}."
             if _production_geometry_required(backend):
@@ -224,6 +296,11 @@ class RigProfileService:
             diagnostics["last_runtime_dry_run"] = PASS
 
         state = CRITICAL if issues else WARN if warnings else PASS
+        accuracy_eligible = bool(diagnostics.get("trajectory_accuracy_claim_eligible"))
+        snapshot_complete = bool(diagnostics.get("setup_snapshot_configuration_evidence_complete"))
+        diagnostics["validated_configuration_ready"] = bool(
+            state == PASS and snapshot_complete and accuracy_eligible
+        )
         diagnostics["state"] = state
         return RigProfileValidation(state=state, issues=issues, warnings=warnings, diagnostics=diagnostics)
 
@@ -521,6 +598,19 @@ def _accuracy_claim_eligibility(
             else ["MISSING_V2_ACCURACY_APPROVAL"],
             "pipeline_fingerprint": bindings["pipeline_fingerprint"],
         }
+    if not profile.setup_snapshot:
+        return {
+            "eligible": False,
+            "blockers": ["SETUP_SNAPSHOT_MISSING"],
+            "pipeline_fingerprint": bindings["pipeline_fingerprint"],
+        }
+    setup_assessment = assess_setup_snapshot_payload(profile.setup_snapshot)
+    if not setup_assessment.configuration_evidence_complete:
+        return {
+            "eligible": False,
+            "blockers": list(setup_assessment.blockers) or ["SETUP_SNAPSHOT_INCOMPLETE"],
+            "pipeline_fingerprint": bindings["pipeline_fingerprint"],
+        }
 
     all_blockers: list[str] = []
     for approval in v2_candidates:
@@ -566,6 +656,7 @@ def _measurement_bindings(
         "trajectory": asdict(config.trajectory),
     }
     correction_sha = payload_sha256(correction_payload)
+    setup_snapshot_sha = str(profile.setup_snapshot.get("fingerprint_sha256") or "0" * 64)
     pipeline_sha = payload_sha256(
         {
             "software_version": APP_VERSION,
@@ -574,6 +665,7 @@ def _measurement_bindings(
             "calibration_sha256": calibration_sha,
             "field_transform_sha256": field_sha,
             "correction_policy_sha256": correction_sha,
+            "setup_snapshot_sha256": setup_snapshot_sha,
         }
     )
     return {
@@ -582,6 +674,7 @@ def _measurement_bindings(
         "calibration_sha256": calibration_sha,
         "field_transform_sha256": field_sha,
         "correction_policy_sha256": correction_sha,
+        "setup_snapshot_sha256": setup_snapshot_sha,
         "pipeline_fingerprint": pipeline_sha,
     }
 
@@ -756,6 +849,19 @@ def _validate_artifact_hashes(
         checked[label] = matches
         if not matches:
             issues.append(f"{label.replace('_', ' ').capitalize()} changed after rig profile persistence.")
+    if profile.setup_snapshot:
+        snapshot_path = service.setup_snapshot_path(profile)
+        expected = profile.artifact_hashes.get("setup_snapshot")
+        matches = bool(expected and snapshot_path.exists() and _sha256(snapshot_path) == expected)
+        checked["setup_snapshot"] = matches
+        if not matches:
+            issues.append("Setup snapshot artifact changed after rig profile persistence.")
+        embedded_matches = canonical_payload_sha256(
+            {key: value for key, value in profile.setup_snapshot.items() if key != "fingerprint_sha256"}
+        ) == str(profile.setup_snapshot.get("fingerprint_sha256") or "")
+        checked["setup_snapshot_fingerprint"] = embedded_matches
+        if not embedded_matches:
+            issues.append("Setup snapshot fingerprint is invalid.")
     for approval in profile.trajectory_mode_approvals:
         if not isinstance(approval, TrajectoryModeApprovalV2):
             continue

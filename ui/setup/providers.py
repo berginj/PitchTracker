@@ -17,11 +17,12 @@ from dataclasses import replace
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import hashlib
+from itertools import combinations
 from pathlib import Path
 import math
 import shutil
 import uuid
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence
 
 from capture.camera_device import CameraDevice
 from capture.device_discovery import list_uvc_devices
@@ -40,7 +41,7 @@ if TYPE_CHECKING:
     from ui.setup.state_machine import SetupStep
     from ui.setup.steps.base_step import BaseStep
 
-DeviceLister = Callable[[], Sequence[Dict[str, str]]]
+DeviceLister = Callable[[], Sequence[Dict[str, Any]]]
 PreviewProvider = Callable[[], PairedPreviewSnapshot]
 
 
@@ -87,9 +88,32 @@ class LiveSetupContext:
     last_capture_diagnostics: dict = field(default_factory=dict)
     setup_capture_backend: str = "uvc"
     assignment_generation: int = 0
+    rig_profile_dir: Path = Path("calibration/rigs")
+    validated_camera_pairs_provider: Optional[Callable[[], Iterable[dict[str, Any]]]] = None
 
     def selection(self) -> CameraSelectionSnapshot:
-        return discover_camera_selection(list_devices=self.list_devices, catalog=self.catalog)
+        from configs.settings import load_config
+
+        config = load_config(self.config_path)
+        validated_pairs = (
+            list(self.validated_camera_pairs_provider())
+            if self.validated_camera_pairs_provider is not None
+            else self._previously_validated_camera_pairs()
+        )
+        return discover_camera_selection(
+            list_devices=self.list_devices,
+            catalog=self.catalog,
+            requested_mode=(config.camera.width, config.camera.height, config.camera.fps),
+            validated_pairs=validated_pairs,
+        )
+
+    def _previously_validated_camera_pairs(self) -> list[dict[str, Any]]:
+        from app.services.rig_profile import RigProfileService
+
+        return RigProfileService(
+            base_dir=self.rig_profile_dir,
+            config_path=self.config_path,
+        ).previously_validated_camera_pairs()
 
     def assign(self, left_id: str, right_id: str) -> None:
         if left_id == right_id:
@@ -558,7 +582,7 @@ class LiveSetupContext:
         if missing_ids:
             raise RuntimeError("Assigned camera is no longer connected: " + ", ".join(missing_ids))
         profile_id = _new_profile_id()
-        service = RigProfileService(config_path=self.config_path)
+        service = RigProfileService(base_dir=self.rig_profile_dir, config_path=self.config_path)
         profile_dir = service.profile_dir(profile_id)
         profile_dir.mkdir(parents=True, exist_ok=True)
         calibration_source = Path("calibration") / stereo_profile.calibration_file
@@ -637,6 +661,37 @@ class LiveSetupContext:
                 },
             },
         )
+        from app.services.setup_snapshot import assemble_setup_snapshot
+
+        setup_snapshot = assemble_setup_snapshot(
+            profile=profile,
+            config=config,
+            config_path=self.config_path,
+            cameras=selection.values(),
+            capture_qualification=self.last_qualification,
+            capture_diagnostics={
+                **self.last_capture_diagnostics,
+                "modes": dict(self.last_modes),
+                "sync": _setup_payload(self.last_sync),
+                "focus": _setup_payload(self.last_focus),
+                "overlap": _setup_payload(self.last_overlap),
+                "rectification": _setup_payload(self.last_rectification),
+            },
+            calibration_path=profile_dir / "stereo_calibration.npz",
+            roi_path=profile_dir / "roi.json",
+        )
+        profile = replace(
+            profile,
+            setup_snapshot=setup_snapshot.to_payload(),
+            diagnostics={
+                **profile.diagnostics,
+                "setup_snapshot_fingerprint": setup_snapshot.fingerprint_sha256,
+                "setup_snapshot_configuration_evidence_complete": (
+                    setup_snapshot.assessment.configuration_evidence_complete
+                ),
+                "setup_snapshot_blockers": list(setup_snapshot.assessment.blockers),
+            },
+        )
         saved = service.save(profile, activate=True)
         return saved.profile_id
 
@@ -645,6 +700,8 @@ def discover_camera_selection(
     *,
     list_devices: DeviceLister = list_uvc_devices,
     catalog: Optional[object] = None,
+    requested_mode: Optional[tuple[int, int, int]] = None,
+    validated_pairs: Iterable[dict[str, Any]] = (),
 ) -> CameraSelectionSnapshot:
     """Adapt live UVC discovery + the camera catalog into a selection snapshot.
 
@@ -673,6 +730,11 @@ def discover_camera_selection(
             getattr(matched_model, "global_shutter", False)
             or getattr(capabilities, "global_shutter", False)
         )
+        modes = tuple(
+            (int(mode.width), int(mode.height), int(mode.fps))
+            for mode in (getattr(capabilities, "supported_modes", ()) or ())
+        )
+        controls = tuple(str(item) for item in (getattr(capabilities, "controls", ()) or ()))
         cameras.append(
             DiscoveredCamera(
                 hardware_id=hardware_id,
@@ -680,9 +742,188 @@ def discover_camera_selection(
                 side=sides.get(hardware_id, SIDE_UNASSIGNED),
                 recognized=recognized,
                 global_shutter=global_shutter,
+                model=str(getattr(matched_model, "model", "") or ""),
+                supported_modes=modes,
+                controls=controls,
+                sync_capable=getattr(capabilities, "sync_capable", None),
+                instance_id=_optional_device_value(entry, "instance_id"),
+                device_path=_optional_device_value(entry, "device_path", "path", "pnp_device_id"),
+                usb_controller=_optional_device_value(entry, "usb_controller", "controller"),
+                driver_version=_optional_device_value(entry, "driver_version"),
+                firmware_version=_optional_device_value(entry, "firmware_version"),
+                capability_score=_camera_capability_score(
+                    recognized=recognized,
+                    global_shutter=global_shutter,
+                    sync_capable=getattr(capabilities, "sync_capable", None),
+                    supported_modes=modes,
+                    controls=controls,
+                    requested_mode=requested_mode,
+                ),
             )
         )
-    return CameraSelectionSnapshot(cameras=tuple(cameras))
+    return _apply_camera_recommendation(cameras, requested_mode, tuple(validated_pairs))
+
+
+def _apply_camera_recommendation(
+    cameras: list[DiscoveredCamera],
+    requested_mode: Optional[tuple[int, int, int]],
+    validated_pairs: tuple[dict[str, Any], ...],
+) -> CameraSelectionSnapshot:
+    by_id = {camera.hardware_id: camera for camera in cameras}
+    for pair in validated_pairs:
+        left_id = str(pair.get("left_id") or "")
+        right_id = str(pair.get("right_id") or "")
+        if left_id in by_id and right_id in by_id and left_id != right_id:
+            profile_id = str(pair.get("profile_id") or "")
+            reason = (
+                f"Exact camera pair from previously validated profile {profile_id}; "
+                "runtime will re-verify the approval and artifact bindings."
+            )
+            return _recommended_snapshot(
+                cameras,
+                left_id,
+                right_id,
+                source="previously_validated_profile",
+                reason=reason,
+                validated_profile_id=profile_id,
+            )
+
+    eligible = [camera for camera in cameras if camera.recognized and camera.global_shutter]
+    if len(eligible) < 2:
+        return CameraSelectionSnapshot(
+            cameras=tuple(cameras),
+            recommendation_source="unavailable",
+            recommendation_reason="Fewer than two recognized global-shutter cameras are available.",
+        )
+
+    pair_candidates = []
+    for first, second in combinations(eligible, 2):
+        score = _camera_pair_score(first, second, requested_mode)
+        tie_key = tuple(sorted((first.hardware_id, second.hardware_id)))
+        pair_candidates.append((score, tie_key, first, second))
+    best_score = max(item[0] for item in pair_candidates)
+    _, _, first, second = min(
+        (item for item in pair_candidates if item[0] == best_score),
+        key=lambda item: item[1],
+    )
+    left, right = _recommended_sides(first, second)
+    requested_text = (
+        f"{requested_mode[0]}x{requested_mode[1]}@{requested_mode[2]}"
+        if requested_mode is not None
+        else "the requested mode"
+    )
+    return _recommended_snapshot(
+        cameras,
+        left.hardware_id,
+        right.hardware_id,
+        source="capability_score",
+        reason=(
+            f"Best compatible recognized global-shutter pair for {requested_text}; "
+            "ranking considers requested-mode support, synchronization, common modes, controls, and throughput."
+        ),
+    )
+
+
+def _recommended_snapshot(
+    cameras: list[DiscoveredCamera],
+    left_id: str,
+    right_id: str,
+    *,
+    source: str,
+    reason: str,
+    validated_profile_id: str = "",
+) -> CameraSelectionSnapshot:
+    updated = []
+    for camera in cameras:
+        recommended_side = (
+            SIDE_LEFT if camera.hardware_id == left_id else SIDE_RIGHT if camera.hardware_id == right_id else SIDE_UNASSIGNED
+        )
+        updated.append(
+            replace(
+                camera,
+                recommended_side=recommended_side,
+                recommendation_reason=reason if recommended_side != SIDE_UNASSIGNED else "",
+                previously_validated=bool(validated_profile_id and recommended_side != SIDE_UNASSIGNED),
+                validated_profile_id=validated_profile_id if recommended_side != SIDE_UNASSIGNED else "",
+            )
+        )
+    return CameraSelectionSnapshot(
+        cameras=tuple(updated),
+        recommended_left_id=left_id,
+        recommended_right_id=right_id,
+        recommendation_source=source,
+        recommendation_reason=reason,
+    )
+
+
+def _recommended_sides(first: DiscoveredCamera, second: DiscoveredCamera) -> tuple[DiscoveredCamera, DiscoveredCamera]:
+    if first.side == SIDE_LEFT or second.side == SIDE_RIGHT:
+        return first, second
+    if second.side == SIDE_LEFT or first.side == SIDE_RIGHT:
+        return second, first
+    ordered = sorted((first, second), key=lambda camera: camera.hardware_id)
+    return ordered[0], ordered[1]
+
+
+def _camera_pair_score(
+    first: DiscoveredCamera,
+    second: DiscoveredCamera,
+    requested_mode: Optional[tuple[int, int, int]],
+) -> tuple[int, int, int, int, int, int]:
+    first_modes = set(first.supported_modes)
+    second_modes = set(second.supported_modes)
+    common_modes = first_modes & second_modes
+    requested_supported = int(requested_mode is not None and requested_mode in common_modes)
+    both_sync = int(first.sync_capable is True and second.sync_capable is True)
+    common_throughput = max((width * height * fps for width, height, fps in common_modes), default=0)
+    common_controls = len(set(first.controls) & set(second.controls))
+    same_model = int(bool(first.model) and first.model == second.model)
+    return (
+        requested_supported,
+        both_sync,
+        common_throughput,
+        min(first.capability_score, second.capability_score),
+        common_controls,
+        same_model,
+    )
+
+
+def _camera_capability_score(
+    *,
+    recognized: bool,
+    global_shutter: bool,
+    sync_capable: Optional[bool],
+    supported_modes: tuple[tuple[int, int, int], ...],
+    controls: tuple[str, ...],
+    requested_mode: Optional[tuple[int, int, int]],
+) -> int:
+    throughput = max((width * height * fps for width, height, fps in supported_modes), default=0)
+    return (
+        int(recognized) * 10**12
+        + int(global_shutter) * 10**11
+        + int(requested_mode is not None and requested_mode in supported_modes) * 10**10
+        + int(sync_capable is True) * 10**9
+        + len(set(controls) & {"exposure", "gain", "white_balance", "focus"}) * 10**7
+        + throughput
+    )
+
+
+def _optional_device_value(entry: dict[str, Any], *names: str) -> Optional[str]:
+    for name in names:
+        value = entry.get(name)
+        if value not in {None, ""}:
+            return str(value)
+    return None
+
+
+def _setup_payload(value: Any) -> Any:
+    if value is None:
+        return None
+    if hasattr(value, "to_payload") and callable(value.to_payload):
+        return value.to_payload()
+    if hasattr(value, "__dict__"):
+        return dict(value.__dict__)
+    return value
 
 
 def _known_sides(catalog: Optional[object]) -> Dict[str, str]:

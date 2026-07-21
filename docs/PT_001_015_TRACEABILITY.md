@@ -32,6 +32,13 @@ ground-truth dataset can produce a `VALIDATED` assessment.
 | AR-007–AR-012 | Stable decision lineage, terminal frame conservation, unmatched outcomes, complete candidate/edge/triangulation evidence, deterministic global association, session journal, and replay reconciliation | detection processor/service; `stereo/global_assignment.py`; `app/pipeline/recording/evidence_journal.py`; `app/pipeline/replay/` | decision-evidence, detection, recording, orchestrator, and replay tests |
 | AR-013–AR-015 | Physical-validation v2 contracts/tooling, immutable fingerprint-bound approvals, shadow/confirmation separation, and manual protocol | `contracts/physical_validation.py`; `calib/physical_validation.py`; rig-profile/tooling services; `docs/PHYSICAL_VALIDATION_PROTOCOL_V2.md` | physical-validation, rig-profile, tooling, analysis, and orchestrator tests |
 
+## Validated setup snapshot follow-up
+
+| Requirement | Delivered behavior | Primary implementation | Automated evidence |
+|---|---|---|---|
+| SSR-001 | Every persisted setup carries a canonical, content-addressed system inventory; physical claim eligibility fails closed when it is incomplete or altered | `docs/SETUP_SNAPSHOT_REQUIREMENTS.md`; `contracts/setup_snapshot.py`; `app/services/setup_snapshot.py`; rig-profile services | setup-snapshot, setup-provider, and rig-profile tests |
+| SSR-002 | Camera selection preselects a connected previously validated pair first, otherwise the strongest recognized global-shutter pair for the requested mode, while retaining explicit operator override | setup providers, camera-selection view and step | setup-provider and camera-selection-step tests |
+
 ## Operational acceptance boundary
 
 Before enabling validated onsite claims for a physical rig, run the canonical

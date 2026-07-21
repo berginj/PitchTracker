@@ -134,12 +134,24 @@ class CameraSelectStep(BaseStep):
             combo.blockSignals(True)
             combo.clear()
             for camera in snapshot.cameras:
-                combo.addItem(camera.friendly_name or camera.hardware_id, camera.hardware_id)
+                recommended = camera.recommended_side in {"left", "right"}
+                suffix = f" — Recommended {camera.recommended_side}" if recommended else ""
+                if camera.previously_validated:
+                    suffix += " (previously validated)"
+                combo.addItem((camera.friendly_name or camera.hardware_id) + suffix, camera.hardware_id)
             combo.blockSignals(False)
         for index, camera in enumerate(snapshot.cameras):
             if camera.side == "left":
                 self._left_combo.setCurrentIndex(index)
             elif camera.side == "right":
+                self._right_combo.setCurrentIndex(index)
+        if snapshot.recommended_left_id:
+            index = self._left_combo.findData(snapshot.recommended_left_id)
+            if index >= 0:
+                self._left_combo.setCurrentIndex(index)
+        if snapshot.recommended_right_id:
+            index = self._right_combo.findData(snapshot.recommended_right_id)
+            if index >= 0:
                 self._right_combo.setCurrentIndex(index)
 
     def _apply_assignment(self) -> None:

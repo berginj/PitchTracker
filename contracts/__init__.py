@@ -67,6 +67,12 @@ from .physical_validation import (
     TailErrorPolicyV2,
     TrajectoryModeApprovalV2,
 )
+from .setup_snapshot import (
+    SETUP_SNAPSHOT_SCHEMA,
+    SetupSnapshotAssessment,
+    SetupSystemSnapshot,
+    assess_setup_snapshot_payload,
+)
 
 __all__ = [
     "Detection",
@@ -122,4 +128,8 @@ __all__ = [
     "ReferenceChannelV2",
     "TailErrorPolicyV2",
     "TrajectoryModeApprovalV2",
+    "SETUP_SNAPSHOT_SCHEMA",
+    "SetupSnapshotAssessment",
+    "SetupSystemSnapshot",
+    "assess_setup_snapshot_payload",
 ]

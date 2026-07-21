@@ -106,6 +106,8 @@ class RigProfile:
     trajectory_mode_approvals: tuple[TrajectoryModeApproval | TrajectoryModeApprovalV2, ...] = ()
     error_budget: dict[str, Any] = field(default_factory=dict)
     artifact_hashes: dict[str, str] = field(default_factory=dict)
+    setup_snapshot_file: str = "setup_snapshot.json"
+    setup_snapshot: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "RigProfile":
@@ -138,6 +140,8 @@ class RigProfile:
             trajectory_mode_approvals=_parse_trajectory_mode_approvals(data.get("trajectory_mode_approvals")),
             error_budget=dict(data.get("error_budget") or {}),
             artifact_hashes=dict(data.get("artifact_hashes") or {}),
+            setup_snapshot_file=str(data.get("setup_snapshot_file") or "setup_snapshot.json"),
+            setup_snapshot=dict(data.get("setup_snapshot") or {}),
         )
 
     @classmethod
