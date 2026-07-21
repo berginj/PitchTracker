@@ -35,13 +35,12 @@ PitchTracker consists of:
 
 3. **Run Setup Wizard**
    - Click "Setup & Calibration"
-   - Complete all 6 steps:
-     - Camera selection
-     - Stereo calibration
-     - ROI configuration
-     - Detector tuning
-     - System validation
-     - Export configuration
+   - Complete the ten-step stereo workflow: camera selection, paired preview,
+     synchronization, focus/exposure lock, overlap, coarse rectification,
+     optional ChArUco refinement, field alignment, profile persistence, and the
+     quality report.
+   - Review every blocker. Wizard completion is not the same as physical
+     accuracy validation.
 
 4. **Start Coaching**
    - Return to launcher

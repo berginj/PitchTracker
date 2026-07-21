@@ -1,10 +1,15 @@
-# Coaching Application Prototype
+# Coaching Application
+
+> **Documentation note (2026-07-21):** this page originated as the dashboard
+> prototype guide. The coaching UI is now pipeline-integrated; current delivery
+> and open work are tracked in `docs/CURRENT_STATUS.md` and `docs/ROADMAP.md`.
+> Prototype-era pending lists below are retained as design history, not backlog.
 
 ## Overview
 
 Dashboard-style coaching application for fast, focused pitching session management.
 
-**Status:** Prototype - Dashboard Layout Complete
+**Status:** Integrated application; hardware and field validation pending
 
 ## Running the Prototype
 

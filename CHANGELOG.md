@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased (main, 2026-07-21)
+
+### Evidence and field robustness
+
+- Added PT-001–PT-015 quality contracts, error budgets, drift monitoring,
+  correction ledger, replayable evidence packages, and compact operator health.
+- Added interruptible setup capture with deadlines and stale-result rejection.
+- Added candidate-level decision lineage, unmatched-frame outcomes, terminal
+  conservation, deterministic global stereo assignment, session journaling, and
+  offline replay reconciliation.
+- Added physical-validation v2 protocols, datasets, reference uncertainty,
+  shadow/confirmation separation, independent signatures, and exact approval
+  fingerprints.
+- Added content-addressed setup-system snapshots and fail-closed validated
+  configuration eligibility.
+- Added validated-pair-first camera recommendation with capability-based fallback.
+
+### Validation
+
+- Full automated suite: 1,263 passed, 32 skipped, 0 failed.
+- Clean PyInstaller and Inno Setup build completed from commit `40158c1`.
+- Physical global-shutter and reference-equipment validation remains pending;
+  no accuracy bound is claimed.
+
 ## 2.0.0-stereo (2026-06-26) - STEREO FOUNDATION REBUILD
 
 **Major version: the stereo camera foundation was rebuilt so the product proves

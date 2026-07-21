@@ -1,174 +1,92 @@
 # PitchTracker Current Status
 
-**Last Updated:** 2026-06-26
-**Release Identity:** v2.0.0-stereo
-**Internal App Version:** `2.0.0` (`contracts/versioning.py`)
-**Status:** Stereo-foundation rebuild complete in software; on-rig hardware validation pending
+**Last updated:** 2026-07-21
+**Published release:** `v2.0.0` / internal app version `2.0.0`
+**Development status:** software hardening complete on `main`; physical validation pending
 
----
+## Summary
 
-## Canonical Release
+PitchTracker has a complete evidence-first software path for stereo setup,
+capture, candidate tracking, global association, trajectory analysis, recording,
+replay, correction accounting, and validation gating. The canonical setup now
+persists a content-addressed system snapshot and recommends camera pairs using
+prior validated hardware or measured catalog capabilities.
 
-The canonical release is **v2.0.0-stereo** (the stereo-foundation rebuild). The
-prior pilot build **v1.5.0-pilot** remains the last validated facility-pilot
-artifact.
+The system is ready for controlled hardware and field testing. It is not yet
+appropriate to publish speed or plate-location accuracy claims because no
+independently reviewed physical confirmation dataset has been approved.
 
-Use the v2.0.0-stereo label for:
+## Release and build state
 
-- installer filenames: `PitchTracker-Setup-v2.0.0-stereo.exe`
-- Git release/tag naming: `v2.0.0-stereo`
-- documentation referencing the rebuilt stereo setup wizard
+| Item | State |
+|---|---|
+| GitHub release | `v2.0.0`, published 2026-06-27 |
+| Release installer asset | Not currently attached to the GitHub release |
+| Current `main` | Includes PT-001–PT-015, adversarial follow-ups, and setup snapshot/camera recommendation work beyond the tag |
+| Latest local clean build | Commit `40158c1`; PyInstaller and Inno Setup completed |
+| Full automated suite | 1,263 passed, 32 skipped, 0 failed |
+| Physical accuracy approval | None; results must remain estimated/degraded/unavailable/rejected as evidence requires |
 
-Use the internal app version **2.0.0** for:
+The locally built installer must be smoke-tested on a clean Windows machine
+before it is attached to a refreshed release.
 
-- `contracts/versioning.py` (`APP_VERSION`, single source of truth)
-- `installer.iss` `AppVersion`
-- `updater.py` `CURRENT_VERSION`
-- update comparisons that expect numeric semantic versions
-- durable artifact `app_version` fields
+## Delivered software
 
----
+- Typed agent/service boundaries for capture, detection, pitch state,
+  trajectory, recording, analysis, tooling, and UI.
+- Ten-step evidence-gated setup workflow with interruptible capture and explicit
+  failure paths.
+- Stable camera identity, capability-based recommendation, and previous
+  validated-pair preference.
+- Setup snapshot containing host/software/camera/control/capture/calibration/ROI/
+  field-transform/tracking/correction evidence and artifact hashes.
+- Per-frame and per-candidate decision lineage, unmatched outcomes, terminal
+  conservation, deterministic global stereo association, and replay.
+- Raw/corrected measurement ledger, error budgets, drift monitoring, and compact
+  operator guidance with advanced diagnostics on demand.
+- Physical-validation v2 contracts, shadow/confirmation separation, independent
+  signatures, and exact artifact/fingerprint binding.
 
-## Stereo Foundation Rebuild (v2.0.0) — Completed
+See [PT-001–PT-015 traceability](PT_001_015_TRACEABILITY.md) for implementation
+and automated evidence.
 
-The v2.0.0 rebuild proves the product can receive, pair, compare, and calibrate
-left/right images before any pitch-tracking logic runs.
+## What remains
 
-- **Capture foundation:** buffer/callback locking, timestamp-at-read + frame-index
-  gating for reliable L/R pairing, sync-start scaffolding, reconnect-race fix,
-  L/R persistence by hardware id.
-- **Camera catalog:** `CameraCatalogService` + contracts with publish/pull
-  carry-over of known devices by hardware id (Arducam global-shutter support).
-- **Evidence-gated 10-step stereo wizard:** Qt-free `SetupStateMachine` + a registry of
-  nine real, synthetic-testable step widgets (select cameras → paired preview →
-  sync → focus/exposure → overlap → coarse rectify → optional ChArUco → persist
-  → quality report), each with an injectable provider and view-model.
-- **`StereoSetupWindow`** hosts the wizard and is wired into the role-selector
-  launch path alongside the legacy Setup Wizard.
-- **Real adapter providers** (`ui/setup/providers.py`): live UVC discovery + a
-  camera-backed paired-preview provider, with hardware-free test doubles.
-- **Test suite:** 1051 passed / 32 skipped / 0 failed.
+The canonical open work is [ROADMAP.md](ROADMAP.md):
 
-### Pending (hardware/integration-bound — cannot run in CI)
+1. Qualify real global-shutter cameras, controls, synchronization, and USB paths.
+2. Test setup repeatability and recovery from intentionally poor configurations.
+3. Run predeclared physical ground-truth speed and plate-location validation.
+4. Smoke-test the installer on clean Windows machines.
+5. Finish verified UVC capability/control queries.
+6. Publish a hardware matrix and operating envelope only from collected evidence.
 
-1. On-rig validation of discovery + paired capture with the Arducam
-   global-shutter cameras.
-2. Live camera-context propagation feeding a real-camera step-2 preview provider
-   from the capture service.
-3. End-to-end physical stereo calibration producing the `report.json` the
-   gate/quality steps consume.
+## Product boundary
 
----
+Appropriate today:
 
-## Current Product Position
+- Development and controlled facility testing.
+- Fixed/repeatable rigs with trained operators.
+- Simulator, replay, evidence inspection, and setup qualification.
+- Shadow comparisons where PitchTracker results do not drive an accuracy claim.
 
-PitchTracker is suitable for controlled pilot deployments where:
+Not yet supported as a public claim:
 
-- cameras are installed in a fixed or repeatable facility setup
-- a trained operator can run setup, calibration, and sessions
-- pilots agree to structured usage feedback and validation collection
-- accuracy claims are treated as pending until reference-equipment testing is complete
+- A specific speed or location error bound.
+- Casual self-service setup across arbitrary cameras.
+- Automatic correction that silently changes calibration.
+- Ray-mode superiority or production promotion.
+- A camera model described as validated solely because it appears in the catalog.
 
-The stereo setup foundation is now rebuilt and fully covered by tests, but the
-pilot remains pending on-rig camera alignment work and validation results.
-PitchTracker should not yet be positioned as a casual self-service consumer
-product.
+## Calibration ownership
 
----
+Heavyweight calibration remains in Setup Doctor and tooling services.
+`PipelineOrchestrator` owns runtime wiring and intentionally does not absorb
+long-running calibration algorithms. Runtime starts from a validated rig profile
+and fails closed when required evidence or bindings are missing.
 
-## Current Architecture
+## How to help
 
-The preferred runtime entry point is:
-
-```python
-from app.services.orchestrator import PipelineOrchestrator
-```
-
-The UI-safe wrapper is:
-
-```python
-from app.qt_pipeline_service import QtPipelineService
-```
-
-`InProcessPipelineService` remains in the repository as a legacy compatibility
-path. New implementation work should use the service-oriented architecture
-documented in `docs/ARCHITECTURE_CURRENT_STATE.md` and `agents.md`.
-
----
-
-## Validation State
-
-| Area | Current State | Required Next Step |
-| --- | --- | --- |
-| Version identity | Aligned around v2.0.0-stereo (`APP_VERSION` 2.0.0) | Keep patch releases on `v2.0.x-stereo` if needed |
-| Stereo setup wizard | Evidence-gated 10-step workflow implemented; automated tests are simulator-backed | Validate capture controls, field alignment, and accuracy on a physical stereo rig |
-| External release | `v2.0.0` tag pushed | Build + smoke-test the v2.0.0-stereo installer on a clean Windows machine |
-| Architecture docs | Service-oriented + stereo-setup docs current | Keep calibration boundary explicit |
-| Hardware profile | In validation testing | Record tested Arducam camera/mount evidence |
-| Camera alignment | Blocking pilot start | Complete alignment and document results |
-| Velocity accuracy | Protocol exists; validation testing in progress | Run reference-equipment validation |
-| Location accuracy | Not yet published | Define and run target-grid validation |
-| Pilot personas | Canonical doc added | Confirm with real pilot operators |
-| GitHub feedback | Structured issue forms added | Triage `pilot-feedback` and `validation` issues |
-| TAG Sports | Partnership docs active; waiting on TAG feedback | Update plan after response |
-
----
-
-## Open Decisions
-
-1. Which exact camera alignment result is sufficient to start the pilot?
-2. What smoke-test checklist must pass before publishing today's release?
-3. What support contact should be published as the real pilot support channel?
-4. What policy should govern replacing the already-published installer with
-   the refreshed package that excludes runtime-local config state?
-
----
-
-## Current Priority
-
-1. Finish camera alignment work required to unblock the pilot.
-2. Run validation tests and record results through GitHub validation issues.
-3. Smoke-test the refreshed installer on a clean Windows machine.
-4. Update public-facing support/contact channels.
-5. Keep new feature work behind the capability contract until pilot feedback
-   proves demand.
-
----
-
-## Calibration Boundary Explanation
-
-`PipelineOrchestrator.run_calibration()` is a public API method inherited from
-`PipelineService`, but the current implementation does not perform calibration.
-
-Two choices exist:
-
-- **Route calibration through the orchestrator:** one API can start capture,
-  record, and run calibration. This is convenient for callers, but it makes the
-  runtime orchestrator responsible for long-running setup/tooling work and adds
-  release risk before validation.
-- **Keep calibration in setup/tooling paths:** Setup Doctor and tooling services
-  own calibration; the runtime orchestrator only starts once a rig profile is
-  validated. This keeps the pilot runtime simpler and safer, but callers must
-  use the setup/tooling workflow instead of calling `run_calibration()`.
-
-Decision for v1.5.0-pilot: keep calibration outside the runtime orchestrator.
-`PipelineOrchestrator.run_calibration()` now rejects the call with an
-actionable setup/tooling message that points callers to Setup Doctor and
-`SubprocessToolingService`.
-
----
-
-## 2026-06-23 P2 Cleanup Record
-
-- Full test suite: `841 passed, 32 skipped, 23 warnings in 514.55s`.
-- Event metadata audit added: `docs/EVENT_METADATA_AUDIT.md`.
-- Calibration boundary made actionable in `PipelineOrchestrator.run_calibration()`.
-- Packaging allowlist added for PyInstaller config data.
-- Rebuilt installer: `installer_output/PitchTracker-Setup-v1.5.0-pilot.exe`.
-- Installer size: `92,200,172` bytes.
-- Installer SHA256:
-  `F211FC39FA4468281DA7B5BAED67581049ABADDC266EED1A4DA59039A1C999A2`.
-- Verified bundled config data contains only `default.yaml` and
-  `snapdragon.yaml`; runtime-local `app_state.json`, `roi.json`,
-  `pitchers.json`, `.first_run_done`, `locations`, and cache directories are
-  excluded.
+See [Testing Help Needed](TESTING_NEEDED.md). Public reports should use the
+GitHub Validation Report or Pilot Feedback form and must not include private
+athlete media, facility data, secrets, or unreviewed logs.

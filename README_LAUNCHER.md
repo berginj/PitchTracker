@@ -39,13 +39,10 @@ python test_coaching_app.py
 
 1. **Launch Setup Wizard** (via launcher or `python test_setup_wizard.py`)
 
-2. **Complete all 6 steps:**
-   - **Step 1:** Camera Setup - Select left and right cameras
-   - **Step 2:** Stereo Calibration - Capture checkerboard images
-   - **Step 3:** ROI Configuration - Draw lane and plate regions
-   - **Step 4:** Detector Tuning - Configure detection mode
-   - **Step 5:** System Validation - Verify configuration
-   - **Step 6:** Export Package - Generate setup report
+2. **Complete the ten-step stereo setup workflow:** camera selection, paired
+   preview, synchronization, focus/exposure lock, overlap, coarse rectification,
+   optional ChArUco refinement, field alignment, profile persistence, and the
+   quality report.
 
 3. **Launch Coaching App** (via launcher or `python test_coaching_app.py`)
 
@@ -129,7 +126,7 @@ For issues or questions:
 **Current Version:** v2.0.0-stereo
 
 **Components:**
-- Stereo Setup Wizard (v2.0.0) - Complete (genuine 9-step flow)
+- Stereo Setup Wizard (v2.0.0) - Complete (evidence-gated ten-step flow)
 - Setup Wizard (legacy) - Complete (6 steps)
 - Coaching App - Complete (integrated with pipeline)
 - Unified Launcher - Complete

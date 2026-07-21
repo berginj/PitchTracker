@@ -1,8 +1,8 @@
 # PitchTracker Candidate Known-Good Hardware Profile
 
 **Document Type:** Hardware Specification & Setup Guide
-**Date:** March 26, 2026
-**Version:** 1.0 (for v1.5.0-pilot)
+**Date:** March 26, 2026; status reviewed July 21, 2026
+**Version:** Candidate profile for v2.0.0 testing
 **Status:** In validation testing; field evidence required before public known-good claims
 **Owner:** Engineering + Operations
 
@@ -10,7 +10,9 @@
 
 ## Executive Summary
 
-This document defines the **candidate hardware configuration** for PitchTracker v1.5.0-pilot. Treat these specifications as the pilot baseline until field deployments and reference validation confirm the final known-good profile.
+This document defines a **candidate hardware configuration** for PitchTracker.
+Treat it as test guidance, not a known-good list, until reports tracked through
+`ROADMAP.md` and physical reference validation establish the operating envelope.
 
 **Purpose:**
 - Provide pilot partners with clear hardware requirements
@@ -487,7 +489,7 @@ Use this checklist for pilot partner hardware preparation:
 - [ ] Background checked (solid, neutral, contrasts with ball)
 - [ ] ChArUco board ready (flat, undamaged, correct size)
 - [ ] Computer configured (USB suspend disabled, sleep disabled)
-- [ ] PitchTracker installed (v1.5.0-pilot)
+- [ ] PitchTracker v2.0.0 or an exact recorded commit installed
 - [ ] Dependencies installed (requirements.txt)
 - [ ] Camera detection verified (2 cameras visible in Device Manager)
 

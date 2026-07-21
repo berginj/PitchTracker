@@ -334,5 +334,5 @@ For issues or questions:
 ---
 
 **Last Updated**: 2026-06-22
-**System Version**: v1.5.0-pilot
+**System Version**: v2.0.0 (historical implementation metrics above require remeasurement)
 **Note**: Original implementation metrics in this guide may be historical; use `docs/CURRENT_STATUS.md` for current release status.

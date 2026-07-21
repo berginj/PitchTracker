@@ -1,8 +1,8 @@
 # PitchTracker Test Suite Documentation
 
-**Version:** v1.5.0-pilot
-**Date:** 2026-06-23
-**Status:** Current full-suite run recorded for v1.5.0-pilot P2 cleanup
+**Version:** v2.0.0 / `main` at `40158c1`
+**Date:** 2026-07-21
+**Status:** Current automated run recorded; physical tests remain separate
 
 ---
 
@@ -10,8 +10,8 @@
 
 This document provides exhaustive documentation of the PitchTracker test suite, including all test modules, test counts, coverage areas, and execution details.
 
-**Latest Full Run:** `841 passed, 32 skipped, 23 warnings in 514.55s`
-**Total Collected:** 873 tests
+**Latest Full Run:** `1263 passed, 32 skipped, 37 warnings in 258.90s`
+**Total Collected:** 1295 tests
 **Pass Rate:** 100% of executed tests
 **Test Framework:** pytest 7.4.3
 **Python Version:** 3.13.14
@@ -815,12 +815,12 @@ python -m benchmarks.memory --duration 300
 
 ---
 
-## Version 1.5.0 Test Checklist
+## Current Release Test Checklist
 
 ### Pre-Release Testing
 
 - [ ] Run full test suite: `python -m pytest`
-- [ ] All 389+ tests passing
+- [x] Full automated suite passes: 1,263 passed / 32 skipped / 0 failed
 - [ ] Run benchmarks: `python -m benchmarks.run_all`
 - [ ] Document benchmark results in PERFORMANCE_BENCHMARKS.md
 - [ ] Manual UI testing:
@@ -846,31 +846,30 @@ python -m benchmarks.memory --duration 300
 
 ## Summary
 
-**Test Suite Status:** Historical baseline; current full-suite result required before release publication
+**Test Suite Status:** Automated suite current; hardware and physical accuracy
+remain open under `docs/ROADMAP.md`
 
 **Coverage:**
-- Unit Tests: Comprehensive (389+ tests)
-- Integration Tests: Complete (26 tests)
+- Unit and contract tests: comprehensive
+- Integration tests: included in the full run
 - Performance Tests: Implemented (3 benchmarks)
 - UI Tests: Import validation (13 tests)
 
 **Quality Metrics:**
-- Pass Rate: 98%+
-- Test Coverage: >90% critical paths
+- Pass Rate: 100% of executed tests in the recorded run
+- Coverage percentage: not claimed by this run
 - Documentation: Comprehensive
 - Automation: Ready for CI/CD
 
-**Next Steps for 1.5.0 Release:**
-1. Run benchmarks on reference hardware
-2. Document baseline performance
-3. Complete manual testing checklist
-4. Update all documentation
-5. Create release notes
-6. Tag version 1.5.0
+**Next Steps:**
+1. Run clean Windows installer smoke tests.
+2. Qualify global-shutter camera/control behavior.
+3. Execute the predeclared physical validation protocol.
+4. Publish only measured hardware and operating-envelope results.
 
 ---
 
 **Document Version:** 1.0
-**Last Updated:** 2026-01-19
+**Last Updated:** 2026-07-21
 **Maintainer:** PitchTracker Development Team
-**Status:** Complete and ready for v1.5.0 release
+**Status:** Software regression suite passing; field validation pending

@@ -2,7 +2,7 @@
 
 **Document Type:** Process & Template Library
 **Date:** March 26, 2026
-**Version:** 1.0 (for v1.5.0-pilot and beyond)
+**Version:** 1.0 (version-independent governance framework)
 **Owner:** Product Lead + Engineering Lead
 **Status:** OPERATIONAL
 

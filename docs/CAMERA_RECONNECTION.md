@@ -552,7 +552,7 @@ reconnection_mgr = CameraReconnectionManager(
 - Error handling comprehensive
 - Performance impact minimal
 
-**Status:** Feature complete for the v1.5.0-pilot runtime path
+**Status:** Feature complete for the supported runtime path; physical USB/controller coverage remains open
 
 ---
 
