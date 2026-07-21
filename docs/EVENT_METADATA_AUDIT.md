@@ -51,6 +51,6 @@ exported, queued, or consumed cross-process, add an envelope before that change.
 
 Do not add mandatory metadata fields directly to every event before the pilot.
 That would touch many call sites without changing current runtime behavior.
-For v1.5.0-pilot, keep typed in-process events as-is and treat this audit as
+For the current runtime, keep typed in-process events as-is and treat this audit as
 the acceptance record. Make the next change additive through an envelope when
 events become durable or cross-process.

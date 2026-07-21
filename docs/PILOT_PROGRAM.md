@@ -1,5 +1,9 @@
 # PitchTracker Pilot Program
 
+> **Planning status (2026-07-21):** this is the original pilot design, not an
+> active launch schedule. Hardware/setup qualification, installer smoke testing,
+> and physical validation in `ROADMAP.md` must precede a revised launch decision.
+
 **Document Type:** Pilot Program Plan & Partner Recruitment
 **Date:** March 26, 2026
 **Version:** 1.0 (for v1.5.0-pilot)

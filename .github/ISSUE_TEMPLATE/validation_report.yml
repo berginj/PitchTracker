@@ -8,7 +8,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Use this form for controlled validation runs. Keep raw private media local unless the maintainer explicitly asks for it.
+        Use this form for controlled validation runs. Automated or plausible-looking output is not physical validation. Keep raw private media local unless the maintainer explicitly asks for an authorized private transfer.
   - type: dropdown
     id: validation_type
     attributes:
@@ -27,7 +27,7 @@ body:
     id: app_version
     attributes:
       label: PitchTracker version
-      placeholder: v1.5.0-pilot
+      placeholder: v2.0.0 or commit SHA
     validations:
       required: true
   - type: input
@@ -35,6 +35,14 @@ body:
     attributes:
       label: Rig profile or setup identifier
       placeholder: bullpen-left-right-c920-2026-06
+    validations:
+      required: false
+  - type: input
+    id: setup_snapshot
+    attributes:
+      label: Setup snapshot ID and fingerprint
+      description: Provide the ID and SHA-256 fingerprint, not private snapshot contents.
+      placeholder: setup-... / sha256
     validations:
       required: false
   - type: textarea
@@ -56,6 +64,13 @@ body:
     attributes:
       label: Results
       description: Include MAE, confidence interval, detection rate, alignment quality, pass/warn/critical status, or other measured outputs.
+    validations:
+      required: true
+  - type: textarea
+    id: denominators
+    attributes:
+      label: Counts and denominators
+      description: Include attempted, accepted, rejected, unmatched, excluded, and reference-missing counts.
     validations:
       required: true
   - type: textarea

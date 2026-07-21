@@ -1,5 +1,20 @@
 # Contributing to PitchTracker
 
+## Testing contributions are especially valuable
+
+The current priority is real Windows hardware and field evidence, not additional
+accuracy claims based on simulation. See
+[`docs/TESTING_NEEDED.md`](docs/TESTING_NEEDED.md) and the canonical
+[`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+Useful contributions include clean Windows installer smoke tests,
+global-shutter camera discovery and control-readback reports, setup recovery
+tests, anonymized capture-quality metrics with explicit denominators, and
+predeclared physical validation using an independent calibrated reference.
+
+Submit results through the Validation Report or Pilot Feedback issue form. Do
+not attach athlete media, private facility data, secrets, or unreviewed logs.
+
 ## Branch & merge policy
 
 `main` is protected. **All changes reach `main` through a pull request** that must
@@ -42,3 +57,12 @@ and do not block, but please keep them clean where practical.
 Significant direction changes (e.g., the core-pipeline rewrite) are recorded as
 Architecture Decision Records under `docs/decisions/`. Add or update an ADR in the
 same change that implements the decision.
+
+## Evidence discipline
+
+- Automated tests prove software behavior, not physical accuracy.
+- Preserve failures, rejected attempts, unmatched frames, and denominators.
+- Never replace missing information with zero or an assumed pass.
+- Keep raw values when proposing or applying a correction.
+- Update requirements, traceability, and roadmap status in the same change when
+  behavior or acceptance criteria change.

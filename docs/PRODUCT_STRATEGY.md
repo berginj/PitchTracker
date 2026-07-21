@@ -1,5 +1,10 @@
 # PitchTracker: Product Strategy and Capability Contract
 
+> **Planning context (2026-07-21):** retain the capability contract and decision
+> framework. Version references, test counts, dated 30/60/90-day tables, and task
+> status below describe the March 2026 planning baseline. Current delivery and
+> work are governed by `CURRENT_STATUS.md` and `ROADMAP.md`.
+
 **Document Type:** Internal Planning & Decision Framework
 **Date:** March 26, 2026
 **Applies To:** v1.5.0-pilot (Canonical Pilot Build)

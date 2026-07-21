@@ -1,7 +1,7 @@
 # PitchTracker - Frequently Asked Questions (FAQ)
 
-**Last Updated:** 2026-06-22
-**Version:** v1.5.0-pilot
+**Last Updated:** 2026-07-21
+**Version:** v2.0.0
 
 ---
 
@@ -31,8 +31,9 @@
 ### Q: How do I install PitchTracker?
 
 **A:**
-1. Download the latest installer from GitHub releases
-2. Run `PitchTracker-Setup-v1.5.0-pilot.exe`
+1. Check GitHub Releases for a tested installer asset. The current v2.0.0
+   release does not yet include one; developers can build from source.
+2. When published, run `PitchTracker-Setup-v2.0.0-stereo.exe`.
 3. Follow the installation wizard
 4. Launch from desktop shortcut or Start menu
 5. Run Setup Doctor on first launch
@@ -417,4 +418,4 @@ During Review Mode:
 ---
 
 **Document Version:** 1.1
-**Covers PitchTracker:** v1.5.0-pilot
+**Covers PitchTracker:** v2.0.0

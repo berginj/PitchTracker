@@ -1,7 +1,7 @@
 # PitchTracker User Personas
 
 **Last Updated:** 2026-06-22
-**Applies To:** v1.5.0-pilot
+**Applies To:** v2.0.0 controlled testing
 **Status:** Baseline personas pending pilot confirmation
 
 ---
@@ -194,7 +194,7 @@ and guide the facility back to a usable state.
 
 ## Out-of-Scope For The Pilot Phase
 
-These users may matter later, but should not drive v1.5.0-pilot decisions:
+These users may matter later, but should not drive current controlled-testing decisions:
 
 - casual individual consumers
 - parents running ad-hoc mobile setups

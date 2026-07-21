@@ -27,11 +27,19 @@ pip install -r requirements.txt
 - Confidence + diagnostics + latency metrics
 
 ### Implementation Status (current repo)
-- PySide6 UI with in-process pipeline service and capture/replay.
-- Lane + plate ROI calibration with strike-zone 3x3 overlay.
-- Classical detector with ROI cropping and optional ONNX ML detector + validator.
-- Per-pitch recording bundles with manifest, timestamps, and config snapshot.
-- Plate plane calibration tool with persistent logging.
+- Service-oriented `PipelineOrchestrator` runtime with a Qt-safe UI wrapper.
+- Ten-step evidence-gated stereo setup with supervised interruptible capture.
+- Canonical setup-system snapshot, artifact fingerprints, physical control
+  readback, capture qualification, and field alignment.
+- Classical detector plus optional ONNX detector, per-camera tracklets,
+  deterministic global stereo assignment, and unmatched-frame outcomes.
+- Per-pitch evidence packages, session decision journal, replay reconciliation,
+  raw/corrected values, error budgets, and quality verdicts.
+- Physical-validation v2 protocol and exact signed approval binding.
+
+Automated implementation is complete for the current evidence-first scope.
+Physical global-shutter compatibility, operating envelope, and speed/location
+accuracy remain unvalidated. Current work is tracked in `docs/ROADMAP.md`.
 
 ---
 

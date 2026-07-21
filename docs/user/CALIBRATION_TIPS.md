@@ -1,7 +1,7 @@
 # PitchTracker - Calibration Tips & Best Practices
 
-**Last Updated:** 2026-06-22
-**Version:** v1.5.0-pilot
+**Last Updated:** 2026-07-21
+**Version:** v2.0.0
 
 ---
 
@@ -727,5 +727,5 @@ Tools → Camera Sync Test:
 
 **Document Version:** 1.1
 **Last Updated:** 2026-06-22
-**For Version:** PitchTracker v1.5.0-pilot
+**For Version:** PitchTracker v2.0.0
 

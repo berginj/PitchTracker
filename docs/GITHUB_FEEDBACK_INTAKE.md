@@ -1,85 +1,46 @@
-# GitHub Feedback Intake
+# GitHub Feedback and Validation Intake
 
-**Last Updated:** 2026-06-22
-**Applies To:** v1.5.0-pilot
+**Last reviewed:** 2026-07-21
+**Applies to:** `v2.0.0` and current `main`
 
----
+Use structured GitHub issues for setup friction, hardware compatibility,
+validation results, repeatable bugs, and documentation gaps.
 
-## Purpose
+## Forms
 
-Pilot feedback should be captured in GitHub issues using structured issue
-forms. This gives us a support channel that is easy to search, label, export,
-and convert into work items.
+| Form | Use for | Labels |
+|---|---|---|
+| Pilot Feedback | Operator experience, workflow friction, bugs, and suggestions | `pilot-feedback`, `needs-triage` |
+| Validation Report | Installer, camera, capture, setup recovery, speed/location, and replay tests | `validation`, `needs-triage` |
 
-Use GitHub for:
+- [Open Pilot Feedback](https://github.com/berginj/PitchTracker/issues/new?template=pilot_feedback.yml)
+- [Open Validation Report](https://github.com/berginj/PitchTracker/issues/new?template=validation_report.yml)
 
-- pilot feedback
-- setup friction reports
-- camera alignment issues
-- validation results
-- documentation gaps
-- repeatable bugs
+Before reporting, read [TESTING_NEEDED.md](TESTING_NEEDED.md).
 
-Do not upload private athlete video, identifiable athlete data, facility
-private information, or raw recordings unless explicitly authorized.
+## Required evidence quality
 
----
+- Identify the exact version or commit.
+- Provide counts and denominators, including rejected and unmatched attempts.
+- Describe the hardware, OS, USB path, environment, and reference device.
+- Report unavailable information explicitly.
+- Distinguish observed facts from interpretation.
+- For physical accuracy, lock the protocol and thresholds before confirmation.
 
-## Available Forms
+Do not upload athlete video, identifying information, private facility data,
+secrets, trust keys, raw recordings, or unreviewed logs. Use snapshot IDs,
+fingerprints, hashes, and anonymized summaries.
 
-| Form | Use For | Default Labels |
-| --- | --- | --- |
-| Pilot Feedback | Session/setup feedback, friction, bugs, improvement requests | `pilot-feedback`, `needs-triage` |
-| Validation Report | Camera alignment, velocity/location accuracy, detection-rate results | `validation`, `needs-triage` |
+## Triage
 
-The issue templates live in `.github/ISSUE_TEMPLATE/`.
+Maintainers should:
 
----
+1. Review `needs-triage` issues.
+2. Separate software defects, compatibility observations, workflow feedback, and
+   claim-bearing validation evidence.
+3. Add subsystem and `pilot-blocker` labels where appropriate.
+4. Request missing denominators or protocol details before interpreting results.
+5. Update [ROADMAP.md](ROADMAP.md) only when evidence changes priority or scope.
 
-## Consuming Feedback
-
-Examples with GitHub CLI:
-
-```powershell
-gh issue list --label pilot-feedback --state open
-gh issue list --label validation --state all --json number,title,labels,createdAt,body
-gh issue list --label needs-triage --state open --json number,title,url
-```
-
-Suggested triage labels:
-
-- `needs-triage`
-- `pilot-feedback`
-- `validation`
-- `camera-alignment`
-- `setup-doctor`
-- `calibration`
-- `recording`
-- `review-mode`
-- `documentation`
-- `pilot-blocker`
-
-Create these labels in GitHub before pilot intake begins so issue-form defaults
-and triage queries work consistently.
-
-Suggested weekly triage:
-
-1. Review new `needs-triage` issues.
-2. Add subsystem labels.
-3. Mark pilot blockers explicitly.
-4. Convert validated bugs into scoped engineering work.
-5. Summarize repeated friction in pilot status notes.
-
----
-
-## Release Use
-
-Before publishing a new pilot build, review:
-
-```powershell
-gh issue list --label pilot-blocker --state open
-gh issue list --label validation --state open
-```
-
-Do not claim validation is complete until validation issues include enough
-reference-equipment results to support the published operating envelope.
+A camera compatibility report may inform the hardware matrix without granting a
+physical accuracy approval.

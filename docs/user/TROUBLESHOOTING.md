@@ -1,7 +1,7 @@
 # PitchTracker - Troubleshooting Guide
 
-**Last Updated:** 2026-01-18
-**Version:** 1.2.0
+**Last Updated:** 2026-07-21
+**Version:** 2.0.0
 
 ---
 
@@ -823,7 +823,7 @@ Collect this information:
 ```
 **Environment:**
 - OS: Windows 10/11 version [version]
-- PitchTracker Version: v1.5.0-pilot
+- PitchTracker Version or commit: v2.0.0 / `<commit SHA>`
 - Cameras: [Model names]
 - CPU/RAM: [Specs]
 

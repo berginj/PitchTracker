@@ -33,7 +33,7 @@ body:
     id: app_version
     attributes:
       label: PitchTracker version
-      placeholder: v1.5.0-pilot
+      placeholder: v2.0.0 or commit SHA
     validations:
       required: true
   - type: dropdown
@@ -92,7 +92,7 @@ body:
     attributes:
       label: Environment
       description: Hardware, OS, cameras, lighting, mound distance, ball type, and reference device if relevant.
-      placeholder: "Windows 11, Logitech C920 pair, indoor lighting, 60.5 ft, Pocket Radar..."
+      placeholder: "Windows 11, global-shutter camera models, USB controller, indoor lighting, 60.5 ft..."
     validations:
       required: false
   - type: textarea

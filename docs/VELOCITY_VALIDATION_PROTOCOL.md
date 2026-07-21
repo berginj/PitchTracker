@@ -1,9 +1,14 @@
 # Velocity Validation Test Protocol
 
+> **Legacy protocol notice (2026-07-21):** use
+> `PHYSICAL_VALIDATION_PROTOCOL_V2.md` for claim-bearing confirmation. This
+> document remains useful as an operator worksheet but does not override v2
+> fingerprint, uncertainty, denominator, or independent-review requirements.
+
 **Document Type:** Validation Methodology & Test Plan
 **Date:** March 26, 2026
 **Version:** 1.0
-**Applies To:** PitchTracker v1.5.0-pilot
+**Applies To:** Legacy worksheet; v2 protocol governs claim-bearing validation
 **Owner:** Engineering + QA
 
 ---
@@ -425,7 +430,7 @@ Based on validation results, define:
 
 ---
 
-**Document Status:** READY FOR EXECUTION
+**Document Status:** LEGACY WORKSHEET — use Physical Validation Protocol v2
 **Owner:** Engineering Lead
 **Approver:** Founder
 **Next Action:** Acquire reference equipment (Pocket Radar or facility partnership)
