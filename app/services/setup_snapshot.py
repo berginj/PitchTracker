@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import importlib.metadata
-import json
 import os
 import platform
 import subprocess
-import sys
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
 from pathlib import Path

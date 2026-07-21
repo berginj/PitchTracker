@@ -23,7 +23,7 @@ from app.services.rig_profile_models import (
     WARN,
     RigProfile,
     RigProfileValidation,
-    TrajectoryModeApproval,
+    TrajectoryModeApproval as _TrajectoryModeApproval,
     utc_now_iso,
 )
 from configs.settings import AppConfig
@@ -40,6 +40,9 @@ from contracts.physical_validation import (
 from log_config.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Preserve the historical import surface used by callers and tests.
+TrajectoryModeApproval = _TrajectoryModeApproval
 
 
 class RigProfileService:

@@ -204,6 +204,7 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         self._update_navigation_buttons()
         if self._closing_after_capture_cancel and not any(step.is_busy() for step in self._steps):
             QtCore.QTimer.singleShot(0, self.close)
+
     def _go_back(self) -> None:
         """Go to the previous step."""
         if self._current_widget().is_busy() or not self._machine.can_go_back():

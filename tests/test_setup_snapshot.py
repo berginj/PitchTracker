@@ -9,7 +9,7 @@ from calib.capture_qualification import CaptureQualification
 from configs.settings import load_config
 from contracts import QualityAssessment
 from contracts.setup import StereoCalibrationProfile
-from contracts.setup_snapshot import SetupSystemSnapshot, assess_setup_snapshot_payload
+from contracts.setup_snapshot import assess_setup_snapshot_payload
 from ui.setup.camera_select_view import DiscoveredCamera
 
 

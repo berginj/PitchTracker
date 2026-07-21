@@ -35,7 +35,6 @@ from contracts import Detection, Frame, StereoObservation
 from contracts import (
     QualityAssessment,
     QUALITY_DEGRADED,
-    QUALITY_ESTIMATED,
     QUALITY_REJECTED,
     QUALITY_UNAVAILABLE,
 )
@@ -582,6 +581,7 @@ class PipelineOrchestrator(PipelineService):
             "analysis": analysis,
             "calibration": calibration_report,
         }
+
     def get_plate_metrics(self) -> PlateMetricsStub:
         """Return latest plate-gated metrics (stubbed if unavailable).
 

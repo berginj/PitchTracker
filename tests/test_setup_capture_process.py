@@ -76,10 +76,13 @@ def test_context_reduces_process_backed_focus_artifacts(tmp_path: Path) -> None:
     from app.services.catalog import CameraCatalogService
 
     catalog = CameraCatalogService(catalog_path=tmp_path / "catalog.json")
-    devices = lambda: [
-        {"serial": "sim-left", "friendly_name": "Sim Left"},
-        {"serial": "sim-right", "friendly_name": "Sim Right"},
-    ]
+
+    def devices():
+        return [
+            {"serial": "sim-left", "friendly_name": "Sim Left"},
+            {"serial": "sim-right", "friendly_name": "Sim Right"},
+        ]
+
     context = LiveSetupContext(
         catalog=catalog,
         list_devices=devices,

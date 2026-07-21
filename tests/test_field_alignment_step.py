@@ -10,8 +10,8 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6 import QtWidgets  # noqa: E402
 
-from ui.setup.field_alignment_view import load_or_estimate_field_alignment
-from ui.setup.steps.field_alignment_step import FieldAlignmentStep
+from ui.setup.field_alignment_view import load_or_estimate_field_alignment  # noqa: E402
+from ui.setup.steps.field_alignment_step import FieldAlignmentStep  # noqa: E402
 
 
 @pytest.fixture(scope="module")

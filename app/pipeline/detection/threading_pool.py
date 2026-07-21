@@ -460,6 +460,7 @@ class DetectionThreadPool:
             with self._detection_error_lock:
                 self._frames_dropped[queue_name] = self._frames_dropped.get(queue_name, 0) + 1
             return _QueuePutResult(displaced=displaced, accepted=False)
+
     def _detect_frame(self, label: str, frame: Frame) -> Optional[list[Detection]]:
         """Detect frame using callback.
 
