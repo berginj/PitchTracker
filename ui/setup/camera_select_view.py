@@ -29,6 +29,7 @@ class DiscoveredCamera:
     friendly_name: str
     side: str = SIDE_UNASSIGNED
     recognized: bool = False
+    global_shutter: bool = False
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,10 @@ def grade_selection(snapshot: CameraSelectionSnapshot) -> tuple[bool, str]:
         return False, "Camera hardware id is missing."
     if left_id == right_id:
         return False, "Left and right are the same device."
+    unsupported = [camera for camera in (left[0], right[0]) if not camera.recognized or not camera.global_shutter]
+    if unsupported:
+        labels = ", ".join(camera.friendly_name or camera.hardware_id for camera in unsupported)
+        return False, f"Production measurement requires recognized global-shutter cameras: {labels}."
 
     return True, ""
 
@@ -97,7 +102,12 @@ def _headline_tone(snapshot: CameraSelectionSnapshot, passed: bool) -> str:
 def _camera_row(camera: DiscoveredCamera) -> ReportRow:
     label = camera.friendly_name or camera.hardware_id
     side = camera.side or "unassigned"
-    value = f"{side} (recognized)" if camera.recognized else side
+    if camera.recognized and camera.global_shutter:
+        value = f"{side} (recognized global shutter)"
+    elif camera.recognized:
+        value = f"{side} (recognized, not global shutter)"
+    else:
+        value = side
     return ReportRow(label, value)
 
 

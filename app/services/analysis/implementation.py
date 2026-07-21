@@ -16,12 +16,13 @@ from collections import deque
 from pathlib import Path
 from typing import List, Optional
 
-from app.contracts import PitchSummary, SessionSummary, session_summary_from_dict
+from app.contracts import PitchSummary, SessionSummary, measurement_is_usable, session_summary_from_dict
 from app.events.event_bus import EventBus
 from app.events.event_types import PitchAnalyzedEvent, PitchEndEvent
 from app.pipeline.analysis.pitch_summary import PitchAnalyzer
 from app.pipeline.pitch_tracking_v2 import PitchData
 from app.services.analysis.interface import AnalysisService
+from app.services.analysis.worker import BoundedAnalysisWorker
 from calib.online_refinement import OnlineCalibrationRefiner
 from configs.settings import AppConfig
 from contracts import StereoObservation
@@ -51,7 +52,7 @@ class AnalysisServiceImpl(AnalysisService):
 
     Thread Safety:
         - All public methods are thread-safe
-        - Analysis runs synchronously on PitchEndEvent thread
+        - Analysis runs on a bounded worker queue and drains on shutdown
         - Session summary updated atomically
     """
 
@@ -71,18 +72,20 @@ class AnalysisServiceImpl(AnalysisService):
             config=config,
             get_ball_radius_fn=self._get_ball_radius,
             radar_speed_fn=lambda: self._manual_speed_mph,
+            speed_source_fn=lambda: "manual_override",
         )
 
         # Session state
         self._session_summary: Optional[SessionSummary] = None
         self._pitch_summaries: List[PitchSummary] = []
         self._recent_pitch_paths: deque[List[StereoObservation]] = deque(maxlen=10)
+        self._terminal_pitch_ids: set[str] = set()
 
         # Latest metrics
         self._plate_metrics = PlateMetricsStub(run_in=0.0, rise_in=0.0, sample_count=0)
 
         # Strike zone configuration
-        self._ball_type = "baseball"
+        self._ball_type = config.ball.type
         self._batter_height_in = config.strike_zone.batter_height_in
         self._top_ratio = config.strike_zone.top_ratio
         self._bottom_ratio = config.strike_zone.bottom_ratio
@@ -105,10 +108,11 @@ class AnalysisServiceImpl(AnalysisService):
         self._analysis_active = False
         self._analysis_paused = False
         self._subscribed = False
+        self._analysis_worker = BoundedAnalysisWorker(self._analyze_pitch_end_event, max_queue=64)
 
         logger.info("AnalysisService initialized")
 
-    def start_analysis(self) -> None:
+    def start_analysis(self, session_id: str = "current") -> None:
         """Start analysis processing.
 
         Subscribes to EventBus for automatic pitch analysis.
@@ -117,9 +121,14 @@ class AnalysisServiceImpl(AnalysisService):
             if self._analysis_active:
                 return
 
+            if not self._analysis_worker.start():
+                raise RuntimeError(
+                    "Analysis worker from the previous session is still stopping; retry after it exits"
+                )
+
             # Initialize session summary
             self._session_summary = SessionSummary(
-                session_id="current",
+                session_id=session_id,
                 pitch_count=0,
                 strikes=0,
                 balls=0,
@@ -128,6 +137,7 @@ class AnalysisServiceImpl(AnalysisService):
             )
             self._pitch_summaries = []
             self._recent_pitch_paths.clear()
+            self._terminal_pitch_ids.clear()
 
             # Subscribe to EventBus
             self._subscribe_to_events()
@@ -142,15 +152,18 @@ class AnalysisServiceImpl(AnalysisService):
         Unsubscribes from EventBus.
         """
         with self._lock:
-            if not self._analysis_active:
-                return
+            if self._analysis_active:
+                # Unsubscribe before draining so no new pitch work can arrive.
+                self._unsubscribe_from_events()
+                self._analysis_active = False
+                self._analysis_paused = False
 
-            # Unsubscribe from EventBus
-            self._unsubscribe_from_events()
-            self._analysis_active = False
-            self._analysis_paused = False
-
-            logger.info("Analysis stopped")
+        # Always retry the worker stop. This makes a prior bounded timeout
+        # recoverable without pretending shutdown completed.
+        if not self._analysis_worker.stop(drain=True):
+            logger.error("Analysis worker did not drain and stop within timeout")
+            raise RuntimeError("Analysis worker is still stopping; retry session stop")
+        logger.info("Analysis stopped")
 
     def pause_analysis(self) -> None:
         """Pause analysis without clearing accumulated session state."""
@@ -352,6 +365,23 @@ class AnalysisServiceImpl(AnalysisService):
         with self._lock:
             return list(self._recent_pitch_paths)
 
+    def wait_for_idle(self, timeout: float = 5.0) -> bool:
+        """Wait for queued analysis, primarily for shutdown and deterministic tests."""
+        return self._analysis_worker.wait_idle(timeout)
+
+    def get_worker_stats(self) -> dict:
+        stats = self._analysis_worker.stats()
+        attempted = stats.submitted + stats.dropped
+        return {
+            "submitted": stats.submitted,
+            "completed": stats.completed,
+            "dropped": stats.dropped,
+            "failed": stats.failed,
+            "queue_depth": stats.queue_depth,
+            "drop_rate": stats.dropped / max(attempted, 1),
+            "failure_rate": stats.failed / max(stats.submitted, 1),
+        }
+
     def set_ball_type(self, ball_type: str) -> None:
         """Set ball type for strike detection.
 
@@ -417,6 +447,7 @@ class AnalysisServiceImpl(AnalysisService):
         with self._lock:
             self._config = config
             self._analyzer.update_config(config)
+            self._ball_type = config.ball.type
             logger.info("Analysis config updated")
 
     def set_manual_speed_mph(self, speed_mph: Optional[float]) -> None:
@@ -441,6 +472,12 @@ class AnalysisServiceImpl(AnalysisService):
     # Internal Event Handlers
 
     def _on_pitch_end_internal(self, event: PitchEndEvent) -> None:
+        """Queue pitch analysis so the event publisher is never blocked by fitting."""
+        if not self._analysis_worker.submit(event):
+            logger.error("Analysis queue dropped pitch %s", event.pitch_id)
+            self._publish_unavailable_result(event, "ANALYSIS_QUEUE_DROPPED")
+
+    def _analyze_pitch_end_event(self, event: PitchEndEvent) -> None:
         """Handle PitchEndEvent from EventBus.
 
         Analyzes pitch and updates session summary.
@@ -450,13 +487,12 @@ class AnalysisServiceImpl(AnalysisService):
 
         Note: Called from publisher's thread
         """
-        try:
-            # Validate observations
-            if not event.observations:
-                logger.warning(f"Pitch {event.pitch_id} has no observations, skipping analysis")
-                return
+        if not event.observations:
+            logger.warning("Pitch %s has no observations; publishing unavailable verdict", event.pitch_id)
+            self._publish_unavailable_result(event, "NO_OBSERVATIONS")
+            return
 
-            # Analyze pitch directly
+        try:
             summary = self._analyzer.analyze_pitch(
                 pitch_id=event.pitch_id,
                 start_ns=event.timestamp_ns - event.duration_ns,
@@ -464,53 +500,134 @@ class AnalysisServiceImpl(AnalysisService):
                 observations=event.observations,
                 ray_observations=event.ray_observations,
             )
-
-            # Update session summary
-            with self._lock:
-                self._pitch_summaries.append(summary)
-                self._recent_pitch_paths.append(event.observations)
-
-                # Update session stats (SessionSummary is frozen, so we need to recreate)
-                if self._session_summary is not None:
-                    # Update heatmap
-                    new_heatmap = [row[:] for row in self._session_summary.heatmap]  # Deep copy
-                    if summary.zone_row is not None and summary.zone_col is not None:
-                        new_heatmap[summary.zone_row][summary.zone_col] += 1
-
-                    # Update pitches list
-                    new_pitches = list(self._session_summary.pitches)
-                    new_pitches.append(summary)
-
-                    # Create updated session summary
-                    self._session_summary = SessionSummary(
-                        session_id=self._session_summary.session_id,
-                        pitch_count=self._session_summary.pitch_count + 1,
-                        strikes=self._session_summary.strikes + (1 if summary.is_strike else 0),
-                        balls=self._session_summary.balls + (0 if summary.is_strike else 1),
-                        heatmap=new_heatmap,
-                        pitches=new_pitches,
-                    )
-
-            logger.info(f"Pitch analyzed: {event.pitch_id}, strike={summary.is_strike}")
-
-            current_summary = self.get_session_summary()
-            self._event_bus.publish(
-                PitchAnalyzedEvent(
-                    pitch_id=event.pitch_id,
-                    summary=summary,
-                    session_summary=current_summary,
+            self._publish_terminal_summary(event, summary)
+        except Exception as exc:
+            logger.error("Error analyzing pitch %s: %s", event.pitch_id, exc, exc_info=True)
+            try:
+                self._publish_unavailable_result(
+                    event,
+                    "ANALYSIS_PIPELINE_EXCEPTION",
+                    exception_type=type(exc).__name__,
                 )
+            except Exception:
+                logger.exception("Failed to publish unavailable verdict for pitch %s", event.pitch_id)
+            # Unexpected failures must reach BoundedAnalysisWorker so its
+            # failure numerator remains honest.
+            raise
+
+        # Online refinement is advisory and must not create a second terminal
+        # result if it fails after the durable pitch verdict was published.
+        if self._refinement_enabled and self._refiner and summary.trajectory_confidence:
+            try:
+                self._accumulate_trajectory_for_refinement(summary, event)
+            except Exception as ref_error:
+                logger.warning(f"Error accumulating trajectory for refinement: {ref_error}")
+
+    def _publish_unavailable_result(
+        self,
+        event: PitchEndEvent,
+        reason_code: str,
+        *,
+        exception_type: Optional[str] = None,
+    ) -> bool:
+        """Publish a claim-free terminal result for an unanalyzable pitch."""
+
+        diagnostics = {
+            "reason_codes": [reason_code],
+            "analysis_terminal_status": "UNAVAILABLE",
+            "strike_available": False,
+            "speed_available": False,
+            "movement_available": False,
+            "movement_validated": False,
+            "plate_crossing_available": False,
+            "claim_fields_suppressed": [
+                "is_strike",
+                "speed_mph",
+                "run_in",
+                "rise_in",
+                "plate_crossing",
+            ],
+        }
+        if exception_type:
+            diagnostics["exception_type"] = exception_type
+        summary = PitchSummary(
+            pitch_id=event.pitch_id,
+            t_start_ns=max(0, event.timestamp_ns - event.duration_ns),
+            t_end_ns=event.timestamp_ns,
+            # Legacy scalar fields are structurally required. The UNAVAILABLE
+            # status and suppression ledger above prohibit treating them as
+            # measurements.
+            is_strike=False,
+            zone_row=None,
+            zone_col=None,
+            run_in=0.0,
+            rise_in=0.0,
+            speed_mph=None,
+            rotation_rpm=None,
+            sample_count=len(event.observations),
+            observation_quality_status="UNAVAILABLE",
+            observation_rejection_reasons=[reason_code],
+            measurement_status="UNAVAILABLE",
+            speed_source=None,
+            correction_records=[],
+            quality_diagnostics=diagnostics,
+        )
+        return self._publish_terminal_summary(event, summary)
+
+    def _publish_terminal_summary(self, event: PitchEndEvent, summary: PitchSummary) -> bool:
+        """Atomically aggregate and publish exactly one terminal event per pitch."""
+
+        with self._lock:
+            if event.pitch_id in self._terminal_pitch_ids:
+                logger.warning("Ignoring duplicate terminal analysis result for pitch %s", event.pitch_id)
+                return False
+
+            measurement_usable = measurement_is_usable(summary)
+            current = self._session_summary or SessionSummary(
+                session_id="current",
+                pitch_count=0,
+                strikes=0,
+                balls=0,
+                heatmap=[[0] * 3 for _ in range(3)],
+                pitches=[],
             )
+            new_heatmap = [row[:] for row in current.heatmap]
+            if (
+                measurement_usable
+                and summary.zone_row is not None
+                and summary.zone_col is not None
+                and 0 <= summary.zone_row < len(new_heatmap)
+                and 0 <= summary.zone_col < len(new_heatmap[summary.zone_row])
+            ):
+                new_heatmap[summary.zone_row][summary.zone_col] += 1
 
-            # Online calibration refinement
-            if self._refinement_enabled and self._refiner and summary.trajectory_confidence:
-                try:
-                    self._accumulate_trajectory_for_refinement(summary, event)
-                except Exception as ref_error:
-                    logger.warning(f"Error accumulating trajectory for refinement: {ref_error}")
+            self._pitch_summaries.append(summary)
+            self._recent_pitch_paths.append(list(event.observations))
+            self._session_summary = SessionSummary(
+                session_id=current.session_id,
+                pitch_count=current.pitch_count + 1,
+                strikes=current.strikes + (1 if measurement_usable and summary.is_strike else 0),
+                balls=current.balls + (1 if measurement_usable and not summary.is_strike else 0),
+                heatmap=new_heatmap,
+                pitches=[*current.pitches, summary],
+            )
+            self._terminal_pitch_ids.add(event.pitch_id)
+            session_summary = self._session_summary
 
-        except Exception as e:
-            logger.error(f"Error analyzing pitch: {e}", exc_info=True)
+        self._event_bus.publish(
+            PitchAnalyzedEvent(
+                pitch_id=event.pitch_id,
+                summary=summary,
+                session_summary=session_summary,
+            )
+        )
+        logger.info(
+            "Pitch analysis terminal result: pitch=%s status=%s reasons=%s",
+            event.pitch_id,
+            summary.measurement_status,
+            (summary.quality_diagnostics or {}).get("reason_codes", []),
+        )
+        return True
 
     def _accumulate_trajectory_for_refinement(self, summary: PitchSummary, event: PitchEndEvent) -> None:
         """Accumulate trajectory for online calibration refinement.
@@ -552,9 +669,13 @@ class AnalysisServiceImpl(AnalysisService):
             if self._refiner.should_refine():
                 result = self._refiner.refine_parameters()
 
-                if result["refined"]:
-                    logger.info(f"Calibration parameters refined: {'; '.join(result['changes'])}")
-                    logger.info(f"Refinement confidence: {result['confidence']:.2f}")
+                if result.get("proposed"):
+                    logger.warning(
+                        "Calibration refinement proposal created in shadow mode; "
+                        "configuration was not changed: %s",
+                        "; ".join(result["changes"]),
+                    )
+                    logger.info("Refinement proposal confidence: %.2f", result["confidence"])
                 else:
                     logger.info(f"Refinement check: {result['reason']}")
 
@@ -601,9 +722,5 @@ class AnalysisServiceImpl(AnalysisService):
         Returns:
             Ball radius based on ball type
         """
-        # Default ball radii
-        radii = {
-            "baseball": 1.45,  # inches
-            "softball": 1.875,  # inches
-        }
-        return radii.get(self._ball_type, 1.45)
+        radii = self._config.ball.radius_in
+        return float(radii.get(self._ball_type, radii.get("baseball", 1.45)))

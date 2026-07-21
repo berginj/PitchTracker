@@ -7,16 +7,76 @@ from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
 from configs.settings import AppConfig
+from contracts.physical_validation import APPROVAL_SCHEMA, TrajectoryModeApprovalV2
 from contracts.setup import StereoCalibrationProfile
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "2.0"
 PASS = "PASS"
 WARN = "WARN"
 CRITICAL = "CRITICAL"
+TRAJECTORY_MODES = frozenset({"stereo_3d", "ray_reprojection", "ray_graph"})
 
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+@dataclass(frozen=True)
+class TrajectoryModeApproval:
+    """Evidence binding a claim-ready trajectory mode to one exact rig build."""
+
+    mode: str
+    rig_profile_id: str
+    rig_profile_revision: int
+    software_version: str
+    dataset_id: str
+    ground_truth_report_sha256: str
+    claim_ready: bool
+    schema_version: str = "trajectory_mode_approval.v1"
+
+    def __post_init__(self) -> None:
+        if self.mode not in TRAJECTORY_MODES:
+            raise ValueError(f"unsupported trajectory approval mode: {self.mode!r}")
+        for label, value in {
+            "rig_profile_id": self.rig_profile_id,
+            "software_version": self.software_version,
+            "dataset_id": self.dataset_id,
+        }.items():
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"trajectory approval {label} is required")
+        if (
+            not isinstance(self.rig_profile_revision, int)
+            or isinstance(self.rig_profile_revision, bool)
+            or self.rig_profile_revision < 1
+        ):
+            raise ValueError("trajectory approval rig_profile_revision must be positive")
+        digest = self.ground_truth_report_sha256
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(char not in "0123456789abcdef" for char in digest)
+        ):
+            raise ValueError("trajectory approval ground_truth_report_sha256 must be a lowercase SHA-256 digest")
+        if not isinstance(self.claim_ready, bool):
+            raise ValueError("trajectory approval claim_ready must be boolean")
+        if self.schema_version != "trajectory_mode_approval.v1":
+            raise ValueError(f"unsupported trajectory approval schema: {self.schema_version!r}")
+
+    @classmethod
+    def from_payload(cls, payload: Mapping[str, Any]) -> "TrajectoryModeApproval":
+        return cls(
+            mode=str(payload.get("mode") or ""),
+            rig_profile_id=str(payload.get("rig_profile_id") or ""),
+            rig_profile_revision=payload.get("rig_profile_revision", 0),
+            software_version=str(payload.get("software_version") or ""),
+            dataset_id=str(payload.get("dataset_id") or ""),
+            ground_truth_report_sha256=str(payload.get("ground_truth_report_sha256") or ""),
+            claim_ready=payload.get("claim_ready"),
+            schema_version=str(payload.get("schema_version") or "trajectory_mode_approval.v1"),
+        )
+
+    def to_payload(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 @dataclass(frozen=True)
@@ -38,6 +98,14 @@ class RigProfile:
     runtime_validation_status: Optional[str] = None
     diagnostics: dict[str, Any] = field(default_factory=dict)
     stereo_profile: Optional[StereoCalibrationProfile] = None
+    profile_revision: int = 1
+    hardware_fingerprint: dict[str, Any] = field(default_factory=dict)
+    control_settings: dict[str, Any] = field(default_factory=dict)
+    field_transform: dict[str, Any] = field(default_factory=dict)
+    approved_modes: list[dict[str, Any]] = field(default_factory=list)
+    trajectory_mode_approvals: tuple[TrajectoryModeApproval | TrajectoryModeApprovalV2, ...] = ()
+    error_budget: dict[str, Any] = field(default_factory=dict)
+    artifact_hashes: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "RigProfile":
@@ -62,6 +130,14 @@ class RigProfile:
             runtime_validation_status=data.get("runtime_validation_status"),
             diagnostics=dict(data.get("diagnostics") or {}),
             stereo_profile=stereo_profile,
+            profile_revision=int(data.get("profile_revision", 1)),
+            hardware_fingerprint=dict(data.get("hardware_fingerprint") or {}),
+            control_settings=dict(data.get("control_settings") or {}),
+            field_transform=dict(data.get("field_transform") or {}),
+            approved_modes=[dict(item) for item in (data.get("approved_modes") or [])],
+            trajectory_mode_approvals=_parse_trajectory_mode_approvals(data.get("trajectory_mode_approvals")),
+            error_budget=dict(data.get("error_budget") or {}),
+            artifact_hashes=dict(data.get("artifact_hashes") or {}),
         )
 
     @classmethod
@@ -80,6 +156,7 @@ class RigProfile:
     ) -> "RigProfile":
         now = utc_now_iso()
         camera = config.camera
+        effective_pixfmt = "YUYV" if camera.color_mode and camera.pixfmt == "GRAY8" else camera.pixfmt
         return cls(
             schema_version=SCHEMA_VERSION,
             profile_id=profile_id,
@@ -91,7 +168,7 @@ class RigProfile:
                 "width": camera.width,
                 "height": camera.height,
                 "fps": camera.fps,
-                "pixfmt": camera.pixfmt,
+                "pixfmt": effective_pixfmt,
                 "color_mode": camera.color_mode,
             },
             image_transforms={
@@ -105,6 +182,26 @@ class RigProfile:
             roi_file=roi_file,
             quality_metrics=quality_metrics or {},
             diagnostics=diagnostics or {},
+            hardware_fingerprint={
+                "backend": backend,
+                "left_serial": left_serial,
+                "right_serial": right_serial,
+            },
+            control_settings={
+                "exposure_us": camera.exposure_us,
+                "gain": camera.gain,
+                "wb_mode": camera.wb_mode,
+                "wb": camera.wb,
+            },
+            approved_modes=[
+                {
+                    "width": camera.width,
+                    "height": camera.height,
+                    "fps": camera.fps,
+                    "pixfmt": effective_pixfmt,
+                    "color_mode": camera.color_mode,
+                }
+            ],
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -114,6 +211,26 @@ class RigProfile:
     def production_ready(self) -> bool:
         """True only when a nested, production-validated stereo profile exists."""
         return bool(self.stereo_profile and self.stereo_profile.production_ready)
+
+
+def _parse_trajectory_mode_approvals(
+    raw: Any,
+) -> tuple[TrajectoryModeApproval | TrajectoryModeApprovalV2, ...]:
+    if raw is None:
+        return ()
+    if not isinstance(raw, (list, tuple)):
+        raise ValueError("trajectory_mode_approvals must be a list")
+    approvals: list[TrajectoryModeApproval | TrajectoryModeApprovalV2] = []
+    for item in raw:
+        if not isinstance(item, Mapping):
+            raise ValueError("each trajectory mode approval must be an object")
+        schema = str(item.get("schema_version") or "trajectory_mode_approval.v1")
+        approvals.append(
+            TrajectoryModeApprovalV2.from_payload(item)
+            if schema == APPROVAL_SCHEMA
+            else TrajectoryModeApproval.from_payload(item)
+        )
+    return tuple(approvals)
 
 
 @dataclass(frozen=True)
@@ -141,5 +258,8 @@ __all__ = [
     "RigProfile",
     "RigProfileValidation",
     "SCHEMA_VERSION",
+    "TRAJECTORY_MODES",
+    "TrajectoryModeApproval",
+    "TrajectoryModeApprovalV2",
     "utc_now_iso",
 ]

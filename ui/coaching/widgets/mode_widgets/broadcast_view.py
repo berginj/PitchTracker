@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from PySide6 import QtWidgets
 
+from app.contracts import measurement_is_usable
 from ui.coaching.strike_zone_mapping import (
     StrikeZoneOverlayConfig,
     calculate_overlay_layout,
@@ -77,7 +78,12 @@ class BroadcastViewWidget(BaseModeWidget):
         self._current_camera = camera
         logger.debug(f"Broadcast view: Camera changed to {camera}")
 
-    def update_pitch_data(self, recent_pitches: List["PitchSummary"]) -> None:
+    def update_pitch_data(
+        self,
+        recent_pitches: List["PitchSummary"],
+        *,
+        new_pitches: Optional[List["PitchSummary"]] = None,
+    ) -> None:
         """Update visualization with new pitch data.
 
         Args:
@@ -91,7 +97,11 @@ class BroadcastViewWidget(BaseModeWidget):
         self._stats_panel.update_latest_pitch(latest_pitch)
         self._stats_panel.update_recent_list(recent_pitches)
 
-        if latest_pitch.trajectory_plate_x_ft is not None and latest_pitch.trajectory_plate_y_ft is not None:
+        if (
+            measurement_is_usable(latest_pitch)
+            and latest_pitch.trajectory_plate_x_ft is not None
+            and latest_pitch.trajectory_plate_y_ft is not None
+        ):
             layout = calculate_overlay_layout(
                 self._overlay_config,
                 plate_x_ft=latest_pitch.trajectory_plate_x_ft,
@@ -104,6 +114,8 @@ class BroadcastViewWidget(BaseModeWidget):
                 layout.zone_bottom,
             )
             self._camera_widget.update_pitch_location(layout.pitch_x, layout.pitch_y)
+        else:
+            self._camera_widget.clear_pitch_location()
 
     def update_camera_frames(self, left_frame: Optional["Frame"], right_frame: Optional["Frame"]) -> None:
         """Update camera preview frames.

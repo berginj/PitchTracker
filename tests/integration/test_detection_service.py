@@ -4,6 +4,7 @@ Tests the event-driven detection service that manages detection and stereo match
 """
 
 import time
+from dataclasses import replace
 from pathlib import Path
 from typing import List
 
@@ -11,7 +12,7 @@ import numpy as np
 import pytest
 
 from app.events.event_bus import EventBus
-from app.events.event_types import FrameCapturedEvent, ObservationDetectedEvent
+from app.events.event_types import FrameCapturedEvent, ObservationDetectedEvent, StereoFrameProcessedEvent
 from app.services.detection import DetectionServiceImpl
 from configs.settings import load_config
 from contracts import Frame, StereoObservation
@@ -134,7 +135,7 @@ class TestDetectionServiceStats:
         assert stats["detections_per_sec"] == 0.0
         assert stats["observations_per_sec"] == 0.0
         assert stats["avg_detection_ms"] == 0.0
-        assert stats["stereo_match_rate"] == 0.0
+        assert stats["stereo_detection_utilization"] is None
 
     def test_get_stats_running(self):
         """Test getting stats when running."""
@@ -231,6 +232,52 @@ class TestDetectionServiceEventBusIntegration:
         # (test frames are all black, so no detections expected)
         # This test just verifies the subscription mechanism works
         assert isinstance(events_received, list)
+
+    def test_stereo_pair_event_is_published_for_empty_pair(self):
+        bus = EventBus()
+        config = create_test_config()
+        service = DetectionServiceImpl(bus, config)
+        events: List[StereoFrameProcessedEvent] = []
+        bus.subscribe(StereoFrameProcessedEvent, events.append)
+
+        left = create_test_frame("left", 4, 1_000_000)
+        right = create_test_frame("right", 5, 1_250_000)
+        service._on_stereo_pair(left, right, [], [], [], lane_count=0, plate_count=0)
+
+        assert len(events) == 1
+        assert events[0].pair_skew_ns == 250_000
+        assert events[0].observations == ()
+        assert events[0].rejection_reasons == ("NO_CANDIDATES",)
+        outcomes = service.get_quality_diagnostics()["pair_outcomes"]
+        assert outcomes["denominator"] == 1
+        assert outcomes["rejection_rates"]["NO_CANDIDATES"] == 1.0
+
+    def test_stereo_pair_event_records_raw_and_adjusted_biased_clock_timing(self):
+        bus = EventBus()
+        config = create_test_config()
+        config = replace(
+            config,
+            stereo=replace(config.stereo, pairing_tolerance_ms=2.0, time_sync_offset_ns=-9_000_000),
+        )
+        service = DetectionServiceImpl(bus, config)
+        events: List[StereoFrameProcessedEvent] = []
+        bus.subscribe(StereoFrameProcessedEvent, events.append)
+        left = create_test_frame("left", 4, 100_000_000)
+        right = create_test_frame("right", 4, 109_000_000)
+
+        service._on_stereo_pair(left, right, [], [], [], lane_count=0, plate_count=0)
+
+        assert len(events) == 1
+        event = events[0]
+        assert event.left_timestamp_ns == 100_000_000
+        assert event.right_timestamp_ns == 109_000_000
+        assert event.adjusted_left_timestamp_ns == 100_000_000
+        assert event.adjusted_right_timestamp_ns == 100_000_000
+        assert event.time_sync_offset_ns == -9_000_000
+        assert event.raw_pair_skew_ns == 9_000_000
+        assert event.pair_skew_ns == 0
+        assert event.timestamp_ns == 100_000_000
+        assert "PAIR_SKEW_OUT_OF_TOLERANCE" not in event.rejection_reasons
 
 
 class TestDetectionServiceCallbacks:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import math
 from collections import deque
 from dataclasses import dataclass
 from typing import Deque, Optional
@@ -22,6 +23,20 @@ from .camera_device import CameraDevice, CameraStats
 from .timeout_utils import RetryPolicy, retry_on_failure, run_with_timeout
 
 logger = get_logger(__name__)
+
+
+def _directshow_exposure_us(raw_value: float) -> float:
+    if raw_value < 0:
+        return float((2.0**raw_value) * 1_000_000.0)
+    if 0.0 < raw_value < 1.0:
+        return float(raw_value * 1_000_000.0)
+    return float(raw_value)
+
+
+def _relative_close(actual: float, expected: float, tolerance: float) -> bool:
+    if expected == 0.0:
+        return abs(actual) <= 1e-6
+    return abs(actual - expected) / max(abs(expected), 1e-9) <= tolerance
 
 
 @dataclass
@@ -167,6 +182,9 @@ class UvcCamera(CameraDevice):
             self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
             self._capture.set(cv2.CAP_PROP_FPS, fps)
+            fourcc_name = {"YUYV": "YUY2", "YUY2": "YUY2", "MJPG": "MJPG"}.get(pixfmt.upper())
+            if fourcc_name:
+                self._capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*fourcc_name))
 
             # Verify settings were applied
             actual_width = self._capture.get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -197,13 +215,141 @@ class UvcCamera(CameraDevice):
     ) -> None:
         if self._capture is None:
             raise CameraConnectionError("Camera not opened.")
+        # DirectShow uses backend-specific exposure units, so retain both the
+        # requested microseconds and raw readback instead of pretending they
+        # are directly comparable.
+        self._requested_controls = {
+            "exposure_us": exposure_us,
+            "gain": gain,
+            "wb_mode": wb_mode,
+            "wb": wb,
+        }
+        auto_exposure_set = self._capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+        exposure_set = False
         if exposure_us > 0:
-            self._capture.set(cv2.CAP_PROP_EXPOSURE, float(exposure_us) / 1_000_000.0)
-        self._capture.set(cv2.CAP_PROP_GAIN, gain)
+            exposure_seconds = float(exposure_us) / 1_000_000.0
+            # OpenCV's DirectShow adapter uses log2(seconds) for exposure on
+            # common UVC drivers. Preserve raw readback and verify the reverse
+            # conversion instead of treating this as a universal camera unit.
+            backend_exposure = math.log2(exposure_seconds)
+            exposure_set = bool(self._capture.set(cv2.CAP_PROP_EXPOSURE, backend_exposure))
+        gain_set = self._capture.set(cv2.CAP_PROP_GAIN, gain)
+        color_capture = str(self._pixfmt).upper() != "GRAY8"
+        resolved_wb = wb
+        wb_source = "configured" if wb is not None else "not_applicable"
+        auto_wb_sampled_while_enabled = False
+        if color_capture and wb is None:
+            auto_wb_raw = float(self._capture.get(cv2.CAP_PROP_AUTO_WB))
+            if abs(auto_wb_raw) <= 0.1:
+                self._capture.set(cv2.CAP_PROP_AUTO_WB, 1)
+                auto_wb_raw = float(self._capture.get(cv2.CAP_PROP_AUTO_WB))
+            if abs(auto_wb_raw) > 0.1:
+                sampled_wb = float(self._capture.get(cv2.CAP_PROP_WB_TEMPERATURE))
+                if math.isfinite(sampled_wb) and sampled_wb > 0:
+                    resolved_wb = sampled_wb
+                    wb_source = "auto_sampled_then_locked"
+                    auto_wb_sampled_while_enabled = True
+                else:
+                    wb_source = "auto_sample_unavailable"
+
+        wb_set = not color_capture
+        auto_wb_set = False
         if wb_mode is None:
-            self._capture.set(cv2.CAP_PROP_AUTO_WB, 0)
-            if wb is not None:
-                self._capture.set(cv2.CAP_PROP_WB_TEMPERATURE, wb)
+            auto_wb_set = bool(self._capture.set(cv2.CAP_PROP_AUTO_WB, 0))
+            if resolved_wb is not None:
+                wb_set = bool(self._capture.set(cv2.CAP_PROP_WB_TEMPERATURE, resolved_wb))
+        autofocus_set = bool(self._capture.set(cv2.CAP_PROP_AUTOFOCUS, 0))
+
+        self._auto_exposure_set = bool(auto_exposure_set)
+        self._exposure_set = exposure_set
+        self._gain_set = bool(gain_set)
+        self._auto_wb_set = auto_wb_set
+        self._wb_set = bool(wb_set)
+        self._resolved_wb = resolved_wb
+        self._wb_source = wb_source
+        self._auto_wb_sampled_while_enabled = auto_wb_sampled_while_enabled
+        self._autofocus_set = autofocus_set
+
+    def get_mode(self):
+        if self._capture is None:
+            return None
+        raw_fourcc = int(self._capture.get(cv2.CAP_PROP_FOURCC))
+        fourcc = "".join(chr((raw_fourcc >> (8 * index)) & 0xFF) for index in range(4)).rstrip("\x00")
+        return {
+            "width": int(self._capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            "height": int(self._capture.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+            "fps": float(self._capture.get(cv2.CAP_PROP_FPS)),
+            "pixfmt": fourcc or self._pixfmt,
+        }
+
+    def get_controls(self):
+        if self._capture is None:
+            return None
+        requested = dict(getattr(self, "_requested_controls", {}))
+        exposure_raw = float(self._capture.get(cv2.CAP_PROP_EXPOSURE))
+        exposure_readback_us = _directshow_exposure_us(exposure_raw)
+        gain_readback = float(self._capture.get(cv2.CAP_PROP_GAIN))
+        wb_readback = float(self._capture.get(cv2.CAP_PROP_WB_TEMPERATURE))
+        auto_exposure_raw = float(self._capture.get(cv2.CAP_PROP_AUTO_EXPOSURE))
+        auto_wb_raw = float(self._capture.get(cv2.CAP_PROP_AUTO_WB))
+        autofocus_raw = float(self._capture.get(cv2.CAP_PROP_AUTOFOCUS))
+        auto_exposure_disabled = bool(getattr(self, "_auto_exposure_set", False)) and (
+            abs(auto_exposure_raw - 0.25) <= 0.1 or abs(auto_exposure_raw) <= 0.1
+        )
+        auto_wb_disabled = abs(auto_wb_raw) <= 0.1
+        autofocus_disabled = abs(autofocus_raw) <= 0.1
+        exposure_ok = bool(getattr(self, "_exposure_set", False)) and _relative_close(
+            exposure_readback_us, float(requested.get("exposure_us") or 0.0), 0.25
+        )
+        gain_ok = bool(getattr(self, "_gain_set", False)) and _relative_close(
+            gain_readback, float(requested.get("gain") or 0.0), 0.15
+        )
+        requested_wb = getattr(self, "_resolved_wb", requested.get("wb"))
+        wb_source = str(getattr(self, "_wb_source", "configured" if requested_wb is not None else "not_applicable"))
+        color_capture = str(self._pixfmt).upper() != "GRAY8"
+        wb_ok = (requested_wb is None and not color_capture) or (
+            requested_wb is not None
+            and auto_wb_disabled
+            and bool(getattr(self, "_wb_set", False))
+            and _relative_close(wb_readback, float(requested_wb), 0.1)
+        )
+        readback_verified = (
+            auto_exposure_disabled
+            and auto_wb_disabled
+            and autofocus_disabled
+            and exposure_ok
+            and gain_ok
+            and wb_ok
+        )
+        return {
+            **requested,
+            "exposure_backend_raw": exposure_raw,
+            "exposure_readback_us": exposure_readback_us,
+            "actual_exposure_us": exposure_readback_us,
+            "gain_readback": gain_readback,
+            "actual_gain": gain_readback,
+            "wb_readback": wb_readback,
+            "actual_wb": wb_readback if requested_wb is not None else None,
+            "resolved_wb": requested_wb,
+            "wb_source": wb_source,
+            "auto_wb_sampled_while_enabled": bool(
+                getattr(self, "_auto_wb_sampled_while_enabled", False)
+            ),
+            "auto_exposure_readback_raw": auto_exposure_raw,
+            "auto_white_balance_readback_raw": auto_wb_raw,
+            "autofocus_readback_raw": autofocus_raw,
+            "auto_exposure_disabled": auto_exposure_disabled,
+            "auto_white_balance_disabled": auto_wb_disabled,
+            "autofocus_disable_write_succeeded": bool(getattr(self, "_autofocus_set", False)),
+            "autofocus_disabled": autofocus_disabled,
+            "color_white_balance_verified": wb_ok if color_capture else None,
+            "readback_verified": readback_verified,
+            "readback_note": (
+                "Verified using DirectShow log2(seconds) exposure semantics."
+                if readback_verified
+                else "Control write/readback mismatch; measurement setup must remain blocked."
+            ),
+        }
 
     def read_frame(self, timeout_ms: int) -> Frame:
         """Read a frame from the camera.
@@ -280,9 +426,9 @@ class UvcCamera(CameraDevice):
     def get_stats(self) -> CameraStats:
         jitter_p95_ms = 0.0
         if self._deltas_ns:
-            samples = sorted(self._deltas_ns)
-            index = int(0.95 * (len(samples) - 1))
-            jitter_p95_ms = samples[index] / 1e6
+            intervals = np.asarray(self._deltas_ns, dtype=float) / 1e6
+            deviations = np.abs(intervals - np.median(intervals))
+            jitter_p95_ms = float(np.percentile(deviations, 95))
         return CameraStats(
             fps_avg=self._stats.fps_avg,
             fps_instant=self._stats.fps_instant,

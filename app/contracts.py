@@ -51,6 +51,10 @@ class PitchSummary:
     observation_quality_status: Optional[str] = None
     observation_rejection_reasons: list[str] | None = None
     observation_warning_reasons: list[str] | None = None
+    measurement_status: str = "ESTIMATED"
+    speed_source: Optional[str] = None
+    correction_records: list[dict[str, Any]] | None = None
+    quality_diagnostics: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -61,6 +65,18 @@ class SessionSummary:
     balls: int
     heatmap: list[list[int]]
     pitches: list[PitchSummary]
+
+
+def measurement_is_usable(pitch: PitchSummary) -> bool:
+    """Return whether a pitch may contribute to downstream coaching claims.
+
+    ``REJECTED`` and ``UNAVAILABLE`` pitches remain visible as evidence, but
+    must not silently become balls, misses, trend samples, game attempts, or
+    plate locations. Other statuses retain their explicit estimated/degraded
+    qualification and are usable by current coaching workflows.
+    """
+
+    return str(pitch.measurement_status or "").upper() not in {"REJECTED", "UNAVAILABLE"}
 
 
 def _filter_dataclass_fields(cls: type, payload: dict[str, Any]) -> dict[str, Any]:

@@ -1,4 +1,4 @@
-"""Registry wiring the canonical 9-step stereo spec to wizard widgets.
+"""Registry wiring the canonical evidence-gated stereo spec to wizard widgets.
 
 :data:`~ui.setup.state_machine.DEFAULT_SETUP_SPEC` defines the canonical stereo
 setup flow (the architecture-note target). This module maps each
@@ -6,10 +6,10 @@ setup flow (the architecture-note target). This module maps each
 genuine stereo wizard can run on the tested
 :class:`~ui.setup.state_machine.SetupStateMachine` engine.
 
-All nine canonical steps are real, synthetic-testable widgets driven by
+All canonical steps are real, synthetic-testable widgets driven by
 injectable providers: camera selection, paired preview, sync check,
 focus/exposure lock, overlap, coarse rectification, optional ChArUco
-fine-tuning, profile persistence, and the final quality report. The flow is
+fine-tuning, field alignment, profile persistence, and the final quality report. The flow is
 navigable end-to-end on the tested state machine without hardware.
 
 :class:`PlaceholderStep` is retained as an honest stand-in for any future step
@@ -28,6 +28,7 @@ from ui.setup.steps import (
     CameraSelectStep,
     CharucoFinetuneStep,
     FocusLockStep,
+    FieldAlignmentStep,
     OverlapStep,
     PairedPreviewStep,
     PersistProfileStep,
@@ -40,7 +41,7 @@ from ui.themes import apply_standard_layout, build_notice, style_status_label
 # Titles come from the canonical spec so the registry never drifts from it.
 _SPEC_TITLES = {spec.step: spec.title for spec in DEFAULT_SETUP_SPEC}
 
-# Steps that do not yet have a genuine widget. Empty: all nine are built.
+# Steps that do not yet have a genuine widget. Empty: all are built.
 _PLACEHOLDER_NOTES: Dict[SetupStep, str] = {}
 
 
@@ -94,6 +95,7 @@ def build_stereo_step_widgets() -> Dict[SetupStep, BaseStep]:
         SetupStep.OVERLAP_VALIDATION: OverlapStep(),
         SetupStep.COARSE_RECTIFY: RectifyStep(),
         SetupStep.CHARUCO_FINE_TUNE: CharucoFinetuneStep(),
+        SetupStep.FIELD_ALIGNMENT: FieldAlignmentStep(),
         SetupStep.PERSIST_PROFILE: PersistProfileStep(),
         SetupStep.QUALITY_REPORT: QualityReportStep(),
     }

@@ -8,7 +8,7 @@ If you received the installer, see [README_INSTALL.md](README_INSTALL.md) for in
 1. Download `PitchTracker-Setup-v2.0.0-stereo.exe`
 2. Run installer (requires Windows 10+)
 3. Launch from Start Menu
-4. Complete the 9-step stereo Setup Wizard
+4. Complete the 10-step stereo Setup Wizard
 
 **Current Version:** v2.0.0-stereo (Stereo-foundation rebuild - June 2026)
 

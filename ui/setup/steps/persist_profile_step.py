@@ -101,8 +101,8 @@ class PersistProfileStep(BaseStep):
 
     def validate(self) -> tuple[bool, str]:
         return (
-            self._profile is not None,
-            "" if self._profile is not None else "Run calibration before persisting a profile.",
+            self._profile is not None and self._persisted,
+            "" if self._profile is not None and self._persisted else "Persist the calibrated rig profile before continuing.",
         )
 
     def on_enter(self) -> None:
@@ -110,10 +110,16 @@ class PersistProfileStep(BaseStep):
 
     def refresh(self) -> None:
         """Rebuild and render the profile preview from the provider."""
+        # A refreshed preview may describe different calibration artifacts or
+        # cameras. It must be persisted again before it can satisfy the gate.
+        self._persisted = False
         self._profile = self._profile_provider()
+        style_status_label(self._status_label, "info", "")
         self._render(present_persist_preview(self._profile))
 
     def _persist(self) -> None:
+        # A failed retry must not retain success from an earlier callback.
+        self._persisted = False
         if self._profile is None:
             style_status_label(self._status_label, "error", "Nothing to persist.")
             return
@@ -123,7 +129,6 @@ class PersistProfileStep(BaseStep):
                 "warning",
                 "Profile prepared. Saving requires the full setup context.",
             )
-            self._persisted = True
             return
         try:
             result = self._persist_callback(self._profile)

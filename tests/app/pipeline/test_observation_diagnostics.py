@@ -38,7 +38,7 @@ def test_summarize_observations_reports_timing_and_coverage() -> None:
 
     assert stats["observation_count"] == 3
     assert stats["observation_duration_ms"] == 20.0
-    assert stats["observation_rate_hz"] == 150.0
+    assert stats["observation_rate_hz"] == 100.0
     assert stats["observation_max_gap_ms"] == 10.0
     assert stats["observation_z_span_ft"] == 2.0
     assert abs(stats["observation_mean_confidence"] - 0.8) < 0.001
@@ -46,7 +46,7 @@ def test_summarize_observations_reports_timing_and_coverage() -> None:
     assert stats["observation_max_depth_sigma_ft"] is None
     assert stats["observation_quality_status"] == "REJECT"
     assert stats["observation_rejection_reasons"] == ["INSUFFICIENT_OBSERVATIONS"]
-    assert stats["observation_warning_reasons"] == []
+    assert stats["observation_warning_reasons"] == ["UNCERTAINTY_UNAVAILABLE"]
 
 
 def test_summarize_observations_reports_depth_uncertainty_from_covariance() -> None:
@@ -62,6 +62,7 @@ def test_summarize_observations_reports_depth_uncertainty_from_covariance() -> N
     assert stats["observation_max_depth_sigma_ft"] == pytest.approx(2.0)
     assert stats["observation_quality_status"] == "REJECT"
     assert stats["observation_rejection_reasons"] == ["INSUFFICIENT_OBSERVATIONS"]
+    assert stats["observation_warning_reasons"] == ["UNCERTAINTY_EVIDENCE_INCOMPLETE"]
 
 
 def test_summarize_observations_passes_healthy_observation_set() -> None:
@@ -77,6 +78,20 @@ def test_summarize_observations_passes_healthy_observation_set() -> None:
     assert stats["observation_quality_status"] == "PASS"
     assert stats["observation_rejection_reasons"] == []
     assert stats["observation_warning_reasons"] == []
+
+
+def test_summarize_observations_degrades_without_uncertainty_evidence() -> None:
+    stats = summarize_observations(
+        [
+            _obs(0, 50.0, 0.9),
+            _obs(10_000_000, 47.0, 0.9),
+            _obs(20_000_000, 44.0, 0.9),
+            _obs(30_000_000, 41.0, 0.9),
+        ]
+    )
+    assert stats["observation_rate_hz"] == 100.0
+    assert stats["observation_quality_status"] == "WARN"
+    assert stats["observation_warning_reasons"] == ["UNCERTAINTY_UNAVAILABLE"]
 
 
 def test_summarize_observations_warns_on_marginal_depth_uncertainty_and_gap() -> None:

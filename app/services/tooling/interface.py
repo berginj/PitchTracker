@@ -10,6 +10,8 @@ from contracts.tooling import (
     CalibrationRequest,
     CalibrationResult,
     EnvironmentValidationResult,
+    PhysicalValidationRequest,
+    PhysicalValidationResult,
     TrainingReportRequest,
     TrainingReportResult,
 )
@@ -33,3 +35,7 @@ class ToolingService(ABC):
     @abstractmethod
     def analyze_alignment(self, request: AlignmentAnalysisRequest) -> AlignmentAnalysisResult:
         """Analyze camera alignment in a worker process."""
+
+    @abstractmethod
+    def validate_physical_dataset(self, request: PhysicalValidationRequest) -> PhysicalValidationResult:
+        """Evaluate independent physical evidence without promoting a mode."""

@@ -24,6 +24,7 @@ class SimulatedCamera(CameraDevice):
         self._vertical_offset_px = 0
         self._frame_index = 0
         self._last_frame_time = time.monotonic()
+        self._controls = {"exposure_us": 0, "gain": 0.0, "wb_mode": None, "wb": None}
 
     def open(self, serial: str) -> None:
         self._serial = serial
@@ -53,7 +54,22 @@ class SimulatedCamera(CameraDevice):
         wb_mode: Optional[str],
         wb: Optional[int],
     ) -> None:
-        return None
+        self._controls = {
+            "exposure_us": exposure_us,
+            "gain": gain,
+            "wb_mode": wb_mode,
+            "wb": wb,
+            "auto_exposure_disabled": True,
+            "auto_white_balance_disabled": wb_mode is None,
+            "autofocus_disabled": True,
+            "readback_verified": True,
+        }
+
+    def get_mode(self):
+        return {"width": self._width, "height": self._height, "fps": self._fps, "pixfmt": self._pixfmt}
+
+    def get_controls(self):
+        return dict(self._controls)
 
     def read_frame(self, timeout_ms: int) -> Frame:
         if self._fps > 0:

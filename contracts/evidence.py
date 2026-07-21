@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 SCHEMA_VERSION = "evidence.v1"
+DECISION_SCHEMA_VERSION = "decision_evidence.v2"
 STATUS_ACCEPTED = "ACCEPTED"
 STATUS_REJECTED = "REJECTED"
 STATUS_WARN = "WARN"
@@ -23,6 +24,125 @@ STATUS_PASS = "PASS"
 Vec2 = Tuple[float, float]
 Vec3 = Tuple[float, float, float]
 Cov3 = Tuple[Tuple[float, float, float], Tuple[float, float, float], Tuple[float, float, float]]
+
+
+@dataclass(frozen=True)
+class DecisionArtifactBindings:
+    """Hashes/versions that bind a decision to reproducible external inputs."""
+
+    config_sha256: Optional[str] = None
+    calibration_sha256: Optional[str] = None
+    roi_sha256: Optional[str] = None
+    detector_name: Optional[str] = None
+    detector_version: Optional[str] = None
+    model_sha256: Optional[str] = None
+    algorithm_name: Optional[str] = None
+    algorithm_version: Optional[str] = None
+    schema_version: str = DECISION_SCHEMA_VERSION
+
+    def to_payload(self) -> Dict[str, Any]:
+        return dict(self.__dict__)
+
+
+@dataclass(frozen=True)
+class CandidateDecisionEvidence:
+    """One detector-returned candidate and every service-level disposition."""
+
+    candidate_id: str
+    camera_id: str
+    frame_id: str
+    frame_index: int
+    t_capture_monotonic_ns: int
+    center_px: Vec2
+    radius_px: float
+    confidence: float
+    tracklet_id: Optional[str] = None
+    tracklet_action: Optional[str] = None
+    association_eligible: bool = True
+    rejection_reasons: Tuple[str, ...] = ()
+    diagnostics: Dict[str, Any] = field(default_factory=dict)
+    schema_version: str = DECISION_SCHEMA_VERSION
+
+    def to_payload(self) -> Dict[str, Any]:
+        return _payload(
+            self,
+            center_px=list(self.center_px),
+            rejection_reasons=list(self.rejection_reasons),
+        )
+
+
+@dataclass(frozen=True)
+class PairingOutcomeEvidence:
+    """Terminal pairing disposition for one or two processed camera frames."""
+
+    outcome_id: str
+    status: str
+    left_frame_id: Optional[str] = None
+    right_frame_id: Optional[str] = None
+    left_timestamp_ns: Optional[int] = None
+    right_timestamp_ns: Optional[int] = None
+    adjusted_left_timestamp_ns: Optional[int] = None
+    adjusted_right_timestamp_ns: Optional[int] = None
+    raw_pair_skew_ns: Optional[int] = None
+    pair_skew_ns: Optional[int] = None
+    pairing_mode: str = "timestamp"
+    reason_codes: Tuple[str, ...] = ()
+    schema_version: str = DECISION_SCHEMA_VERSION
+
+    @property
+    def frame_count(self) -> int:
+        return int(self.left_frame_id is not None) + int(self.right_frame_id is not None)
+
+    def to_payload(self) -> Dict[str, Any]:
+        return _payload(self, reason_codes=list(self.reason_codes))
+
+
+@dataclass(frozen=True)
+class AssociationEdgeEvidence:
+    """A scored left/right candidate edge, including rejected edges."""
+
+    edge_id: str
+    left_candidate_id: str
+    right_candidate_id: str
+    valid: bool
+    decision: str
+    total_cost_units: int
+    epipolar_error_px: Optional[float]
+    score: float
+    cost_components: Dict[str, float] = field(default_factory=dict)
+    gate_results: Dict[str, bool] = field(default_factory=dict)
+    rejection_reasons: Tuple[str, ...] = ()
+    schema_version: str = DECISION_SCHEMA_VERSION
+
+    def to_payload(self) -> Dict[str, Any]:
+        return _payload(self, rejection_reasons=list(self.rejection_reasons))
+
+
+@dataclass(frozen=True)
+class TriangulationDecisionEvidence:
+    """Terminal triangulation result linked to its selected association edge."""
+
+    observation_id: str
+    edge_id: str
+    status: str
+    xyz_ft: Optional[Vec3] = None
+    covariance: Optional[Cov3] = None
+    quality: Optional[float] = None
+    confidence: Optional[float] = None
+    depth_sigma_ft: Optional[float] = None
+    diagnostics: Dict[str, Any] = field(default_factory=dict)
+    rejection_reasons: Tuple[str, ...] = ()
+    schema_version: str = DECISION_SCHEMA_VERSION
+
+    def to_payload(self) -> Dict[str, Any]:
+        xyz = None if self.xyz_ft is None else list(self.xyz_ft)
+        covariance = None if self.covariance is None else [list(row) for row in self.covariance]
+        return _payload(
+            self,
+            xyz_ft=xyz,
+            covariance=covariance,
+            rejection_reasons=list(self.rejection_reasons),
+        )
 
 
 @dataclass(frozen=True)

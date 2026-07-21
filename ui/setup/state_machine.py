@@ -47,6 +47,7 @@ class SetupStep(Enum):
     OVERLAP_VALIDATION = "overlap_validation"
     COARSE_RECTIFY = "coarse_rectify"
     CHARUCO_FINE_TUNE = "charuco_fine_tune"
+    FIELD_ALIGNMENT = "field_alignment"
     PERSIST_PROFILE = "persist_profile"
     QUALITY_REPORT = "quality_report"
 
@@ -70,7 +71,7 @@ class StepSpec:
     prerequisites: Tuple[SetupStep, ...] = ()
 
 
-# Default 9-step stereo-rig setup specification. ChArUco fine-tuning is the only
+# Default evidence-gated stereo-rig setup specification. ChArUco fine-tuning is the only
 # optional step: a usable rig can be produced from the targetless coarse
 # rectification alone (see architecture note, decision round 1).
 DEFAULT_SETUP_SPEC: Tuple[StepSpec, ...] = (
@@ -99,9 +100,14 @@ DEFAULT_SETUP_SPEC: Tuple[StepSpec, ...] = (
         prerequisites=(SetupStep.COARSE_RECTIFY,),
     ),
     StepSpec(
+        SetupStep.FIELD_ALIGNMENT,
+        "Field alignment",
+        prerequisites=(SetupStep.COARSE_RECTIFY,),
+    ),
+    StepSpec(
         SetupStep.PERSIST_PROFILE,
         "Persist profile",
-        prerequisites=(SetupStep.COARSE_RECTIFY,),
+        prerequisites=(SetupStep.FIELD_ALIGNMENT,),
     ),
     StepSpec(
         SetupStep.QUALITY_REPORT,
@@ -116,7 +122,7 @@ class SetupStateMachine:
     """Drives ordered, prerequisite-gated traversal of setup steps.
 
     Args:
-        specs: Ordered step specifications. Defaults to the 9-step stereo spec.
+        specs: Ordered step specifications. Defaults to the canonical stereo spec.
 
     Raises:
         ValueError: If ``specs`` is empty, contains duplicate steps, or

@@ -96,7 +96,7 @@ def test_analysis_service_pause_resume_preserves_existing_summary() -> None:
         duration_ns=120_000_000,
     )
     bus.publish(event)
-    time.sleep(0.05)
+    assert service.wait_for_idle(timeout=300)
     assert service.get_session_summary().pitch_count == 1
 
     service.pause_analysis()
@@ -120,7 +120,7 @@ def test_analysis_service_pause_resume_preserves_existing_summary() -> None:
             duration_ns=120_000_000,
         )
     )
-    time.sleep(0.05)
+    assert service.wait_for_idle(timeout=300)
     assert service.get_session_summary().pitch_count == 2
 
 

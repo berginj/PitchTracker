@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Dict, List, Optional
 
 from app.contracts import PitchSummary
@@ -11,10 +10,12 @@ from configs.settings import AppConfig
 from contracts import RayObservation, StereoObservation
 from metrics.simple_metrics import compute_plate_from_observations
 from metrics.strike_zone import build_strike_zone, is_strike
+from calib.field_transform import FieldTransform
 from trajectory.camera_model import load_stereo_ray_camera_models
 from trajectory.contracts import FailureCode, TrajectoryDiagnostics, TrajectoryFitRequest, TrajectoryFitResult
 from trajectory.registry import TrajectoryFitterRegistry
 from app.pipeline.analysis.observation_diagnostics import summarize_observations
+from app.pipeline.corrections import record_fitted_camera_time_offset
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ class PitchAnalyzer:
         config: AppConfig,
         get_ball_radius_fn,
         radar_speed_fn,
+        speed_source_fn=None,
     ):
         """Initialize pitch analyzer.
 
@@ -41,10 +43,14 @@ class PitchAnalyzer:
             config: Application configuration
             get_ball_radius_fn: Function to get current ball radius in inches
             radar_speed_fn: Function to get radar speed in mph (or None)
+            speed_source_fn: Optional function identifying an available external
+                speed as ``manual_override``, ``radar_measurement``, or another
+                explicit provenance label.
         """
         self._config = config
         self._get_ball_radius_fn = get_ball_radius_fn
         self._radar_speed_fn = radar_speed_fn
+        self._speed_source_fn = speed_source_fn
         self._trajectory_registry = TrajectoryFitterRegistry()
 
     def analyze_pitch(
@@ -99,7 +105,15 @@ class PitchAnalyzer:
         # Extract diagnostics
         diagnostics = trajectory_result.diagnostics if trajectory_result else None
 
-        # Create summary
+        fitted_speed = _fitted_release_speed_mph(trajectory_result)
+        reported_speed = radar_speed if radar_speed is not None else fitted_speed
+        if radar_speed is not None:
+            speed_source = self._speed_source_fn() if self._speed_source_fn is not None else "external_measurement"
+        else:
+            speed_source = "vision_fit" if fitted_speed is not None else None
+
+        # Create summary. run/rise retain the legacy fields, but are explicitly
+        # described as raw net displacement rather than validated pitch movement.
         summary = PitchSummary(
             pitch_id=pitch_id,
             t_start_ns=start_ns,
@@ -109,7 +123,7 @@ class PitchAnalyzer:
             zone_col=strike.zone_col,
             run_in=metrics.run_in,
             rise_in=metrics.rise_in,
-            speed_mph=radar_speed,
+            speed_mph=reported_speed,
             rotation_rpm=None,
             sample_count=metrics.sample_count,
             trajectory_plate_x_ft=crossing_xyz[0] if crossing_xyz else None,
@@ -140,10 +154,20 @@ class PitchAnalyzer:
             observation_quality_status=observation_stats["observation_quality_status"],
             observation_rejection_reasons=observation_stats["observation_rejection_reasons"],
             observation_warning_reasons=observation_stats["observation_warning_reasons"],
+            measurement_status=_measurement_status(observation_stats, trajectory_result),
+            speed_source=speed_source,
+            correction_records=_correction_records(start_ns, diagnostics, self._config),
+            quality_diagnostics={
+                "speed_available": reported_speed is not None,
+                "speed_source": speed_source,
+                "movement_basis": "raw_observation_net_displacement",
+                "movement_validated": False,
+                "plate_crossing_available": crossing_xyz is not None,
+                "trajectory_mode": trajectory_mode,
+            },
         )
 
         return summary
-
     def update_config(self, config: AppConfig) -> None:
         """Update configuration.
 
@@ -248,11 +272,65 @@ class PitchAnalyzer:
 
             service = RigProfileService()
             profile = service.load_active()
-            calibration_path = service.calibration_path(profile) if profile is not None else Path("calibration/stereo_calibration.npz")
-            return load_stereo_ray_camera_models(calibration_path)
+            if profile is None:
+                raise ValueError("no active rig profile proves the calibration-to-field frame")
+            payload = profile.field_transform or {}
+            transform = FieldTransform(
+                tuple(tuple(float(value) for value in row) for row in payload["matrix_4x4"]),
+                float(payload.get("rms_residual_ft", float("inf"))),
+                str(payload.get("fixture_id") or "unknown"),
+                float(payload.get("max_rms_residual_ft", 0.1)),
+            )
+            if not transform.passes_residual_gate:
+                raise ValueError(
+                    f"field transform RMS {transform.rms_residual_ft:.3f} ft exceeds "
+                    f"{transform.max_rms_residual_ft:.3f} ft gate"
+                )
+            calibration_path = service.calibration_path(profile)
+            camera_models = load_stereo_ray_camera_models(calibration_path)
+            return {
+                camera_id: model.in_transformed_world_frame(transform.matrix_4x4)
+                for camera_id, model in camera_models.items()
+            }
         except Exception as exc:
-            logger.debug("Ray camera models unavailable: %s", exc)
+            # Returning no camera models produces the fitter's structured
+            # CAMERA_MODEL_MISSING failure and prevents field plate-plane math
+            # from being applied to camera-frame extrinsics.
+            logger.warning("Ray camera models unavailable in a proven field frame: %s", exc)
             return {}
+
+
+def _measurement_status(observation_stats: dict, trajectory_result: Optional[TrajectoryFitResult]) -> str:
+    status = str(observation_stats.get("observation_quality_status") or "").upper()
+    if status == "REJECT":
+        return "REJECTED"
+    if trajectory_result is None or trajectory_result.plate_crossing_xyz_ft is None:
+        return "UNAVAILABLE"
+    if status == "WARN":
+        return "DEGRADED"
+    return "ESTIMATED"
+
+
+def _fitted_release_speed_mph(result: Optional[TrajectoryFitResult]) -> Optional[float]:
+    if not _result_is_usable(result) or not result.samples:
+        return None
+    sample = result.samples[0]
+    speed_ft_s = (sample.Vx**2 + sample.Vy**2 + sample.Vz**2) ** 0.5
+    speed_mph = float(speed_ft_s * 0.681818)
+    return speed_mph if 0.0 < speed_mph < 150.0 else None
+
+
+def _correction_records(start_ns: int, diagnostics: Optional[TrajectoryDiagnostics], config: AppConfig) -> list[dict]:
+    if diagnostics is None or diagnostics.estimated_camera_time_offset_ms is None:
+        return []
+    correction = record_fitted_camera_time_offset(
+        diagnostics.estimated_camera_time_offset_ms,
+        prior_offset_ms=config.trajectory.ray.time_offset_prior_ms,
+        max_abs_offset_ms=config.trajectory.ray.max_time_offset_ms,
+        correction_id=f"camera-offset-{start_ns}",
+        timestamp_ns=start_ns,
+    )
+    return [correction.to_payload()]
 
 
 def _result_is_usable(result: Optional[TrajectoryFitResult]) -> bool:

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from PySide6 import QtWidgets
 
+from app.contracts import measurement_is_usable
 from ui.coaching.widgets.games.around_world_game import AroundWorldGame
 from ui.coaching.widgets.games.speed_challenge_game import SpeedChallengeGame
 from ui.coaching.widgets.games.target_scoring_game import TargetScoringGame
@@ -96,7 +97,12 @@ class GameModeWidget(BaseModeWidget):
         game_names = ["Tic-Tac-Toe", "Target Scoring", "Around the World", "Speed Challenge"]
         logger.debug(f"Game mode: Selected {game_names[index]}")
 
-    def update_pitch_data(self, recent_pitches: List["PitchSummary"]) -> None:
+    def update_pitch_data(
+        self,
+        recent_pitches: List["PitchSummary"],
+        *,
+        new_pitches: Optional[List["PitchSummary"]] = None,
+    ) -> None:
         """Update visualization with new pitch data.
 
         Args:
@@ -105,11 +111,18 @@ class GameModeWidget(BaseModeWidget):
         if not recent_pitches:
             return
 
-        # Forward latest pitch to active game
-        latest_pitch = recent_pitches[-1]
+        # Only unseen attempts may mutate game state. Passing an empty list is
+        # also how mode switching refreshes presentation without replaying a
+        # historical pitch.
+        pitches_to_process = new_pitches if new_pitches is not None else recent_pitches[-1:]
         current_game = self._game_stack.currentWidget()
         if current_game:
-            current_game.process_pitch(latest_pitch)
+            for pitch in pitches_to_process:
+                if not measurement_is_usable(pitch):
+                    continue
+                if current_game.get_game_name() == "speed_challenge" and pitch.speed_mph is None:
+                    continue
+                current_game.process_pitch(pitch)
 
     def update_camera_frames(self, left_frame: Optional["Frame"], right_frame: Optional["Frame"]) -> None:
         """Update camera preview frames.

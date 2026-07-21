@@ -13,20 +13,22 @@ def _camera(
     friendly_name: str,
     side: str = SIDE_UNASSIGNED,
     recognized: bool = False,
+    global_shutter: bool = False,
 ) -> DiscoveredCamera:
     return DiscoveredCamera(
         hardware_id=hardware_id,
         friendly_name=friendly_name,
         side=side,
         recognized=recognized,
+        global_shutter=global_shutter,
     )
 
 
 def test_grade_selection_passes_with_distinct_left_and_right() -> None:
     snapshot = CameraSelectionSnapshot(
         cameras=(
-            _camera("left-serial", "Left Camera", SIDE_LEFT),
-            _camera("right-serial", "Right Camera", SIDE_RIGHT),
+            _camera("left-serial", "Left Camera", SIDE_LEFT, recognized=True, global_shutter=True),
+            _camera("right-serial", "Right Camera", SIDE_RIGHT, recognized=True, global_shutter=True),
         )
     )
 
@@ -63,8 +65,8 @@ def test_grade_selection_fails_when_same_device_is_assigned_to_both_sides() -> N
 def test_present_camera_selection_success_uses_success_tone_and_rows() -> None:
     snapshot = CameraSelectionSnapshot(
         cameras=(
-            _camera("left-serial", "Left Camera", SIDE_LEFT, recognized=True),
-            _camera("right-serial", "Right Camera", SIDE_RIGHT),
+            _camera("left-serial", "Left Camera", SIDE_LEFT, recognized=True, global_shutter=True),
+            _camera("right-serial", "Right Camera", SIDE_RIGHT, recognized=True, global_shutter=True),
         )
     )
 
@@ -73,9 +75,37 @@ def test_present_camera_selection_success_uses_success_tone_and_rows() -> None:
     assert view.headline == "Camera selection: ready"
     assert view.tone == "success"
     assert view.rows[0].label == "Left Camera"
-    assert view.rows[0].value == "left (recognized)"
+    assert view.rows[0].value == "left (recognized global shutter)"
     assert view.rows[-1].value == "PASS"
     assert view.warnings == []
+
+
+def test_grade_selection_rejects_unrecognized_physical_cameras() -> None:
+    snapshot = CameraSelectionSnapshot(
+        cameras=(
+            _camera("left-serial", "Unknown Left", SIDE_LEFT),
+            _camera("right-serial", "Unknown Right", SIDE_RIGHT),
+        )
+    )
+
+    passed, reason = grade_selection(snapshot)
+
+    assert passed is False
+    assert "recognized global-shutter" in reason
+
+
+def test_grade_selection_rejects_recognized_rolling_shutter_camera() -> None:
+    snapshot = CameraSelectionSnapshot(
+        cameras=(
+            _camera("left-serial", "Global Left", SIDE_LEFT, recognized=True, global_shutter=True),
+            _camera("right-serial", "Rolling Right", SIDE_RIGHT, recognized=True, global_shutter=False),
+        )
+    )
+
+    passed, reason = grade_selection(snapshot)
+
+    assert passed is False
+    assert "Rolling Right" in reason
 
 
 def test_present_camera_selection_failure_uses_error_tone_for_empty_snapshot() -> None:

@@ -14,6 +14,8 @@ from contracts.tooling import (
     CalibrationRequest,
     CalibrationResult,
     EnvironmentValidationResult,
+    PhysicalValidationRequest,
+    PhysicalValidationResult,
     TrainingReportRequest,
     TrainingReportResult,
 )
@@ -64,6 +66,14 @@ class SubprocessToolingService(ToolingService):
             timeout_seconds=120,
         )
         return AlignmentAnalysisResult.from_payload(payload)
+
+    def validate_physical_dataset(self, request: PhysicalValidationRequest) -> PhysicalValidationResult:
+        payload = self._run_task(
+            "validate_physical_dataset",
+            request.to_payload(),
+            timeout_seconds=300,
+        )
+        return PhysicalValidationResult.from_payload(payload)
 
     def _run_task(
         self,

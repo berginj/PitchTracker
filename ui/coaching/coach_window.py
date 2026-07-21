@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import json
 import threading
 from dataclasses import replace
 from pathlib import Path
@@ -11,6 +12,7 @@ from typing import Optional
 from PySide6 import QtCore, QtWidgets
 
 from app.qt_pipeline_service import QtPipelineService
+from app.services.rig_profile import RigProfileService
 from configs.app_state import load_state, save_state
 from configs.settings import load_config
 from ui.coaching.dialogs import SessionStartDialog
@@ -56,12 +58,20 @@ class CoachWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("PitchTracker - Coaching Session")
         self.resize(1400, 900)
         self._style_manager = get_style_manager()
+        self._backend = backend
 
         # Load configuration
         if config_path is None:
             config_path = Path("configs/default.yaml")
         self._config_path = config_path
         self._config = load_config(config_path)
+        active_profile = RigProfileService(config_path=config_path).load_active()
+        if active_profile is not None:
+            self._config = RigProfileService(config_path=config_path).apply_profile_to_config(
+                self._config,
+                active_profile,
+                preserve_camera_mode=False,
+            )
 
         # Initialize Qt-safe pipeline service (handles thread-safe callbacks)
         self._service = QtPipelineService(backend=backend, parent=self)
@@ -72,14 +82,18 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._pitch_count = 0
         self._session_name = ""
         self._pitcher_name = ""
+        self._last_pitch_count = 0
+        self._processed_pitch_ids: set[str] = set()
+        self._pitch_snapshot: list = []
         self._strike_zone_overlay_config = StrikeZoneOverlayConfig.from_app_config(self._config)
 
-        # Camera settings (load from saved state or use defaults)
-        state = load_state()
-        self._camera_width = state.get("coaching_width", 640)
-        self._camera_height = state.get("coaching_height", 480)
-        self._camera_fps = state.get("coaching_fps", 30)
-        self._camera_color_mode = state.get("coaching_color_mode", True)
+        # Display the configured mode. An active rig profile is authoritative at
+        # capture time; stale per-user UI state must never override calibrated
+        # geometry.
+        self._camera_width = self._config.camera.width
+        self._camera_height = self._config.camera.height
+        self._camera_fps = self._config.camera.fps
+        self._camera_color_mode = self._config.camera.color_mode
 
         # Build UI
         self._build_ui()
@@ -93,9 +107,6 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._metrics_timer = QtCore.QTimer()
         self._metrics_timer.timeout.connect(self._update_metrics)
         self._metrics_timer.start(100)  # 10 Hz
-
-        # Last known pitch count
-        self._last_pitch_count = 0
 
         # Connect pitch detection signals (thread-safe communication from worker threads)
         self._service.pitch_started.connect(self._on_pitch_started)
@@ -163,6 +174,13 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._style_manager.style_status_indicator(self._recording_indicator, "error")
         self._recording_indicator.hide()
 
+        self._quality_indicator = QtWidgets.QLabel("Quality: waiting")
+        self._style_manager.style_status_indicator(self._quality_indicator, "info")
+        self._diagnostics_button = QtWidgets.QPushButton("Diagnostics")
+        self._diagnostics_button.setToolTip("Open detailed capture, tracking, and correction evidence")
+        self._style_manager.style_button(self._diagnostics_button, "ghost")
+        self._diagnostics_button.clicked.connect(self._show_quality_diagnostics)
+
         # Separator labels (also need black color)
         sep1 = QtWidgets.QLabel("|")
         self._style_manager.style_label(sep1, "muted")
@@ -182,6 +200,8 @@ class CoachWindow(QtWidgets.QMainWindow):
         layout.addWidget(sep3)
         layout.addWidget(self._fatigue_indicator)
         layout.addStretch()
+        layout.addWidget(self._quality_indicator)
+        layout.addWidget(self._diagnostics_button)
         layout.addWidget(self._recording_indicator)
 
         widget = QtWidgets.QWidget()
@@ -264,6 +284,9 @@ class CoachWindow(QtWidgets.QMainWindow):
         # Restore camera selection in new mode
         new_mode = self._mode_stack.currentWidget()
         new_mode.set_camera_selection(camera)
+        # Refresh the newly selected presentation from the immutable session
+        # snapshot without treating historical pitches as new game attempts.
+        new_mode.update_pitch_data(self._pitch_snapshot, new_pitches=[])
 
         # Save preference to settings
         state = load_state()
@@ -381,7 +404,12 @@ class CoachWindow(QtWidgets.QMainWindow):
     def _setup_session(self) -> None:
         """Setup coaching session (cameras and configuration only, no recording yet)."""
         # Show session start dialog
-        dialog = SessionStartDialog(self._config, parent=self)
+        dialog = SessionStartDialog(
+            self._config,
+            parent=self,
+            backend=self._backend,
+            config_path=self._config_path,
+        )
         if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
             return
 
@@ -390,6 +418,8 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._pitcher_name = dialog.pitcher_name
         self._pitch_count = 0
         self._last_pitch_count = 0
+        self._processed_pitch_ids.clear()
+        self._pitch_snapshot = []
 
         # Update configuration from dialog
         if dialog.batter_height_in != self._config.strike_zone.batter_height_in:
@@ -432,6 +462,9 @@ class CoachWindow(QtWidgets.QMainWindow):
                         color_mode=self._camera_color_mode,
                     ),
                 )
+                coaching_config, left_serial, right_serial = self._apply_active_rig_capture_settings(
+                    coaching_config, left_serial, right_serial
+                )
 
                 self._service.start_capture(
                     coaching_config,
@@ -440,7 +473,10 @@ class CoachWindow(QtWidgets.QMainWindow):
                     str(self._config_path),
                 )
                 logger.info(
-                    f"Capture started successfully with {self._camera_width}x{self._camera_height}@{self._camera_fps}fps"
+                    "Capture started successfully with %sx%s@%sfps",
+                    coaching_config.camera.width,
+                    coaching_config.camera.height,
+                    coaching_config.camera.fps,
                 )
             else:
                 logger.info("Capture already running, skipping camera start")
@@ -467,9 +503,10 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._pitcher_label.setText(f"Pitcher: {self._pitcher_name}")
         self._pitch_count_label.setText("Pitches: 0")
 
-        # Clear visualizations in current mode
-        current_mode = self._mode_stack.currentWidget()
-        current_mode.clear()
+        # Clear every presentation so switching modes cannot reveal stale data
+        # from the previous session.
+        for mode in (self._broadcast_mode, self._progression_mode, self._game_mode):
+            mode.clear()
 
         # Clear session tracker
         self._session_tracker.clear()
@@ -577,37 +614,50 @@ class CoachWindow(QtWidgets.QMainWindow):
         ):
             return
 
-        # Stop recording
+        self._set_status_message("Stopping recording...", "info")
+        QtWidgets.QApplication.processEvents()
+
+        # Stop first: this is the operation that drains queued analysis. A
+        # failure here leaves the operator on the active session screen.
         try:
-            self._set_status_message("Stopping recording...", "info")
-            QtWidgets.QApplication.processEvents()
-
-            # Get session summary before stopping
-            summary = self._service.get_session_summary()
-
-            # Stop recording
             self._service.stop_recording()
-
-            # Show summary
-            if summary:
-                show_message_dialog(
-                    self,
-                    "Session Complete",
-                    f"Session: {self._session_name}\n"
-                    f"Pitcher: {self._pitcher_name}\n"
-                    f"Pitches: {summary.pitch_count}\n"
-                    f"Strikes: {summary.strikes}\n"
-                    f"Balls: {summary.balls}\n\n"
-                    f"Session data saved.",
-                    tone="success",
-                )
-
         except Exception as e:
+            logger.error("Failed to end session cleanly: %s", e, exc_info=True)
             show_message_dialog(
                 self,
                 "Session End Error",
-                f"Error stopping session:\n{str(e)}",
+                f"Error stopping session:\n{str(e)}\n\n"
+                "The session is still active. Resolve the error and try End Session again.",
+                tone="error",
+            )
+            self._set_status_message("Session stop failed. Session remains active; retry End Session.", "error")
+            return
+
+        # Only a successfully drained stop may produce a final summary. A
+        # summary-read problem must not falsely claim that recording is active.
+        try:
+            summary = self._service.get_last_session_summary()
+        except Exception as e:
+            logger.error("Session stopped but final summary could not be read: %s", e, exc_info=True)
+            summary = None
+            show_message_dialog(
+                self,
+                "Session Summary Unavailable",
+                f"The session was saved, but its final summary could not be displayed:\n{e}",
                 tone="warning",
+            )
+
+        if summary:
+            show_message_dialog(
+                self,
+                "Session Complete",
+                f"Session: {self._session_name}\n"
+                f"Pitcher: {self._pitcher_name}\n"
+                f"Pitches: {summary.pitch_count}\n"
+                f"Strikes: {summary.strikes}\n"
+                f"Balls: {summary.balls}\n\n"
+                f"Session data saved.",
+                tone="success",
             )
 
         # Reset UI
@@ -647,8 +697,9 @@ class CoachWindow(QtWidgets.QMainWindow):
         from configs.app_state import load_state
 
         state = load_state()
-        current_left = state.get("last_left_camera", "0")
-        current_right = state.get("last_right_camera", "1")
+        active_profile = RigProfileService(config_path=self._config_path).load_active()
+        current_left = active_profile.left_serial if active_profile else state.get("last_left_camera", "0")
+        current_right = active_profile.right_serial if active_profile else state.get("last_right_camera", "1")
         current_mound_distance = state.get("mound_distance_ft", self._config.metrics.release_plane_z_ft)
 
         dialog = SettingsDialog(
@@ -673,6 +724,30 @@ class CoachWindow(QtWidgets.QMainWindow):
             self._camera_height = dialog.height
             self._camera_fps = dialog.fps
             self._camera_color_mode = dialog.color_mode
+            if active_profile is not None:
+                rig_config = RigProfileService(config_path=self._config_path).apply_profile_to_config(
+                    self._config,
+                    active_profile,
+                    preserve_camera_mode=False,
+                )
+                self._camera_width = rig_config.camera.width
+                self._camera_height = rig_config.camera.height
+                self._camera_fps = rig_config.camera.fps
+                self._camera_color_mode = rig_config.camera.color_mode
+                if (
+                    dialog.width != self._camera_width
+                    or dialog.height != self._camera_height
+                    or dialog.fps != self._camera_fps
+                    or dialog.left_camera != active_profile.left_serial
+                    or dialog.right_camera != active_profile.right_serial
+                ):
+                    show_message_dialog(
+                        self,
+                        "Rig Settings Locked",
+                        "Camera identity and capture mode are owned by the active rig profile. "
+                        "Run Setup Wizard to change and revalidate them; other session settings were retained.",
+                        tone="warning",
+                    )
 
             # Update mound distance if changed
             if dialog.mound_distance_ft != current_mound_distance:
@@ -703,12 +778,15 @@ class CoachWindow(QtWidgets.QMainWindow):
                             color_mode=self._camera_color_mode,
                         ),
                     )
+                    coaching_config, left_camera, right_camera = self._apply_active_rig_capture_settings(
+                        coaching_config, dialog.left_camera, dialog.right_camera
+                    )
 
                     # Start capture with new settings
                     self._service.start_capture(
                         coaching_config,
-                        dialog.left_camera,
-                        dialog.right_camera,
+                        left_camera,
+                        right_camera,
                         str(self._config_path),
                     )
 
@@ -737,6 +815,18 @@ class CoachWindow(QtWidgets.QMainWindow):
                     f"Settings will apply when you start the next session.",
                     tone="success",
                 )
+
+    def _apply_active_rig_capture_settings(self, config, left_serial: str, right_serial: str):
+        """Apply the active rig's calibrated mode and camera identities."""
+        profile = RigProfileService(config_path=self._config_path).load_active()
+        if profile is None:
+            return config, left_serial, right_serial
+        config = RigProfileService(config_path=self._config_path).apply_profile_to_config(
+            config,
+            profile,
+            preserve_camera_mode=False,
+        )
+        return config, profile.left_serial or left_serial, profile.right_serial or right_serial
 
     def _adjust_lane(self) -> None:
         """Show lane ROI adjustment dialog."""
@@ -899,31 +989,76 @@ class CoachWindow(QtWidgets.QMainWindow):
             return
 
         try:
-            # Get recent pitches from service
-            recent_pitches = self._service.get_recent_pitches()
+            self._update_quality_health()
+            # SessionSummary owns the full session history. The compatibility
+            # get_recent_pitches() API is capped at ten and cannot drive total
+            # counts or exactly-once consumption.
+            summary = self._service.get_session_summary()
+            session_pitches = list(summary.pitches)
+            new_pitches = [
+                pitch
+                for pitch in session_pitches
+                if pitch.pitch_id not in self._processed_pitch_ids
+            ]
+            self._pitch_snapshot = session_pitches
 
-            # Check if new pitches detected
-            if len(recent_pitches) > self._last_pitch_count:
-                # Update pitch count
-                self._pitch_count = len(recent_pitches)
+            if self._pitch_count != summary.pitch_count:
+                self._pitch_count = summary.pitch_count
+                self._last_pitch_count = summary.pitch_count
                 self._pitch_count_label.setText(f"Pitches: {self._pitch_count}")
-                self._last_pitch_count = self._pitch_count
 
-                # Add new pitches to session tracker
-                for pitch in recent_pitches[self._last_pitch_count - 1 :]:
+            if new_pitches:
+                for pitch in new_pitches:
                     self._session_tracker.add_pitch(pitch)
+                    self._processed_pitch_ids.add(pitch.pitch_id)
 
-            # Forward all recent pitches to current mode
-            if recent_pitches:
+                # Presentation widgets receive the complete snapshot for
+                # context plus the exact unseen attempts for stateful modes.
                 current_mode = self._mode_stack.currentWidget()
-                current_mode.update_pitch_data(recent_pitches)
+                current_mode.update_pitch_data(session_pitches, new_pitches=new_pitches)
 
                 # Update fatigue indicator
-                self._fatigue_indicator.update_pitches(recent_pitches)
+                self._fatigue_indicator.update_pitches(session_pitches)
 
         except Exception as e:
             # Log metrics errors for debugging
             logger.error(f"Metrics update failed: {e}", exc_info=True)
+
+    def _update_quality_health(self) -> None:
+        diagnostics = self._service.get_quality_diagnostics()
+        quality = diagnostics.get("quality") or {}
+        status = str(quality.get("status") or "UNAVAILABLE")
+        tone = {
+            "VALIDATED": "success",
+            "ESTIMATED": "info",
+            "DEGRADED": "warning",
+            "UNAVAILABLE": "warning",
+            "REJECTED": "error",
+        }.get(status, "info")
+        self._quality_indicator.setText(f"Quality: {status.lower()}")
+        self._style_manager.style_status_indicator(self._quality_indicator, tone)
+
+    def _show_quality_diagnostics(self) -> None:
+        """Show full evidence only when the operator explicitly asks for it."""
+        diagnostics = self._service.get_quality_diagnostics()
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Tracking diagnostics")
+        dialog.resize(760, 560)
+        layout = QtWidgets.QVBoxLayout(dialog)
+        explanation = QtWidgets.QLabel(
+            "Detailed capture and tracking evidence. These values support setup and troubleshooting; "
+            "they are intentionally hidden during normal coaching."
+        )
+        explanation.setWordWrap(True)
+        layout.addWidget(explanation)
+        details = QtWidgets.QPlainTextEdit()
+        details.setReadOnly(True)
+        details.setPlainText(json.dumps(diagnostics, indent=2, default=str))
+        layout.addWidget(details, 1)
+        close_button = QtWidgets.QPushButton("Close")
+        close_button.clicked.connect(dialog.accept)
+        layout.addWidget(close_button)
+        dialog.exec()
 
     def _apply_strike_zone_overlay_config(self, batter_height_in: float) -> None:
         """Push the active strike-zone configuration into overlay-capable modes."""

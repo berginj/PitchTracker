@@ -32,6 +32,8 @@ def _write_calibration(path: Path) -> None:
         quality_rating="GOOD",
         rms_error_px=0.4,
         calibration_mode="FULL",
+        production_ready=True,
+        num_images_used=12,
     )
 
 
@@ -123,6 +125,31 @@ def test_camera_transform_contract_propagates_to_left_and_right() -> None:
     assert right.mode_args[1]["flip_180"] is True
     assert right.mode_args[1]["rotation_correction"] == -2.5
     assert right.mode_args[1]["vertical_offset_px"] == 7
+
+
+def test_profile_controls_are_authoritative_at_runtime() -> None:
+    cfg = _config()
+    profile = RigProfile.from_dict(
+        {
+            "profile_id": "controls",
+            "created_utc": "2026-01-01T00:00:00Z",
+            "updated_utc": "2026-01-01T00:00:00Z",
+            "backend": "sim",
+            "control_settings": {
+                "exposure_us": 3500,
+                "gain": 4.5,
+                "wb_mode": None,
+                "wb": 4200,
+            },
+        }
+    )
+
+    applied = RigProfileService().apply_profile_to_config(cfg, profile)
+
+    assert applied.camera.exposure_us == 3500
+    assert applied.camera.gain == 4.5
+    assert applied.camera.wb_mode is None
+    assert applied.camera.wb == 4200
 
 
 def test_alignment_quality_near_zero_correlation_is_not_critical() -> None:

@@ -86,20 +86,21 @@ def _copy_optional_report(path: Path | None, output_dir: Path, filename: str) ->
 def _pitch_case(case_id: str, manifest_path: str, manifest: dict[str, Any]) -> dict[str, Any]:
     trajectory = manifest.get("trajectory") or {}
     observation_quality = manifest.get("observation_quality") or {}
-    expected: dict[str, Any] = {}
+    observed: dict[str, Any] = {}
     if observation_quality.get("status") is not None:
-        expected["observation_quality_status"] = observation_quality.get("status")
+        observed["observation_quality_status"] = observation_quality.get("status")
     if trajectory.get("mode") is not None:
-        expected["trajectory_mode"] = trajectory.get("mode")
+        observed["trajectory_mode"] = trajectory.get("mode")
     plate_z = _plate_z(manifest)
     if plate_z is not None:
-        expected["plate_z_ft"] = plate_z
-        expected["max_plate_z_error_ft"] = 0.5
+        observed["plate_z_ft"] = plate_z
     return {
         "case_id": case_id,
         "type": "pitch_manifest",
         "manifest_path": manifest_path,
-        "expected": expected,
+        "observed": observed,
+        "validation_eligible": False,
+        "claim_blocker": "SYSTEM_OUTPUT_IS_NOT_INDEPENDENT_GROUND_TRUTH",
     }
 
 
@@ -128,7 +129,7 @@ def _write_notes(output_dir: Path) -> None:
     (output_dir / "notes.md").write_text(
         "# Field Fixture Notes\n\n"
         "- Add static target cases with measured `expected_xyz_ft` and reconstructed `actual_xyz_ft`.\n"
-        "- Confirm generated pitch expectations are intentional; do not treat copied actuals as accuracy proof.\n"
+        "- Generated pitch observations are diagnostic-only; import independent references through the v2 validation workflow.\n"
         "- Keep videos outside Git unless explicitly needed for a small fixture.\n",
         encoding="utf-8",
     )

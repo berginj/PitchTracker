@@ -39,7 +39,7 @@ left/right images before any pitch-tracking logic runs.
   L/R persistence by hardware id.
 - **Camera catalog:** `CameraCatalogService` + contracts with publish/pull
   carry-over of known devices by hardware id (Arducam global-shutter support).
-- **Genuine 9-step stereo wizard:** Qt-free `SetupStateMachine` + a registry of
+- **Evidence-gated 10-step stereo wizard:** Qt-free `SetupStateMachine` + a registry of
   nine real, synthetic-testable step widgets (select cameras → paired preview →
   sync → focus/exposure → overlap → coarse rectify → optional ChArUco → persist
   → quality report), each with an injectable provider and view-model.
@@ -101,7 +101,7 @@ documented in `docs/ARCHITECTURE_CURRENT_STATE.md` and `agents.md`.
 | Area | Current State | Required Next Step |
 | --- | --- | --- |
 | Version identity | Aligned around v2.0.0-stereo (`APP_VERSION` 2.0.0) | Keep patch releases on `v2.0.x-stereo` if needed |
-| Stereo setup wizard | Genuine 9-step wizard complete; 1051 tests green | Validate the flow on a physical stereo rig |
+| Stereo setup wizard | Evidence-gated 10-step workflow implemented; automated tests are simulator-backed | Validate capture controls, field alignment, and accuracy on a physical stereo rig |
 | External release | `v2.0.0` tag pushed | Build + smoke-test the v2.0.0-stereo installer on a clean Windows machine |
 | Architecture docs | Service-oriented + stereo-setup docs current | Keep calibration boundary explicit |
 | Hardware profile | In validation testing | Record tested Arducam camera/mount evidence |

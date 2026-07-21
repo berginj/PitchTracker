@@ -97,22 +97,27 @@ class StatsPanelWidget(QtWidgets.QWidget):
         else:
             self._speed_label.setText("Speed: -- mph")
 
-        # H-break (run_in)
-        h_break = pitch.run_in
-        if h_break >= 0:
-            self._h_break_label.setText(f"H-Break: +{h_break:.1f} in")
+        # The legacy run/rise fields are raw endpoint displacement today, not
+        # validated induced break. Keep them in diagnostics but do not present
+        # them to a coach under a stronger physical label.
+        movement_validated = bool((pitch.quality_diagnostics or {}).get("movement_validated"))
+        if movement_validated:
+            h_break = pitch.run_in
+            v_break = pitch.rise_in
+            self._h_break_label.setText(f"H-Break: {h_break:+.1f} in")
+            self._v_break_label.setText(f"V-Break: {v_break:+.1f} in")
         else:
-            self._h_break_label.setText(f"H-Break: {h_break:.1f} in")
-
-        # V-break (rise_in)
-        v_break = pitch.rise_in
-        if v_break >= 0:
-            self._v_break_label.setText(f"V-Break: +{v_break:.1f} in")
-        else:
-            self._v_break_label.setText(f"V-Break: {v_break:.1f} in")
+            self._h_break_label.setText("H-Break: unavailable")
+            self._v_break_label.setText("V-Break: unavailable")
+            detail = "Raw endpoint displacement is available in Diagnostics; induced break is not validated."
+            self._h_break_label.setToolTip(detail)
+            self._v_break_label.setToolTip(detail)
 
         # Result (color-coded)
-        if pitch.is_strike:
+        if pitch.measurement_status in {"REJECTED", "UNAVAILABLE"}:
+            self._result_label.setText("Result: UNAVAILABLE")
+            self._style_manager.style_status_indicator(self._result_label, "warning")
+        elif pitch.is_strike:
             self._result_label.setText("Result: STRIKE")
             self._style_manager.style_status_indicator(self._result_label, "success")
         else:
@@ -136,7 +141,10 @@ class StatsPanelWidget(QtWidgets.QWidget):
             # Format: "#1: 85.3 mph - STRIKE"
             pitch_num = len(recent_pitches) - i
             speed_str = f"{pitch.speed_mph:.1f}" if pitch.speed_mph else "--"
-            result_str = "STRIKE" if pitch.is_strike else "BALL"
+            if pitch.measurement_status in {"REJECTED", "UNAVAILABLE"}:
+                result_str = pitch.measurement_status
+            else:
+                result_str = "STRIKE" if pitch.is_strike else "BALL"
 
             item_text = f"#{pitch_num}: {speed_str} mph - {result_str}"
 
@@ -154,6 +162,8 @@ class StatsPanelWidget(QtWidgets.QWidget):
         self._speed_label.setText("Speed: -- mph")
         self._h_break_label.setText("H-Break: -- in")
         self._v_break_label.setText("V-Break: -- in")
+        self._h_break_label.setToolTip("")
+        self._v_break_label.setToolTip("")
         self._result_label.setText("Result: --")
         self._style_manager.style_label(self._result_label, "sectionTitle")
         self._recent_list.clear()

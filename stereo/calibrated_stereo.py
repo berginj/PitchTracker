@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 
 from contracts import StereoObservation
-from stereo.association import StereoMatch, StereoMatcher
+from stereo.association import StereoMatch, StereoMatcher, pair_timing
 from stereo.uncertainty import depth_only_covariance, quality_from_depth_sigma
 
 
@@ -160,10 +160,8 @@ class CalibratedStereoMatcher(StereoMatcher):
 
         Returns (paired_timestamp_ns, offset_applied_bool)
         """
-        if self._time_sync_offset_ns != 0:
-            right_ns_adj = int(right_ns + self._time_sync_offset_ns)
-            return (left_ns + right_ns_adj) // 2, True
-        return (left_ns + right_ns) // 2, False
+        timing = pair_timing(left_ns, right_ns, self._time_sync_offset_ns)
+        return timing.timestamp_ns, timing.offset_applied
 
     def _symmetric_epipolar_error(self, left_u: float, left_v: float, right_u: float, right_v: float) -> float:
         left_pt = np.array([left_u, left_v, 1.0], dtype=np.float64)

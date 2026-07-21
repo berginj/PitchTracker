@@ -147,7 +147,7 @@ class InProcessPipelineService(
             config = self._rig_profile_service.apply_profile_to_config(
                 config,
                 rig_profile,
-                preserve_camera_mode=True,
+                preserve_camera_mode=rig_profile.profile_id == "legacy",
             )
             self._runtime_calibration_path = self._rig_profile_service.calibration_path(rig_profile)
             self._runtime_roi_path = self._rig_profile_service.roi_path(rig_profile)

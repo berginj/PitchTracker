@@ -139,6 +139,10 @@ class FatiguePanel(QtWidgets.QFrame):
 
     def _update_display(self, metrics: FatigueMetrics) -> None:
         """Update display with fatigue metrics."""
+        if not metrics.available:
+            self._set_insufficient_data()
+            style_status_label(self._status_indicator, "info", "UNAVAILABLE")
+            return
         score = int(metrics.fatigue_score)
         self._score_bar.setValue(score)
         style_progress_bar(self._score_bar, _score_variant(score))
@@ -200,6 +204,10 @@ class CompactFatigueIndicator(QtWidgets.QWidget):
 
         recent = pitches[-10:]
         metrics = self._detector.analyze(recent, pitches)
+        if not metrics.available:
+            self._score_label.setText("--")
+            style_status_label(self._status_chip, "info", "N/A")
+            return
         self._score_label.setText(str(int(metrics.fatigue_score)))
 
         label = {
@@ -213,8 +221,7 @@ class CompactFatigueIndicator(QtWidgets.QWidget):
         """Reset indicator to initial state (for pitcher switch)."""
         self._detector = FatigueDetector()
         self._score_label.setText("--")
-        self._status_dot.setObjectName("fatigue_status_dot_ok")
-        self._apply_style()
+        style_status_label(self._status_chip, "info", "WAIT")
 
 
 __all__ = ["FatiguePanel", "CompactFatigueIndicator"]

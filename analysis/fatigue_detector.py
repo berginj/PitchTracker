@@ -45,6 +45,7 @@ class FatigueMetrics:
     fatigue_score: float
     recommendation: str
     contributing_factors: List[str] = field(default_factory=list)
+    available: bool = True
 
 
 class FatigueDetector:
@@ -72,10 +73,10 @@ class FatigueDetector:
     TRAJECTORY_DROP_RED = 0.20  # Confidence drop triggers rest
 
     # Score weights
-    WEIGHT_VELOCITY = 0.40
+    WEIGHT_VELOCITY = 0.55
     WEIGHT_MOVEMENT = 0.30
-    WEIGHT_TRAJECTORY = 0.20
-    WEIGHT_TREND = 0.10
+    WEIGHT_TRAJECTORY = 0.0
+    WEIGHT_TREND = 0.15
 
     def __init__(
         self,
@@ -110,8 +111,24 @@ class FatigueDetector:
         if not recent_pitches:
             return self._empty_metrics()
 
-        # Use all session pitches if available, otherwise use recent
-        session_pitches = all_session_pitches or recent_pitches
+        # Fatigue is an athlete claim. Only compare usable measurements with
+        # one explicit, consistent speed provenance across the session window.
+        session_pitches = [
+            pitch
+            for pitch in (all_session_pitches or recent_pitches)
+            if getattr(pitch, "measurement_status", "ESTIMATED") not in {"REJECTED", "UNAVAILABLE"}
+            and pitch.speed_mph is not None
+        ]
+        sources = {getattr(pitch, "speed_source", None) for pitch in session_pitches}
+        if not session_pitches or None in sources or len(sources) != 1:
+            return self._empty_metrics("Comparable speed provenance is unavailable")
+        recent_pitches = [
+            pitch
+            for pitch in recent_pitches
+            if getattr(pitch, "measurement_status", "ESTIMATED") not in {"REJECTED", "UNAVAILABLE"}
+            and pitch.speed_mph is not None
+            and getattr(pitch, "speed_source", None) in sources
+        ]
 
         # Establish baseline from first N pitches
         baseline_pitches = session_pitches[: self.baseline_window]
@@ -127,7 +144,10 @@ class FatigueDetector:
         velocity_drop = self._compute_velocity_drop(baseline_stats, recent_stats)
         velocity_trend = self._compute_velocity_trend(session_pitches)
         movement_variance = self._compute_movement_variance_change(baseline_stats, recent_stats)
-        trajectory_drop = self._compute_trajectory_quality_drop(baseline_stats, recent_stats)
+        # Trajectory confidence is measurement-system health, not evidence of
+        # athlete fatigue. Keep the compatibility field at zero and surface
+        # confidence decay through runtime quality diagnostics instead.
+        trajectory_drop = 0.0
 
         # Calculate composite score and recommendation
         score, factors = self._compute_fatigue_score(velocity_drop, velocity_trend, movement_variance, trajectory_drop)
@@ -154,8 +174,16 @@ class FatigueDetector:
         """
         # Extract data
         velocities = [p.speed_mph for p in pitches if p.speed_mph is not None]
-        h_movements = [p.run_in for p in pitches]
-        v_movements = [p.rise_in for p in pitches]
+        # Legacy run/rise fields are raw endpoint displacement unless a
+        # validated movement algorithm explicitly marks them usable. Raw camera
+        # displacement must not be converted into an athlete-fatigue claim.
+        validated_movement = [
+            p
+            for p in pitches
+            if bool((getattr(p, "quality_diagnostics", None) or {}).get("movement_validated", False))
+        ]
+        h_movements = [p.run_in for p in validated_movement]
+        v_movements = [p.rise_in for p in validated_movement]
         trajectory_confs = [p.trajectory_confidence for p in pitches if p.trajectory_confidence is not None]
 
         return {
@@ -292,16 +320,11 @@ class FatigueDetector:
         if movement_variance >= self.MOVEMENT_VAR_YELLOW:
             factors.append(f"Movement variance up {movement_variance:.0f}%")
 
-        trajectory_score = min(100, (trajectory_drop / self.TRAJECTORY_DROP_RED) * 100)
-        if trajectory_drop >= self.TRAJECTORY_DROP_YELLOW:
-            factors.append(f"Trajectory quality dropped {trajectory_drop:.2f}")
-
         # Weighted composite score
         composite = (
             velocity_score * self.WEIGHT_VELOCITY
             + trend_score * self.WEIGHT_TREND
             + movement_score * self.WEIGHT_MOVEMENT
-            + trajectory_score * self.WEIGHT_TRAJECTORY
         )
 
         return min(100, composite), factors
@@ -322,7 +345,7 @@ class FatigueDetector:
         else:
             return "Rest"
 
-    def _empty_metrics(self) -> FatigueMetrics:
+    def _empty_metrics(self, reason: str = "Insufficient data for analysis") -> FatigueMetrics:
         """Return metrics indicating insufficient data."""
         return FatigueMetrics(
             velocity_drop_pct=0.0,
@@ -330,8 +353,9 @@ class FatigueDetector:
             movement_variance_pct=0.0,
             trajectory_quality_drop=0.0,
             fatigue_score=0.0,
-            recommendation="Continue",
-            contributing_factors=["Insufficient data for analysis"],
+            recommendation="Unavailable",
+            contributing_factors=[reason],
+            available=False,
         )
 
 

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from contracts import StereoObservation
-from stereo.association import StereoMatch, StereoMatcher
+from stereo.association import StereoMatch, StereoMatcher, pair_timing
 from stereo.uncertainty import (
     depth_only_covariance,
     estimate_rectified_depth_uncertainty,
@@ -79,8 +79,5 @@ class SimpleStereoMatcher(StereoMatcher):
         )
 
     def pair_timestamp(self, left_ns: int, right_ns: int) -> Tuple[int, bool]:
-        if self._time_sync_offset_ns != 0:
-            right_ns_adj = int(right_ns + self._time_sync_offset_ns)
-            return (left_ns + right_ns_adj) // 2, True
-        mid = (left_ns + right_ns) // 2
-        return mid, False
+        timing = pair_timing(left_ns, right_ns, self._time_sync_offset_ns)
+        return timing.timestamp_ns, timing.offset_applied

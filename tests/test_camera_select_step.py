@@ -20,8 +20,8 @@ def qapp() -> QtWidgets.QApplication:
 def _passing_snapshot() -> CameraSelectionSnapshot:
     return CameraSelectionSnapshot(
         cameras=(
-            DiscoveredCamera("left-serial", "Left Camera", SIDE_LEFT, recognized=True),
-            DiscoveredCamera("right-serial", "Right Camera", SIDE_RIGHT, recognized=True),
+            DiscoveredCamera("left-serial", "Left Camera", SIDE_LEFT, recognized=True, global_shutter=True),
+            DiscoveredCamera("right-serial", "Right Camera", SIDE_RIGHT, recognized=True, global_shutter=True),
         )
     )
 

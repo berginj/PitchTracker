@@ -16,7 +16,7 @@ import pytest
 import cv2
 
 from app.events.event_bus import EventBus
-from app.events.event_types import FrameCapturedEvent, ObservationDetectedEvent, PitchStartEvent
+from app.events.event_types import FrameCapturedEvent, ObservationDetectedEvent, PitchEndEvent, PitchStartEvent
 from app.services.recording import RecordingServiceImpl
 from configs.settings import AppConfig, load_config
 from contracts import Frame, StereoObservation
@@ -344,6 +344,47 @@ class TestRecordingServiceEventBusIntegration:
             service.stop_session()
 
         finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def test_pitch_end_automatically_closes_post_roll_and_allows_next_pitch(self):
+        """PitchEndEvent must arm post-roll so a second pitch can start."""
+        bus = EventBus()
+        service = RecordingServiceImpl(bus)
+        config = create_test_config()
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            service.set_record_directory(temp_dir)
+            service.start_session("test_session", config)
+            start_ns = 1_000_000_000
+            bus.publish(PitchStartEvent("pitch_001", 1, start_ns))
+            assert service.is_recording_pitch()
+
+            end_ns = start_ns + 100_000_000
+            bus.publish(PitchEndEvent("pitch_001", [], end_ns, end_ns - start_ns))
+
+            after_post_roll_ns = end_ns + int(config.recording.post_roll_ms * 1e6) + 1
+            bus.publish(
+                FrameCapturedEvent(
+                    "left",
+                    create_test_frame("left", 100, after_post_roll_ns),
+                    after_post_roll_ns,
+                )
+            )
+            bus.publish(
+                FrameCapturedEvent(
+                    "right",
+                    create_test_frame("right", 100, after_post_roll_ns),
+                    after_post_roll_ns,
+                )
+            )
+            assert service._frame_worker.wait_idle(timeout=10.0)
+            assert not service.is_recording_pitch()
+
+            bus.publish(PitchStartEvent("pitch_002", 2, after_post_roll_ns + 1))
+            assert service.is_recording_pitch()
+        finally:
+            if service.is_recording_session():
+                service.stop_session()
             shutil.rmtree(temp_dir, ignore_errors=True)
 
 

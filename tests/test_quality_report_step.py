@@ -53,6 +53,7 @@ def test_widget_renders_failing_report_and_refresh_clears(qapp):
 
     widget.on_enter()
     assert widget._metrics_form.rowCount() == 4
+    assert widget.validate()[0] is False
     # Re-render with a different report — form should not accumulate rows.
     widget.refresh()
     assert widget._metrics_form.rowCount() == 4

@@ -22,6 +22,7 @@ def _make_config() -> Mock:
     config = Mock()
     config.stereo.use_frame_index_pairing = False
     config.stereo.pairing_tolerance_ms = 8
+    config.stereo.time_sync_offset_ns = 0
     return config
 
 
@@ -107,3 +108,33 @@ def test_serial_pairing_is_one_to_one():
         processor.process_detection_result("right", _make_frame("right", i, i * 16_000_000), [])
 
     assert processed == [(i, i) for i in range(5)]
+
+
+def test_timestamp_pairing_applies_right_clock_offset_but_preserves_raw_frames():
+    config = _make_config()
+    config.stereo.pairing_tolerance_ms = 2
+    config.stereo.time_sync_offset_ns = -9_000_000
+    processor = DetectionProcessor(
+        config=config,
+        stereo_matcher=Mock(),
+        lane_gate=None,
+        plate_gate=None,
+        stereo_gate=None,
+        plate_stereo_gate=None,
+        get_ball_radius_fn=lambda: 1.0,
+    )
+    processed = []
+    processor._process_stereo_pair = lambda lf, rf, ld, rd: processed.append((lf, rf))  # type: ignore[assignment]
+    left = _make_frame("left", 1, 100_000_000)
+    right = _make_frame("right", 1, 109_000_000)
+
+    processor.process_detection_result("left", left, [])
+    processor.process_detection_result("right", right, [])
+
+    assert processed == [(left, right)]
+    assert processed[0][0].t_capture_monotonic_ns == 100_000_000
+    assert processed[0][1].t_capture_monotonic_ns == 109_000_000
+    stats = processor.get_sync_stats()
+    assert stats["p95_delta_ms"] == 0.0
+    assert stats["raw_p95_delta_ms"] == 9.0
+    assert stats["time_sync_offset_ns"] == -9_000_000

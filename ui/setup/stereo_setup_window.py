@@ -1,7 +1,8 @@
-"""Stereo setup wizard window for the canonical 9-step setup flow."""
+"""Stereo setup wizard window for the canonical evidence-gated setup flow."""
 
 from __future__ import annotations
 
+import time
 from typing import Callable, Dict, List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -39,6 +40,10 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         self._widget_by_step: Dict[SetupStep, BaseStep] = factory()
         self._machine = SetupStateMachine(DEFAULT_SETUP_SPEC)
         self._steps = [self._widget_by_step[spec.step] for spec in DEFAULT_SETUP_SPEC]
+        self._closing_after_capture_cancel = False
+        self._capture_close_deadline = 0.0
+        for step in self._steps:
+            step.busy_changed.connect(self._on_step_busy_changed)
 
         self._build_ui()
         self._show_current()
@@ -83,8 +88,8 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         layout.addWidget(title)
 
         subtitle = QtWidgets.QLabel(
-            "Follow the canonical 9-step flow to verify camera pairing, synchronization, "
-            "alignment, persistence, and final calibration quality."
+            "Verify camera pairing, synchronization, optical alignment, field coordinates, "
+            "artifact persistence, and final calibration quality."
         )
         subtitle.setWordWrap(True)
         self._style_manager.style_label(subtitle, "muted")
@@ -184,16 +189,24 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
 
     def _update_navigation_buttons(self) -> None:
         """Update navigation button states for the current step."""
-        self._back_button.setEnabled(self._machine.can_go_back())
+        busy = self._current_widget().is_busy()
+        self._back_button.setEnabled(self._machine.can_go_back() and not busy)
         self._skip_button.setVisible(self._machine.can_skip())
+        self._skip_button.setEnabled(not busy)
 
         is_last_step = self._machine.current_index >= len(self._machine.steps) - 1
         self._next_button.setVisible(not is_last_step)
         self._finish_button.setVisible(is_last_step)
+        self._next_button.setEnabled(not busy)
+        self._finish_button.setEnabled(not busy)
 
+    def _on_step_busy_changed(self, _busy: bool) -> None:
+        self._update_navigation_buttons()
+        if self._closing_after_capture_cancel and not any(step.is_busy() for step in self._steps):
+            QtCore.QTimer.singleShot(0, self.close)
     def _go_back(self) -> None:
         """Go to the previous step."""
-        if not self._machine.can_go_back():
+        if self._current_widget().is_busy() or not self._machine.can_go_back():
             return
         self._current_widget().on_exit()
         self._machine.go_back()
@@ -202,6 +215,8 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
     def _go_next(self) -> None:
         """Validate and advance to the next step."""
         current_widget = self._current_widget()
+        if current_widget.is_busy():
+            return
         is_valid, error_msg = current_widget.validate()
         if not is_valid:
             show_message_dialog(
@@ -223,7 +238,7 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
 
     def _skip_step(self) -> None:
         """Skip the current step if the machine allows it."""
-        if not self._machine.can_skip():
+        if self._current_widget().is_busy() or not self._machine.can_skip():
             return
 
         current_widget = self._current_widget()
@@ -240,6 +255,8 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
     def _finish_wizard(self) -> None:
         """Complete the stereo setup wizard and close the window."""
         current_widget = self._current_widget()
+        if current_widget.is_busy():
+            return
         is_valid, error_msg = current_widget.validate()
         if not is_valid:
             show_message_dialog(
@@ -272,6 +289,29 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         self.close()
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
-        """Handle window close by restoring production theme mode."""
+        """Cancel and reap setup camera workers before hiding the wizard."""
+        busy_steps = [step for step in self._steps if step.is_busy()]
+        if busy_steps:
+            now = time.monotonic()
+            if not self._closing_after_capture_cancel:
+                self._closing_after_capture_cancel = True
+                self._capture_close_deadline = now + 2.0
+                for step in busy_steps:
+                    step.cancel_pending()
+            elif now >= self._capture_close_deadline:
+                for step in busy_steps:
+                    step.force_cancel_pending()
+                # Give the monitor one final Qt turn to publish terminal state.
+                if now < self._capture_close_deadline + 0.5:
+                    event.ignore()
+                    QtCore.QTimer.singleShot(50, self.close)
+                    return
+            else:
+                for step in busy_steps:
+                    step.cancel_pending()
+            if now < self._capture_close_deadline + 0.5:
+                event.ignore()
+                QtCore.QTimer.singleShot(50, self.close)
+                return
         self._style_manager.set_mode("production")
         super().closeEvent(event)

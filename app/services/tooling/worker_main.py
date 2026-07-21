@@ -112,11 +112,27 @@ def _handle_analyze_alignment(payload: dict[str, Any]) -> dict[str, Any]:
     return result.to_payload()
 
 
+def _handle_validate_physical_dataset(payload: dict[str, Any]) -> dict[str, Any]:
+    from calib.physical_validation import validate_physical_validation_files
+    from contracts.tooling import PhysicalValidationRequest, PhysicalValidationResult
+
+    request = PhysicalValidationRequest.from_payload(payload)
+    report = validate_physical_validation_files(request.protocol_path, request.dataset_path)
+    if request.output_path is not None:
+        request.output_path.parent.mkdir(parents=True, exist_ok=True)
+        request.output_path.write_text(
+            json.dumps(report, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    return PhysicalValidationResult(report=report, output_path=request.output_path).to_payload()
+
+
 HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "validate_environment": _handle_validate_environment,
     "build_training_report": _handle_build_training_report,
     "run_calibration": _handle_run_calibration,
     "analyze_alignment": _handle_analyze_alignment,
+    "validate_physical_dataset": _handle_validate_physical_dataset,
 }
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 
 import pytest
 
@@ -24,7 +25,7 @@ def qapp():
 def test_stereo_setup_window_starts_on_first_canonical_step(qapp):
     window = StereoSetupWindow()
     try:
-        assert window._content_stack.count() == 9
+        assert window._content_stack.count() == 10
         assert window._machine.current == DEFAULT_SETUP_SPEC[0].step
     finally:
         window.close()
@@ -83,3 +84,44 @@ def test_stereo_setup_window_last_step_navigation_state(qapp):
         assert window._next_button.isHidden()
     finally:
         window.close()
+
+
+def test_stereo_setup_window_disables_navigation_while_step_is_busy(qapp):
+    window = StereoSetupWindow()
+    try:
+        step = window._current_widget()
+        step.set_busy(True)
+        qapp.processEvents()
+
+        assert not window._next_button.isEnabled()
+        assert not window._skip_button.isEnabled()
+
+        step.set_busy(False)
+        qapp.processEvents()
+        assert window._next_button.isEnabled()
+    finally:
+        window.close()
+
+
+def test_stereo_setup_window_cancels_busy_step_before_close(qapp):
+    window = StereoSetupWindow()
+    step = window._current_widget()
+    cancel_calls: list[bool] = []
+
+    def cancel_pending() -> bool:
+        cancel_calls.append(True)
+        step.set_busy(False)
+        return True
+
+    step.cancel_pending = cancel_pending  # type: ignore[method-assign]
+    step.set_busy(True)
+    window.show()
+    window.close()
+
+    deadline = time.monotonic() + 1.0
+    while window.isVisible() and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+
+    assert cancel_calls
+    assert not window.isVisible()

@@ -83,29 +83,47 @@ def build_calibration_report(
     if missing:
         errors.append(f"Calibration file is missing required matrix arrays: {', '.join(missing)}")
 
-    calibration_mode = _npz_str(data, "calibration_mode", "FULL").upper()
+    calibration_mode_present = "calibration_mode" in keys
+    calibration_mode = _npz_str(data, "calibration_mode", "UNKNOWN").upper()
     production_flag = _npz_bool(data, "production_ready")
-    production_ready = bool(production_flag) if production_flag is not None else calibration_mode != "QUICK"
-    checks["full_calibration_mode"] = calibration_mode != "QUICK"
-    checks["production_ready_flag"] = production_ready
+    production_flag_present = "production_ready" in keys and production_flag is not None
+    checks["calibration_mode_explicit"] = calibration_mode_present
+    checks["full_calibration_mode"] = calibration_mode == "FULL"
+    checks["production_ready_flag_explicit"] = production_flag_present
+    checks["production_ready_flag"] = production_flag is True
     metrics["calibration_mode"] = calibration_mode
 
-    if calibration_mode == "QUICK":
+    if not calibration_mode_present:
+        errors.append("Calibration mode metadata is missing; legacy artifacts are diagnostic-only.")
+    elif calibration_mode == "QUICK":
         errors.append("Quick calibration is diagnostic-only and must not drive production tracking.")
-    if not production_ready:
+    elif calibration_mode != "FULL":
+        errors.append(f"Calibration mode {calibration_mode!r} is not FULL.")
+    if not production_flag_present:
+        errors.append("Explicit production_ready metadata is missing; legacy artifacts are diagnostic-only.")
+    elif production_flag is not True:
         errors.append("Calibration is not marked production-ready.")
 
     rms = _npz_float(data, "rms_error_px")
     metrics["rms_error_px"] = rms
-    checks["rms_within_threshold"] = rms is not None and rms <= max_rms_px
+    rms_valid = rms is not None and np.isfinite(rms) and rms >= 0
+    checks["rms_present_and_finite"] = rms_valid
+    checks["rms_within_threshold"] = rms_valid and rms <= max_rms_px
     checks["max_rms_px"] = float(max_rms_px)
-    if rms is None:
-        warnings.append("RMS reprojection error is missing.")
+    if not rms_valid:
+        errors.append("RMS reprojection error is missing, non-finite, or negative.")
     elif rms > max_rms_px:
         errors.append(f"RMS reprojection error {rms:.3f}px exceeds threshold {max_rms_px:.3f}px.")
 
     per_image_stats = _per_image_error_stats(data)
     metrics["per_image_error_stats"] = per_image_stats
+    declared_sample_count = _npz_positive_int(data, "num_images_used") or _npz_positive_int(data, "num_images")
+    evidence_sample_count = declared_sample_count or int(per_image_stats["count"])
+    metrics["declared_sample_count"] = declared_sample_count
+    metrics["evidence_sample_count"] = evidence_sample_count
+    checks["calibration_sample_evidence_present"] = evidence_sample_count > 0
+    if evidence_sample_count <= 0:
+        errors.append("Calibration sample/evidence metadata is missing or empty.")
     if per_image_stats["count"] == 0:
         warnings.append("Per-image reprojection errors are missing.")
 
@@ -127,6 +145,9 @@ def build_calibration_report(
 
     image_size = _image_size(data)
     metrics["image_size"] = image_size
+    checks["image_size_present"] = image_size is not None
+    if image_size is None:
+        errors.append("Calibration image size metadata is missing or invalid.")
     config_image_size = _config_image_size(config_path)
     if config_image_size is not None:
         metrics["config_image_size"] = config_image_size
@@ -150,7 +171,7 @@ def build_calibration_report(
     return _finish(
         {
             "status": FAIL if errors else WARN if warnings else PASS,
-            "production_ready": not errors,
+            "production_ready": bool(production_flag is True and calibration_mode == "FULL" and not errors),
             "calibration_path": str(calibration_path),
             "config_path": str(config_path) if config_path else None,
             "checks": checks,
@@ -195,9 +216,25 @@ def _npz_bool(data: Any, key: str) -> Optional[bool]:
         value = data[key]
         if hasattr(value, "item"):
             value = value.item()
-        return bool(value)
+        if isinstance(value, (bool, np.bool_)):
+            return bool(value)
+        if isinstance(value, (int, np.integer)) and value in {0, 1}:
+            return bool(value)
+        if isinstance(value, str) and value.strip().lower() in {"true", "false"}:
+            return value.strip().lower() == "true"
+        return None
     except Exception:
         return None
+
+
+def _npz_positive_int(data: Any, key: str) -> int:
+    if key not in data:
+        return 0
+    try:
+        value = int(np.asarray(data[key]).item())
+        return value if value > 0 else 0
+    except Exception:
+        return 0
 
 
 def _baseline_in(data: Any) -> Optional[float]:
@@ -220,7 +257,10 @@ def _image_size(data: Any) -> Optional[list[int]]:
         raw = np.asarray(data["img_size"]).reshape(-1)
         if raw.size < 2:
             return None
-        return [int(raw[0]), int(raw[1])]
+        width, height = int(raw[0]), int(raw[1])
+        if width <= 0 or height <= 0:
+            return None
+        return [width, height]
     except Exception:
         return None
 

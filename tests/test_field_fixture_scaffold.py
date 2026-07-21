@@ -34,15 +34,17 @@ def test_scaffold_field_fixture_copies_lightweight_manifests_and_validates(tmp_p
     assert manifest["sync_report"] == "sync_report.json"
     assert manifest["session_manifest"] == "session/manifest.json"
     assert manifest["cases"][0]["manifest_path"] == "session/pitch_00001/manifest.json"
-    assert manifest["cases"][0]["expected"]["observation_quality_status"] == "PASS"
-    assert manifest["cases"][0]["expected"]["trajectory_mode"] == "stereo_3d"
-    assert manifest["cases"][0]["expected"]["plate_z_ft"] == 0.02
+    assert manifest["cases"][0]["observed"]["observation_quality_status"] == "PASS"
+    assert manifest["cases"][0]["observed"]["trajectory_mode"] == "stereo_3d"
+    assert manifest["cases"][0]["observed"]["plate_z_ft"] == 0.02
+    assert manifest["cases"][0]["validation_eligible"] is False
     assert (output_dir / "session" / "manifest.json").exists()
     assert (output_dir / "session" / "pitch_00001" / "manifest.json").exists()
     assert (output_dir / "notes.md").exists()
 
     report = validate_field_fixture_manifest(output_dir / "field_fixture.json")
-    assert report["status"] == PASS
+    assert report["status"] != PASS
+    assert report["accuracy_claim_eligible"] is False
 
 
 def test_scaffold_field_fixture_refuses_non_empty_output_without_overwrite(tmp_path: Path) -> None:

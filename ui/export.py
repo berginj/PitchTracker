@@ -293,6 +293,10 @@ def write_session_summary_csv(path: Path, summary) -> None:
                 "trajectory_model",
                 "trajectory_expected_error_ft",
                 "trajectory_confidence",
+                "measurement_status",
+                "speed_source",
+                "movement_basis",
+                "movement_validated",
             ]
         )
         for pitch in summary.pitches:
@@ -330,6 +334,10 @@ def write_session_summary_csv(path: Path, summary) -> None:
                     f"{getattr(pitch, 'trajectory_confidence', None):.3f}"
                     if getattr(pitch, "trajectory_confidence", None) is not None
                     else "",
+                    getattr(pitch, "measurement_status", "ESTIMATED"),
+                    getattr(pitch, "speed_source", None) or "",
+                    (getattr(pitch, "quality_diagnostics", None) or {}).get("movement_basis", ""),
+                    int(bool((getattr(pitch, "quality_diagnostics", None) or {}).get("movement_validated"))),
                 ]
             )
 

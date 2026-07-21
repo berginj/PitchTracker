@@ -79,7 +79,7 @@ def test_optional_step_can_be_skipped():
     machine.go_to(SetupStep.CHARUCO_FINE_TUNE)
     assert machine.is_optional(SetupStep.CHARUCO_FINE_TUNE) is True
     assert machine.can_skip() is True
-    assert machine.skip() == SetupStep.PERSIST_PROFILE
+    assert machine.skip() == SetupStep.FIELD_ALIGNMENT
     # ChArUco was skipped, not completed.
     assert machine.is_complete(SetupStep.CHARUCO_FINE_TUNE) is False
 

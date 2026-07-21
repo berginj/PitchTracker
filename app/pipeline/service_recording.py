@@ -55,6 +55,9 @@ class PipelineServiceRecordingMixin:
             radar_speed_fn=lambda: (
                 self._radar_client.latest_speed_mph() if self._manual_speed_mph is None else self._manual_speed_mph
             ),
+            speed_source_fn=lambda: (
+                "radar_measurement" if self._manual_speed_mph is None else "manual_override"
+            ),
         )
 
         self._session_manager = SessionManager(self._record_session or "session")

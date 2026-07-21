@@ -41,6 +41,7 @@ class QualityReportStep(BaseStep):
         super().__init__(parent)
         self._style_manager = get_style_manager()
         self._report_provider = report_provider or load_calibration_quality_report
+        self._last_report: Optional[CalibrationQualityReport] = None
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -85,7 +86,10 @@ class QualityReportStep(BaseStep):
         return "Review the calibration quality grade and findings before finishing setup."
 
     def validate(self) -> tuple[bool, str]:
-        # Informational final step: the operator may finish regardless of grade.
+        if self._last_report is None:
+            self.refresh()
+        if self._last_report is None or not self._last_report.passed:
+            return False, "Calibration quality failed. Correct the findings before enabling measurement mode."
         return True, ""
 
     def on_enter(self) -> None:
@@ -94,6 +98,7 @@ class QualityReportStep(BaseStep):
     def refresh(self) -> None:
         """Rebuild and render the report from the provider."""
         report = self._report_provider()
+        self._last_report = report
         self._render(present_quality_report(report))
 
     def _render(self, view: ReportView) -> None:

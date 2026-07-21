@@ -5,10 +5,12 @@ from __future__ import annotations
 import logging
 import threading
 from collections import deque
+from dataclasses import replace
 from typing import Callable, Dict, List, Optional, Tuple
 
 from configs.settings import AppConfig
 from contracts import Detection, Frame, RayObservation, StereoObservation
+from contracts.evidence import PairingOutcomeEvidence, TriangulationDecisionEvidence
 from detect.lane import LaneGate
 from metrics.simple_metrics import (
     PlateMetricsStub,
@@ -17,10 +19,20 @@ from metrics.simple_metrics import (
 )
 from metrics.strike_zone import StrikeResult, build_strike_zone, is_strike
 from stereo import StereoLaneGate, StereoMatcher
+from stereo.association import PairTiming, pair_timing
 from track.trajectory_tracker import TimestampedTrajectoryTracker
 
-from app.pipeline.utils import build_stereo_matches, gate_detections
+from app.events.event_types import StereoAssociationOutcomeEvent
+from app.pipeline.detection.decision_ids import (
+    association_edge_id,
+    detection_decision_id,
+    frame_decision_id,
+    observation_decision_id,
+    stereo_pair_id,
+)
+from app.pipeline.utils import gate_detections
 from app.pipeline.sync_diagnostics import summarize_sync_quality
+from stereo.global_assignment import evaluate_stereo_assignment
 
 logger = logging.getLogger(__name__)
 
@@ -76,11 +88,13 @@ class DetectionProcessor:
         # process_detection_result() concurrently, so every mutation of these
         # deques must hold this lock to avoid data races / undefined behavior.
         self._stereo_buffer_lock = threading.Lock()
-        self._left_buffer: deque[Tuple[Frame, list[Detection]]] = deque(maxlen=6)
-        self._right_buffer: deque[Tuple[Frame, list[Detection]]] = deque(maxlen=6)
-
+        self._stereo_buffer_maxlen = 6
+        self._left_buffer: deque[Tuple[Frame, list[Detection]]] = deque()
+        self._right_buffer: deque[Tuple[Frame, list[Detection]]] = deque()
+        self._pending_pairing_outcomes: list[PairingOutcomeEvidence] = []
         # Timestamp synchronization monitoring
         self._frame_deltas_ns: deque[int] = deque(maxlen=100)  # Track last 100 frame pairs
+        self._raw_frame_deltas_ns: deque[int] = deque(maxlen=100)
         self._total_paired_frames = 0
         self._dropped_frames_sync = 0
         self._last_sync_warning_time = 0.0
@@ -109,6 +123,8 @@ class DetectionProcessor:
             ]
         ] = None
         self._on_ray_observations: Optional[Callable[[str, Frame, List[RayObservation], int, int], None]] = None
+        self._on_pairing_outcome: Optional[Callable[[PairingOutcomeEvidence], None]] = None
+        self._on_association_outcome: Optional[Callable[[StereoAssociationOutcomeEvent], None]] = None
 
         # Cached strike zone (rebuilt only when config changes)
         self._cached_strike_zone = None
@@ -145,6 +161,12 @@ class DetectionProcessor:
         """Set callback for lane-gated per-camera ray observations."""
         self._on_ray_observations = callback
 
+    def set_pairing_outcome_callback(self, callback: Callable[[PairingOutcomeEvidence], None]) -> None:
+        self._on_pairing_outcome = callback
+
+    def set_association_outcome_callback(self, callback: Callable[[StereoAssociationOutcomeEvent], None]) -> None:
+        self._on_association_outcome = callback
+
     def process_detection_result(self, label: str, frame: Frame, detections: list[Detection]) -> None:
         """Process detection result.
 
@@ -168,14 +190,37 @@ class DetectionProcessor:
         # avoid any re-entrant deadlock from downstream callbacks.
         with self._stereo_buffer_lock:
             if label == "left":
+                if len(self._left_buffer) >= self._stereo_buffer_maxlen:
+                    dropped_frame, _ = self._left_buffer.popleft()
+                    self._record_unmatched(dropped_frame, "BUFFER_EVICTED")
                 self._left_buffer.append((frame, detections))
             else:
+                if len(self._right_buffer) >= self._stereo_buffer_maxlen:
+                    dropped_frame, _ = self._right_buffer.popleft()
+                    self._record_unmatched(dropped_frame, "BUFFER_EVICTED")
                 self._right_buffer.append((frame, detections))
 
             matched_pairs = self._match_stereo_buffers()
+            pairing_outcomes = tuple(self._pending_pairing_outcomes)
+            self._pending_pairing_outcomes.clear()
 
+        self._emit_pairing_outcomes(pairing_outcomes)
         for left_frame, right_frame, left_dets, right_dets in matched_pairs:
             self._process_stereo_pair(left_frame, right_frame, left_dets, right_dets)
+
+    def flush_pairing_buffers(self, reason: str = "FLUSHED_ON_STOP") -> None:
+        """Give every buffered frame an explicit terminal unmatched outcome."""
+
+        with self._stereo_buffer_lock:
+            while self._left_buffer:
+                frame, _ = self._left_buffer.popleft()
+                self._record_unmatched(frame, reason)
+            while self._right_buffer:
+                frame, _ = self._right_buffer.popleft()
+                self._record_unmatched(frame, reason)
+            outcomes = tuple(self._pending_pairing_outcomes)
+            self._pending_pairing_outcomes.clear()
+        self._emit_pairing_outcomes(outcomes)
 
     def get_latest_detections(self) -> Dict[str, list[Detection]]:
         """Get latest detections for all cameras.
@@ -358,11 +403,42 @@ class DetectionProcessor:
             - dropped_sync: Frames dropped due to sync issues
             - drop_rate_pct: Percentage of frames dropped
         """
-        return summarize_sync_quality(
+        adjusted = summarize_sync_quality(
             self._frame_deltas_ns,
             self._total_paired_frames,
             self._dropped_frames_sync,
         )
+        raw = summarize_sync_quality(
+            self._raw_frame_deltas_ns,
+            self._total_paired_frames,
+            self._dropped_frames_sync,
+        )
+        adjusted.update(
+            {
+                "timing_basis": "right_timestamp_plus_configured_offset",
+                "time_sync_offset_ns": self._time_sync_offset_ns(),
+                "raw_mean_delta_ms": raw["mean_delta_ms"],
+                "raw_p95_delta_ms": raw["p95_delta_ms"],
+                "raw_max_delta_ms": raw["max_delta_ms"],
+            }
+        )
+        return adjusted
+
+    def _time_sync_offset_ns(self) -> int:
+        if self._config is None:
+            return 0
+        return int(getattr(self._config.stereo, "time_sync_offset_ns", 0))
+
+    def _pair_timing(self, left_frame: Frame, right_frame: Frame) -> PairTiming:
+        return pair_timing(
+            left_frame.t_capture_monotonic_ns,
+            right_frame.t_capture_monotonic_ns,
+            self._time_sync_offset_ns(),
+        )
+
+    def _record_pair_timing(self, timing: PairTiming) -> None:
+        self._raw_frame_deltas_ns.append(timing.raw_skew_ns)
+        self._frame_deltas_ns.append(timing.adjusted_skew_ns)
 
     def _match_stereo_buffers(self) -> List[Tuple[Frame, Frame, list[Detection], list[Detection]]]:
         """Match stereo pairs from buffered frames.
@@ -416,15 +492,18 @@ class DetectionProcessor:
                 self._dropped_frames_sync += 1
                 if left_idx < right_idx:
                     self._left_buffer.popleft()
+                    self._record_unmatched(left_frame, "INDEX_BEHIND")
                     logger.debug(f"Dropped left frame (index {left_idx} vs {right_idx}, diff={index_diff})")
                 else:
                     self._right_buffer.popleft()
+                    self._record_unmatched(right_frame, "INDEX_BEHIND")
                     logger.debug(f"Dropped right frame (index {right_idx} vs {left_idx}, diff={index_diff})")
                 continue
 
             # Frames matched by index - still track timestamp delta for monitoring
-            delta = abs(left_frame.t_capture_monotonic_ns - right_frame.t_capture_monotonic_ns)
-            self._frame_deltas_ns.append(delta)
+            timing = self._pair_timing(left_frame, right_frame)
+            delta = timing.adjusted_skew_ns
+            self._record_pair_timing(timing)
             self._total_paired_frames += 1
 
             # Warn if timestamps are very different (indicates drift)
@@ -441,6 +520,7 @@ class DetectionProcessor:
             # Process the pair
             self._left_buffer.popleft()
             self._right_buffer.popleft()
+            self._record_paired(left_frame, right_frame, pairing_mode="frame_index")
             pairs.append((left_frame, right_frame, left_dets, right_dets))
 
     def _match_by_timestamp(self, pairs: List[Tuple[Frame, Frame, list[Detection], list[Detection]]]) -> None:
@@ -453,7 +533,8 @@ class DetectionProcessor:
             right_frame, right_dets = self._right_buffer[0]
 
             # Check temporal alignment
-            delta = abs(left_frame.t_capture_monotonic_ns - right_frame.t_capture_monotonic_ns)
+            timing = self._pair_timing(left_frame, right_frame)
+            delta = timing.adjusted_skew_ns
             tolerance = 0
             if self._config is not None:
                 tolerance = int(self._config.stereo.pairing_tolerance_ms * 1e6)
@@ -461,20 +542,22 @@ class DetectionProcessor:
             if tolerance > 0 and delta > tolerance:
                 # Frames too far apart, drop the older one
                 self._dropped_frames_sync += 1
-                if left_frame.t_capture_monotonic_ns < right_frame.t_capture_monotonic_ns:
+                if timing.adjusted_left_ns < timing.adjusted_right_ns:
                     self._left_buffer.popleft()
+                    self._record_unmatched(left_frame, "TIMESTAMP_BEHIND")
                     logger.debug(
                         f"Dropped left frame (delta={delta/1e6:.1f}ms exceeds tolerance={tolerance/1e6:.1f}ms)"
                     )
                 else:
                     self._right_buffer.popleft()
+                    self._record_unmatched(right_frame, "TIMESTAMP_BEHIND")
                     logger.debug(
                         f"Dropped right frame (delta={delta/1e6:.1f}ms exceeds tolerance={tolerance/1e6:.1f}ms)"
                     )
                 continue
 
             # Frames are paired - track sync quality
-            self._frame_deltas_ns.append(delta)
+            self._record_pair_timing(timing)
             self._total_paired_frames += 1
 
             # Periodic sync quality check
@@ -484,7 +567,55 @@ class DetectionProcessor:
             # Process the pair
             self._left_buffer.popleft()
             self._right_buffer.popleft()
+            self._record_paired(left_frame, right_frame, pairing_mode="timestamp")
             pairs.append((left_frame, right_frame, left_dets, right_dets))
+
+    def _record_unmatched(self, frame: Frame, reason: str) -> None:
+        frame_id = frame_decision_id(frame)
+        is_left = frame.camera_id == "left"
+        self._pending_pairing_outcomes.append(
+            PairingOutcomeEvidence(
+                outcome_id=f"pairing:{frame_id}:{reason}",
+                status="UNMATCHED",
+                left_frame_id=frame_id if is_left else None,
+                right_frame_id=None if is_left else frame_id,
+                left_timestamp_ns=frame.t_capture_monotonic_ns if is_left else None,
+                right_timestamp_ns=None if is_left else frame.t_capture_monotonic_ns,
+                pairing_mode="frame_index"
+                if self._config and self._config.stereo.use_frame_index_pairing
+                else "timestamp",
+                reason_codes=(reason,),
+            )
+        )
+
+    def _record_paired(self, left: Frame, right: Frame, *, pairing_mode: str) -> None:
+        timing = self._pair_timing(left, right)
+        pair_id = stereo_pair_id(left, right)
+        self._pending_pairing_outcomes.append(
+            PairingOutcomeEvidence(
+                outcome_id=f"pairing:{pair_id}",
+                status="PAIRED",
+                left_frame_id=frame_decision_id(left),
+                right_frame_id=frame_decision_id(right),
+                left_timestamp_ns=timing.raw_left_ns,
+                right_timestamp_ns=timing.raw_right_ns,
+                adjusted_left_timestamp_ns=timing.adjusted_left_ns,
+                adjusted_right_timestamp_ns=timing.adjusted_right_ns,
+                raw_pair_skew_ns=timing.raw_skew_ns,
+                pair_skew_ns=timing.adjusted_skew_ns,
+                pairing_mode=pairing_mode,
+            )
+        )
+
+    def _emit_pairing_outcomes(self, outcomes: tuple[PairingOutcomeEvidence, ...]) -> None:
+        callback = self._on_pairing_outcome
+        if callback is None:
+            return
+        for outcome in outcomes:
+            try:
+                callback(outcome)
+            except Exception:
+                logger.exception("Pairing outcome callback failed for %s", outcome.outcome_id)
 
     def _process_stereo_pair(
         self,
@@ -544,7 +675,7 @@ class DetectionProcessor:
         # Check temporal alignment for metrics computation
         if self._config is not None:
             tolerance_ns = int(self._config.stereo.pairing_tolerance_ms * 1e6)
-            delta_ns = abs(left_frame.t_capture_monotonic_ns - right_frame.t_capture_monotonic_ns)
+            delta_ns = self._pair_timing(left_frame, right_frame).adjusted_skew_ns
             if delta_ns > tolerance_ns:
                 with self._detect_lock:
                     self._last_plate_metrics = compute_plate_stub([])
@@ -556,6 +687,14 @@ class DetectionProcessor:
                     self._on_stereo_pair(
                         left_frame, right_frame, left_detections, right_detections, [], lane_count, plate_count
                     )
+                self._emit_association_outcome(
+                    StereoAssociationOutcomeEvent(
+                        pair_id=stereo_pair_id(left_frame, right_frame),
+                        timestamp_ns=self._pair_timing(left_frame, right_frame).timestamp_ns,
+                        primary_algorithm="greedy_v1",
+                        rejection_reasons=("PAIR_SKEW_OUT_OF_TOLERANCE",),
+                    )
+                )
                 return
 
         # Build stereo matches through the configured matcher so calibrated rigs use
@@ -563,12 +702,19 @@ class DetectionProcessor:
         epipolar_tolerance = 10.0
         if self._config is not None:
             epipolar_tolerance = float(self._config.stereo.epipolar_epsilon_px)
-        matches = build_stereo_matches(
+        pair_id = stereo_pair_id(left_frame, right_frame)
+        association_mode = "greedy_v1"
+        if self._config is not None:
+            association_mode = str(getattr(self._config.stereo, "association_mode", "greedy_v1"))
+        assignment = evaluate_stereo_assignment(
+            pair_id,
             left_gated,
             right_gated,
             epipolar_tolerance=epipolar_tolerance,
             matcher=self._stereo,
+            mode=association_mode,
         )
+        matches = list(assignment.primary_matches)
         if self._stereo_gate is not None:
             matches = self._stereo_gate.filter_matches(matches)
 
@@ -580,8 +726,90 @@ class DetectionProcessor:
 
         # Triangulate lane observations. Plate matches remain the input for plate
         # metrics, but the pitch tracker benefits from the longer in-flight path.
-        observations = [self._stereo.triangulate(match) for match in matches]
+        observations: list[StereoObservation] = []
+        triangulations: list[TriangulationDecisionEvidence] = []
+        final_edge_ids: list[str] = []
+        for match in matches:
+            edge_id = association_edge_id(
+                pair_id,
+                detection_decision_id(match.left),
+                detection_decision_id(match.right),
+            )
+            final_edge_ids.append(edge_id)
+            observation_id = observation_decision_id(edge_id)
+            try:
+                raw_observation = self._stereo.triangulate(match)
+            except Exception as exc:
+                triangulations.append(
+                    TriangulationDecisionEvidence(
+                        observation_id=observation_id,
+                        edge_id=edge_id,
+                        status="FAILED",
+                        diagnostics={"exception_type": exc.__class__.__name__},
+                        rejection_reasons=("TRIANGULATION_EXCEPTION",),
+                    )
+                )
+                logger.exception("Triangulation failed for %s", edge_id)
+                continue
+            observation = replace(
+                raw_observation,
+                observation_id=observation_id,
+                match_id=edge_id,
+            )
+            observations.append(observation)
+            depth_sigma = None
+            if observation.covariance is not None:
+                depth_sigma = max(0.0, float(observation.covariance[2][2])) ** 0.5
+            accepted = observation.quality > 0.0
+            triangulations.append(
+                TriangulationDecisionEvidence(
+                    observation_id=observation_id,
+                    edge_id=edge_id,
+                    status="ACCEPTED" if accepted else "REJECTED",
+                    xyz_ft=(observation.X, observation.Y, observation.Z),
+                    covariance=observation.covariance,
+                    quality=observation.quality,
+                    confidence=observation.confidence,
+                    depth_sigma_ft=depth_sigma,
+                    rejection_reasons=() if accepted else ("TRIANGULATION_QUALITY_ZERO",),
+                )
+            )
         plate_observations = [self._stereo.triangulate(match) for match in plate_matches]
+
+        final_assigned = set(final_edge_ids)
+        association_edges = tuple(
+            replace(
+                edge,
+                decision=(
+                    "ASSIGNED"
+                    if edge.edge_id in final_assigned
+                    else "VALID_UNASSIGNED"
+                    if edge.valid
+                    else "REJECTED"
+                ),
+            )
+            for edge in assignment.edges
+        )
+        assigned_candidate_ids = {
+            candidate_id
+            for edge in association_edges
+            if edge.edge_id in final_assigned
+            for candidate_id in (edge.left_candidate_id, edge.right_candidate_id)
+        }
+        all_candidate_ids = {detection_decision_id(detection) for detection in (*left_gated, *right_gated)}
+        self._emit_association_outcome(
+            StereoAssociationOutcomeEvent(
+                pair_id=pair_id,
+                timestamp_ns=self._pair_timing(left_frame, right_frame).timestamp_ns,
+                primary_algorithm=assignment.primary_algorithm,
+                edges=association_edges,
+                assigned_edge_ids=tuple(sorted(final_assigned)),
+                shadow_assigned_edge_ids=assignment.shadow_assigned_edge_ids,
+                unmatched_candidate_ids=tuple(sorted(all_candidate_ids - assigned_candidate_ids)),
+                triangulations=tuple(triangulations),
+                rejection_reasons=() if observations else ("NO_VALID_STEREO_ASSOCIATION",),
+            )
+        )
 
         # Track observations
         for obs in observations:
@@ -615,3 +843,12 @@ class DetectionProcessor:
             self._on_stereo_pair(
                 left_frame, right_frame, left_detections, right_detections, observations, lane_count, plate_count
             )
+
+    def _emit_association_outcome(self, event: StereoAssociationOutcomeEvent) -> None:
+        callback = self._on_association_outcome
+        if callback is None:
+            return
+        try:
+            callback(event)
+        except Exception:
+            logger.exception("Association outcome callback failed for %s", event.pair_id)

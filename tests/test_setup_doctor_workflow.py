@@ -28,6 +28,8 @@ def _write_calibration(path: Path) -> None:
         quality_rating="GOOD",
         rms_error_px=0.4,
         calibration_mode="FULL",
+        production_ready=True,
+        num_images_used=12,
     )
 
 

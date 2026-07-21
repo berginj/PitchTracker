@@ -16,6 +16,7 @@ from configs.settings import AppConfig
 from contracts import Frame, Detection, StereoObservation
 
 from app.pipeline.recording.manifest import create_pitch_manifest
+from app.pipeline.recording.evidence_package import EvidencePackageWriter
 from app.pipeline.recording.frame_extractor import FrameExtractor
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,19 @@ class PitchRecorder:
         self._session_dir = session_dir
         self._pitch_id = pitch_id
         self._pitch_dir = self._create_pitch_dir()
+        self._evidence = EvidencePackageWriter(
+            self._pitch_dir,
+            pitch_id,
+            {
+                "camera_mode": {
+                    "width": config.camera.width,
+                    "height": config.camera.height,
+                    "fps": config.camera.fps,
+                    "pixfmt": config.camera.pixfmt,
+                }
+            },
+        )
+        self._evidence_written = False
 
         # Video writers
         self._left_writer: Optional[cv2.VideoWriter] = None
@@ -194,9 +208,8 @@ class PitchRecorder:
         Args:
             obs: Stereo observation to store
         """
-        if self._save_observations:
-            self._observations.append(
-                {
+        payload = {
+                    "coordinate_frame": "camera",
                     "timestamp_ns": obs.t_ns,
                     "left_px": [float(obs.left[0]), float(obs.left[1])],
                     "right_px": [float(obs.right[0]), float(obs.right[1])],
@@ -206,7 +219,57 @@ class PitchRecorder:
                     "quality": float(obs.quality),
                     "confidence": float(obs.confidence),
                 }
+        self._evidence.add("observations_3d", payload)
+        if self._save_observations:
+            self._observations.append(payload)
+
+    def add_analysis_observations(
+        self,
+        observations: List[StereoObservation],
+        *,
+        coordinate_frame: str,
+        rig_profile_id: Optional[str],
+    ) -> None:
+        """Persist the immutable observation snapshot delivered to analysis."""
+        for obs in observations:
+            self._evidence.add(
+                "analysis_observations",
+                {
+                    "coordinate_frame": coordinate_frame,
+                    "rig_profile_id": rig_profile_id,
+                    "timestamp_ns": obs.t_ns,
+                    "left_px": [float(obs.left[0]), float(obs.left[1])],
+                    "right_px": [float(obs.right[0]), float(obs.right[1])],
+                    "X_ft": float(obs.X),
+                    "Y_ft": float(obs.Y),
+                    "Z_ft": float(obs.Z),
+                    "quality": float(obs.quality),
+                    "confidence": float(obs.confidence),
+                },
             )
+
+    def add_stereo_pair(self, event) -> None:
+        """Persist pair timing and lifecycle evidence, including empty pairs."""
+        self._evidence.add(
+            "stereo_pairs",
+            {
+                "pair_id": event.pair_id,
+                "timestamp_ns": event.timestamp_ns,
+                "left_timestamp_ns": event.left_timestamp_ns,
+                "right_timestamp_ns": event.right_timestamp_ns,
+                "adjusted_left_timestamp_ns": event.adjusted_left_timestamp_ns,
+                "adjusted_right_timestamp_ns": event.adjusted_right_timestamp_ns,
+                "time_sync_offset_ns": event.time_sync_offset_ns,
+                "raw_pair_skew_ns": event.raw_pair_skew_ns,
+                "left_frame_index": event.left_frame_index,
+                "right_frame_index": event.right_frame_index,
+                "pair_skew_ns": event.pair_skew_ns,
+                "lane_count": event.lane_count,
+                "plate_count": event.plate_count,
+                "observation_count": len(event.observations),
+                "rejection_reasons": list(event.rejection_reasons),
+            },
+        )
 
     def end_pitch(self, end_ns: int) -> None:
         """Mark pitch as ended, continue recording post-roll.
@@ -259,6 +322,10 @@ class PitchRecorder:
 
         if self._save_observations and self._observations:
             self._export_observations()
+        # Always rewrite: analysis may have written an early verdict while
+        # post-roll pair evidence was still arriving.
+        self._evidence.write()
+        self._evidence_written = True
 
     def write_manifest(self, summary, config_path: Optional[str], performance_metrics: Optional[Dict] = None) -> None:
         """Write pitch manifest to JSON file.
@@ -275,7 +342,29 @@ class PitchRecorder:
             left_video=self._left_video_name,
             right_video=self._right_video_name,
         )
+        manifest["evidence_manifest"] = "evidence/manifest.json"
+        manifest["corrections"] = summary.correction_records or []
         (self._pitch_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
+        # Analysis completes after capture closes. Append its verdict and rewrite
+        # the integrity manifest so replay includes both raw evidence and claims.
+        self._evidence.add(
+            "pitch_verdict",
+            {
+                "pitch_id": summary.pitch_id,
+                "measurement_status": summary.measurement_status,
+                "speed_mph": summary.speed_mph,
+                "speed_source": summary.speed_source,
+                "run_in": summary.run_in,
+                "rise_in": summary.rise_in,
+                "trajectory_mode": summary.trajectory_mode,
+                "trajectory_confidence": summary.trajectory_confidence,
+                "trajectory_expected_error_ft": summary.trajectory_expected_error_ft,
+                "quality_diagnostics": summary.quality_diagnostics or {},
+                "corrections": summary.correction_records or [],
+            },
+        )
+        self._evidence.write()
+        self._evidence_written = True
 
     def is_active(self) -> bool:
         """Check if pitch recording is active.

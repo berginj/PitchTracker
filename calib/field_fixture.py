@@ -53,7 +53,16 @@ def validate_field_fixture_manifest(manifest_path: Path) -> dict[str, Any]:
     _summarize_case_component("pitch_manifests", [case for case in case_results if case["component"] == "pitch_manifests"], components)
 
     status = FAIL if errors else WARN if warnings else PASS
-    return _result(status, manifest_path, errors, warnings, case_results, components)
+    result = _result(status, manifest_path, errors, warnings, case_results, components)
+    # The v1 fixture is intentionally diagnostic-only.  In particular, older
+    # scaffolds copied system outputs into their expected fields.  Preserve the
+    # regression status while making that limitation machine-enforced.
+    result.update(
+        accuracy_claim_eligible=False,
+        claim_ready=False,
+        claim_blockers=["LEGACY_FIELD_FIXTURE_SCHEMA"],
+    )
+    return result
 
 
 def _validate_case(root: Path, case: Any, index: int) -> dict[str, Any]:
@@ -112,6 +121,9 @@ def _validate_pitch_manifest_case(
     expected = case.get("expected") or {}
     if not isinstance(expected, dict):
         errors.append("expected must be a JSON object.")
+        return
+    if case.get("validation_eligible") is False:
+        warnings.append("scaffolded system observations are diagnostic-only and cannot serve as expected truth.")
         return
 
     expected_status = expected.get("observation_quality_status")

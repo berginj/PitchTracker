@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from math import isfinite
 from typing import Iterable
 
 import numpy as np
@@ -36,7 +37,7 @@ def summarize_observations(observations: Iterable[StereoObservation]) -> dict:
         }
 
     duration_ms = (obs[-1].t_ns - obs[0].t_ns) / 1e6 if len(obs) > 1 else 0.0
-    rate_hz = (len(obs) / (duration_ms / 1000.0)) if duration_ms > 0.0 else 0.0
+    rate_hz = ((len(obs) - 1) / (duration_ms / 1000.0)) if duration_ms > 0.0 else 0.0
     times_s = np.array([item.t_ns for item in obs], dtype=np.float64) / 1e9
     max_gap_ms = float(np.max(np.diff(times_s)) * 1000.0) if len(obs) > 1 else 0.0
     z_values = [item.Z for item in obs]
@@ -48,6 +49,7 @@ def summarize_observations(observations: Iterable[StereoObservation]) -> dict:
         mean_confidence=float(np.mean(confidences)) if confidences else 0.0,
         max_gap_ms=max_gap_ms,
         max_depth_sigma_ft=float(max(depth_sigmas)) if depth_sigmas else None,
+        uncertainty_count=len(depth_sigmas),
     )
     return {
         "observation_count": len(obs),
@@ -71,7 +73,7 @@ def _depth_sigma_ft(observation: StereoObservation) -> float | None:
         variance = float(observation.covariance[2][2])
     except (IndexError, TypeError, ValueError):
         return None
-    if variance < 0.0:
+    if not isfinite(variance) or variance < 0.0:
         return None
     return float(variance**0.5)
 
@@ -82,6 +84,7 @@ def _observation_quality(
     mean_confidence: float,
     max_gap_ms: float,
     max_depth_sigma_ft: float | None,
+    uncertainty_count: int,
 ) -> tuple[str, list[str], list[str]]:
     rejection_reasons: list[str] = []
     warning_reasons: list[str] = []
@@ -92,6 +95,11 @@ def _observation_quality(
         rejection_reasons.append("LOW_OBSERVATION_CONFIDENCE")
     elif mean_confidence < WARN_MEAN_CONFIDENCE:
         warning_reasons.append("LOW_OBSERVATION_CONFIDENCE")
+
+    if uncertainty_count == 0:
+        warning_reasons.append("UNCERTAINTY_UNAVAILABLE")
+    elif uncertainty_count < observation_count:
+        warning_reasons.append("UNCERTAINTY_EVIDENCE_INCOMPLETE")
 
     if max_depth_sigma_ft is not None:
         if max_depth_sigma_ft > MAX_DEPTH_SIGMA_FT:

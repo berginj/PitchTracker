@@ -8,10 +8,10 @@ prerequisite-gated spec.
 
 Keeping this separate from the window (no PySide6 import) means the wizard's
 control flow -- ordering, optional/skippable steps, prerequisite gating -- is
-unit-testable with synthetic inputs, exactly like the canonical 9-step stereo
+unit-testable with synthetic inputs, exactly like the canonical evidence-gated stereo
 spec in :mod:`ui.setup.state_machine`.
 
-The canonical stereo rebuild target remains ``DEFAULT_SETUP_SPEC`` (the 9-step
+The canonical stereo rebuild target remains ``DEFAULT_SETUP_SPEC`` (the 10-step
 flow). This spec mirrors the widgets that exist today; new stereo steps migrate
 onto the same engine widget-by-widget.
 """

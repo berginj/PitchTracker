@@ -23,6 +23,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
+import hashlib
+import json
 import numpy as np
 import yaml
 import logging
@@ -198,11 +200,12 @@ class OnlineCalibrationRefiner:
         return self.state.num_trajectories_accumulated >= self.MIN_TRAJECTORIES
 
     def refine_parameters(self) -> Dict[str, Any]:
-        """Refine calibration parameters using accumulated trajectories.
+        """Build a shadow refinement proposal without mutating runtime config.
 
         Returns:
             Dictionary with refinement results:
-                - refined: True if refinement applied
+                - refined: always False; proposals require an explicit new rig revision
+                - proposed: True when one or more changes are suggested
                 - drag_k0_old, drag_k0_new: Drag coefficient before/after
                 - time_sync_offset_old, time_sync_offset_new: Time sync before/after
                 - plate_z_old, plate_z_new: Plate Z before/after
@@ -226,12 +229,15 @@ class OnlineCalibrationRefiner:
             t["plate_crossing_z_ft"] for t in self.state.trajectories_buffer if "plate_crossing_z_ft" in t
         ]
 
-        # Store old values
+        # Store current values. Proposed values remain local: tracker output is
+        # not an independent reference and must not rewrite an approved build.
         old_drag_k0 = self.state.drag_k0
         old_time_sync = self.state.time_sync_offset_ns
         old_plate_z = self.state.plate_plane_z_ft
+        proposed_drag_k0 = old_drag_k0
+        proposed_time_sync = old_time_sync
+        proposed_plate_z = old_plate_z
 
-        refined = False
         changes = []
 
         # 1. Refine drag coefficient
@@ -240,10 +246,9 @@ class OnlineCalibrationRefiner:
             drag_change_percent = abs(new_drag_k0 - old_drag_k0) / old_drag_k0 * 100
 
             if drag_change_percent > self.BIAS_THRESHOLD_PERCENT:
-                self.state.drag_k0 = new_drag_k0
-                refined = True
+                proposed_drag_k0 = new_drag_k0
                 changes.append(f"drag_k0: {old_drag_k0:.4f} → {new_drag_k0:.4f} ({drag_change_percent:.1f}% change)")
-                logger.info(f"Refined drag_k0: {old_drag_k0:.4f} → {new_drag_k0:.4f}")
+                logger.info(f"Proposed drag_k0: {old_drag_k0:.4f} → {new_drag_k0:.4f}")
 
         # 2. Refine time sync offset
         if len(time_sync_values) >= self.MIN_TRAJECTORIES // 2:
@@ -251,12 +256,11 @@ class OnlineCalibrationRefiner:
             median_residual_ms = median_residual_ns / 1e6
 
             if abs(median_residual_ms) > self.TIME_SYNC_THRESHOLD_MS:
-                self.state.time_sync_offset_ns += int(median_residual_ns)
-                refined = True
+                proposed_time_sync = old_time_sync + int(median_residual_ns)
                 changes.append(
-                    f"time_sync_offset: {old_time_sync}ns → {self.state.time_sync_offset_ns}ns ({median_residual_ms:.2f}ms bias)"
+                    f"time_sync_offset: {old_time_sync}ns → {proposed_time_sync}ns ({median_residual_ms:.2f}ms bias)"
                 )
-                logger.info(f"Refined time_sync_offset: {old_time_sync}ns → {self.state.time_sync_offset_ns}ns")
+                logger.info(f"Proposed time_sync_offset: {old_time_sync}ns → {proposed_time_sync}ns")
 
         # 3. Refine plate plane Z (if we have plate crossing data)
         if len(plate_z_values) >= self.MIN_TRAJECTORIES // 2:
@@ -265,38 +269,56 @@ class OnlineCalibrationRefiner:
 
             # Only refine if change is significant (> 1 foot)
             if plate_change_ft > 1.0:
-                self.state.plate_plane_z_ft = new_plate_z
-                refined = True
+                proposed_plate_z = new_plate_z
                 changes.append(
                     f"plate_plane_z: {old_plate_z:.2f}ft → {new_plate_z:.2f}ft ({plate_change_ft:.2f}ft change)"
                 )
-                logger.info(f"Refined plate_plane_z: {old_plate_z:.2f}ft → {new_plate_z:.2f}ft")
+                logger.info(f"Proposed plate_plane_z: {old_plate_z:.2f}ft → {new_plate_z:.2f}ft")
 
         # Calculate refinement confidence
         self.state.refinement_confidence = min(
             1.0, self.state.num_trajectories_accumulated / (self.MIN_TRAJECTORIES * 2)
         )
 
-        # Update metadata
-        if refined:
-            self.state.last_refinement_date = datetime.now().isoformat()
-            self.state.refinement_count += 1
-            self._save_state()
-
         # Clear buffer
         self.state.trajectories_buffer.clear()
         self.state.num_trajectories_accumulated = 0
 
+        proposal_payload = {
+            "schema_version": "refinement_proposal.v1",
+            "created_utc": datetime.now().isoformat(),
+            "source": "pitchtracker_shadow_observations",
+            "independent_ground_truth": False,
+            "requires_explicit_apply": True,
+            "requires_new_rig_revision": True,
+            "invalidates_accuracy_approvals": True,
+            "current": {
+                "drag_k0": old_drag_k0,
+                "time_sync_offset_ns": old_time_sync,
+                "plate_plane_z_ft": old_plate_z,
+            },
+            "proposed": {
+                "drag_k0": proposed_drag_k0,
+                "time_sync_offset_ns": proposed_time_sync,
+                "plate_plane_z_ft": proposed_plate_z,
+            },
+            "changes": changes,
+        }
+        canonical = json.dumps(proposal_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        proposal_payload["proposal_sha256"] = hashlib.sha256(canonical).hexdigest()
+
         return {
-            "refined": refined,
+            "refined": False,
+            "proposed": bool(changes),
             "drag_k0_old": old_drag_k0,
-            "drag_k0_new": self.state.drag_k0,
+            "drag_k0_new": proposed_drag_k0,
             "time_sync_offset_old": old_time_sync,
-            "time_sync_offset_new": self.state.time_sync_offset_ns,
+            "time_sync_offset_new": proposed_time_sync,
             "plate_z_old": old_plate_z,
-            "plate_z_new": self.state.plate_plane_z_ft,
+            "plate_z_new": proposed_plate_z,
             "confidence": self.state.refinement_confidence,
             "changes": changes,
+            "proposal": proposal_payload,
             "reason": "; ".join(changes) if changes else "No significant biases detected",
         }
 

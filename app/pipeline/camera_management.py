@@ -233,6 +233,9 @@ class CameraManager:
                 PipelineInitializer.configure_camera(self._left, config, is_left=True)
                 logger.debug("Configuring right camera")
                 PipelineInitializer.configure_camera(self._right, config, is_left=False)
+                if self._backend == "uvc":
+                    PipelineInitializer.verify_camera_configuration(self._left, config)
+                    PipelineInitializer.verify_camera_configuration(self._right, config)
             except Exception as exc:
                 logger.error(f"Failed to configure cameras: {exc}")
                 error_msg = (
@@ -436,6 +439,7 @@ class CameraManager:
         """
         logger.info(f"Attempting to reconnect {camera_id} camera")
 
+        new_camera: Optional[CameraDevice] = None
         try:
             # Determine which camera to reconnect
             if camera_id == "left":
@@ -485,6 +489,8 @@ class CameraManager:
 
             # Configure camera using the same left/right-specific path as initial startup.
             PipelineInitializer.configure_camera(new_camera, self._config, is_left=(camera_id == "left"))
+            if self._backend == "uvc":
+                PipelineInitializer.verify_camera_configuration(new_camera, self._config)
 
             # Update camera reference and re-arm the loop under the camera lock.
             stop_event.clear()
@@ -514,6 +520,11 @@ class CameraManager:
             return True
 
         except Exception as exc:
+            if new_camera is not None:
+                try:
+                    new_camera.close()
+                except Exception as close_exc:
+                    logger.warning(f"Failed to close rejected {camera_id} camera: {close_exc}")
             logger.error(f"Failed to reconnect {camera_id} camera: {exc}", exc_info=True)
             return False
 

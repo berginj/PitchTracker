@@ -15,6 +15,8 @@ class Frame:
     width: int
     height: int
     pixfmt: str
+    capture_epoch: str = ""
+    correlation_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -26,6 +28,11 @@ class Detection:
     v: float
     radius_px: float
     confidence: float
+    candidate_id: str = ""
+    tracklet_id: Optional[str] = None
+    tracklet_action: Optional[str] = None
+    association_eligible: bool = True
+    rejection_reasons: Tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -52,6 +59,8 @@ class StereoObservation:
         Tuple[Tuple[float, float, float], Tuple[float, float, float], Tuple[float, float, float]]
     ] = None
     confidence: float = 0.0
+    observation_id: Optional[str] = None
+    match_id: Optional[str] = None
 
 
 @dataclass(frozen=True)

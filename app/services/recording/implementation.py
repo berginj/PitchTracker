@@ -18,14 +18,21 @@ from typing import Dict, List, Optional
 from app.events.event_bus import EventBus
 from app.events.event_types import (
     FrameCapturedEvent,
+    FrameProcessingOpportunityEvent,
+    FrameProcessingOutcomeEvent,
     ObservationDetectedEvent,
+    PairingOutcomeEvent,
     PitchAnalyzedEvent,
     PitchStartEvent,
     PitchEndEvent,
+    StereoFrameProcessedEvent,
+    StereoAssociationOutcomeEvent,
 )
+from app.pipeline.recording.evidence_journal import SessionEvidenceJournal
 from app.pipeline.recording.session_recorder import SessionRecorder
 from app.pipeline.recording.pitch_recorder import PitchRecorder
 from app.services.recording.interface import RecordingService, RecordingCallback
+from app.services.recording.worker import BoundedRecordingWorker
 from configs.settings import AppConfig
 from contracts import Frame, StereoObservation
 from log_config.logger import get_logger
@@ -52,7 +59,7 @@ class RecordingServiceImpl(RecordingService):
 
     Thread Safety:
         - All public methods are thread-safe
-        - Frame writing is synchronous but fast (< 1ms)
+        - Frame writing uses a bounded worker queue with explicit drop metrics
         - EventBus handlers run on publisher's thread
     """
 
@@ -64,6 +71,9 @@ class RecordingServiceImpl(RecordingService):
         """
         self._event_bus = event_bus
         self._lock = threading.Lock()
+        # Serializes frame submission with pitch-boundary fences. The worker
+        # never takes this lock, so boundaries can drain queued work safely.
+        self._submission_lock = threading.Lock()
 
         # Session recorder
         self._session_recorder: Optional[SessionRecorder] = None
@@ -98,6 +108,9 @@ class RecordingServiceImpl(RecordingService):
         # EventBus subscriptions (not subscribed until session starts)
         self._subscribed = False
         self._session_paused = False
+        self._frame_worker = BoundedRecordingWorker(self._record_frame_sync, max_queue=240)
+        self._decision_journal: Optional[SessionEvidenceJournal] = None
+        self._decision_evidence_incomplete = False
 
         logger.info("RecordingService initialized")
 
@@ -128,6 +141,10 @@ class RecordingServiceImpl(RecordingService):
         with self._lock:
             if self._session_active:
                 raise RuntimeError("Session already active")
+            if not self._frame_worker.start():
+                raise RuntimeError(
+                    "Recording worker from the previous session is still stopping; retry after it exits"
+                )
 
             self._config = config
             self._session_name = session_name
@@ -135,13 +152,26 @@ class RecordingServiceImpl(RecordingService):
             self._config_path = None if config_path is None else str(config_path)
             self._last_pitch_id = pitch_id
 
-            # Create session recorder
-            self._session_recorder = SessionRecorder(config, self._record_dir)
+            try:
+                # Create session recorder
+                self._session_recorder = SessionRecorder(config, self._record_dir)
 
-            # Start session recording
-            session_dir, warning = self._session_recorder.start_session(
-                session_name=session_name, pitch_id=f"session_{session_name}"  # Fallback pitch ID
-            )
+                # Start session recording
+                session_dir, warning = self._session_recorder.start_session(
+                    session_name=session_name, pitch_id=f"session_{session_name}"  # Fallback pitch ID
+                )
+                self._decision_journal = SessionEvidenceJournal(session_dir)
+                self._decision_evidence_incomplete = False
+            except Exception:
+                self._session_recorder = None
+                self._config = None
+                self._session_name = None
+                self._mode = None
+                self._config_path = None
+                self._last_pitch_id = None
+                self._decision_journal = None
+                self._frame_worker.stop(drain=False)
+                raise
 
             self._session_active = True
             self._session_paused = False
@@ -171,13 +201,35 @@ class RecordingServiceImpl(RecordingService):
         with self._lock:
             if not self._session_active:
                 raise RuntimeError("No session active")
+            self._session_paused = True
+            self._unsubscribe_from_events()
+            journal = self._decision_journal
+            self._decision_journal = None
+            evidence_was_incomplete = self._decision_evidence_incomplete
+        decision_evidence_manifest = None
+        decision_evidence_complete = None
+        if journal is not None:
+            journal.close()
+            journal_stats = journal.stats()
+            decision_evidence_manifest = "evidence_journal/manifest.json"
+            decision_evidence_complete = bool(
+                not evidence_was_incomplete
+                and journal_stats["dropped_required"] == 0
+                and journal_stats["write_error"] is None
+                and journal_stats["accepted"] == journal_stats["written"]
+            )
+
+        if not self._frame_worker.stop(drain=True):
+            logger.error("Recording frame queue did not drain before session stop; resources remain open")
+            raise RuntimeError(
+                "Recording writer is still stopping; session resources remain open and stop can be retried"
+            )
+
+        with self._lock:
 
             # Stop any active pitch recording first
             if self._pitch_active:
                 self._stop_pitch_internal()
-
-            # Unsubscribe from EventBus
-            self._unsubscribe_from_events()
 
             # Stop session recorder
             self._session_recorder.stop_session(
@@ -188,6 +240,8 @@ class RecordingServiceImpl(RecordingService):
                 measured_speed_mph=self._measured_speed_mph,
                 calibration_profile_id=self._calibration_profile_id,
                 calibration_report=self._calibration_report,
+                decision_evidence_manifest=decision_evidence_manifest,
+                decision_evidence_complete=decision_evidence_complete,
             )
 
             session_dir = self._session_recorder.get_session_dir()
@@ -203,6 +257,7 @@ class RecordingServiceImpl(RecordingService):
             self._last_pitch_id = None
             self._config_path = None
             self._completed_pitch_recorders.clear()
+            self._decision_evidence_incomplete = False
 
             # Clear pre-roll buffers
             self._pre_roll_buffer["left"].clear()
@@ -230,14 +285,18 @@ class RecordingServiceImpl(RecordingService):
                 raise RuntimeError("No session active")
             if self._session_paused:
                 return
+            self._session_paused = True
+            self._unsubscribe_from_events()
 
+        if not self._frame_worker.wait_idle(timeout=10.0):
+            logger.warning("Recording frame queue did not drain before pause")
+
+        with self._lock:
             if self._pitch_active:
                 self._stop_pitch_internal()
 
-            self._unsubscribe_from_events()
             self._pre_roll_buffer["left"].clear()
             self._pre_roll_buffer["right"].clear()
-            self._session_paused = True
             logger.info("Recording session paused")
 
     def resume_session(self) -> None:
@@ -263,39 +322,45 @@ class RecordingServiceImpl(RecordingService):
         Raises:
             RecordingError: If no session is active or pitch already active
         """
-        with self._lock:
-            if not self._session_active:
-                raise RuntimeError("No session active")
-            if self._pitch_active:
-                raise RuntimeError("Pitch already active")
+        with self._submission_lock:
+            # Ensure every frame classified as pre-pitch has reached the
+            # pre-roll buffer before its snapshot is flushed to the new pitch.
+            if not self._frame_worker.wait_idle(timeout=10.0):
+                raise RuntimeError("Recording queue did not drain before pitch start")
 
-            session_dir = self._session_recorder.get_session_dir()
-            if session_dir is None:
-                raise RuntimeError("Session directory not available")
+            with self._lock:
+                if not self._session_active:
+                    raise RuntimeError("No session active")
+                if self._pitch_active:
+                    raise RuntimeError("Pitch already active")
 
-            # Create pitch recorder
-            self._pitch_recorder = PitchRecorder(config=self._config, session_dir=session_dir, pitch_id=pitch_id)
+                session_dir = self._session_recorder.get_session_dir()
+                if session_dir is None:
+                    raise RuntimeError("Session directory not available")
 
-            # Buffer current pre-roll frames to pitch recorder
-            for frame in list(self._pre_roll_buffer["left"]):
-                self._pitch_recorder.buffer_pre_roll("left", frame)
-            for frame in list(self._pre_roll_buffer["right"]):
-                self._pitch_recorder.buffer_pre_roll("right", frame)
+                # Create pitch recorder
+                self._pitch_recorder = PitchRecorder(config=self._config, session_dir=session_dir, pitch_id=pitch_id)
 
-            # Start pitch recording (opens writers, flushes pre-roll)
-            self._pitch_recorder.start_pitch()
+                # Buffer current pre-roll frames to pitch recorder
+                for frame in list(self._pre_roll_buffer["left"]):
+                    self._pitch_recorder.buffer_pre_roll("left", frame)
+                for frame in list(self._pre_roll_buffer["right"]):
+                    self._pitch_recorder.buffer_pre_roll("right", frame)
 
-            self._pitch_active = True
-            self._current_pitch_id = pitch_id
-            self._last_pitch_id = pitch_id
+                # Start pitch recording (opens writers, flushes pre-roll)
+                self._pitch_recorder.start_pitch()
 
-            # Invoke callbacks
-            self._invoke_callback(
-                "pitch_started",
-                json.dumps({"pitch_id": pitch_id, "pitch_dir": str(self._pitch_recorder.get_pitch_dir())}),
-            )
+                self._pitch_active = True
+                self._current_pitch_id = pitch_id
+                self._last_pitch_id = pitch_id
 
-            logger.info(f"Pitch started: {pitch_id}")
+                # Invoke callbacks
+                self._invoke_callback(
+                    "pitch_started",
+                    json.dumps({"pitch_id": pitch_id, "pitch_dir": str(self._pitch_recorder.get_pitch_dir())}),
+                )
+
+                logger.info(f"Pitch started: {pitch_id}")
 
     def stop_pitch(self) -> Optional[Path]:
         """Stop recording current pitch and finalize.
@@ -308,11 +373,19 @@ class RecordingServiceImpl(RecordingService):
         Raises:
             RecordingError: If finalization fails
         """
-        with self._lock:
-            if not self._pitch_active:
-                return None
+        with self._submission_lock:
+            with self._lock:
+                if not self._pitch_active:
+                    return None
+                detached = self._detach_pitch_locked()
+                if detached is None:
+                    return None
 
-            return self._stop_pitch_internal()
+            if not self._frame_worker.wait_idle(timeout=10.0):
+                logger.warning("Recording frame queue did not drain before pitch stop")
+
+            with self._lock:
+                return self._finalize_pitch_locked(*detached)
 
     def _stop_pitch_internal(self) -> Optional[Path]:
         """Internal pitch stop (assumes lock is held).
@@ -320,25 +393,29 @@ class RecordingServiceImpl(RecordingService):
         Returns:
             Path to pitch directory, or None if no pitch was active
         """
-        if not self._pitch_active:
+        detached = self._detach_pitch_locked()
+        if detached is None:
             return None
+        return self._finalize_pitch_locked(*detached)
 
-        pitch_dir = self._pitch_recorder.get_pitch_dir()
-
-        # Close pitch recorder
+    def _detach_pitch_locked(self):
+        """Fence new frame submissions from the current pitch."""
+        if not self._pitch_active or self._pitch_recorder is None:
+            return None
         recorder = self._pitch_recorder
-        recorder.close(force=False)
-
-        # NOTE: Manifest writing happens later when PitchEndEvent is received
-        # with full trajectory analysis results
-
         pitch_id = self._current_pitch_id
-        if pitch_id is not None and not (recorder.get_pitch_dir() / "manifest.json").exists():
-            self._completed_pitch_recorders[pitch_id] = recorder
-
         self._pitch_recorder = None
         self._pitch_active = False
         self._current_pitch_id = None
+        return recorder, pitch_id
+
+    def _finalize_pitch_locked(self, recorder: PitchRecorder, pitch_id: Optional[str]) -> Optional[Path]:
+        """Close an already-detached recorder and retain it for analysis."""
+        pitch_dir = recorder.get_pitch_dir()
+        recorder.close(force=False)
+
+        if pitch_id is not None and not (recorder.get_pitch_dir() / "manifest.json").exists():
+            self._completed_pitch_recorders[pitch_id] = recorder
 
         # Invoke callbacks
         self._invoke_callback("pitch_ended", json.dumps({"pitch_id": pitch_id, "pitch_dir": str(pitch_dir)}))
@@ -349,7 +426,8 @@ class RecordingServiceImpl(RecordingService):
     def record_frame(self, camera_id: str, frame: Frame) -> None:
         """Record a frame to current session.
 
-        Frames are written synchronously but fast (< 1ms).
+        Frames are queued for bounded asynchronous writing. If the queue is
+        full, the frame is dropped explicitly and recorded in worker metrics.
 
         Args:
             camera_id: Camera identifier ("left" or "right")
@@ -361,23 +439,53 @@ class RecordingServiceImpl(RecordingService):
         Thread-Safety: Thread-safe via lock
         Performance: < 1ms per frame
         """
-        with self._lock:
-            if not self._session_active:
-                raise RuntimeError("No session active")
+        with self._submission_lock:
+            with self._lock:
+                if not self._session_active:
+                    raise RuntimeError("No session active")
+                if self._session_paused:
+                    return
+                pitch_recorder = self._pitch_recorder if self._pitch_active else None
+            if not self._frame_worker.submit((camera_id, frame, pitch_recorder)):
+                logger.warning(
+                    "Recording queue full; dropping newest frame camera=%s index=%s",
+                    camera_id,
+                    frame.frame_index,
+                )
 
-            # Write to session recorder
+    def _record_frame_sync(self, item) -> None:
+        """Perform codec and CSV I/O on the recording worker thread."""
+        camera_id, frame, pitch_recorder = item
+        with self._lock:
+            if not self._session_active or self._session_recorder is None:
+                return
             self._session_recorder.write_frame(camera_id, frame)
 
             # Buffer for pre-roll (always buffer even if no pitch active)
             self._pre_roll_buffer[camera_id].append(frame)
 
             # Write to pitch recorder if active
-            if self._pitch_active and self._pitch_recorder is not None:
-                self._pitch_recorder.write_frame(camera_id, frame)
+            if pitch_recorder is not None:
+                pitch_recorder.write_frame(camera_id, frame)
 
                 # Check if post-roll complete
-                if self._pitch_recorder.should_close():
+                if pitch_recorder.should_close() and pitch_recorder is self._pitch_recorder:
                     self._stop_pitch_internal()
+
+    def get_frame_writer_stats(self) -> dict:
+        """Expose queue, loss, and failure rates for quality diagnostics."""
+        stats = self._frame_worker.stats()
+        attempted = stats.submitted + stats.dropped
+        return {
+            "submitted": stats.submitted,
+            "written": stats.written,
+            "dropped": stats.dropped,
+            "failed": stats.failed,
+            "queue_depth": stats.queue_depth,
+            "drop_rate": stats.dropped / max(attempted, 1),
+            "failure_rate": stats.failed / max(stats.submitted, 1),
+            "drop_policy": "drop_newest",
+        }
 
     def record_observation(self, obs: StereoObservation) -> None:
         """Record a stereo observation to current pitch.
@@ -540,6 +648,35 @@ class RecordingServiceImpl(RecordingService):
         except Exception as e:
             logger.error(f"Error recording observation: {e}", exc_info=True)
 
+    def _on_stereo_frame_processed(self, event: StereoFrameProcessedEvent) -> None:
+        """Record pair-level timing and rejection evidence for the active pitch."""
+        try:
+            with self._lock:
+                recorder = self._pitch_recorder if self._pitch_active else None
+            if recorder is not None:
+                recorder.add_stereo_pair(event)
+        except Exception as e:
+            logger.error(f"Error recording stereo-pair evidence: {e}", exc_info=True)
+
+    def _on_decision_evidence(self, event) -> None:
+        """Queue required replay evidence without doing disk I/O on its publisher."""
+
+        with self._lock:
+            journal = self._decision_journal
+        if journal is None:
+            return
+        try:
+            result = journal.submit_event(event, required=True)
+        except Exception:
+            logger.exception("Decision evidence journal submission failed")
+            with self._lock:
+                self._decision_evidence_incomplete = True
+            return
+        if not result.accepted:
+            with self._lock:
+                self._decision_evidence_incomplete = True
+            logger.error("Required decision evidence was not journaled at sequence %s", result.sequence)
+
     def _on_pitch_start(self, event: PitchStartEvent) -> None:
         """Handle PitchStartEvent from EventBus.
 
@@ -563,6 +700,22 @@ class RecordingServiceImpl(RecordingService):
         """
         try:
             logger.debug("PitchEndEvent received for %s", event.pitch_id)
+            with self._lock:
+                recorder = (
+                    self._pitch_recorder
+                    if self._pitch_active and self._current_pitch_id == event.pitch_id
+                    else None
+                )
+            if recorder is not None:
+                recorder.add_analysis_observations(
+                    list(event.observations),
+                    coordinate_frame=event.coordinate_frame,
+                    rig_profile_id=event.rig_profile_id,
+                )
+                # Arm post-roll from the authoritative pitch-end timestamp.
+                # Without this transition ``should_close()`` can never become
+                # true, leaving the recorder active and blocking the next pitch.
+                recorder.end_pitch(event.timestamp_ns)
         except Exception as e:
             logger.error(f"Error handling pitch end: {e}", exc_info=True)
 
@@ -605,6 +758,11 @@ class RecordingServiceImpl(RecordingService):
         self._event_bus.subscribe(PitchStartEvent, self._on_pitch_start)
         self._event_bus.subscribe(PitchEndEvent, self._on_pitch_end)
         self._event_bus.subscribe(PitchAnalyzedEvent, self._on_pitch_analyzed)
+        self._event_bus.subscribe(StereoFrameProcessedEvent, self._on_stereo_frame_processed)
+        self._event_bus.subscribe(FrameProcessingOpportunityEvent, self._on_decision_evidence)
+        self._event_bus.subscribe(FrameProcessingOutcomeEvent, self._on_decision_evidence)
+        self._event_bus.subscribe(PairingOutcomeEvent, self._on_decision_evidence)
+        self._event_bus.subscribe(StereoAssociationOutcomeEvent, self._on_decision_evidence)
 
         self._subscribed = True
         logger.info("RecordingService subscribed to EventBus")
@@ -622,6 +780,11 @@ class RecordingServiceImpl(RecordingService):
         self._event_bus.unsubscribe(PitchStartEvent, self._on_pitch_start)
         self._event_bus.unsubscribe(PitchEndEvent, self._on_pitch_end)
         self._event_bus.unsubscribe(PitchAnalyzedEvent, self._on_pitch_analyzed)
+        self._event_bus.unsubscribe(StereoFrameProcessedEvent, self._on_stereo_frame_processed)
+        self._event_bus.unsubscribe(FrameProcessingOpportunityEvent, self._on_decision_evidence)
+        self._event_bus.unsubscribe(FrameProcessingOutcomeEvent, self._on_decision_evidence)
+        self._event_bus.unsubscribe(PairingOutcomeEvent, self._on_decision_evidence)
+        self._event_bus.unsubscribe(StereoAssociationOutcomeEvent, self._on_decision_evidence)
 
         self._subscribed = False
         logger.info("RecordingService unsubscribed from EventBus")

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 import numpy as np
 
@@ -16,6 +16,7 @@ from detect.config import DetectorConfig as CvDetectorConfig
 from detect.config import FilterConfig, Mode
 from detect.lane import LaneGate, LaneRoi
 from detect.ml_detector import MlDetector
+from exceptions import CameraConfigurationError
 from log_config.logger import get_logger
 from stereo import CalibratedStereoGeometry, CalibratedStereoMatcher, StereoLaneGate, StereoMatcher
 from stereo.simple_stereo import SimpleStereoMatcher, StereoGeometry
@@ -76,6 +77,56 @@ class PipelineInitializer:
             config.camera.wb_mode,
             config.camera.wb,
         )
+
+    @staticmethod
+    def verify_camera_configuration(camera: CameraDevice, config: AppConfig) -> dict[str, Any]:
+        """Fail closed when a physical camera cannot prove its negotiated state."""
+        mode = camera.get_mode()
+        controls = camera.get_controls()
+        failures: list[str] = []
+
+        if not isinstance(mode, Mapping):
+            failures.append("negotiated mode readback is unavailable")
+        else:
+            expected_pixfmt = config.camera.pixfmt
+            if config.camera.color_mode and expected_pixfmt == "GRAY8":
+                expected_pixfmt = "YUYV"
+            actual_pixfmt = str(mode.get("pixfmt") or "").upper()
+            if actual_pixfmt == "YUY2":
+                actual_pixfmt = "YUYV"
+            expected = {
+                "width": int(config.camera.width),
+                "height": int(config.camera.height),
+                "pixfmt": str(expected_pixfmt).upper(),
+            }
+            for key, expected_value in expected.items():
+                actual_value = mode.get(key) if key != "pixfmt" else actual_pixfmt
+                if actual_value != expected_value:
+                    failures.append(f"{key} expected {expected_value!r}, read back {actual_value!r}")
+            try:
+                actual_fps = float(mode.get("fps"))
+            except (TypeError, ValueError):
+                actual_fps = 0.0
+            fps_tolerance = max(0.5, float(config.camera.fps) * 0.02)
+            if abs(actual_fps - float(config.camera.fps)) > fps_tolerance:
+                failures.append(f"fps expected {config.camera.fps!r}, read back {actual_fps!r}")
+
+        if not isinstance(controls, Mapping):
+            failures.append("control readback is unavailable")
+        else:
+            if controls.get("readback_verified") is not True:
+                failures.append(str(controls.get("readback_note") or "control readback was not verified"))
+            for key, label in (
+                ("auto_exposure_disabled", "automatic exposure"),
+                ("auto_white_balance_disabled", "automatic white balance"),
+                ("autofocus_disabled", "autofocus"),
+            ):
+                if controls.get(key) is not True:
+                    failures.append(f"{label} is not verified disabled")
+
+        if failures:
+            raise CameraConfigurationError("Physical camera configuration verification failed: " + "; ".join(failures))
+        return {"mode": dict(mode), "controls": dict(controls)}
 
     @staticmethod
     def load_rois(

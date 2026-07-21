@@ -39,11 +39,13 @@ class CameraSelectStep(BaseStep):
     def __init__(
         self,
         snapshot_provider: Optional[Callable[[], CameraSelectionSnapshot]] = None,
+        assignment_callback: Optional[Callable[[str, str], None]] = None,
         parent: Optional[QtWidgets.QWidget] = None,
     ):
         super().__init__(parent)
         self._style_manager = get_style_manager()
         self._snapshot_provider = snapshot_provider or empty_camera_selection
+        self._assignment_callback = assignment_callback
         self._last_snapshot: Optional[CameraSelectionSnapshot] = None
         self._last_grade: Optional[tuple[bool, str]] = None
         self._build_ui()
@@ -59,6 +61,18 @@ class CameraSelectStep(BaseStep):
 
         layout.addWidget(self._build_metrics_group())
         layout.addWidget(self._build_warnings_group())
+
+        self._assignment_group = QtWidgets.QGroupBox("Camera assignment")
+        assignment_form = QtWidgets.QFormLayout(self._assignment_group)
+        self._left_combo = QtWidgets.QComboBox()
+        self._right_combo = QtWidgets.QComboBox()
+        assignment_form.addRow("Left camera", self._left_combo)
+        assignment_form.addRow("Right camera", self._right_combo)
+        apply_button = GlassButton("Apply Assignment", variant="primary")
+        apply_button.clicked.connect(self._apply_assignment)
+        assignment_form.addRow(apply_button)
+        self._assignment_group.setVisible(self._assignment_callback is not None)
+        layout.addWidget(self._assignment_group)
 
         refresh_button = GlassButton("Refresh Cameras", variant="primary")
         refresh_button.setMinimumHeight(self._style_manager.theme.button_height_md)
@@ -109,7 +123,33 @@ class CameraSelectStep(BaseStep):
         self._last_snapshot = snapshot
         self._last_grade = grade
         self.set_complete(grade[0])
+        self._populate_assignments(snapshot)
         self._render(present_camera_selection(snapshot))
+
+    def _populate_assignments(self, snapshot: CameraSelectionSnapshot) -> None:
+        if self._assignment_callback is None:
+            return
+        combos = (self._left_combo, self._right_combo)
+        for combo in combos:
+            combo.blockSignals(True)
+            combo.clear()
+            for camera in snapshot.cameras:
+                combo.addItem(camera.friendly_name or camera.hardware_id, camera.hardware_id)
+            combo.blockSignals(False)
+        for index, camera in enumerate(snapshot.cameras):
+            if camera.side == "left":
+                self._left_combo.setCurrentIndex(index)
+            elif camera.side == "right":
+                self._right_combo.setCurrentIndex(index)
+
+    def _apply_assignment(self) -> None:
+        left_id = str(self._left_combo.currentData() or "")
+        right_id = str(self._right_combo.currentData() or "")
+        if not left_id or not right_id or left_id == right_id:
+            style_status_label(self._headline, "error", "Choose two distinct cameras")
+            return
+        self._assignment_callback(left_id, right_id)
+        self.refresh()
 
     def _render(self, view: ReportView) -> None:
         style_status_label(self._headline, view.tone, view.headline)

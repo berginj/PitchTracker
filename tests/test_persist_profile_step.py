@@ -37,7 +37,7 @@ def test_widget_renders_profile(qapp):
     widget.on_enter()
 
     assert widget._metrics_form.rowCount() == 5
-    assert widget.validate() == (True, "")
+    assert widget.validate()[0] is False
     assert widget.get_title() == "Persist Profile"
 
 
@@ -48,6 +48,7 @@ def test_persist_callback_path(qapp):
     widget._persist()
 
     assert widget._persisted is True
+    assert widget.validate() == (True, "")
 
 
 def test_none_provider_blocks_validation(qapp):
@@ -67,3 +68,32 @@ def test_refresh_does_not_accumulate_rows(qapp):
     assert widget._metrics_form.rowCount() == 5
     widget.refresh()
     assert widget._metrics_form.rowCount() == 5
+
+
+def test_refresh_invalidates_prior_persistence(qapp):
+    widget = PersistProfileStep(profile_provider=_profile, persist_callback=lambda _profile: "rig-123")
+    widget.on_enter()
+    widget._persist()
+    assert widget.validate() == (True, "")
+
+    widget.refresh()
+
+    assert widget._persisted is False
+    assert widget.validate()[0] is False
+
+
+def test_failed_retry_invalidates_prior_persistence(qapp):
+    widget = PersistProfileStep(profile_provider=_profile, persist_callback=lambda _profile: "rig-123")
+    widget.on_enter()
+    widget._persist()
+    assert widget.validate() == (True, "")
+
+    def fail(_profile):
+        raise RuntimeError("disk unavailable")
+
+    widget._persist_callback = fail
+    widget._persist()
+
+    assert widget._persisted is False
+    assert widget.validate()[0] is False
+    assert "disk unavailable" in widget._status_label.text()

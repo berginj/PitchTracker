@@ -59,6 +59,37 @@ class CameraModel:
     def camera_center_world(self) -> np.ndarray:
         return (-self.R.T @ self.t.reshape(3, 1)).reshape(3)
 
+    def in_transformed_world_frame(self, matrix_4x4: np.ndarray) -> "CameraModel":
+        """Return equivalent extrinsics expressed in a new rigid world frame.
+
+        ``matrix_4x4`` maps points from this model's current world frame into
+        the new frame. Projection remains identical for corresponding points.
+        """
+        matrix = np.asarray(matrix_4x4, dtype=np.float64)
+        if matrix.shape != (4, 4) or not np.isfinite(matrix).all():
+            raise ValueError("world-frame transform must be a finite 4x4 matrix")
+        if not np.allclose(matrix[3], [0.0, 0.0, 0.0, 1.0], atol=1e-6):
+            raise ValueError("world-frame transform must be affine")
+        rotation = matrix[:3, :3]
+        if not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-5):
+            raise ValueError("world-frame transform rotation must be orthonormal")
+        if not np.isclose(np.linalg.det(rotation), 1.0, atol=1e-5):
+            raise ValueError("world-frame transform rotation must have determinant +1")
+        translation = matrix[:3, 3]
+        new_rotation = self.R @ rotation.T
+        new_translation = self.t.reshape(3) - new_rotation @ translation
+        return CameraModel(
+            fx=self.fx,
+            fy=self.fy,
+            cx=self.cx,
+            cy=self.cy,
+            R=new_rotation,
+            t=new_translation,
+            distortion=self.distortion,
+            fundamental_matrix=self.fundamental_matrix,
+            camera_id=self.camera_id,
+        )
+
     def jacobian_project(self, xyz_ft: np.ndarray) -> np.ndarray:
         eps = 1e-4
         base = self.project(xyz_ft)
@@ -78,7 +109,7 @@ class CameraModel:
         denom = (line[0] ** 2 + line[1] ** 2) ** 0.5
         if denom == 0:
             return None
-            dist = abs(line[0] * right_uv[0] + line[1] * right_uv[1] + line[2]) / denom
+        dist = abs(line[0] * right_uv[0] + line[1] * right_uv[1] + line[2]) / denom
         return float(dist)
 
     def _undistort_to_normalized(self, uv: Tuple[float, float]) -> Tuple[float, float]:

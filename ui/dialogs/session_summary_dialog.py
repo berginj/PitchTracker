@@ -7,6 +7,7 @@ from typing import Callable, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from app.contracts import measurement_is_usable
 from ui.themes import (
     apply_standard_layout,
     build_dialog_header,
@@ -100,14 +101,17 @@ class SessionSummaryDialog(QtWidgets.QDialog):
     def _build_metric_cards(self) -> QtWidgets.QHBoxLayout:
         """Build top-line metric cards."""
         layout = QtWidgets.QHBoxLayout()
+        usable = [pitch for pitch in self._summary.pitches if measurement_is_usable(pitch)]
+        strikes = sum(1 for pitch in usable if pitch.is_strike)
+        balls = len(usable) - strikes
+        unclassified = len(self._summary.pitches) - len(usable)
+        strike_rate = f"{(strikes / len(usable)) * 100:.0f}%" if usable else "--"
         cards = [
             ("Pitches", str(self._summary.pitch_count)),
-            ("Strikes", str(self._summary.strikes)),
-            ("Balls", str(self._summary.balls)),
-            (
-                "Strike Rate",
-                f"{(self._summary.strikes / max(self._summary.pitch_count, 1)) * 100:.0f}%",
-            ),
+            ("Strikes", str(strikes)),
+            ("Balls", str(balls)),
+            ("Unclassified", str(unclassified)),
+            ("Strike Rate", strike_rate),
         ]
         for label, value in cards:
             card = QtWidgets.QFrame()
@@ -130,7 +134,7 @@ class SessionSummaryDialog(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout(panel)
         layout.setContentsMargins(14, 12, 14, 14)
 
-        title = QtWidgets.QLabel("Strike Zone Heatmap")
+        title = QtWidgets.QLabel("Usable Strike Zone Heatmap")
         self._style_manager.style_label(title, "sectionTitle")
         layout.addWidget(title)
 
@@ -143,14 +147,24 @@ class SessionSummaryDialog(QtWidgets.QDialog):
         heatmap.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         heatmap.setMinimumHeight(180)
 
-        max_count = max(max(row) for row in self._summary.heatmap) if self._summary.heatmap else 0
+        usable_heatmap = [[0] * 3 for _ in range(3)]
+        for pitch in self._summary.pitches:
+            if (
+                measurement_is_usable(pitch)
+                and pitch.zone_row is not None
+                and pitch.zone_col is not None
+                and 0 <= pitch.zone_row < 3
+                and 0 <= pitch.zone_col < 3
+            ):
+                usable_heatmap[pitch.zone_row][pitch.zone_col] += 1
+        max_count = max(max(row) for row in usable_heatmap)
         theme = self._style_manager.theme
         cool = QtGui.QColor(theme.accent_primary_dim)
         hot = QtGui.QColor(theme.accent_primary)
 
         for row in range(3):
             for col in range(3):
-                value = self._summary.heatmap[row][col]
+                value = usable_heatmap[row][col]
                 item = QtWidgets.QTableWidgetItem(str(value))
                 item.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
                 if max_count > 0 and value > 0:
@@ -177,25 +191,29 @@ class SessionSummaryDialog(QtWidgets.QDialog):
         self._style_manager.style_label(title, "sectionTitle")
         layout.addWidget(title)
 
-        table = QtWidgets.QTableWidget(len(self._summary.pitches), 7)
+        table = QtWidgets.QTableWidget(len(self._summary.pitches), 8)
         style_data_table(table)
-        table.setHorizontalHeaderLabels(["Pitch", "Strike", "Zone", "Run (in)", "Rise (in)", "Speed", "Rotation"])
+        table.setHorizontalHeaderLabels(
+            ["Pitch", "Strike", "Zone", "Raw ΔX (in)", "Raw ΔY (in)", "Speed", "Rotation", "Quality"]
+        )
         table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         table.setMinimumHeight(320)
 
         for row, pitch in enumerate(self._summary.pitches):
+            usable = measurement_is_usable(pitch)
             zone = "-"
-            if pitch.zone_row is not None and pitch.zone_col is not None:
+            if usable and pitch.zone_row is not None and pitch.zone_col is not None:
                 zone = f"{pitch.zone_row},{pitch.zone_col}"
 
             values = [
                 pitch.pitch_id,
-                "Yes" if pitch.is_strike else "No",
+                ("Yes" if pitch.is_strike else "No") if usable else "Unclassified",
                 zone,
                 f"{pitch.run_in:.2f}",
                 f"{pitch.rise_in:.2f}",
                 f"{pitch.speed_mph:.1f}" if pitch.speed_mph is not None else "-",
                 f"{pitch.rotation_rpm:.1f}" if pitch.rotation_rpm is not None else "-",
+                pitch.measurement_status,
             ]
 
             for col, value in enumerate(values):

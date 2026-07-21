@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from contracts import Frame
 
@@ -46,6 +46,14 @@ class CameraDevice(ABC):
         wb: Optional[int],
     ) -> None:
         """Set manual controls for exposure, gain, and white balance."""
+
+    def get_mode(self) -> Optional[dict[str, Any]]:
+        """Return negotiated mode readback when the backend supports it."""
+        return None
+
+    def get_controls(self) -> Optional[dict[str, Any]]:
+        """Return control readback and verification metadata when supported."""
+        return None
 
     @abstractmethod
     def read_frame(self, timeout_ms: int) -> Frame:

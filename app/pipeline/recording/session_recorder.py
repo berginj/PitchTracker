@@ -217,6 +217,8 @@ class SessionRecorder:
         measured_speed_mph: Optional[float],
         calibration_profile_id: Optional[str] = None,
         calibration_report: Optional[dict] = None,
+        decision_evidence_manifest: Optional[str] = None,
+        decision_evidence_complete: Optional[bool] = None,
     ) -> None:
         """Stop session recording.
 
@@ -255,6 +257,8 @@ class SessionRecorder:
             ended_utc=ended_utc,
             calibration_profile_id=calibration_profile_id,
             calibration_report=calibration_report,
+            decision_evidence_manifest=decision_evidence_manifest,
+            decision_evidence_complete=decision_evidence_complete,
         )
         (self._session_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
         self._session_started_utc = None
@@ -512,6 +516,10 @@ class SessionRecorder:
                     "trajectory_confidence",
                     "ray_rmse_px",
                     "estimated_camera_time_offset_ms",
+                    "measurement_status",
+                    "speed_source",
+                    "movement_basis",
+                    "movement_validated",
                 ]
             )
             for pitch in summary.pitches:
@@ -542,5 +550,9 @@ class SessionRecorder:
                         f"{pitch.estimated_camera_time_offset_ms:.3f}"
                         if pitch.estimated_camera_time_offset_ms is not None
                         else "",
+                        pitch.measurement_status,
+                        pitch.speed_source or "",
+                        (pitch.quality_diagnostics or {}).get("movement_basis", ""),
+                        int(bool((pitch.quality_diagnostics or {}).get("movement_validated"))),
                     ]
                 )

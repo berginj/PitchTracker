@@ -163,7 +163,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
             "- System validation\n\n"
             "Run once or when reconfiguring",
             "#4CAF50",
-            self._launch_setup,
+            self._launch_stereo_setup,
         )
         self._setup_button.setAccessibleName("Launch Setup Wizard")
 
@@ -363,28 +363,8 @@ class LauncherWindow(QtWidgets.QMainWindow):
         self.activateWindow()
 
     def _launch_setup(self):
-        """Launch Setup Wizard."""
-        try:
-            # Import here to avoid circular imports
-            from ui.setup import SetupWindow
-
-            # Close launcher
-            self.hide()
-
-            # Create and show setup window
-            self.setup_window = SetupWindow(backend="uvc")
-            self.setup_window.show()
-
-            # When setup window closes, show launcher again
-            self.setup_window.destroyed.connect(self._on_child_closed)
-
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(
-                self,
-                "Launch Error",
-                f"Failed to launch Setup Wizard:\n{str(e)}\n\n" "Make sure all dependencies are installed.",
-            )
-            self.show()
+        """Compatibility route to the single canonical stereo setup wizard."""
+        self._launch_stereo_setup()
 
     def _launch_stereo_setup(self):
         """Launch the canonical stereo setup wizard."""

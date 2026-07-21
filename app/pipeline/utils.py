@@ -66,34 +66,34 @@ def build_stereo_matches(
     Returns:
         List of StereoMatch candidates (80-90% fewer than naive O(n²) pairing)
     """
-    matches: list[StereoMatch] = []
-
     # Convert to lists for efficient indexing/sorting
     left_list = list(left_detections)
     right_list = list(right_detections)
 
     # Early exit if either side has no detections
     if not left_list or not right_list:
-        return matches
+        return []
 
     if matcher is not None:
-        for left in left_list:
-            for right in right_list:
+        candidates = []
+        for left_index, left in enumerate(left_list):
+            for right_index, right in enumerate(right_list):
                 match = matcher.match(left, right)
                 if match is not None:
-                    matches.append(match)
-        return matches
+                    candidates.append((match.epipolar_error_px, -match.score, left_index, right_index, match))
+        return _select_one_to_one(candidates)
 
     # Sort right detections by v-coordinate for efficient range queries
-    right_sorted = sorted(right_list, key=lambda d: d.v)
+    right_sorted = sorted(enumerate(right_list), key=lambda item: item[1].v)
+    candidates = []
 
     # For each left detection, find right detections within epipolar band
-    for left in left_list:
+    for left_index, left in enumerate(left_list):
         left_v = left.v
 
         # Binary search for candidates within [left_v - tolerance, left_v + tolerance]
         # Linear scan is acceptable for small detection counts (5-10 per camera)
-        for right in right_sorted:
+        for right_index, right in right_sorted:
             epipolar_error = abs(right.v - left_v)
 
             # Skip if outside epipolar band
@@ -104,16 +104,30 @@ def build_stereo_matches(
                 continue
 
             # Create match for valid epipolar candidate
-            matches.append(
-                StereoMatch(
-                    left=left,
-                    right=right,
-                    epipolar_error_px=epipolar_error,
-                    score=min(left.confidence, right.confidence),
-                )
+            score = min(left.confidence, right.confidence)
+            match = StereoMatch(
+                left=left,
+                right=right,
+                epipolar_error_px=epipolar_error,
+                score=score,
             )
+            candidates.append((epipolar_error, -score, left_index, right_index, match))
 
-    return matches
+    return _select_one_to_one(candidates)
+
+
+def _select_one_to_one(candidates) -> list[StereoMatch]:
+    """Choose a deterministic greedy one-to-one assignment."""
+    selected: list[StereoMatch] = []
+    used_left: set[int] = set()
+    used_right: set[int] = set()
+    for _, _, left_index, right_index, match in sorted(candidates, key=lambda item: item[:4]):
+        if left_index in used_left or right_index in used_right:
+            continue
+        used_left.add(left_index)
+        used_right.add(right_index)
+        selected.append(match)
+    return selected
 
 
 def build_session_summary(session_id: str, pitches: List) -> Dict:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Optional
 
 from PySide6 import QtWidgets
@@ -29,6 +30,9 @@ class SessionStartDialog(QtWidgets.QDialog):
         self,
         config: AppConfig,
         parent: Optional[QtWidgets.QWidget] = None,
+        *,
+        backend: Optional[str] = None,
+        config_path: Optional[Path] = None,
     ):
         super().__init__(parent)
         self.setWindowTitle("Start New Session")
@@ -36,6 +40,8 @@ class SessionStartDialog(QtWidgets.QDialog):
 
         self._style_manager = get_style_manager()
         self._config = config
+        self._backend = backend
+        self._rig_profile_service = RigProfileService(config_path=config_path) if config_path else RigProfileService()
         self._pitcher_name = ""
         self._session_name = ""
         self._batter_height_in = config.strike_zone.batter_height_in
@@ -164,6 +170,30 @@ class SessionStartDialog(QtWidgets.QDialog):
         right_label = QtWidgets.QLabel("Right Camera")
         self._right_camera_combo = QtWidgets.QComboBox()
         self._right_camera_combo.setAccessibleName("Right Camera")
+
+        active_profile = RigProfileService().load_active()
+        if active_profile is not None and active_profile.left_serial and active_profile.right_serial:
+            fingerprint = active_profile.hardware_fingerprint or {}
+            left_name = str(fingerprint.get("left_friendly_name") or active_profile.left_serial)
+            right_name = str(fingerprint.get("right_friendly_name") or active_profile.right_serial)
+            self._left_camera_combo.addItem(f"{left_name} (Rig profile)", active_profile.left_serial)
+            self._right_camera_combo.addItem(f"{right_name} (Rig profile)", active_profile.right_serial)
+            self._left_camera_combo.setEnabled(False)
+            self._right_camera_combo.setEnabled(False)
+            note = QtWidgets.QLabel(
+                f"Camera assignment is owned by active rig profile {active_profile.profile_id}. "
+                "Use Setup Wizard to change it."
+            )
+            note.setWordWrap(True)
+            layout = QtWidgets.QGridLayout()
+            apply_standard_layout(layout, margins=(8, 8, 8, 8), spacing=10)
+            layout.addWidget(left_label, 0, 0)
+            layout.addWidget(self._left_camera_combo, 0, 1)
+            layout.addWidget(right_label, 1, 0)
+            layout.addWidget(self._right_camera_combo, 1, 1)
+            layout.addWidget(note, 2, 0, 1, 2)
+            group.setLayout(layout)
+            return group
 
         state = load_state()
         last_left = state.get("last_left_camera")
@@ -312,7 +342,10 @@ class SessionStartDialog(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout()
         apply_standard_layout(layout, margins=(0, 0, 0, 0), spacing=8)
 
-        validation = RigProfileService().validate_for_runtime(config=self._config)
+        validation = self._rig_profile_service.validate_for_runtime(
+            config=self._config,
+            backend=self._backend,
+        )
         if validation.state == CRITICAL:
             notice, _ = build_notice("Setup Doctor reports a critical rig issue.", tone="error")
             detail_label = QtWidgets.QLabel("\n".join(validation.issues))
@@ -421,10 +454,11 @@ class SessionStartDialog(QtWidgets.QDialog):
             )
             return
 
-        validation = RigProfileService().validate_for_runtime(
+        validation = self._rig_profile_service.validate_for_runtime(
             config=self._config,
             left_serial=str(left_serial),
             right_serial=str(right_serial),
+            backend=self._backend,
         )
         if validation.state == CRITICAL:
             show_message_dialog(

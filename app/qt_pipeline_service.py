@@ -141,6 +141,10 @@ class QtPipelineService(QtCore.QObject):
         """Get camera stats (delegates to underlying service)."""
         return self._service.get_stats()
 
+    def get_quality_diagnostics(self):
+        """Get detailed runtime evidence for an explicitly opened diagnostics view."""
+        return self._service.get_quality_diagnostics()
+
     def set_record_directory(self, path: Optional[Path]):
         """Set recording directory (delegates to underlying service)."""
         return self._service.set_record_directory(path)

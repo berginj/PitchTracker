@@ -18,6 +18,7 @@ camera:
 stereo:
   pairing_tolerance_ms: 8
   epipolar_epsilon_px: 3
+  association_mode: greedy_v1  # global_v2 is opt-in; shadow_v2 records comparison only
   baseline_ft: 1.625  # 19.5 inches measured center-to-center
   focal_length_px: 1200.0
   cx: null
@@ -46,7 +47,7 @@ metrics:
   ivb_bounds_in: [-30, 30]
   release_height_bounds_ft: [1, 8]
   # Online refinement state
-  online_refinement_enabled: true  # Enable automatic parameter refinement
+  online_refinement_enabled: false  # Shadow proposals only; never auto-mutate an approved measurement build
   last_refinement_date: null  # ISO timestamp
   drag_k0_default: 0.1  # Default drag coefficient (refined online)
 trajectory:
@@ -90,7 +91,7 @@ detector:
   blob_threshold: 22.0
   runtime_budget_ms: 4.0
   crop_padding_px: 20
-  min_consecutive: 1
+  min_consecutive: 2  # Reject isolated one-frame candidates via timestamp-aware tracklets
   filters:
     min_area: 12
     max_area: null

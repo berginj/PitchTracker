@@ -215,8 +215,9 @@ def test_refine_drag_coefficient_with_bias(temp_config):
 
     result = refiner.refine_parameters()
 
-    # Should refine (bias > 10%)
-    assert result["refined"] is True
+    # Tracker-derived bias produces a shadow proposal, never an applied mutation.
+    assert result["refined"] is False
+    assert result["proposed"] is True
     assert result["drag_k0_old"] == 0.1
     assert abs(result["drag_k0_new"] - 0.15) < 0.01
     assert "drag_k0" in result["reason"]
@@ -250,8 +251,8 @@ def test_refine_time_sync_offset_with_bias(temp_config):
 
     result = refiner.refine_parameters()
 
-    # Should refine (bias > 5ms)
-    assert result["refined"] is True
+    assert result["refined"] is False
+    assert result["proposed"] is True
     assert result["time_sync_offset_old"] == 0
     assert abs(result["time_sync_offset_new"] - 10e6) < 2e6  # Within 2ms of expected
 
@@ -282,14 +283,14 @@ def test_refine_plate_plane_z_with_bias(temp_config):
 
     result = refiner.refine_parameters()
 
-    # Should refine (change > 1 foot)
-    assert result["refined"] is True
+    assert result["refined"] is False
+    assert result["proposed"] is True
     assert result["plate_z_old"] == 0.0
     assert abs(result["plate_z_new"] - 2.5) < 0.5
 
 
-def test_refine_updates_metadata(temp_config):
-    """Test that refinement updates metadata correctly."""
+def test_refine_proposal_does_not_update_applied_metadata_or_config(temp_config):
+    """Shadow refinement must leave the approval-bearing build unchanged."""
     refiner = OnlineCalibrationRefiner(temp_config)
 
     # Accumulate trajectories with bias
@@ -298,12 +299,16 @@ def test_refine_updates_metadata(temp_config):
         refiner.accumulate_trajectory(trajectory)
 
     before_count = refiner.state.refinement_count
-    refiner.refine_parameters()
+    original = temp_config.read_bytes()
+    result = refiner.refine_parameters()
 
-    # Check metadata updated
-    assert refiner.state.last_refinement_date is not None
-    assert refiner.state.refinement_count == before_count + 1
+    assert result["proposed"] is True
+    assert result["proposal"]["requires_new_rig_revision"] is True
+    assert result["proposal"]["invalidates_accuracy_approvals"] is True
+    assert refiner.state.last_refinement_date is None
+    assert refiner.state.refinement_count == before_count
     assert refiner.state.refinement_confidence > 0.0
+    assert temp_config.read_bytes() == original
 
 
 def test_refine_clears_buffer(temp_config):
@@ -509,7 +514,8 @@ def test_refine_with_mixed_quality_trajectories(temp_config):
     assert refiner.state.num_trajectories_accumulated >= 50  # Enough for refinement
 
     result = refiner.refine_parameters()
-    assert result["refined"] is True
+    assert result["refined"] is False
+    assert result["proposed"] is True
 
 
 if __name__ == "__main__":

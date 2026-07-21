@@ -16,6 +16,7 @@ from app.events.event_types import (
     ObservationDetectedEvent,
     PitchEndEvent,
     PitchStartEvent,
+    StereoFrameProcessedEvent,
 )
 from app.services.orchestrator import PipelineOrchestrator
 from configs.settings import load_config
@@ -162,6 +163,24 @@ class TestPipelineOrchestratorPreview:
 
 class TestPipelineOrchestratorRecording:
     """Test recording functionality."""
+
+    def test_recording_start_failure_rolls_back_detection_and_analysis(self, monkeypatch):
+        orchestrator = PipelineOrchestrator(backend="sim")
+        config = create_test_config()
+        orchestrator.start_capture(config, left_serial="left", right_serial="right")
+
+        def fail_start_session(*_args, **_kwargs):
+            raise RuntimeError("disk unavailable")
+
+        monkeypatch.setattr(orchestrator._recording_service, "start_session", fail_start_session)
+
+        with pytest.raises(RuntimeError, match="disk unavailable"):
+            orchestrator.start_recording(session_name="rollback")
+
+        assert orchestrator._recording_active is False
+        assert orchestrator._detection_started is False
+        assert orchestrator._analysis_service._analysis_active is False
+        orchestrator.stop_capture()
 
     @requires_video_codec
     def test_start_stop_recording(self):
@@ -562,6 +581,56 @@ class TestPipelineOrchestratorEventFlow:
         assert isinstance(pitch_start_events, list)
         assert isinstance(pitch_end_events, list)
 
+        orchestrator.stop_capture()
+
+    def test_stereo_pair_events_start_and_naturally_end_pitch(self):
+        orchestrator = PipelineOrchestrator(backend="sim")
+        config = create_test_config()
+        pitch_start_events: List[PitchStartEvent] = []
+        pitch_end_events: List[PitchEndEvent] = []
+
+        orchestrator.start_capture(config, left_serial="left", right_serial="right")
+        orchestrator._event_bus.subscribe(PitchStartEvent, pitch_start_events.append)
+        orchestrator._event_bus.subscribe(PitchEndEvent, pitch_end_events.append)
+
+        base_ns = 1_000_000_000
+        for index in range(config.recording.session_min_active_frames + 2):
+            timestamp_ns = base_ns + index * 20_000_000
+            obs = create_test_observation(timestamp_ns, 0.0, 3.0, 60.0 - index)
+            orchestrator._event_bus.publish(ObservationDetectedEvent(obs, timestamp_ns, 0.9))
+            orchestrator._event_bus.publish(
+                StereoFrameProcessedEvent(
+                    pair_id=f"active-{index}",
+                    timestamp_ns=timestamp_ns,
+                    left_timestamp_ns=timestamp_ns,
+                    right_timestamp_ns=timestamp_ns,
+                    left_frame_index=index,
+                    right_frame_index=index,
+                    lane_count=1,
+                    plate_count=0,
+                    observations=(obs,),
+                )
+            )
+
+        for offset in range(config.recording.session_end_gap_frames):
+            timestamp_ns = base_ns + (20 + offset) * 20_000_000
+            orchestrator._event_bus.publish(
+                StereoFrameProcessedEvent(
+                    pair_id=f"gap-{offset}",
+                    timestamp_ns=timestamp_ns,
+                    left_timestamp_ns=timestamp_ns,
+                    right_timestamp_ns=timestamp_ns,
+                    left_frame_index=20 + offset,
+                    right_frame_index=20 + offset,
+                    lane_count=0,
+                    plate_count=0,
+                )
+            )
+
+        assert len(pitch_start_events) == 1
+        assert len(pitch_end_events) == 1
+        assert orchestrator._pitch_config.frame_rate == config.camera.fps
+        assert orchestrator._pitch_config.pre_roll_ms == config.recording.pre_roll_ms
         orchestrator.stop_capture()
 
 

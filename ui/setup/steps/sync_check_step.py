@@ -8,7 +8,7 @@ rows out, so the gate logic stays unit-testable off-screen.
 
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 from PySide6 import QtCore, QtWidgets
 
@@ -23,6 +23,9 @@ from ui.themes import (
     style_status_label,
 )
 
+if TYPE_CHECKING:
+    from ui.setup.setup_capture_controller import SetupCaptureOperation
+
 # Presenter tones -> StyleManager status-label tones.
 _ROW_VALUE_TONES = {"success", "error", "warning", "info"}
 
@@ -33,13 +36,20 @@ class SyncCheckStep(BaseStep):
     def __init__(
         self,
         result_provider: Optional[Callable[[], SyncCheckResult]] = None,
+        operation: Optional["SetupCaptureOperation"] = None,
         parent: Optional[QtWidgets.QWidget] = None,
     ):
         super().__init__(parent)
         self._style_manager = get_style_manager()
         self._result_provider = result_provider or unknown_sync_result
+        self._operation = operation
         self._last_result: Optional[SyncCheckResult] = None
         self._build_ui()
+        if self._operation is not None:
+            self._operation.busy_changed.connect(self._on_operation_busy)
+            self._operation.result_ready.connect(self._apply_result)
+            self._operation.failed.connect(self._on_operation_failed)
+            self._operation.cancelled.connect(self._on_operation_cancelled)
 
     def _build_ui(self) -> None:
         layout = QtWidgets.QVBoxLayout()
@@ -53,11 +63,16 @@ class SyncCheckStep(BaseStep):
         layout.addWidget(self._build_metrics_group())
         layout.addWidget(self._build_warnings_group())
 
-        refresh_button = QtWidgets.QPushButton("Re-check Synchronization")
-        refresh_button.setMinimumHeight(self._style_manager.theme.button_height_md)
-        refresh_button.clicked.connect(self.refresh)
-        self._style_manager.style_button(refresh_button, "primary")
-        layout.addWidget(refresh_button)
+        self._refresh_button = QtWidgets.QPushButton("Re-check Synchronization")
+        self._refresh_button.setMinimumHeight(self._style_manager.theme.button_height_md)
+        self._refresh_button.clicked.connect(self.refresh)
+        self._style_manager.style_button(self._refresh_button, "primary")
+        layout.addWidget(self._refresh_button)
+        self._cancel_button = QtWidgets.QPushButton("Cancel Capture")
+        self._cancel_button.clicked.connect(self.cancel_pending)
+        self._style_manager.style_button(self._cancel_button, "ghost")
+        self._cancel_button.hide()
+        layout.addWidget(self._cancel_button)
 
         layout.addStretch()
         self.setLayout(layout)
@@ -93,11 +108,41 @@ class SyncCheckStep(BaseStep):
     def on_enter(self) -> None:
         self.refresh()
 
+    def on_exit(self) -> None:
+        self.cancel_pending()
     def refresh(self) -> None:
         """Rebuild and render the synchronization result from the provider."""
+        if self._operation is not None:
+            self._operation.start()
+            return
         result = self._result_provider()
+        self._apply_result(result)
+
+    def _apply_result(self, result: SyncCheckResult) -> None:
         self._last_result = result
         self._render(present_sync_check(result))
+
+    def cancel_pending(self) -> bool:
+        return False if self._operation is None else self._operation.cancel()
+
+    def force_cancel_pending(self) -> None:
+        if self._operation is not None:
+            self._operation.force_kill()
+
+    def _on_operation_busy(self, busy: bool) -> None:
+        self.set_busy(busy)
+        self._refresh_button.setEnabled(not busy)
+        self._cancel_button.setVisible(busy)
+        if busy:
+            style_status_label(self._headline, "info", "Capturing synchronization evidence…")
+
+    def _on_operation_failed(self, terminal) -> None:
+        self._last_result = None
+        style_status_label(self._headline, "error", terminal.message or "Synchronization capture failed.")
+
+    def _on_operation_cancelled(self, _terminal) -> None:
+        self._last_result = None
+        style_status_label(self._headline, "warning", "Synchronization capture was cancelled.")
 
     def _render(self, view: ReportView) -> None:
         style_status_label(self._headline, view.tone, view.headline)

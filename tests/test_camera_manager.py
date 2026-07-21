@@ -16,7 +16,7 @@ from app.pipeline.camera_management import CameraManager
 from app.pipeline.initialization import PipelineInitializer
 from configs.settings import AppConfig
 from contracts import Frame
-from exceptions import CameraConnectionError
+from exceptions import CameraConfigurationError, CameraConnectionError
 
 
 @pytest.fixture
@@ -28,10 +28,16 @@ def mock_config():
     config.camera.height = 480
     config.camera.fps = 30
     config.camera.pixfmt = "GRAY8"
+    config.camera.color_mode = False
     config.camera.exposure_us = 5000
     config.camera.gain = 1.0
     config.camera.wb_mode = None
     config.camera.wb = None
+    config.camera.flip_left = False
+    config.camera.flip_right = False
+    config.camera.rotation_left = 0.0
+    config.camera.rotation_right = 0.0
+    config.camera.vertical_offset_px = 0
     return config
 
 
@@ -46,6 +52,42 @@ def mock_initializer():
 def camera_manager(mock_initializer):
     """Create CameraManager with mocked backend."""
     return CameraManager(backend="sim", initializer=mock_initializer)
+
+
+class _ReadbackCamera:
+    def __init__(self, *, fps_offset: float = 0.0, controls_verified: bool = True) -> None:
+        self.fps_offset = fps_offset
+        self.controls_verified = controls_verified
+        self.mode = None
+        self.closed = False
+
+    def open(self, _serial) -> None:
+        pass
+
+    def set_mode(self, width, height, fps, pixfmt, **_kwargs) -> None:
+        self.mode = {"width": width, "height": height, "fps": fps + self.fps_offset, "pixfmt": pixfmt}
+
+    def set_controls(self, exposure_us, gain, wb_mode, wb) -> None:
+        self.controls = {"exposure_us": exposure_us, "gain": gain, "wb_mode": wb_mode, "wb": wb}
+
+    def get_mode(self):
+        return dict(self.mode)
+
+    def get_controls(self):
+        return {
+            **self.controls,
+            "readback_verified": self.controls_verified,
+            "auto_exposure_disabled": self.controls_verified,
+            "auto_white_balance_disabled": self.controls_verified,
+            "autofocus_disabled": self.controls_verified,
+            "readback_note": "fake mismatch" if not self.controls_verified else "verified",
+        }
+
+    def read_frame(self, _timeout_ms):
+        raise TimeoutError()
+
+    def close(self) -> None:
+        self.closed = True
 
 
 class TestCameraManagerInitialization:
@@ -156,6 +198,46 @@ class TestCameraManagerStartCapture:
 
             # Should have closed left camera during cleanup
             mock_left.close.assert_called()
+
+    def test_physical_start_rejects_negotiated_mode_mismatch_before_threads(self, mock_config, mock_initializer):
+        manager = CameraManager(backend="uvc", initializer=mock_initializer)
+        left = _ReadbackCamera()
+        right = _ReadbackCamera(fps_offset=-10.0)
+        with patch.object(manager, "_build_camera", side_effect=[left, right]):
+            with pytest.raises(CameraConfigurationError, match="fps expected"):
+                manager.start_capture(mock_config, "left_serial", "right_serial")
+
+        assert left.closed is True
+        assert right.closed is True
+        assert manager._left_thread is None
+        assert manager._right_thread is None
+
+    def test_physical_start_rejects_unverified_control_readback(self, mock_config, mock_initializer):
+        manager = CameraManager(backend="uvc", initializer=mock_initializer)
+        left = _ReadbackCamera()
+        right = _ReadbackCamera(controls_verified=False)
+        with patch.object(manager, "_build_camera", side_effect=[left, right]):
+            with pytest.raises(CameraConfigurationError, match="fake mismatch"):
+                manager.start_capture(mock_config, "left_serial", "right_serial")
+
+        assert left.closed is True
+        assert right.closed is True
+
+    def test_physical_reconnect_rejects_mismatch_and_closes_new_camera(self, mock_config, mock_initializer):
+        manager = CameraManager(backend="uvc", initializer=mock_initializer)
+        left = _ReadbackCamera()
+        right = _ReadbackCamera()
+        rejected = _ReadbackCamera(fps_offset=-10.0)
+        with patch.object(manager, "_build_camera", side_effect=[left, right, rejected]):
+            manager.start_capture(mock_config, "left_serial", "right_serial")
+            try:
+                assert manager._try_reconnect_camera("left") is False
+                assert rejected.closed is True
+                assert manager._left is left
+                assert manager._left_thread is not None
+                assert manager._left_thread.is_alive() is False
+            finally:
+                manager.stop_capture()
 
 
 class TestCameraManagerStopCapture:

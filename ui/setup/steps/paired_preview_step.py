@@ -9,7 +9,7 @@ off-screen.
 
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 from PySide6 import QtCore, QtWidgets
 
@@ -29,6 +29,9 @@ from ui.themes import (
     style_status_label,
 )
 
+if TYPE_CHECKING:
+    from ui.setup.setup_capture_controller import SetupCaptureOperation
+
 # Presenter tones -> StyleManager status-label tones.
 _ROW_VALUE_TONES = {"success", "error", "warning", "info"}
 
@@ -39,13 +42,20 @@ class PairedPreviewStep(BaseStep):
     def __init__(
         self,
         snapshot_provider: Optional[Callable[[], PairedPreviewSnapshot]] = None,
+        operation: Optional["SetupCaptureOperation"] = None,
         parent: Optional[QtWidgets.QWidget] = None,
     ):
         super().__init__(parent)
         self._style_manager = get_style_manager()
         self._snapshot_provider = snapshot_provider or empty_preview_snapshot
+        self._operation = operation
         self._last_grade: tuple[bool, str] = (False, "Refresh the paired preview first.")
         self._build_ui()
+        if self._operation is not None:
+            self._operation.busy_changed.connect(self._on_operation_busy)
+            self._operation.result_ready.connect(self._apply_snapshot)
+            self._operation.failed.connect(self._on_operation_failed)
+            self._operation.cancelled.connect(self._on_operation_cancelled)
 
     def _build_ui(self) -> None:
         layout = QtWidgets.QVBoxLayout()
@@ -59,10 +69,14 @@ class PairedPreviewStep(BaseStep):
         layout.addWidget(self._build_metrics_group())
         layout.addWidget(self._build_warnings_group())
 
-        refresh_button = GlassButton("Refresh Preview", variant="primary")
-        refresh_button.setMinimumHeight(self._style_manager.theme.button_height_md)
-        refresh_button.clicked.connect(self.refresh)
-        layout.addWidget(refresh_button)
+        self._refresh_button = GlassButton("Refresh Preview", variant="primary")
+        self._refresh_button.setMinimumHeight(self._style_manager.theme.button_height_md)
+        self._refresh_button.clicked.connect(self.refresh)
+        layout.addWidget(self._refresh_button)
+        self._cancel_button = GlassButton("Cancel Capture", variant="ghost")
+        self._cancel_button.clicked.connect(self.cancel_pending)
+        self._cancel_button.hide()
+        layout.addWidget(self._cancel_button)
 
         layout.addStretch()
         self.setLayout(layout)
@@ -93,12 +107,44 @@ class PairedPreviewStep(BaseStep):
     def on_enter(self) -> None:
         self.refresh()
 
+    def on_exit(self) -> None:
+        self.cancel_pending()
     def refresh(self) -> None:
         """Rebuild and render the paired-preview snapshot from the provider."""
+        if self._operation is not None:
+            self._operation.start()
+            return
         snapshot = self._snapshot_provider()
+        self._apply_snapshot(snapshot)
+
+    def _apply_snapshot(self, snapshot: PairedPreviewSnapshot) -> None:
         self._last_grade = grade_preview(snapshot)
         self.set_complete(self._last_grade[0])
         self._render(present_paired_preview(snapshot))
+
+    def cancel_pending(self) -> bool:
+        return False if self._operation is None else self._operation.cancel()
+
+    def force_cancel_pending(self) -> None:
+        if self._operation is not None:
+            self._operation.force_kill()
+
+    def _on_operation_busy(self, busy: bool) -> None:
+        self.set_busy(busy)
+        self._refresh_button.setEnabled(not busy)
+        self._cancel_button.setVisible(busy)
+        if busy:
+            style_status_label(self._headline, "info", "Capturing paired preview…")
+
+    def _on_operation_failed(self, terminal) -> None:
+        self._last_grade = (False, terminal.message or "Setup capture failed.")
+        self.set_complete(False)
+        style_status_label(self._headline, "error", self._last_grade[1])
+
+    def _on_operation_cancelled(self, _terminal) -> None:
+        self._last_grade = (False, "Paired preview capture was cancelled.")
+        self.set_complete(False)
+        style_status_label(self._headline, "warning", self._last_grade[1])
 
     def _render(self, view: ReportView) -> None:
         style_status_label(self._headline, view.tone, view.headline)

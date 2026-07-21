@@ -4,6 +4,7 @@ Tests the event-driven analysis service that manages pitch analysis and session 
 """
 
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -203,12 +204,17 @@ class TestAnalysisServiceSessionSummary:
             bus.publish(event)
 
         # Wait for processing
-        time.sleep(0.2)
+        assert service.wait_for_idle(timeout=300)
 
         # Check session summary
         session_summary = service.get_session_summary()
         assert session_summary.pitch_count == 5
-        assert session_summary.strikes + session_summary.balls == 5
+        usable = [
+            pitch
+            for pitch in session_summary.pitches
+            if pitch.measurement_status not in {"REJECTED", "UNAVAILABLE"}
+        ]
+        assert session_summary.strikes + session_summary.balls == len(usable)
 
         service.stop_analysis()
 
@@ -299,6 +305,15 @@ class TestAnalysisServiceConfiguration:
 
         # Should not raise
 
+    def test_initial_ball_type_comes_from_config(self):
+        bus = EventBus()
+        config = create_test_config()
+        config = replace(config, ball=replace(config.ball, type="softball"))
+
+        service = AnalysisServiceImpl(bus, config)
+
+        assert service._get_ball_radius() == config.ball.radius_in["softball"]
+
     def test_update_config(self):
         """Test updating configuration."""
         bus = EventBus()
@@ -336,7 +351,7 @@ class TestAnalysisServiceEventBusIntegration:
         bus.publish(event)
 
         # Wait for processing
-        time.sleep(0.1)
+        assert service.wait_for_idle(timeout=300)
 
         # Check session summary updated
         summary = service.get_session_summary()
@@ -364,7 +379,7 @@ class TestAnalysisServiceEventBusIntegration:
             bus.publish(event)
 
         # Wait for processing
-        time.sleep(0.2)
+        assert service.wait_for_idle(timeout=300)
 
         # Check session summary
         summary = service.get_session_summary()
@@ -405,7 +420,7 @@ class TestAnalysisServiceRecentPitchPaths:
             bus.publish(event)
 
         # Wait for processing
-        time.sleep(0.1)
+        assert service.wait_for_idle(timeout=300)
 
         # Get recent pitch paths
         paths = service.get_recent_pitch_paths()
@@ -440,7 +455,7 @@ class TestAnalysisServiceRecentPitchPaths:
             bus.publish(event)
 
         # Wait for processing
-        time.sleep(0.2)
+        assert service.wait_for_idle(timeout=300)
 
         # Should only keep most recent 10
         paths = service.get_recent_pitch_paths()

@@ -46,6 +46,10 @@ CONFIG_SCHEMA = {
                 "z_min_ft": {"type": "number", "minimum": 1, "maximum": 20},
                 "z_max_ft": {"type": "number", "minimum": 20, "maximum": 200},
                 "max_jump_in": {"type": "number", "minimum": 1, "maximum": 100},
+                "association_mode": {
+                    "type": "string",
+                    "enum": ["greedy_v1", "shadow_v2", "global_v2"],
+                },
             },
         },
         "tracking": {

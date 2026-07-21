@@ -90,6 +90,14 @@ class TestBuildStereoMatches:
         assert isinstance(result, list)
         assert len(result) == 1
 
+    def test_ambiguous_candidates_are_assigned_one_to_one(self):
+        left_dets = [_detection("left", 100, 100), _detection("left", 200, 102)]
+        right_dets = [_detection("right", 90, 100), _detection("right", 190, 102)]
+        result = build_stereo_matches(left_dets, right_dets, epipolar_tolerance=5)
+        assert len(result) == 2
+        assert len({id(match.left) for match in result}) == 2
+        assert len({id(match.right) for match in result}) == 2
+
 
 class TestBuildSessionSummary:
     """Tests for build_session_summary()."""

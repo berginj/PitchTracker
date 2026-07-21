@@ -26,6 +26,7 @@ from ui.setup.steps import (  # noqa: E402
     CameraSelectStep,
     CharucoFinetuneStep,
     FocusLockStep,
+    FieldAlignmentStep,
     OverlapStep,
     PairedPreviewStep,
     PersistProfileStep,
@@ -55,6 +56,7 @@ def test_genuine_gate_steps_use_real_widgets(qapp):
     assert isinstance(widgets[SetupStep.OVERLAP_VALIDATION], OverlapStep)
     assert isinstance(widgets[SetupStep.COARSE_RECTIFY], RectifyStep)
     assert isinstance(widgets[SetupStep.CHARUCO_FINE_TUNE], CharucoFinetuneStep)
+    assert isinstance(widgets[SetupStep.FIELD_ALIGNMENT], FieldAlignmentStep)
     assert isinstance(widgets[SetupStep.PERSIST_PROFILE], PersistProfileStep)
     assert isinstance(widgets[SetupStep.QUALITY_REPORT], QualityReportStep)
     # Every canonical step now has a genuine widget; none are placeholders.

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
+
+from app.contracts import measurement_is_usable
 
 if TYPE_CHECKING:
     from app.pipeline_service import PitchSummary
@@ -31,10 +33,12 @@ class SessionHistoryTracker:
         Args:
             pitch: Pitch summary to add
         """
+        usable = measurement_is_usable(pitch)
         self._pitches.append(
             {
-                "velocity": pitch.speed_mph or 0.0,
-                "is_strike": pitch.is_strike,
+                "velocity": pitch.speed_mph if usable else None,
+                "is_strike": pitch.is_strike if usable else None,
+                "usable": usable,
                 "timestamp": time.time(),
                 "zone_row": pitch.zone_row,
                 "zone_col": pitch.zone_col,
@@ -47,7 +51,7 @@ class SessionHistoryTracker:
         Returns:
             List of (pitch_index, velocity_mph) tuples
         """
-        return [(i, p["velocity"]) for i, p in enumerate(self._pitches)]
+        return [(i, p["velocity"]) for i, p in enumerate(self._pitches) if p["velocity"] is not None]
 
     def get_strike_accuracy_history(self) -> List[Tuple[int, float]]:
         """Get rolling strike accuracy history.
@@ -61,20 +65,20 @@ class SessionHistoryTracker:
         for i in range(len(self._pitches)):
             start = max(0, i - self._window_size + 1)
             window = self._pitches[start : i + 1]
-            strikes = sum(1 for p in window if p["is_strike"])
-            accuracy = strikes / len(window) if window else 0.0
-            result.append((i, accuracy))
+            classified = [p for p in window if p["usable"]]
+            if classified:
+                strikes = sum(1 for p in classified if p["is_strike"])
+                result.append((i, strikes / len(classified)))
         return result
 
-    def get_fastest_pitch(self) -> float:
+    def get_fastest_pitch(self) -> Optional[float]:
         """Get fastest pitch velocity in session.
 
         Returns:
-            Maximum velocity in mph, or 0.0 if no pitches
+            Maximum measured velocity in mph, or None if none is available
         """
-        if not self._pitches:
-            return 0.0
-        return max(p["velocity"] for p in self._pitches)
+        velocities = [p["velocity"] for p in self._pitches if p["velocity"] is not None]
+        return max(velocities) if velocities else None
 
     def get_strike_ball_ratio(self) -> Tuple[int, int, float]:
         """Get strike/ball counts and ratio.
@@ -82,14 +86,20 @@ class SessionHistoryTracker:
         Returns:
             Tuple of (strikes, balls, strike_percentage)
         """
-        if not self._pitches:
+        classified = [p for p in self._pitches if p["usable"]]
+        if not classified:
             return (0, 0, 0.0)
 
-        strikes = sum(1 for p in self._pitches if p["is_strike"])
-        balls = len(self._pitches) - strikes
-        percentage = strikes / len(self._pitches) if self._pitches else 0.0
+        strikes = sum(1 for p in classified if p["is_strike"])
+        balls = len(classified) - strikes
+        percentage = strikes / len(classified)
 
         return (strikes, balls, percentage)
+
+    def get_unclassified_count(self) -> int:
+        """Return pitches retained as evidence but excluded from claims."""
+
+        return sum(1 for pitch in self._pitches if not pitch["usable"])
 
     def get_pitch_count(self) -> int:
         """Get total pitch count.

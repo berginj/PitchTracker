@@ -8,6 +8,7 @@ from .charuco_finetune_step import CharucoFinetuneStep
 from .detector_step import DetectorStep
 from .export_step import ExportStep
 from .focus_lock_step import FocusLockStep
+from .field_alignment_step import FieldAlignmentStep
 from .overlap_step import OverlapStep
 from .paired_preview_step import PairedPreviewStep
 from .persist_profile_step import PersistProfileStep
@@ -29,6 +30,7 @@ __all__ = [
     "QualityReportStep",
     "SyncCheckStep",
     "FocusLockStep",
+    "FieldAlignmentStep",
     "OverlapStep",
     "PairedPreviewStep",
     "RectifyStep",

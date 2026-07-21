@@ -1,12 +1,12 @@
 # Stereo Setup Wizard (`ui/setup`)
 
-Genuine, test-driven 9-step stereo-rig setup wizard. The core principle of the
+Genuine, test-driven 10-step stereo-rig setup wizard. The core principle of the
 v2.0.0 rebuild: **prove the product can receive, pair, compare, and calibrate
 left/right camera images before any pitch-tracking logic matters.** Every step
 is backed by real, synthetic-testable logic — there are no demo-only
 placeholders left in the flow.
 
-## The 9 canonical steps
+## The 10 canonical steps
 
 The flow is defined once by `SetupStep` + `DEFAULT_SETUP_SPEC` in
 `state_machine.py` and rendered by a widget registry:
@@ -20,8 +20,9 @@ The flow is defined once by `SetupStep` + `DEFAULT_SETUP_SPEC` in
 | 5 | `OVERLAP_VALIDATION` | `OverlapStep` | Sufficient field-of-view overlap via ORB feature matching |
 | 6 | `COARSE_RECTIFY` | `RectifyStep` | Targetless coarse rectification reduces epipolar error |
 | 7 | `CHARUCO_FINE_TUNE` *(optional)* | `CharucoFinetuneStep` | Optional ChArUco fine-tuning of intrinsics |
-| 8 | `PERSIST_PROFILE` | `PersistProfileStep` | Calibration profile persisted (`StereoCalibrationProfile`) |
-| 9 | `QUALITY_REPORT` | `QualityReportStep` | Durable `CalibrationQualityReport` summary |
+| 8 | `FIELD_ALIGNMENT` | `FieldAlignmentStep` | Camera coordinates are tied to a measured field fixture |
+| 9 | `PERSIST_PROFILE` | `PersistProfileStep` | Evidence and artifacts are persisted in an active `RigProfile` |
+| 10 | `QUALITY_REPORT` | `QualityReportStep` | Durable `CalibrationQualityReport` summary and blocking verdict |
 
 ChArUco is positioned as **optional fine-tuning**, not the primary setup
 dependency. The wizard finishes on a working targetless calibration if step 7 is
@@ -32,7 +33,7 @@ skipped.
 ```
 ui/setup/
 ├── state_machine.py          # SetupStep enum + DEFAULT_SETUP_SPEC + SetupStateMachine (Qt-free)
-├── stereo_steps.py           # build_stereo_step_widgets(): registry of all 9 step widgets
+├── stereo_steps.py           # build_stereo_step_widgets(): registry of all 10 step widgets
 ├── stereo_setup_window.py    # StereoSetupWindow: hosts the registry over the canonical spec
 ├── providers.py              # Real adapter providers + build_live_stereo_step_widgets()
 ├── <step>_view.py            # Qt-free view-models (grade + present) per step
@@ -69,12 +70,14 @@ the `SimulatedCamera` backend — no physical cameras required.
 - `simulated_paired_preview()` / `make_camera_preview_provider()` — convenience
   preview providers for demos/tests and live UVC capture respectively.
 - `build_live_stereo_step_widgets(catalog=, list_devices=, preview_provider=)` —
-  wires live discovery into step 1 and a real preview provider into step 2 while
-  leaving steps 3-9 on their file-based providers. All dependencies are
-  injectable so tests never touch hardware.
+  wires a shared camera context through discovery, assignment, paired capture,
+  sync, focus/exposure, overlap, rectification, field alignment, persistence,
+  and the final quality report. All dependencies are injectable so tests never
+  touch hardware.
 
-`StereoSetupWindow(widget_factory=...)` accepts the live builder; the launcher's
-role selector exposes the genuine wizard alongside the legacy Setup Wizard.
+`StereoSetupWindow(widget_factory=...)` accepts the live builder; every launcher
+setup route opens this canonical workflow. The old `SetupWindow` remains an
+import-compatibility module and is not a launcher destination.
 
 ## BaseStep interface
 
@@ -106,8 +109,9 @@ smoke tests pass deterministically in isolation; they can be flaky under
 
 ## Status
 
-- ✅ All 9 steps are genuine, provider-driven, synthetic-testable widgets.
+- ✅ All 10 steps are provider-driven, evidence-gated, synthetic-testable widgets.
 - ✅ `StereoSetupWindow` + live provider registry wired into the launcher.
-- 🚧 Pending (hardware-bound, cannot run in CI): on-rig validation with the
-  Arducam global-shutter cameras; live camera-context propagation feeding a
-  real step-2 preview; end-to-end physical calibration producing `report.json`.
+- 🚧 Pending (hardware-bound, cannot run in CI): prove DirectShow control
+  readback semantics and end-to-end accuracy on the physical global-shutter
+  rig. The wizard intentionally will not claim a control lock or validated
+  measurement until that evidence exists.

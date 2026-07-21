@@ -207,7 +207,7 @@ if consecutive_hits < min_consecutive:
 ```
 
 **Typical values:**
-- min_consecutive: 1 (return immediately)
+- min_consecutive: 2 (require timestamp-consistent detections across frames)
 - Higher values (2-3) reduce false positives but increase latency
 
 ### ROI Cropping

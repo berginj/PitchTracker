@@ -37,8 +37,8 @@ class TestDetectionErrorHandling(unittest.TestCase):
         with self.assertLogs(level="ERROR") as log_context:
             detections = self.pool._detect_frame("left", frame)
 
-        # Should return empty list
-        self.assertEqual(detections, [])
+        # A failed attempt must not masquerade as a legitimate empty result.
+        self.assertIsNone(detections)
 
         # Should have logged the error
         self.assertTrue(any("Detection failed" in msg for msg in log_context.output))
@@ -182,7 +182,7 @@ class TestDetectionErrorHandling(unittest.TestCase):
         for _ in range(11):
             # Should not crash despite error callback failing
             detections = self.pool._detect_frame("left", frame)
-            self.assertEqual(detections, [])
+            self.assertIsNone(detections)
 
     def test_start_resets_error_counters(self):
         """Test that starting detection resets error counters."""

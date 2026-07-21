@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from PySide6 import QtWidgets
 
+from app.contracts import measurement_is_usable
 from ui.coaching.strike_zone_mapping import (
     StrikeZoneOverlayConfig,
     calculate_overlay_layout,
@@ -88,8 +89,11 @@ class SessionProgressionWidget(BaseModeWidget):
         # Strike ratio gauge
         strike_group = QtWidgets.QGroupBox("Strike Ratio")
         self._strike_gauge = StrikeRatioGauge()
+        self._classification_label = QtWidgets.QLabel("Classified: 0 • Unclassified: 0")
+        self._style_manager.style_label(self._classification_label, "muted")
         strike_layout = QtWidgets.QVBoxLayout()
         strike_layout.addWidget(self._strike_gauge)
+        strike_layout.addWidget(self._classification_label)
         strike_group.setLayout(strike_layout)
         bottom_layout.addWidget(strike_group, 1)
 
@@ -126,7 +130,12 @@ class SessionProgressionWidget(BaseModeWidget):
         self._current_camera = camera
         logger.debug(f"Session progression: Camera changed to {camera}")
 
-    def update_pitch_data(self, recent_pitches: List["PitchSummary"]) -> None:
+    def update_pitch_data(
+        self,
+        recent_pitches: List["PitchSummary"],
+        *,
+        new_pitches: Optional[List["PitchSummary"]] = None,
+    ) -> None:
         """Update visualization with new pitch data.
 
         Args:
@@ -135,13 +144,17 @@ class SessionProgressionWidget(BaseModeWidget):
         if not recent_pitches:
             return
 
-        # Add latest pitch to session tracker
+        # CoachWindow owns exactly-once insertion into the shared tracker. This
+        # view only renders that state; appending here duplicated the latest
+        # pitch on every UI timer tick.
         latest_pitch = recent_pitches[-1]
-        self._session_tracker.add_pitch(latest_pitch)
 
         # Update fastest pitch display
         fastest = self._session_tracker.get_fastest_pitch()
-        self._fastest_widget.set_speed(fastest)
+        if fastest is None:
+            self._fastest_widget.clear()
+        else:
+            self._fastest_widget.set_speed(fastest)
 
         # Update velocity trend chart
         velocity_history = self._session_tracker.get_velocity_history()
@@ -149,13 +162,21 @@ class SessionProgressionWidget(BaseModeWidget):
 
         # Update strike ratio gauge
         strikes, balls, strike_pct = self._session_tracker.get_strike_ball_ratio()
+        unclassified = self._session_tracker.get_unclassified_count()
         self._strike_gauge.set_percentage(strike_pct)
+        self._classification_label.setText(
+            f"Classified: {strikes + balls} • Unclassified: {unclassified}"
+        )
 
         # Update accuracy trend chart
         accuracy_history = self._session_tracker.get_strike_accuracy_history()
         self._accuracy_chart.update_data(accuracy_history)
 
-        if latest_pitch.trajectory_plate_x_ft is not None and latest_pitch.trajectory_plate_y_ft is not None:
+        if (
+            measurement_is_usable(latest_pitch)
+            and latest_pitch.trajectory_plate_x_ft is not None
+            and latest_pitch.trajectory_plate_y_ft is not None
+        ):
             layout = calculate_overlay_layout(
                 self._overlay_config,
                 plate_x_ft=latest_pitch.trajectory_plate_x_ft,
@@ -168,10 +189,13 @@ class SessionProgressionWidget(BaseModeWidget):
                 layout.zone_bottom,
             )
             self._camera_widget.update_pitch_location(layout.pitch_x, layout.pitch_y)
+        else:
+            self._camera_widget.clear_pitch_location()
 
         logger.debug(
             f"Session progression: Updated with {self._session_tracker.get_pitch_count()} pitches, "
-            f"fastest={fastest:.1f} mph, strike%={strike_pct*100:.1f}%"
+            f"fastest={fastest if fastest is not None else 'unavailable'} mph, "
+            f"strike%={strike_pct*100:.1f}%, unclassified={unclassified}"
         )
 
     def update_camera_frames(self, left_frame: Optional["Frame"], right_frame: Optional["Frame"]) -> None:

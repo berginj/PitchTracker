@@ -229,3 +229,45 @@ class AlignmentAnalysisResult:
             alignment=dict(payload["alignment"]),
             prediction=dict(payload["prediction"]),
         )
+
+
+@dataclass(frozen=True)
+class PhysicalValidationRequest:
+    """Evaluate a locked v2 protocol and dataset outside the UI process."""
+
+    protocol_path: Path
+    dataset_path: Path
+    output_path: Path | None = None
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "protocol_path": str(self.protocol_path),
+            "dataset_path": str(self.dataset_path),
+            "output_path": _path_to_str(self.output_path),
+        }
+
+    @classmethod
+    def from_payload(cls, payload: dict[str, Any]) -> "PhysicalValidationRequest":
+        return cls(
+            protocol_path=Path(payload["protocol_path"]),
+            dataset_path=Path(payload["dataset_path"]),
+            output_path=Path(payload["output_path"]) if payload.get("output_path") else None,
+        )
+
+
+@dataclass(frozen=True)
+class PhysicalValidationResult:
+    """Machine-readable physical validation report; never inferred from setup alone."""
+
+    report: dict[str, Any]
+    output_path: Path | None = None
+
+    def to_payload(self) -> dict[str, Any]:
+        return {"report": dict(self.report), "output_path": _path_to_str(self.output_path)}
+
+    @classmethod
+    def from_payload(cls, payload: dict[str, Any]) -> "PhysicalValidationResult":
+        return cls(
+            report=dict(payload["report"]),
+            output_path=Path(payload["output_path"]) if payload.get("output_path") else None,
+        )
