@@ -25,7 +25,7 @@ Implementation evidence is mapped in [PT_001_015_TRACEABILITY.md](PT_001_015_TRA
 
 ## Now: physical validation and tester feedback
 
-### R-001 — Global-shutter camera qualification
+### [R-001 — Global-shutter camera qualification](https://github.com/berginj/PitchTracker/issues/9)
 
 Collect repeatable results across supported Windows systems and camera pairs.
 
@@ -39,7 +39,7 @@ Acceptance evidence:
 - Driver, firmware, and USB-controller information recorded or explicitly marked
   unavailable.
 
-### R-002 — Setup repeatability
+### [R-002 — Setup repeatability](https://github.com/berginj/PitchTracker/issues/9)
 
 Run the canonical ten-step workflow after intentional poor configurations such
 as camera swap, baseline shift, focus loss, exposure mismatch, USB contention,
@@ -52,7 +52,7 @@ Acceptance evidence:
 - Re-running setup after correction produces a new snapshot and fingerprint.
 - No correction silently mutates calibration or makes an accuracy claim.
 
-### R-003 — Physical ground-truth confirmation
+### [R-003 — Physical ground-truth confirmation](https://github.com/berginj/PitchTracker/issues/10)
 
 Execute [Physical Validation Protocol v2](PHYSICAL_VALIDATION_PROTOCOL_V2.md)
 using an independent calibrated reference channel.
@@ -68,7 +68,7 @@ Acceptance evidence:
 - Collector and independent reviewer sign an approval bound to the exact rig,
   software, snapshot, artifacts, environment, and correction policy.
 
-### R-004 — Installer smoke testing
+### [R-004 — Installer smoke testing](https://github.com/berginj/PitchTracker/issues/11)
 
 Test the clean installer on Windows machines that do not have the development
 checkout or Python environment.
@@ -80,7 +80,7 @@ Acceptance evidence:
 - No repository-local calibration, ROI, recording, or cache data is bundled.
 - Windows version, architecture, security warnings, and failure logs recorded.
 
-### R-005 — UVC capability inventory
+### [R-005 — UVC capability inventory](https://github.com/berginj/PitchTracker/issues/16)
 
 Replace best-effort control discovery with verified UVC control queries where
 the backend supports them. The remaining implementation marker is
@@ -103,6 +103,14 @@ Acceptance evidence:
 - Publish a refreshed installer only after clean-machine smoke testing.
 - Run limited facility pilots with measurable setup time, rejection rate,
   operator intervention, and repeatability targets.
+
+## Engineering debt with active owners
+
+- [Extract rig-profile validation responsibilities](https://github.com/berginj/PitchTracker/issues/14)
+  so `app/services/rig_profile.py` can leave the file-length baseline.
+- [Split setup providers by workflow boundary](https://github.com/berginj/PitchTracker/issues/15)
+  so `ui/setup/providers.py` can leave the file-length baseline without moving
+  pipeline or calibration logic into the UI.
 
 ## Later or conditional
 
