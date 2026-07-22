@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-07-21
+**Last reviewed:** 2026-07-22
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -19,7 +19,7 @@ contract are complete; it does not imply physical measurement accuracy.
 - [x] Validated-pair-first camera recommendation with capability fallback.
 - [x] Compact operator health/actions with detailed diagnostics on demand.
 - [x] Clean Windows application and installer build from commit `40158c1`.
-- [x] Automated regression run: 1,263 passed, 32 skipped, 0 failed.
+- [x] Automated regression run: 1,267 passed, 32 skipped, 0 failed at `211d246`.
 
 Implementation evidence is mapped in [PT_001_015_TRACEABILITY.md](PT_001_015_TRACEABILITY.md).
 

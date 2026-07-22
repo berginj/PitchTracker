@@ -18,6 +18,8 @@
 - [ ] `python scripts/sync_schema.py --check` passes (schema mirror in sync)
 - [ ] New errors raise custom exceptions from `exceptions.py` (no bare `Exception`/`RuntimeError`)
 - [ ] No unrelated files or generated artifacts included
+- [ ] Public behavior/status claims and linked documentation remain accurate
+- [ ] No secrets, private media, raw hardware identities, or unreviewed logs included
 
 ## Validation
 

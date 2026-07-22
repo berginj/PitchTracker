@@ -1,120 +1,82 @@
-# Creating GitHub Release v2.0.0
+# PitchTracker Release Publication Checklist
 
-This document provides manual release instructions if `create_github_release.ps1`
-does not work.
+**Last reviewed:** 2026-07-22
 
-## Option 1: Using The Script
+## Current state
 
-```powershell
-gh auth login
-.\create_github_release.ps1
-```
+- Latest public tag/release: `v2.0.0`.
+- The `v2.0.0` release has no installer asset.
+- `main` contains evidence, replay, setup, CI, and documentation hardening beyond
+  that tag.
+- A local installer build exists in project history, but clean-machine smoke
+  testing and public checksum verification remain incomplete.
 
-## Option 2: Manual Creation Via GitHub
+Do not recreate, overwrite, or attach an unverified asset to `v2.0.0`. Publish a
+new semantic version after the checklist below is complete.
 
-1. Go to https://github.com/berginj/PitchTracker/releases.
-2. Click "Draft a new release".
-3. Choose or create tag `v2.0.0`.
-4. Set the title to `PitchTracker v2.0.0`.
-5. Attach `installer_output\PitchTracker-Setup-v2.0.0-stereo.exe`.
-6. Include release notes that state this is a controlled facility pilot build
-   and that accuracy validation is still in progress.
+## Preconditions
 
-Suggested notes:
+- [ ] Application, installer, updater, changelog, and documentation versions agree.
+- [ ] Required CI jobs pass on the exact release commit.
+- [ ] The installer is built from a clean tagged revision.
+- [ ] Windows 10 and Windows 11 clean-machine smoke tests pass.
+- [ ] Installer filename, size, and SHA-256 are recorded and independently checked.
+- [ ] Release notes state the physical-validation and supported-hardware boundary.
+- [ ] No private recordings, calibration artifacts, secrets, or development caches
+      are present in the package.
 
-```markdown
-# PitchTracker v2.0.0
+## Create a new release
 
-Canonical pilot build for controlled facility deployments.
+1. Choose the next semantic version; do not reuse an existing tag.
+2. Update all version sources and documentation in one reviewed change.
+3. Merge the release change through protected CI.
+4. Tag the exact merge commit and push the annotated tag.
+5. Build and smoke-test the installer from that tag.
+6. Prepare release notes and a checksum file.
+7. Publish with GitHub CLI or the GitHub release UI.
 
-## Install
-1. Download `PitchTracker-Setup-v2.0.0-stereo.exe`.
-2. Run the installer on Windows 10/11.
-3. Complete Setup Doctor before coaching use.
-4. Use a fixed dual-camera rig and the pilot hardware checklist.
-
-## Included
-- Service-oriented pipeline runtime with `PipelineOrchestrator`
-- Setup Doctor and rig profile workflow
-- Stereo capture, detection, recording, review, and analysis
-- Pattern detection and pitcher profile workflows
-- Local recording artifacts with manifests and summaries
-
-## Known Limitations
-- Accuracy validation against reference equipment is pending.
-- Setup requires a trained operator and controlled camera placement.
-- Best suited to fixed facility/academy deployments.
-- Cloud/mobile/TAG production integrations are deferred.
-
-## Documentation
-- `README.md`
-- `docs/CURRENT_STATUS.md`
-- `docs/VERSION_ALIGNMENT.md`
-- `docs/HARDWARE_PROFILE.md`
-- `docs/VELOCITY_VALIDATION_PROTOCOL.md`
-
-Full changelog: https://github.com/berginj/PitchTracker/blob/main/CHANGELOG.md
-```
-
-## Option 3: Using `gh` Directly
+The repository helper enforces an existing semantic-version tag, refuses an
+existing release, and verifies the installer against the supplied checksum:
 
 ```powershell
-gh release create v2.0.0 `
-  --title "PitchTracker v2.0.0" `
+.\create_github_release.ps1 `
+  -Tag vX.Y.Z `
+  -InstallerPath installer_output\PitchTracker-Setup-vX.Y.Z-stereo.exe `
+  -ChecksumPath installer_output\PitchTracker-Setup-vX.Y.Z-stereo.exe.sha256 `
+  -NotesFile release_notes.md
+```
+
+Example only, using placeholders intentionally:
+
+```powershell
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin vX.Y.Z
+gh release create vX.Y.Z `
+  --verify-tag `
+  --title "PitchTracker vX.Y.Z" `
   --notes-file release_notes.md `
-  installer_output\PitchTracker-Setup-v2.0.0-stereo.exe
+  installer_output\PitchTracker-Setup-vX.Y.Z-stereo.exe `
+  installer_output\PitchTracker-Setup-vX.Y.Z-stereo.exe.sha256
 ```
 
-## Verification
+## Required release-note content
 
-After creating the release:
+- Exact source commit and tag.
+- Installer filename and SHA-256.
+- Supported Windows versions and clean-machine test matrix.
+- Hardware qualification state and operating envelope.
+- Explicit statement that automated tests do not validate physical accuracy.
+- Known issues, migration notes, and data-location/uninstall behavior.
+- Links to `CURRENT_STATUS.md`, `ROADMAP.md`, and the changelog.
 
-1. Verify the release page exists at
-   `https://github.com/berginj/PitchTracker/releases/tag/v2.0.0`.
-2. Download the installer and confirm the filename is
-   `PitchTracker-Setup-v2.0.0-stereo.exe`.
-3. Smoke-test the installer on a clean Windows 10/11 machine.
-4. Record the test result in `docs/CURRENT_STATUS.md` or release notes.
+## Post-publication verification
 
-## Troubleshooting
+1. Download both assets from the public release.
+2. Recompute the installer SHA-256 and compare it to the published checksum.
+3. Run one final clean-machine install/launch/uninstall smoke test.
+4. Confirm the updater sees the intended version and installer asset.
+5. Update `docs/CURRENT_STATUS.md` and `docs/VERSION_ALIGNMENT.md` with the exact
+   public evidence.
 
-### `gh: command not found`
-
-Install GitHub CLI from https://cli.github.com/.
-
-### `authentication required`
-
-Run:
-
-```powershell
-gh auth login
-```
-
-### `tag v2.0.0 does not exist`
-
-Create and push it:
-
-```powershell
-git tag -a v2.0.0 -m "Release v2.0.0"
-git push origin v2.0.0
-```
-
-### `installer not found`
-
-Build the installer first:
-
-```powershell
-.\build_installer.ps1 -Clean
-```
-
-### `release already exists`
-
-Edit or delete through GitHub UI, or use:
-
-```powershell
-gh release edit v2.0.0
-```
-
----
-
-**Questions?** Check `BUILD_INSTRUCTIONS.md` and `docs/VERSION_ALIGNMENT.md`.
+Never silently replace an asset. If an artifact is wrong, preserve provenance,
+publish a corrected version, and explain the superseded artifact explicitly.

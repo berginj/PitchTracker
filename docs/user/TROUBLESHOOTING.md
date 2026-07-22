@@ -1,6 +1,6 @@
 # PitchTracker - Troubleshooting Guide
 
-**Last Updated:** 2026-07-21
+**Last Updated:** 2026-07-22
 **Version:** 2.0.0
 
 ---
@@ -571,49 +571,28 @@ Tools → View Stereo Matches:
 
 ## Installation Issues
 
-### Problem: Installer Won't Run
+### Current installer availability
 
-**Symptoms:**
-- Double-click does nothing
-- "Windows protected your PC" message
-- Installer crashes immediately
+The public `v2.0.0` release has no installer asset. Do not use the older v1.5
+pilot installer as though it were the current v2 application. See
+[README_INSTALL.md](../../README_INSTALL.md) for the source setup and current
+release gap.
 
-**Solutions:**
+### A future installer is blocked or will not launch
 
-**Windows SmartScreen:**
-```
-If "Windows protected your PC" appears:
-1. Click "More info"
-2. Click "Run anyway"
-3. (App not yet code-signed, safe to run)
-```
+1. Confirm the file came from the intended PitchTracker GitHub release.
+2. Verify its SHA-256 against the checksum published with that release.
+3. Confirm the filename, release tag, supported Windows version, and architecture.
+4. Retain the exact SmartScreen, antivirus, or application error text.
+5. If verification fails or Windows security reports the file, stop and report
+   the evidence. Do not disable antivirus or add an exclusion merely to force the
+   installer to run.
 
-**Run as Administrator:**
-```
-1. Right-click installer
-2. "Run as administrator"
-3. Accept UAC prompt
-```
-
-**Antivirus Blocking:**
-```
-1. Temporarily disable antivirus
-2. Run installer
-3. Re-enable antivirus
-4. Add PitchTracker to exclusions
-```
-
-**Corrupted Download:**
-```
-1. Delete downloaded installer
-2. Clear browser cache
-3. Re-download from GitHub Releases
-4. Verify file size matches (should be 50-100MB)
-```
+Locally built artifacts are development outputs, not trusted public releases.
 
 ---
 
-### Problem: Missing Dependencies
+### Problem: Missing Dependencies in a Verified Build
 
 **Symptoms:**
 - "VCRUNTIME140.dll missing" error
@@ -629,22 +608,9 @@ Download and install:
 - Link: https://aka.ms/vs/17/release/vc_redist.x64.exe
 ```
 
-**.NET Framework:**
-```
-Download and install:
-- .NET Framework 4.8 or later
-- Usually included in Windows 10/11
-- Windows Update should install automatically
-```
-
-**Verify Installation:**
-```
-1. Control Panel → Programs and Features
-2. Look for:
-   - Microsoft Visual C++ 2015-2022 Redistributable
-   - Microsoft .NET Framework 4.8
-3. If missing, download and install from Microsoft
-```
+If a verified packaged release reports a missing runtime, preserve the exact
+message and report it as an installer defect. Install prerequisites only from
+Microsoft's official distribution channels; do not use third-party DLL sites.
 
 ---
 
@@ -791,13 +757,11 @@ CRITICAL - Severe problems
 
 ### Network/Firewall Issues
 
-**If using cloud features:**
-```
-1. Firewall: Allow PitchTracker
-   - Windows Defender Firewall → Allow an app
-2. Antivirus: Add to exclusions
-3. Check proxy settings if on corporate network
-```
+The default updater contacts the GitHub Releases API. Optional cloud/TAG features
+are disabled unless explicitly enabled and configured. If a network request
+fails, record the destination and error, verify organizational policy, and keep
+the integration disabled until it is approved. Do not weaken antivirus or
+firewall policy solely to remove an error.
 
 ---
 
@@ -809,7 +773,7 @@ Collect this information:
 1. PitchTracker version (Help → About)
 2. Windows version (Settings → System → About)
 3. Camera models
-4. Error logs (zip logs folder)
+4. Relevant, privacy-reviewed log excerpts
 5. Screenshots of error messages
 6. Steps to reproduce issue
 
@@ -842,7 +806,7 @@ Collect this information:
 [What actually happens]
 
 **Logs:**
-[Attach relevant log sections]
+[Paste only privacy-reviewed excerpts; do not attach raw logs by default]
 
 **Screenshots:**
 [If applicable]

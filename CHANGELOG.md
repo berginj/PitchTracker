@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (main, 2026-07-21)
+## Unreleased (main, 2026-07-22)
 
 ### Evidence and field robustness
 
@@ -19,7 +19,7 @@
 
 ### Validation
 
-- Full automated suite: 1,263 passed, 32 skipped, 0 failed.
+- Full automated suite: 1,267 passed, 32 skipped, 0 failed.
 - Clean PyInstaller and Inno Setup build completed from commit `40158c1`.
 - Physical global-shutter and reference-equipment validation remains pending;
   no accuracy bound is claimed.

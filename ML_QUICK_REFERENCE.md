@@ -349,4 +349,4 @@ recording:
 python test_ml_data_export.py "recordings\session-2026-01-16_001"
 ```
 
-**Feedback:** Report issues at https://github.com/anthropics/claude-code/issues
+**Feedback:** Report issues at https://github.com/berginj/PitchTracker/issues

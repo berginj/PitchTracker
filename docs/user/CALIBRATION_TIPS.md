@@ -1,6 +1,6 @@
 # PitchTracker - Calibration Tips & Best Practices
 
-**Last Updated:** 2026-07-21
+**Last Updated:** 2026-07-22
 **Version:** v2.0.0
 
 ---
@@ -183,46 +183,39 @@ python generate_charuco.py --output my_board.png
 
 ## Camera Placement
 
-### Optimal Setup
+### Candidate placement
 
-```
-                      MOUND
-                        |
-                        | 50-60 ft
-                        |
-                        v
-    LEFT CAMERA    STRIKE ZONE    RIGHT CAMERA
-         o         [  PLATE  ]         o
-          \            |              /
-           \           |             /
-            \----------|------------/
-                6-8 feet apart
-```
+There is no universally validated baseline, height, toe-in angle, or distance
+for arbitrary cameras and lenses. Choose placement from the required pitch
+volume, measured field fixture, lens field of view, and overlapping calibrated
+views. Record every dimension and qualify the exact geometry onsite.
 
 ### Key Requirements
 
 **Camera Separation:**
-- **6-8 feet apart** (2-2.5 meters)
-- Wider = better depth perception
-- Too wide = reduced overlap
-- Narrower = less accuracy
+- Measure lens-center baseline precisely and persist it with the rig evidence.
+- Increasing baseline can improve depth geometry while reducing common field of
+  view; setup must measure the actual tradeoff.
+- Do not copy a baseline from another facility without requalification.
 
 **Camera Angle:**
-- **Converge on strike zone** (angled inward ~15-30°)
-- Both cameras should see full strike zone
-- Avoid parallel placement (reduces accuracy)
+- Both cameras must cover the intended pitch volume with adequate common view.
+- Toe-in and orientation must be measured by calibration, not assumed from a
+  visual angle target.
+- Resolve insufficient overlap or degenerate geometry physically.
 
 **Camera Height:**
-- **Same height** as middle of strike zone
-- Typically 3-4 feet off ground
-- Use level to ensure cameras are even
-- Adjust for batter height
+- Use rigid mounts tied to a measured field reference.
+- Cameras need not be at an assumed universal height; calibration and field
+  alignment must recover the actual poses.
+- Prevent motion after calibration.
 
 **Distance from Mound:**
-- **50-60 feet** from pitcher's release point
-- Behind home plate (catcher's perspective)
-- Closer = larger ball in frame = better detection
-- Too close = reduced field of view
+- Place cameras outside the safe pitching/catching path and record their exact
+  position relative to the field fixture.
+- Confirm the full required trajectory volume is visible at the negotiated
+  resolution and frame rate.
+- Treat any position change as a new setup requiring a new snapshot.
 
 ### Physical Mounting
 
@@ -374,7 +367,8 @@ Capture at least:
 Use measuring tape:
 1. Measure center-to-center distance between camera lenses
 2. Record in METERS (e.g., 2.13m = 7 feet)
-3. Be accurate (±1cm affects 3D accuracy)
+3. Record the measurement precision and units; setup compares the fitted and
+   measured baseline against the active report tolerance.
 ```
 
 #### 2. Run Full Stereo Calibration
@@ -424,7 +418,8 @@ Capture pattern at:
 - Click "Calibrate" button
 - Processing takes 15-30 seconds
 - Check results:
-  - **Baseline:** Should match measured distance (±1cm)
+  - **Baseline:** Must match the measured distance within the active report
+    tolerance (the current default is 1 inch)
   - **Rotation:** Verify cameras angled correctly
   - **Reprojection:** <1.0 pixels ideal
 
@@ -646,15 +641,16 @@ Tools → Camera Sync Test:
 ### Calibration Quality Check
 
 **Good calibration indicators:**
-- RMS error <1.0 pixels
+- RMS error passes the active quality-report threshold (current default maximum:
+  2.0 pixels; lower error alone does not validate physical accuracy)
 - Smooth 3D trajectory (no jitter)
-- Velocity consistent with radar gun
+- Independent reference comparisons follow the predeclared validation protocol
 - Strike zone looks correct size
 - Reprojection error low
 
 **Poor calibration indicators:**
 - Jumping/jittery 3D position
-- Velocity wildly off (±10mph)
+- Reference disagreement outside the predeclared threshold
 - Strike zone too big/small
 - Ball appears to curve unnaturally
 
@@ -665,18 +661,18 @@ Tools → Camera Sync Test:
 ### Calibration Checklist
 
 **Physical Setup:**
-- [ ] Cameras 6-8 feet apart
-- [ ] Same height from ground
-- [ ] Angled inward (converging)
-- [ ] 50-60 feet from mound
+- [ ] Exact camera baseline and field-relative positions measured
+- [ ] Intended pitch volume visible in both cameras
+- [ ] Overlap and synchronization gates pass
+- [ ] Placement is outside the safe activity path
 - [ ] Firmly mounted (no wobble)
-- [ ] Measured separation distance
+- [ ] Snapshot updated after any placement change
 
 **Intrinsic (per camera):**
 - [ ] Flat checkerboard pattern
 - [ ] 20-30 images captured
 - [ ] Various distances/angles
-- [ ] RMS error <1.0 pixels
+- [ ] RMS error passes the active report threshold
 - [ ] Saved profile
 
 **Extrinsic:**

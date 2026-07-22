@@ -10,7 +10,8 @@ driver behavior, installation quality, or physical pitch accuracy.
 - Facilities with a rigid stereo mount and a safe bullpen or pitching lane.
 - Testers with Windows 10/11 systems using different USB controllers.
 - Teams with an independently calibrated radar or plate-location reference.
-- Windows testers willing to install and remove an unsigned pilot build.
+- Windows testers willing to install and remove a checksum-identified candidate
+  build when one is explicitly provided for smoke testing.
 
 You do not need to provide athlete video. Anonymized numeric reports are more
 useful than unsupported success claims.
@@ -18,6 +19,9 @@ useful than unsupported success claims.
 ## Choose a test
 
 ### 1. Installer smoke test — no cameras required
+
+The current public `v2.0.0` release has no installer asset. Run this test only
+with a candidate whose source commit, filename, and SHA-256 are supplied.
 
 Verify install, first launch, simulator workflow, logs, update check, uninstall,
 and reinstall on a clean Windows machine. Record Windows version/architecture,

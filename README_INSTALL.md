@@ -1,107 +1,105 @@
 # PitchTracker Installation
 
-**Applies To:** v2.0.0-stereo
+**Last reviewed:** 2026-07-22
 
-Thank you for installing PitchTracker!
+**Applies to:** v2.0.0 and current `main`
 
-## System Requirements
+## Current release status
 
-- **Operating System:** Windows 10 or 11 (64-bit)
-- **RAM:** 8 GB minimum, 16 GB recommended
-- **Disk Space:** 2 GB free space
-- **Cameras:** Dual USB cameras (UVC compatible)
-- **Processor:** Intel Core i5 or equivalent (for real-time processing)
+The published [`v2.0.0` release](https://github.com/berginj/PitchTracker/releases/tag/v2.0.0)
+has no installer asset. Run from source for current testing. Do not treat the
+older v1.5 pilot installer as the current v2 build.
 
-## What's Being Installed
+The repository can produce
+`PitchTracker-Setup-v2.0.0-stereo.exe`, but that locally built artifact is not a
+public release until it passes clean-machine smoke testing and is published with
+its exact source commit and SHA-256.
 
-PitchTracker consists of:
+## Run from source
 
-1. **Launcher** - Main entry point with role selector
-2. **Setup Wizard** - Guided calibration and configuration
-3. **Coaching App** - Real-time session management
-4. **Pipeline Service** - Detection and tracking engine
+Requirements:
 
-## After Installation
+- 64-bit Windows 10 or Windows 11;
+- Python 3.11 or 3.12;
+- enough disk space for dependencies and private recordings; and
+- two qualifying global-shutter UVC cameras for physical testing.
 
-### First-Time Setup
-
-1. **Connect Cameras**
-   - Plug in both USB cameras
-   - Ensure they're detected by Windows
-
-2. **Launch PitchTracker**
-   - Find it in Start Menu → PitchTracker
-   - Or use the desktop shortcut (if created)
-
-3. **Run Setup Wizard**
-   - Click "Setup & Calibration"
-   - Complete the ten-step stereo workflow: camera selection, paired preview,
-     synchronization, focus/exposure lock, overlap, coarse rectification,
-     optional ChArUco refinement, field alignment, profile persistence, and the
-     quality report.
-   - Review every blocker. Wizard completion is not the same as physical
-     accuracy validation.
-
-4. **Start Coaching**
-   - Return to launcher
-   - Click "Coaching Sessions"
-   - Begin tracking pitches!
-
-## Updates
-
-PitchTracker checks for updates automatically on startup. When an update is available:
-
-- You'll see a notification dialog
-- Click "Download and Install" to update
-- Restart the application to apply changes
-
-## Data Storage
-
-Your data is stored in:
-
-```
-C:\Program Files\PitchTracker\
-├── data\sessions\      # Recorded sessions
-├── calibration\        # Calibration files
-├── rois\              # Region of interest configs
-├── configs\           # Application settings
-└── logs\              # Application logs
+```powershell
+git clone https://github.com/berginj/PitchTracker.git
+cd PitchTracker
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python setup_validator.py
+python launcher.py
 ```
 
-## Troubleshooting
+Most automated tests and simulator workflows do not require cameras.
 
-### Cameras Not Detected
+## Build an installer for controlled testing
 
-- Check USB connections
-- Try different USB ports (USB 3.0 recommended)
-- Check Device Manager → Imaging devices
+Developers need PyInstaller and Inno Setup 6:
 
-### Calibration Failed
+```powershell
+python -m pip install -r requirements-dev.txt
+.\build_installer.ps1 -Clean
+```
 
-- Ensure checkerboard pattern is visible in both cameras
-- Improve lighting conditions
-- Hold pattern steady during capture
-- Try different angles and distances
+Expected outputs:
 
-### Application Won't Start
+- `dist\PitchTracker\PitchTracker.exe`
+- `installer_output\PitchTracker-Setup-v2.0.0-stereo.exe`
 
-- Right-click PitchTracker.exe → Run as Administrator
-- Check logs folder for error messages
-- Reinstall the application
+See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md). A successful build does not
+prove that the package installs, updates, uninstalls, or preserves data correctly
+on a clean machine.
+
+## Verify a future published installer
+
+Before running a published artifact:
+
+1. Confirm it is attached to the intended GitHub release.
+2. Confirm the filename and release tag agree.
+3. Verify the published SHA-256.
+4. Read the release's hardware and accuracy limitations.
+5. Retain the installer filename, checksum, Windows version, and security prompts
+   in any smoke-test report.
+
+The packaged build is intended to include Python and runtime dependencies; a
+separate Python installation should not be required for that exact verified
+artifact.
+
+## First launch
+
+1. Connect the candidate camera pair.
+2. Launch PitchTracker.
+3. Choose **Setup & Calibration**.
+4. Complete the canonical ten-step setup workflow.
+5. Resolve all blockers and review the persisted setup snapshot.
+6. Use **Coaching Sessions** only after the current preflight remains eligible.
+
+Wizard completion does not establish physical speed or location accuracy.
+
+## Data and network behavior
+
+- The source configuration records sessions under `recordings/` by default.
+- Rig profiles default to `calibration/rigs/`.
+- Packaged and customized deployments may use a different working or configured
+  directory; inspect the active config and setup report.
+- The updater checks the public GitHub Releases API by default.
+- Capture artifacts remain local unless an optional integration is explicitly
+  enabled, authenticated, and configured.
+
+Treat recordings, frames, logs, manifests, calibration artifacts, athlete data,
+and facility information as private.
 
 ## Support
 
-For help and support:
+- [Quick Start](docs/QUICK_START.md)
+- [Current Status](docs/CURRENT_STATUS.md)
+- [Troubleshooting](docs/user/TROUBLESHOOTING.md)
+- [GitHub Issues](https://github.com/berginj/PitchTracker/issues)
+- [Private Security Reporting](https://github.com/berginj/PitchTracker/security/advisories/new)
 
-- **Documentation:** README_LAUNCHER.md and docs/CURRENT_STATUS.md
-- **Issues:** https://github.com/berginj/PitchTracker/issues
-- **Email:** [Your support email]
-
-## License
-
-This software is provided under the terms specified in the LICENSE file.
-
----
-
-**Version:** v2.0.0-stereo
-**Installation Date:** [Automatically populated during install]
+The current installer smoke-test request is tracked in
+[issue #11](https://github.com/berginj/PitchTracker/issues/11).

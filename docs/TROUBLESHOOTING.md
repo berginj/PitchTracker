@@ -1,5 +1,8 @@
 # PitchTracker - Troubleshooting Guide
 
+> **Superseded:** use [user/TROUBLESHOOTING.md](user/TROUBLESHOOTING.md) for the
+> current operator guide. This file is retained for older diagnostic context.
+
 **Last Updated:** 2026-01-19
 **Version:** 2.0
 
@@ -369,28 +372,11 @@ This guide covers common issues, error messages, and solutions.
 
 **Symptom:** Double-clicking installer does nothing or shows error
 
-**Solutions:**
-
-1. **Windows SmartScreen**
-   - "Windows protected your PC" message
-   - Click "More info"
-   - Click "Run anyway"
-   - This is expected for unsigned software
-
-2. **Antivirus Blocking**
-   - Temporarily disable antivirus
-   - Run installer
-   - Re-enable antivirus
-   - Add PitchTracker to whitelist if needed
-
-3. **Corrupted Download**
-   - Re-download installer
-   - Verify file size matches release page
-   - Try different browser
-
-4. **Administrator Rights**
-   - Right-click installer
-   - "Run as administrator"
+The current `v2.0.0` release has no installer asset. For any future published
+artifact, verify the release tag and SHA-256 first. If SmartScreen or antivirus
+blocks a verified candidate, retain the exact warning and report it; do not
+disable security controls merely to force execution. See the current
+[operator troubleshooting guide](user/TROUBLESHOOTING.md).
 
 ### Missing DLL Errors
 
@@ -607,7 +593,7 @@ If you still have issues after trying these solutions:
    - Log files from logs/ folder
 
 2. **Report Issue:**
-   - GitHub: https://github.com/anthropics/claude-code/issues
+   - GitHub: https://github.com/berginj/PitchTracker/issues
    - Include all gathered information
    - Steps to reproduce problem
 

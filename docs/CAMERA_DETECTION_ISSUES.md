@@ -1,5 +1,10 @@
 # ArduCam Detection Issues - Analysis & Solutions
 
+> **Historical investigation:** this analysis predates the current catalog,
+> stable-identity, setup-snapshot, and recommendation workflow. Use current
+> status and [issue #9](https://github.com/berginj/PitchTracker/issues/9) for
+> executable camera-qualification work.
+
 ## Problem Statement
 
 ArduCam devices are not being detected consistently when enumerating cameras. The detection succeeds sometimes but fails other times, making the system unreliable.

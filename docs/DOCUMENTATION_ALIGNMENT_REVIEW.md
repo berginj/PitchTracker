@@ -1,7 +1,9 @@
 # Documentation Alignment Review
 
-**Reviewed:** 2026-07-21
-**Scope:** active Markdown files outside `archive/` and `docs/archive/`
+**Reviewed:** 2026-07-22
+**Scope:** active Markdown files outside `archive/` and `docs/archive/`, plus
+GitHub metadata, releases, issue forms, support/security surfaces, and repository
+publishing guidance
 
 ## Canonical hierarchy
 
@@ -14,7 +16,7 @@
 
 ## Corrections made in this review
 
-- Replaced obsolete 389/841/1051-test claims with the recorded 1,263-pass run
+- Replaced obsolete 389/841/1051-test claims with the recorded 1,267-pass run
   in canonical status/test pages.
 - Corrected the canonical setup workflow from six/nine steps to ten.
 - Replaced v1.5 pilot release guidance with v2.0 identity and the actual release
@@ -24,6 +26,13 @@
 - Marked dated strategy, pilot, review, and prototype pages as context rather
   than current delivery status.
 - Preserved historical changelog entries and archived reports unchanged.
+- Replaced stale installer, launcher, FAQ, storage, update, privacy, and hardware
+  instructions with behavior verified against current code and GitHub assets.
+- Corrected public support URLs and removed advice to bypass Windows security
+  controls for an unverified installer.
+- Added private vulnerability-reporting and support policies.
+- Replaced the hard-coded release helper with explicit tag, notes, artifact, and
+  checksum inputs plus refusal to overwrite an existing release.
 
 ## Remaining intentional historical references
 

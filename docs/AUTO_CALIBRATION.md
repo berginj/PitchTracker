@@ -1,5 +1,10 @@
 # Auto-Calibration System
 
+> **Evidence boundary:** this document describes implementation mechanisms, not
+> a validated physical accuracy result. Quick calibration remains diagnostic;
+> physical claims require the current setup snapshot and Physical Validation
+> Protocol v2 evidence.
+
 The PitchTracker now includes a comprehensive auto-calibration system that simplifies setup while maintaining accuracy. This system includes camera capability detection, quick calibration mode, and online parameter refinement.
 
 ## Features

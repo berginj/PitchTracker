@@ -1,132 +1,86 @@
-# PitchTracker - Quick Start Guide
+# PitchTracker Launcher Guide
 
-**Applies To:** v2.0.0-stereo
+**Last reviewed:** 2026-07-22
 
-## Installation
+**Applies to:** v2.0.0 and current `main`
 
-### Prerequisites
-```powershell
-# Install Python dependencies
-pip install PySide6 numpy opencv-python pyyaml
-```
+## Start the launcher
 
-## Running PitchTracker
+After installing source dependencies:
 
-### Option 1: Unified Launcher (Recommended)
-Launch the main application with role selector:
 ```powershell
 python launcher.py
 ```
 
-This shows a clean interface with two options:
-- **🔧 Setup & Calibration** - For system configuration
-- **⚾ Coaching Sessions** - For daily coaching use
+Or use the repository wrapper:
 
-### Option 2: Direct Launch
-Launch specific applications directly:
-
-**Setup Wizard:**
 ```powershell
-python test_setup_wizard.py
+.\run.ps1 -Backend uvc
 ```
 
-**Coaching App:**
-```powershell
-python test_coaching_app.py
-```
+The current public v2.0.0 release has no installer asset. See
+[README_INSTALL.md](README_INSTALL.md) before using or distributing a locally
+built package.
 
-## First Time Setup
+## Launcher roles
 
-1. **Launch Setup Wizard** (via launcher or `python test_setup_wizard.py`)
+### Setup & Calibration
 
-2. **Complete the ten-step stereo setup workflow:** camera selection, paired
-   preview, synchronization, focus/exposure lock, overlap, coarse rectification,
-   optional ChArUco refinement, field alignment, profile persistence, and the
-   quality report.
+Use this role to select cameras, qualify capture and synchronization, calibrate
+the stereo rig, align it to the field fixture, persist a rig profile and setup
+snapshot, and review blockers. Long-running setup work belongs to tooling and
+setup services, not the runtime orchestrator.
 
-3. **Launch Coaching App** (via launcher or `python test_coaching_app.py`)
+The canonical setup has ten steps. Completion alone does not grant physical
+`VALIDATED` status.
 
-## Using the Coaching App
+### Coaching Sessions
 
-1. Click "Start Session"
-2. Select pitcher and adjust settings (batter height, ball type)
-3. Click OK to start capture and recording
-4. Throw pitches - metrics appear in real-time
-5. Click "End Session" when done
-6. Review session summary
+Use this role for controlled capture and recording after the active rig profile
+and preflight remain eligible. The operator view is intentionally compact;
+detailed capture, matching, correction, and error diagnostics remain available
+on demand and in durable evidence.
 
-## Workflow
+### Review
 
-```
-┌─────────────────────┐
-│   Launch PitchTracker   │
-│     (launcher.py)    │
-└──────────┬──────────┘
-           │
-    ┌──────┴──────┐
-    │             │
-    ▼             ▼
-┌─────────┐   ┌──────────┐
-│ Setup   │   │ Coaching │
-│ Wizard  │   │   App    │
-└─────────┘   └──────────┘
-    │             │
-    │ (one-time)  │ (daily)
-    │             │
-    ▼             ▼
-[Configure]   [Track Pitches]
-```
+Use review workflows to inspect recorded sessions, videos, pitch artifacts,
+summaries, and evidence. Offline replay can reconcile recorded decisions but
+does not convert synthetic or incomplete evidence into physical validation.
 
-## File Locations
+## Data locations
 
-**Configuration:**
-- `configs/default.yaml` - Main configuration
-- `calibration/stereo_calibration.npz` - Calibration data
-- `rois/shared_rois.json` - Lane and plate ROIs
+Runtime paths are configuration- and working-directory-dependent:
 
-**Generated Data:**
-- `data/sessions/<session_name>/` - Session recordings
-- `setup_report.txt` - Setup summary report
+- session output: `recording.output_dir` (`recordings/` in the default config);
+- rig profiles: `calibration/rigs/` by default;
+- update preferences: `configs/update_settings.json`; and
+- logs and exported artifacts: as selected or configured by the workflow.
 
-## Troubleshooting
+Do not assume that a packaged deployment uses the same absolute path as a source
+checkout. Confirm the active configuration before backup, support, or uninstall
+testing.
 
-### No cameras found
-- Check USB connections
-- Ensure cameras have unique serial numbers
-- Try OpenCV backend: `python launcher.py` and select cameras by index
+## Common startup problems
 
-### Calibration fails
-- Ensure checkerboard is visible in both cameras
-- Capture at least 10 image pairs
-- Try different angles and distances
-- Check lighting conditions
+- **Missing imports:** activate the intended virtual environment and reinstall
+  `requirements.txt`.
+- **No cameras:** close other camera applications, check Windows permissions,
+  reconnect directly to USB, and rerun discovery.
+- **OpenCV IDs rejected:** OpenCV mode accepts numeric indexes; use UVC serial
+  identities for production-style multi-camera testing.
+- **Setup blocked:** follow the reported corrective action and rerun the affected
+  step; do not bypass validation or edit persisted evidence.
+- **No installer update:** the updater requires a newer GitHub release with an
+  installer asset. The current v2.0.0 release has none.
 
-### No pitch detection
-- Verify ROIs are configured correctly
-- Check detector settings in Step 4
-- Ensure proper lighting
-- Verify ball type matches configuration
+## Current boundaries
 
-### Import errors
-```powershell
-# Install missing dependencies
-pip install PySide6 numpy opencv-python pyyaml
-```
+- Default trajectory mode is `stereo_3d`.
+- Ray modes remain comparison-first.
+- Physical speed and plate-location accuracy are not publicly validated.
+- Camera catalog recognition is not a known-good hardware claim.
+- Missing information remains unavailable, degraded, excluded, or rejected.
 
-## Support
-
-For issues or questions:
-1. Check configuration in `configs/default.yaml`
-2. Review ROIs in `rois/shared_rois.json`
-3. Re-run Setup Wizard validation (Step 5)
-4. Check console output for error messages
-
-## Version
-
-**Current Version:** v2.0.0-stereo
-
-**Components:**
-- Stereo Setup Wizard (v2.0.0) - Complete (evidence-gated ten-step flow)
-- Setup Wizard (legacy) - Complete (6 steps)
-- Coaching App - Complete (integrated with pipeline)
-- Unified Launcher - Complete
+See [Current Status](docs/CURRENT_STATUS.md),
+[Quick Start](docs/QUICK_START.md), and
+[Troubleshooting](docs/user/TROUBLESHOOTING.md).
