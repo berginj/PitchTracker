@@ -34,11 +34,16 @@ def parse_args() -> argparse.Namespace:
         "--backend",
         choices=("uvc", "opencv", "sim"),
         default="uvc",
-        help="Capture backend to use (opencv or sim).",
+        help="Capture backend to use (uvc, opencv, or sim).",
     )
-    parser.add_argument("--left", default="left", help="Left camera ID or index.")
-    parser.add_argument("--right", default="right", help="Right camera ID or index.")
-    return parser.parse_args()
+    parser.add_argument("--left", default=None, help="Left camera ID or index.")
+    parser.add_argument("--right", default=None, help="Right camera ID or index.")
+    args = parser.parse_args()
+    if args.left is None:
+        args.left = "0" if args.backend == "opencv" else "left"
+    if args.right is None:
+        args.right = "1" if args.backend == "opencv" else "right"
+    return args
 
 
 def build_lane_gate(

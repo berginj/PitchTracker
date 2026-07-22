@@ -24,7 +24,7 @@ documents in the first section and open a documentation issue.
 ## User and operator guides
 
 - [QUICK_START.md](QUICK_START.md)
-- [user/FAQ.md](user/FAQ.md)
+- [FAQ.md](FAQ.md)
 - [user/TROUBLESHOOTING.md](user/TROUBLESHOOTING.md)
 - [user/CALIBRATION_TIPS.md](user/CALIBRATION_TIPS.md)
 - [SETUP_DOCTOR.md](SETUP_DOCTOR.md)
