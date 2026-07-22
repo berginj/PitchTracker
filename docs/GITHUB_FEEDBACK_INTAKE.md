@@ -1,6 +1,6 @@
 # GitHub Feedback and Validation Intake
 
-**Last reviewed:** 2026-07-21
+**Last reviewed:** 2026-07-22
 **Applies to:** `v2.0.0` and current `main`
 
 Use structured GitHub issues for setup friction, hardware compatibility,

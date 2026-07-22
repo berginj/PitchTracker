@@ -14,12 +14,15 @@ predeclared physical validation using an independent calibrated reference.
 
 Submit results through the Validation Report or Pilot Feedback issue form. Do
 not attach athlete media, private facility data, secrets, or unreviewed logs.
+Report suspected vulnerabilities privately as described in
+[`SECURITY.md`](SECURITY.md), not through a public issue.
 
 ## Branch & merge policy
 
 `main` is protected. **All changes reach `main` through a pull request** that must
 pass the required CI checks (`test (3.11)`, `test (3.12)`, `security`) and be up to
-date with `main` (linear history; no force-push, no branch deletion).
+date with `main`. The protected branch requires linear history and disallows
+force-pushing or deleting `main`; merged feature branches may be deleted.
 
 Repository admins are intentionally **not** forced through PRs (`enforce_admins`
 is off) so the owner can land emergency fixes directly — but the default, expected
@@ -66,3 +69,5 @@ same change that implements the decision.
 - Keep raw values when proposing or applying a correction.
 - Update requirements, traceability, and roadmap status in the same change when
   behavior or acceptance criteria change.
+
+Last reviewed: **2026-07-22**.

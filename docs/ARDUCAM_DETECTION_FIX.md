@@ -1,5 +1,9 @@
 # ArduCam Detection Fix - Summary
 
+> **Historical implementation note:** commands, paths, and line references in
+> this point-in-time summary may be obsolete. Use [Quick Start](QUICK_START.md),
+> [Hardware Profile](HARDWARE_PROFILE.md), and current setup diagnostics.
+
 ## Problem
 ArduCam devices were not being detected consistently. Detection would succeed sometimes but fail other times, making the system unreliable.
 
@@ -91,7 +95,7 @@ ArduCam Device Count:
    ```bash
    # Restart computer
    # Immediately run:
-   python test_coaching_app.py
+   python scripts/test_coaching_app.py
    # Verify all ArduCam devices appear in dropdown
    ```
 
@@ -208,7 +212,7 @@ INFO - Found 2 OpenCV cameras: [0, 1]
 
 3. **Test coaching app:**
    ```bash
-   python test_coaching_app.py
+   python scripts/test_coaching_app.py
    ```
 
 4. **Report results:**

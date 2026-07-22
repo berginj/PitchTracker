@@ -34,7 +34,6 @@ documents in the first section and open a documentation issue.
 
 ## Developer guides
 
-- [../CONTRIBUTING.md](../CONTRIBUTING.md)
 - [../REQ.md](../REQ.md)
 - [decisions/0001-core-pipeline.md](decisions/0001-core-pipeline.md)
 - [DECISION_REPLAY_ARCHITECTURE.md](DECISION_REPLAY_ARCHITECTURE.md)
@@ -42,6 +41,12 @@ documents in the first section and open a documentation issue.
 - [TEST_SUITE_DOCUMENTATION.md](TEST_SUITE_DOCUMENTATION.md)
 - [INTEGRATION_TESTS.md](INTEGRATION_TESTS.md)
 - [PERFORMANCE_BENCHMARKS.md](PERFORMANCE_BENCHMARKS.md)
+
+## Community and support
+
+- [Contributing](../CONTRIBUTING.md)
+- [Support](../SUPPORT.md)
+- [Security policy](../SECURITY.md)
 
 ## Planning and context
 
@@ -72,4 +77,4 @@ When changing behavior:
 5. Move superseded point-in-time reports to an archive instead of leaving two
    competing status sources.
 
-Last reviewed: **2026-07-21**.
+Last reviewed: **2026-07-22**.

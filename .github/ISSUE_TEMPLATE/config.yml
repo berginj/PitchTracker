@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Pilot support guidance
-    url: https://github.com/berginj/PitchTracker/issues
-    about: Use the structured pilot feedback forms when possible so reports can be triaged consistently.
+  - name: Testing and privacy guidance
+    url: https://github.com/berginj/PitchTracker/blob/main/docs/TESTING_NEEDED.md
+    about: Review evidence requirements and privacy guidance before submitting field results.
+  - name: Security vulnerability reporting
+    url: https://github.com/berginj/PitchTracker/security/advisories/new
+    about: Report suspected vulnerabilities privately instead of opening a public issue.

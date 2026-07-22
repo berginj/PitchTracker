@@ -1,8 +1,12 @@
 # PitchTracker Test Suite Documentation
 
-**Version:** v2.0.0 / `main` at `40158c1`
-**Date:** 2026-07-21
+**Version:** v2.0.0 / `main` at `211d246`
+**Date:** 2026-07-22
 **Status:** Current automated run recorded; physical tests remain separate
+
+> Historical version sections later in this file preserve point-in-time test
+> reports. Their failure counts and release recommendations are not current
+> status; use the run summary immediately below.
 
 ---
 
@@ -10,11 +14,11 @@
 
 This document provides exhaustive documentation of the PitchTracker test suite, including all test modules, test counts, coverage areas, and execution details.
 
-**Latest Full Run:** `1263 passed, 32 skipped, 37 warnings in 258.90s`
-**Total Collected:** 1295 tests
+**Latest Full Run:** `1267 passed, 32 skipped, 37 warnings in 245.18s`
+**Total Collected:** 1299 tests
 **Pass Rate:** 100% of executed tests
 **Test Framework:** pytest 7.4.3
-**Python Version:** 3.13.14
+**Recorded job:** Python 3.11 on GitHub Actions; required matrix also passed on Python 3.12
 
 Command:
 
@@ -820,7 +824,7 @@ python -m benchmarks.memory --duration 300
 ### Pre-Release Testing
 
 - [ ] Run full test suite: `python -m pytest`
-- [x] Full automated suite passes: 1,263 passed / 32 skipped / 0 failed
+- [x] Full automated suite passes: 1,267 passed / 32 skipped / 0 failed
 - [ ] Run benchmarks: `python -m benchmarks.run_all`
 - [ ] Document benchmark results in PERFORMANCE_BENCHMARKS.md
 - [ ] Manual UI testing:
@@ -870,6 +874,6 @@ remain open under `docs/ROADMAP.md`
 ---
 
 **Document Version:** 1.0
-**Last Updated:** 2026-07-21
+**Last Updated:** 2026-07-22
 **Maintainer:** PitchTracker Development Team
 **Status:** Software regression suite passing; field validation pending

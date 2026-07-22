@@ -1,6 +1,6 @@
 # Version and Release Alignment
 
-**Last reviewed:** 2026-07-21
+**Last reviewed:** 2026-07-22
 **Status:** code/build metadata aligned; refreshed release publication pending
 
 ## Current identity
@@ -28,7 +28,7 @@ with its checksum.
 ## Release checklist
 
 - [x] Runtime, installer, updater, and current docs use version 2.0.0.
-- [x] Full automated suite recorded: 1,263 passed, 32 skipped, 0 failed.
+- [x] Full automated suite recorded: 1,267 passed, 32 skipped, 0 failed at `211d246`.
 - [x] Clean PyInstaller and Inno Setup build completed from `40158c1`.
 - [ ] Installer smoke-tested on a clean Windows 10 machine.
 - [ ] Installer smoke-tested on a clean Windows 11 machine.

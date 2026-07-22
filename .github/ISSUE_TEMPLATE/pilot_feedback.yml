@@ -99,7 +99,7 @@ body:
     id: artifacts
     attributes:
       label: Logs or artifacts
-      description: Mention logs, setup reports, screenshots, or session IDs. Do not attach private video unless explicitly authorized.
+      description: Mention privacy-safe filenames, hashes, setup reports, screenshots, or session IDs. Do not attach raw logs, private paths, or video unless explicitly authorized.
     validations:
       required: false
   - type: checkboxes
@@ -107,5 +107,5 @@ body:
     attributes:
       label: Privacy check
       options:
-        - label: I have removed athlete names, private video, and sensitive facility data unless explicitly authorized.
+        - label: I have removed athlete names/media, raw serials, secrets, absolute private paths, and sensitive facility data unless explicitly authorized.
           required: true

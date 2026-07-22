@@ -1,421 +1,157 @@
-# PitchTracker - Frequently Asked Questions (FAQ)
+# PitchTracker Frequently Asked Questions
 
-**Last Updated:** 2026-07-21
-**Version:** v2.0.0
+**Last reviewed:** 2026-07-22
 
----
+**Applies to:** v2.0.0 and current `main`
 
-## Table of Contents
+## Installation and releases
 
-- [Installation & Setup](#installation--setup)
-- [Camera Issues](#camera-issues)
-- [Calibration](#calibration)
-- [Recording & Performance](#recording--performance)
-- [Data & Export](#data--export)
-- [General Usage](#general-usage)
+### Is there a current v2 installer?
 
----
+No. The published [`v2.0.0` release](https://github.com/berginj/PitchTracker/releases/tag/v2.0.0)
+does not have an installer asset. Run from source for current testing. The older
+v1.5 pilot installer is not the current v2 application.
 
-## Installation & Setup
+A refreshed installer will be published only after clean Windows smoke testing,
+artifact provenance recording, and checksum verification.
 
-### Q: What are the system requirements?
+### How do I run from source?
 
-**A:**
-- **OS:** Windows 10 (version 1809+) or Windows 11
-- **CPU:** Intel i5 or better (quad-core recommended)
-- **RAM:** 8GB minimum, 16GB recommended
-- **Disk:** 100GB+ free space for recordings
-- **USB:** USB 3.0 ports for cameras
-- **Cameras:** Two compatible USB cameras (1280x720 @ 60fps recommended)
+Use Windows with Python 3.11 or 3.12:
 
-### Q: How do I install PitchTracker?
+```powershell
+git clone https://github.com/berginj/PitchTracker.git
+cd PitchTracker
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python setup_validator.py
+python launcher.py
+```
 
-**A:**
-1. Check GitHub Releases for a tested installer asset. The current v2.0.0
-   release does not yet include one; developers can build from source.
-2. When published, run `PitchTracker-Setup-v2.0.0-stereo.exe`.
-3. Follow the installation wizard
-4. Launch from desktop shortcut or Start menu
-5. Run Setup Doctor on first launch
+### Will a packaged installer require Python?
 
-### Q: Do I need Python installed?
+The PyInstaller-based package is intended to bundle its Python runtime and
+dependencies. That statement applies only after a specific installer has been
+built and smoke-tested; there is no current public v2 installer to rely on.
 
-**A:** No! The installer includes everything needed. You don't need Python, OpenCV, or any other dependencies.
+### Does PitchTracker check the internet?
 
-### Q: Can I install PitchTracker on multiple computers?
+The updater checks the public GitHub Releases API by default. It reports an
+update only when a newer release contains an installer asset. Capture artifacts
+remain local by default. Optional TAG/cloud synchronization is disabled unless
+it is explicitly enabled and configured.
 
-**A:** Yes, you can install on as many computers as you need. Each installation is independent.
+## Cameras and setup
 
-### Q: How do I update to a new version?
+### What cameras should I use?
 
-**A:** PitchTracker checks for updates automatically. When a new version is available:
-1. You'll see an update notification
-2. Click "Download Update"
-3. The installer will download and launch
-4. Follow the update wizard
+Physical qualification requires two matching USB global-shutter cameras with
+stable identities, an observed 60 FPS-or-better capture mode, and fixed or
+lockable focus/exposure controls. See the
+[candidate hardware profile](HARDWARE_PROFILE.md).
 
----
+A catalog match helps discovery; it does not validate a model or physical pair.
+Conventional rolling-shutter webcams may be useful for UI experimentation but
+should not support an accuracy claim.
 
-## Camera Issues
+### Why are my cameras missing?
 
-### Q: Why can't I see my cameras in the camera list?
+1. Close other applications that may hold the cameras.
+2. Reconnect each camera directly to a USB port.
+3. Confirm Windows camera permissions and Device Manager state.
+4. Re-run discovery and compare stable hardware identities.
+5. Review technical logs for backend, permission, or mode-negotiation errors.
 
-**A:** Try these steps in order:
-1. **Check USB connection:**
-   - Use USB 3.0 ports (blue ports)
-   - Try different USB ports
-   - Avoid USB hubs if possible
+OpenCV mode uses numeric indexes and is not stable enough for a production
+multi-camera identity. Prefer the UVC backend and serial-based selection.
 
-2. **Restart the application:**
-   - Close PitchTracker completely
-   - Unplug cameras
-   - Plug cameras back in
-   - Launch PitchTracker
+### Why is setup blocked?
 
-3. **Check Windows permissions:**
-   - Settings → Privacy → Camera
-   - Enable "Let apps access your camera"
-   - Enable PitchTracker specifically
+Setup intentionally fails closed when evidence such as camera identity,
+negotiated mode, control readback, synchronization, overlap, calibration, field
+alignment, or artifact binding is missing or outside policy. Follow the
+operator action shown, correct the physical condition, and run the affected step
+again. Do not edit a report to convert failure into success.
 
-4. **Update camera drivers:**
-   - Open Device Manager
-   - Find your cameras under "Imaging devices"
-   - Right-click → Update driver
+### Does global shutter mean the cameras are synchronized?
 
-5. **Check if cameras work elsewhere:**
-   - Open Windows Camera app
-   - If cameras don't work there, it's a system issue
+No. Global shutter reduces within-frame motion distortion. Two independent USB
+cameras can still capture at different times. PitchTracker records pair skew,
+cadence, dropped frames, and unmatched outcomes; the onsite rig must satisfy the
+configured synchronization gates.
 
-### Q: Why is my video choppy or laggy?
+### Is ChArUco optional?
 
-**A:** Performance issues usually come from:
+The workflow can compute coarse rectification before optional ChArUco
+refinement, but a physical accuracy claim still requires calibration and field
+alignment evidence that satisfies the approved protocol. “Optional wizard
+step” does not mean “optional evidence for validation.”
 
-1. **High resolution/framerate:**
-   - Try 1280x720 @ 30fps instead of 60fps
-   - Settings → Camera → Resolution
-   - Lower settings = smoother performance
+## Measurements and validation
 
-2. **CPU overload:**
-   - Close other applications
-   - Check Task Manager for CPU usage
-   - PitchTracker should use 40-60% CPU during capture
+### Are speed and plate location validated?
 
-3. **USB bandwidth:**
-   - Don't use USB hubs for cameras
-   - Use separate USB 3.0 ports
-   - Don't connect both cameras to same USB controller
+Not yet for a public accuracy claim. Automated tests cover software contracts,
+failure paths, replay, and synthetic geometry. Independent physical confirmation
+against a calibrated reference device remains open work.
 
-4. **Background processes:**
-   - Disable Windows indexing on recordings folder
-   - Close browser tabs, video players, etc.
+### What do `run_in` and `rise_in` mean?
 
-### Q: Why do I get "Camera disconnected" errors?
+They currently represent raw first-to-last stereo-observation displacement in
+inches. Durable summaries label the basis and set `movement_validated=false`.
+They are not validated induced pitch break.
 
-**A:** Common causes:
+### What happens when evidence is missing?
 
-1. **USB cable issues:**
-   - Use high-quality USB 3.0 cables (< 3 feet)
-   - Replace damaged cables
-   - Secure connections
+The result should be unavailable, degraded, excluded, or rejected with a reason.
+PitchTracker preserves attempted, accepted, rejected, unmatched, excluded, and
+reference-missing denominators. Missing information must not be replaced by an
+assumed pass or measurement zero.
 
-2. **Power issues:**
-   - Some cameras need external power
-   - USB hubs may not provide enough power
-   - Connect directly to motherboard USB ports
+### Can software correct a poor onsite setup?
 
-3. **Driver conflicts:**
-   - Multiple camera software can conflict
-   - Close OBS, Zoom, Teams, etc.
-   - Restart computer if needed
+Software can identify bounded corrective actions and retain raw-versus-corrected
+records. It must not silently mutate calibration or manufacture an accuracy
+claim. Material physical problems such as camera movement, insufficient overlap,
+focus loss, or USB contention require onsite correction and a new setup snapshot.
 
-**Auto-reconnection:** PitchTracker will attempt to reconnect automatically. You'll see status updates in the UI.
+## Recording, privacy, and support
 
-### Q: Can I use different camera brands together?
+### Where are sessions stored?
 
-**A:** Yes! PitchTracker supports mixing camera brands. Requirements:
-- Both must support same resolution
-- Both must support same framerate
-- Both must be USB cameras (not IP cameras)
+The recording service uses `recording.output_dir` from the active configuration;
+the source-tree default is `recordings/`. Rig profiles default to
+`calibration/rigs/`. Paths may differ in a packaged or customized deployment, so
+check the active configuration and setup report.
 
-### Q: What's the difference between color and grayscale mode?
+### Is data uploaded automatically?
 
-**A:**
-- **Color mode (recommended):** Better for Review Mode, looks nicer, slightly higher CPU usage
-- **Grayscale mode:** Faster processing, detection doesn't use color anyway
-- **Setting:** Settings → Camera → Color Mode
+Camera frames, recordings, calibration artifacts, manifests, and athlete data
+are local by default. The updater makes a GitHub API request. Optional cloud/TAG
+features require explicit feature enablement, authentication, and a configured
+adapter. Review configuration and logs before using any integration.
 
----
+### What can I post in a public issue?
 
-## Calibration
+Post anonymized system facts, counts with denominators, failure codes, hashes or
+filenames, and reproduction steps. Do not post athlete media, names, private
+facility details, raw serial numbers, calibration files, trust keys, secrets, or
+unreviewed logs.
 
-### Q: How do I calibrate the system?
+### Where should I ask for help?
 
-**A:** Use Setup Doctor:
-1. **ROI (Region of Interest):**
-   - Draw boxes around strike zone on both cameras
-   - Make sure strike zone is fully visible
+- Use [GitHub issues](https://github.com/berginj/PitchTracker/issues) for bugs and
+  bounded feature requests.
+- Use the Validation Report or Pilot Feedback forms for structured field results.
+- Read [Testing Help Needed](TESTING_NEEDED.md) before submitting evidence.
+- Report vulnerabilities privately through
+  [GitHub Security Advisories](https://github.com/berginj/PitchTracker/security/advisories/new).
 
-2. **Full Stereo Calibration:**
-   - Use the ChArUco/checkerboard pattern
-   - Take 10+ stereo poses from different angles
-   - Hold pattern steady for each capture
-   - Measure exact distance between cameras (in feet)
-   - Enter distance accurately (measure from lens centers)
-   - Run full matrix calibration for production readiness
+## Current sources of truth
 
-3. **Validation:**
-   - Test with known object at known distance
-   - Verify 3D coordinates are reasonable
-   - Setup Doctor blocks coaching only on CRITICAL findings
-
-### Q: How far apart should cameras be?
-
-**A:**
-- **Recommended:** 6-8 feet apart
-- **Minimum:** 4 feet (reduces accuracy)
-- **Maximum:** 10 feet (may lose ball in flight)
-
-**Important:** Measure from lens center to lens center, not from camera body edges.
-
-### Q: Do I need to recalibrate every session?
-
-**A:** No, calibration persists between sessions. Recalibrate only if:
-- You move the cameras
-- You change camera angles
-- Accuracy seems degraded
-- You see warnings about calibration errors
-
-### Q: What if calibration fails?
-
-**A:** Common issues:
-1. **Checkerboard not detected:**
-   - Print checkerboard on flat, rigid surface (not paper)
-   - Ensure good lighting (no glare or shadows)
-   - Hold very steady during capture
-   - Make sure entire pattern is visible
-
-2. **Reprojection error too high:**
-   - Take more images (30+ recommended)
-   - Cover full camera field of view
-   - Vary angles and positions more
-   - Ensure cameras are stable (not moving)
-
-3. **Stereo calibration fails:**
-   - Double-check distance measurement
-   - Ensure cameras see overlapping area
-   - Check cameras are parallel (not angled away)
-
----
-
-## Recording & Performance
-
-### Q: How much disk space do recordings use?
-
-**A:** Approximate storage per session:
-- **30 second session:** ~200-300 MB
-- **100 pitches:** ~20-30 GB
-- **1 hour recording:** ~10-15 GB
-
-**Recommendations:**
-- Keep 100GB+ free space
-- Delete old sessions regularly
-- Use Review Mode to identify bad recordings before deleting
-
-### Q: Why am I getting disk space warnings?
-
-**A:** PitchTracker monitors disk space continuously:
-- **Warning (20GB):** Session may fill disk - consider ending soon
-- **Critical (5GB):** Recording will auto-stop to prevent data corruption
-
-**Solutions:**
-- Delete old sessions (recordings/ folder)
-- Move recordings to external drive
-- Free up space on system drive
-
-### Q: Can I change where recordings are saved?
-
-**A:** Yes:
-1. Settings → Recording → Output Directory
-2. Choose new location (must have 50GB+ free)
-3. Recordings save to new location immediately
-4. Old recordings stay in previous location
-
-### Q: Why does recording stop automatically?
-
-**A:** Auto-stop triggers:
-- **Disk space < 5GB:** Prevents data corruption
-- **Camera disconnected:** Can't record without cameras
-- **Internal error:** Check logs for details
-
-**Prevention:**
-- Monitor disk space indicator in status bar
-- Keep 50GB+ free space
-- Use stable USB connections
-
-### Q: Can I record without cameras (simulation mode)?
-
-**A:** Yes, for testing:
-1. Launch PitchTracker with `--backend sim` flag
-2. Simulated cameras generate test patterns
-3. Useful for testing UI and workflow
-4. No real ball detection or measurements
-
----
-
-## Data & Export
-
-### Q: How do I export session data?
-
-**A:**
-1. Review Mode → File → Open Session
-2. Select session to review
-3. Export → Export Annotations (JSON)
-4. Save file with scores and annotations
-
-**Exported data includes:**
-- Pitch scores (Good/Partial/Missed)
-- Manual annotations
-- Detection parameters
-- Session metadata
-
-### Q: What format are the videos saved in?
-
-**A:**
-- **Format:** AVI container
-- **Codec:** MJPG (preferred) or XVID/H264/MP4V fallback
-- **Frame rate:** Matches capture settings (30 or 60 FPS)
-- **Resolution:** Matches camera settings
-
-**Note:** Videos are uncompressed/lightly compressed for quality. They're large but can be re-encoded if needed.
-
-### Q: Can I import old session data?
-
-**A:** Yes, all sessions in `recordings/` folder are automatically available:
-- Review Mode → File → Review All Sessions
-- Navigate through all recordings
-- Score and annotate retroactively
-
-### Q: How do I delete bad recordings?
-
-**A:** Two methods:
-
-**Method 1: Review Mode (Recommended)**
-1. Review Mode → File → Review All Sessions
-2. Review session
-3. Press Ctrl+D to delete
-4. Confirm deletion
-5. Next session loads automatically
-
-**Method 2: Manual**
-1. Navigate to `recordings/` folder
-2. Find session folder (e.g., `session-2026-01-19_001`)
-3. Delete entire folder
-4. Restart PitchTracker if needed
-
----
-
-## General Usage
-
-### Q: What do the detection modes (MODE_A, MODE_B, MODE_C) mean?
-
-**A:** Different detection strategies:
-- **MODE_A (Default):** Frame differencing - detects moving objects
-- **MODE_B:** Background subtraction - learns background, detects foreground
-- **MODE_C:** Hybrid - combines both methods
-
-**When to change:**
-- MODE_A works well for most cases
-- MODE_B better for static backgrounds
-- MODE_C best for difficult lighting
-
-**How to change:** Review Mode → Parameters → Detection Mode
-
-### Q: How do I know if detection is working?
-
-**A:** During capture:
-- Green circles appear on moving ball
-- Detection count updates in status bar
-- No errors in message area
-
-During Review Mode:
-- Green circles show detections
-- Adjust parameters to improve detection
-- Orange X marks manual corrections
-
-### Q: What is "pre-roll" and why is it needed?
-
-**A:** Pre-roll captures frames BEFORE pitch detection starts:
-- Default: 300ms before first detection
-- Ensures we capture release point
-- Critical for accurate trajectory calculation
-- Can't be recovered if not captured
-
-**Setting:** configs/default.yaml → pitch_tracking → pre_roll_ms
-
-### Q: Can I use PitchTracker for softball?
-
-**A:** Yes! Calibration and detection work the same. Adjust:
-- Batter height (Settings → Strike Zone)
-- Expected speed range (affects some algorithms)
-- Camera positioning for underhand delivery
-
-### Q: Does PitchTracker work indoors and outdoors?
-
-**A:**
-- **Indoors:** Excellent - consistent lighting, minimal background motion
-- **Outdoors:** Good with caveats:
-  - Avoid direct sunlight (causes glare, shadows)
-  - Wind-blown objects cause false detections
-  - Birds, cars in background can trigger detection
-  - Cloudy days work best
-
-### Q: How accurate is the speed measurement?
-
-**A:** Accuracy depends on:
-- **Calibration quality:** Most important factor
-- **Detection consistency:** More detections = better measurement
-- **Camera framerate:** 60 FPS better than 30 FPS
-- **Camera distance:** 6-8 feet apart is optimal
-
-**Expected accuracy:** ±1-2 MPH with good calibration and detection
-
-### Q: Can I customize the strike zone?
-
-**A:** Yes:
-1. Settings → Strike Zone
-2. Adjust batter height
-3. Zone automatically scales based on MLB rules
-4. Custom zones: Edit configs/default.yaml
-
-### Q: How do I report bugs or request features?
-
-**A:**
-1. **GitHub Issues:** https://github.com/anthropics/claude-code/issues
-2. Include:
-   - PitchTracker version (Help → About)
-   - Windows version
-   - Steps to reproduce
-   - Screenshots if relevant
-   - Log files (logs/ folder)
-
-### Q: Are there any privacy concerns with the cameras?
-
-**A:** PitchTracker:
-- Only accesses cameras when you start capture
-- Only saves recordings when you start recording
-- No data sent to external servers
-- All data stored locally on your computer
-- You control all recordings and can delete anytime
-
----
-
-## Still Have Questions?
-
-- Check `TROUBLESHOOTING.md` for specific error messages
-- See `docs/` folder for technical documentation
-- Report issues on GitHub with logs from `logs/` folder
-
----
-
-**Document Version:** 1.1
-**Covers PitchTracker:** v2.0.0
+- [Current status](CURRENT_STATUS.md)
+- [Roadmap](ROADMAP.md)
+- [Quick start](QUICK_START.md)
+- [Troubleshooting](user/TROUBLESHOOTING.md)
+- [Physical Validation Protocol v2](PHYSICAL_VALIDATION_PROTOCOL_V2.md)

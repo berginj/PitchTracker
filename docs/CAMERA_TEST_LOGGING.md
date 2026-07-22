@@ -1,5 +1,9 @@
 # Camera Capability Test Logging Guide
 
+> **Historical logging guide:** example commands and output predate the current
+> setup snapshot and evidence contracts. Use [Testing Help Needed](TESTING_NEEDED.md)
+> for current fields and privacy guidance.
+
 ## Overview
 
 The camera capability test script now includes comprehensive logging to help diagnose camera issues and analyze test results.

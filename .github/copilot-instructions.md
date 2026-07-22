@@ -2,7 +2,11 @@
 
 ## Project Overview
 
-PitchTracker is a Windows desktop application (Python 3.10+ / PySide6) for real-time baseball pitch tracking using dual stereo UVC cameras. It detects pitches via classical computer vision or ONNX ML models, triangulates 3D trajectories, and computes pitch metrics (velocity, break, approach angles). The UI supports three role-based workflows: **Setup Wizard**, **Coaching App**, and **Review Mode**.
+PitchTracker is a Windows desktop application (Python 3.11/3.12 in CI / PySide6)
+for evidence-first baseball and softball pitch tracking using dual global-shutter
+UVC cameras. It detects candidates, reconstructs stereo trajectories, and emits
+evidence-labelled metrics without treating simulation as physical validation.
+The UI supports **Setup & Calibration**, **Coaching Sessions**, and **Review**.
 
 ## Build & Run
 
@@ -22,7 +26,7 @@ python launcher.py
 ### Testing
 
 ```powershell
-python -m pytest                         # full suite (~389 tests)
+python -m pytest                         # full suite (1,267 passed / 32 skipped at 211d246)
 python -m pytest tests/test_config.py    # single file
 python -m pytest tests/test_config.py::TestConfigLoading::test_load_default -v  # single test
 python -m pytest tests/integration/      # integration tests only
@@ -96,7 +100,7 @@ path only; new runtime work should use the service/EventBus architecture.
 | `log_config/` | Loguru setup: console (INFO) + rotating file logs (DEBUG/ERROR) |
 | `schema/` | JSON schemas for session summaries and versioning |
 
-Calibration belongs to Setup Doctor/tooling paths for v1.5.0-pilot. Do not add
+Calibration belongs to Setup Doctor/tooling paths for the current v2 architecture. Do not add
 calibration work to `PipelineOrchestrator` unless the architecture decision is
 explicitly changed in `docs/ARCHITECTURE_CURRENT_STATE.md`.
 
@@ -203,4 +207,6 @@ All styling flows through `ui/themes/glass_theme.py` (`GlassTheme` dataclass) an
 
 ### Version Management
 
-Update version in both `installer.iss` and `contracts/versioning.py` (`APP_VERSION`). Tag releases as `v1.x.x`.
+Update version in `installer.iss`, `contracts/versioning.py` (`APP_VERSION`), and
+`updater.py` together. Tag releases as `vX.Y.Z` only after the release checklist
+and artifact provenance requirements are satisfied.

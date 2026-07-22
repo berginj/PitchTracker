@@ -34,7 +34,7 @@ body:
     id: rig_profile
     attributes:
       label: Rig profile or setup identifier
-      placeholder: bullpen-left-right-c920-2026-06
+      placeholder: test-rig-global-shutter-pair-2026-07
     validations:
       required: false
   - type: input
@@ -84,7 +84,7 @@ body:
     id: artifacts
     attributes:
       label: Artifacts
-      description: List local file paths, report filenames, screenshots, or anonymized summaries.
+      description: List privacy-safe filenames, hashes, screenshots, or anonymized summaries. Avoid absolute paths containing usernames.
     validations:
       required: false
   - type: checkboxes
@@ -92,5 +92,5 @@ body:
     attributes:
       label: Privacy check
       options:
-        - label: I have removed athlete names, private video, and sensitive facility data unless explicitly authorized.
+        - label: I have removed athlete names/media, raw serials, secrets, absolute private paths, and sensitive facility data unless explicitly authorized.
           required: true

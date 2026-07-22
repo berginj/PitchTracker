@@ -1,6 +1,6 @@
 # PitchTracker Current Status
 
-**Last updated:** 2026-07-21
+**Last updated:** 2026-07-22
 **Published release:** `v2.0.0` / internal app version `2.0.0`
 **Development status:** software hardening complete on `main`; physical validation pending
 
@@ -24,7 +24,7 @@ independently reviewed physical confirmation dataset has been approved.
 | Release installer asset | Not currently attached to the GitHub release |
 | Current `main` | Includes PT-001–PT-015, adversarial follow-ups, and setup snapshot/camera recommendation work beyond the tag |
 | Latest local clean build | Commit `40158c1`; PyInstaller and Inno Setup completed |
-| Full automated suite | 1,263 passed, 32 skipped, 0 failed |
+| Full automated suite | 1,267 passed, 32 skipped, 0 failed at `211d246` |
 | Physical accuracy approval | None; results must remain estimated/degraded/unavailable/rejected as evidence requires |
 
 The locally built installer must be smoke-tested on a clean Windows machine

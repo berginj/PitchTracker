@@ -1,80 +1,76 @@
-# Create GitHub Release v2.0.0-stereo
-# Run this script after authenticating with: gh auth login
+<#
+.SYNOPSIS
+Publishes a pre-tagged, pre-verified PitchTracker release.
 
-$ReleaseTag = "v2.0.0-stereo"
-$InstallerPath = "installer_output\PitchTracker-Setup-v2.0.0-stereo.exe"
+.DESCRIPTION
+This script intentionally requires explicit inputs. It refuses to reuse an
+existing release, requires an existing tag, and verifies that the supplied
+checksum file matches the installer before uploading either asset.
+#>
 
-Write-Host "Creating GitHub Release $ReleaseTag..." -ForegroundColor Yellow
-Write-Host ""
+param(
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern('^v\d+\.\d+\.\d+$')]
+    [string]$Tag,
 
-if (-not (Test-Path $InstallerPath)) {
-    Write-Host "ERROR: Installer not found: $InstallerPath" -ForegroundColor Red
-    Write-Host "Please build the installer first with: .\build_installer.ps1 -Clean" -ForegroundColor Yellow
-    exit 1
+    [Parameter(Mandatory = $true)]
+    [string]$InstallerPath,
+
+    [Parameter(Mandatory = $true)]
+    [string]$ChecksumPath,
+
+    [Parameter(Mandatory = $true)]
+    [string]$NotesFile,
+
+    [string]$Title = ""
+)
+
+$ErrorActionPreference = "Stop"
+
+foreach ($path in @($InstallerPath, $ChecksumPath, $NotesFile)) {
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw "Required release input does not exist: $path"
+    }
 }
 
-$installerSize = (Get-Item $InstallerPath).Length / 1MB
-Write-Host "Installer: $InstallerPath" -ForegroundColor Gray
-Write-Host "Size:      $($installerSize.ToString('0.0')) MB" -ForegroundColor Gray
-Write-Host ""
+gh auth status | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw "GitHub CLI is not authenticated. Run 'gh auth login'."
+}
 
-$releaseNotes = @"
-# PitchTracker v2.0.0-stereo
+git rev-parse --verify "refs/tags/$Tag" | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw "Tag $Tag does not exist locally. Create and review the tag first."
+}
 
-Stereo-foundation rebuild. The product now proves it can receive, pair,
-compare, and calibrate left/right camera images through a coherent setup
-state machine before any pitch-tracking logic runs.
-
-## Installation
-
-1. Download ``PitchTracker-Setup-v2.0.0-stereo.exe``.
-2. Run the installer on Windows 10/11.
-3. Complete the stereo setup wizard before coaching use.
-4. Use a fixed dual-camera rig and the hardware checklist.
-
-## Included
-
-- Rebuilt stereo capture foundation: buffer-safe pairing, timestamp-at-read,
-  sync-check contract, and L/R persistence by hardware id
-- Qt-free setup state machine driving a 7-step stereo wizard
-  (cameras, calibration, ROI, detector, validation, export, quality report)
-- Targetless coarse stereo rectification with epipolar error scoring;
-  ChArUco demoted to optional fine-tuning
-- Manual fixed-focus and exposure-lock scoring before calibration
-- Left/right overlap + feature-match validation
-- Camera catalog service (carry-over of known devices by hardware id)
-- Durable calibration quality report with grading
-- Service-oriented pipeline runtime with ``PipelineOrchestrator``
-
-## Known Limitations
-
-- Accuracy validation against reference equipment is pending.
-- Setup requires a trained operator and controlled camera placement.
-- Best suited to fixed facility/academy deployments.
-- Cloud/mobile/TAG production integrations are deferred.
-
-## Documentation
-
-- ``README.md``
-- ``docs/CURRENT_STATUS.md``
-- ``CHANGELOG.md``
-
-**Full Changelog**: https://github.com/berginj/PitchTracker/blob/main/CHANGELOG.md
-"@
-
-Write-Host "Creating release on GitHub..." -ForegroundColor Yellow
-gh release create $ReleaseTag `
-    --title "PitchTracker $ReleaseTag" `
-    --notes $releaseNotes `
-    $InstallerPath
-
+gh release view $Tag *> $null
 if ($LASTEXITCODE -eq 0) {
-    Write-Host ""
-    Write-Host "Release created successfully!" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "View release at: https://github.com/berginj/PitchTracker/releases/tag/$ReleaseTag" -ForegroundColor Cyan
-} else {
-    Write-Host ""
-    Write-Host "ERROR: Failed to create release" -ForegroundColor Red
-    Write-Host "You may need to authenticate first with: gh auth login" -ForegroundColor Yellow
+    throw "Release $Tag already exists. Refusing to replace or modify it."
 }
+
+$expectedHash = (Get-Content -LiteralPath $ChecksumPath -Raw).Trim().Split()[0].ToLowerInvariant()
+if ($expectedHash -notmatch '^[a-f0-9]{64}$') {
+    throw "Checksum file must begin with a 64-character SHA-256 digest."
+}
+
+$actualHash = (Get-FileHash -LiteralPath $InstallerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actualHash -ne $expectedHash) {
+    throw "Installer SHA-256 does not match the supplied checksum file."
+}
+
+if ([string]::IsNullOrWhiteSpace($Title)) {
+    $Title = "PitchTracker $Tag"
+}
+
+gh release create $Tag `
+    --verify-tag `
+    --title $Title `
+    --notes-file $NotesFile `
+    $InstallerPath `
+    $ChecksumPath
+
+if ($LASTEXITCODE -ne 0) {
+    throw "GitHub release creation failed for $Tag."
+}
+
+Write-Host "Published $Tag with verified installer SHA-256 $actualHash"

@@ -6,7 +6,7 @@ frames, detects and associates ball candidates, reconstructs a 3D trajectory,
 records replayable evidence, and presents coaching summaries without hiding
 quality or correction information.
 
-> **Current status (2026-07-21):** the software pipeline, setup snapshot,
+> **Current status (2026-07-22):** the software pipeline, setup snapshot,
 > decision replay, error accounting, and physical-validation contracts are
 > implemented and covered by automated tests. Physical speed and plate-location
 > accuracy are **not yet validated** for public claims. We are actively looking
@@ -107,9 +107,9 @@ pitch-level evidence must all remain eligible.
 python -m pytest -q
 ```
 
-Latest recorded run on `main` at commit `40158c1`:
+Latest recorded run on `main` at commit `211d246`:
 
-- `1263 passed`
+- `1267 passed`
 - `32 skipped`
 - `0 failed`
 
@@ -162,6 +162,8 @@ Relevant specifications:
 - [Installation](README_INSTALL.md)
 - [User quick start](docs/QUICK_START.md)
 - [Troubleshooting](docs/user/TROUBLESHOOTING.md)
+- [Support](SUPPORT.md)
+- [Security policy](SECURITY.md)
 - [Requirements](REQ.md)
 - [Changelog](CHANGELOG.md)
 

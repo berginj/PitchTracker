@@ -15,7 +15,7 @@ Dashboard-style coaching application for fast, focused pitching session manageme
 
 ```powershell
 # From project root
-python test_coaching_app.py
+python scripts/test_coaching_app.py
 ```
 
 ## Current Features
