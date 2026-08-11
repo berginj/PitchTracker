@@ -114,6 +114,12 @@ def _capture(request: SetupCaptureRequest) -> SetupCaptureResult:
     camera_type = _camera_factory(request.backend)
     left = camera_type()
     right = camera_type()
+    if request.backend == "uvc":
+        from capture.device_discovery import list_uvc_devices
+
+        discovered_devices = list_uvc_devices()
+        left.set_discovered_devices(discovered_devices)
+        right.set_discovered_devices(discovered_devices)
     left_frames: list[Any] = []
     right_frames: list[Any] = []
     errors_by_side = {"left": 0, "right": 0}

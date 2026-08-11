@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-07-22
+**Last reviewed:** 2026-08-11
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -22,6 +22,20 @@ contract are complete; it does not imply physical measurement accuracy.
 - [x] Automated regression run: 1,267 passed, 32 skipped, 0 failed at `211d246`.
 
 Implementation evidence is mapped in [PT_001_015_TRACEABILITY.md](PT_001_015_TRACEABILITY.md).
+The checked regression count is historical evidence for its named commit, not
+a statement that the current dirty worktree or every guarded workflow is green.
+
+## Audit remediation gates
+
+The dependency-ordered source of audit findings and closure criteria is
+[review/REMEDIATION_PLAN.md](review/REMEDIATION_PLAN.md). Before field hardening:
+
+- [ ] Restore simulator coaching-window construction and unguarded UI smoke coverage.
+- [ ] Correct the pytest-qt import guard and split Qt-offscreen from codec tests.
+- [ ] Replace submitted-frame benchmark accounting with terminal conservation.
+- [ ] Establish responsive minimum-size and accessibility evidence for setup,
+  launcher, and review.
+- [ ] Complete required message metadata across durable/asynchronous flows.
 
 ## Now: physical validation and tester feedback
 

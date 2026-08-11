@@ -139,7 +139,7 @@ wizard under `ui/setup/` (see `ui/setup/README.md` for full detail):
 
 - `state_machine.py` defines the canonical 10-step flow (`SetupStep` +
   `DEFAULT_SETUP_SPEC`) on a Qt-free `SetupStateMachine`.
-- `stereo_steps.py` builds a registry of nine genuine, provider-driven step
+- `stereo_steps.py` builds a registry of ten genuine, provider-driven step
   widgets; `stereo_setup_window.py` hosts them; `providers.py` supplies live
   UVC-discovery and camera-backed preview adapters via
   `build_live_stereo_step_widgets()`.

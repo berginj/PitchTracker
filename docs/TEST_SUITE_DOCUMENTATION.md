@@ -14,10 +14,16 @@
 
 This document provides exhaustive documentation of the PitchTracker test suite, including all test modules, test counts, coverage areas, and execution details.
 
-**Latest Full Run:** `1267 passed, 32 skipped, 37 warnings in 245.18s`
-**Total Collected:** 1299 tests
-**Pass Rate:** 100% of executed tests
+**Historical CI Run:** `1267 passed, 32 skipped, 37 warnings in 245.18s` at
+`211d246`
+**2026-08-11 Worktree Audit:** 1,302 collected; serial Qt-offscreen run: 1,235
+passed, 34 failed, 33 skipped. The failures share a writer/offscreen condition,
+and ten skips use an incorrect pytest-qt import guard.
+**Pass Rate:** Do not summarize across these different baselines and environments.
 **Test Framework:** pytest 7.4.3
+
+Current interpretation and capability-level confidence are maintained in
+[review/TEST_CONFIDENCE_REVIEW.md](review/TEST_CONFIDENCE_REVIEW.md).
 **Recorded job:** Python 3.11 on GitHub Actions; required matrix also passed on Python 3.12
 
 Command:
@@ -824,7 +830,8 @@ python -m benchmarks.memory --duration 300
 ### Pre-Release Testing
 
 - [ ] Run full test suite: `python -m pytest`
-- [x] Full automated suite passes: 1,267 passed / 32 skipped / 0 failed
+- [x] Historical CI suite passed at `211d246`: 1,267 passed / 32 skipped / 0 failed
+- [ ] Current worktree passes separated UI and recording/codec lanes
 - [ ] Run benchmarks: `python -m benchmarks.run_all`
 - [ ] Document benchmark results in PERFORMANCE_BENCHMARKS.md
 - [ ] Manual UI testing:

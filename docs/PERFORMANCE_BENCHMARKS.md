@@ -1,7 +1,15 @@
 # PitchTracker Performance Benchmarks
 
 **Date Created:** 2026-01-18
-**Status:** Benchmarking suite complete, baseline measurements pending
+**Status:** Historical benchmark design; existing pass/fail output is not a
+valid processed-frame baseline
+
+> **2026-08-11 audit notice:** The throughput implementation divides submitted
+> frames by elapsed time after a fixed sleep and labels them processed. It does
+> not reconcile processed, failed, cancelled, and dropped terminal outcomes.
+> Existing check marks and example PASS output below are non-decisional. Use
+> [review/PERFORMANCE_BASELINE.md](review/PERFORMANCE_BASELINE.md) for corrected
+> host-specific evidence and required semantics.
 
 ---
 
@@ -262,7 +270,8 @@ python -m benchmarks.run_all --no-save
 OVERALL ASSESSMENT:
 ✅ ALL BENCHMARKS PASSED
 
-The system meets all performance targets:
+Historical example output claimed that the system meets all performance targets;
+this claim is not validated:
   • Throughput: ≥60 FPS
   • Latency: <20ms p95
   • Memory: <10% growth
@@ -565,10 +574,10 @@ plt.savefig('latency_distribution.png')
 4. Set up CI/CD integration for regression detection
 5. Run benchmarks after major performance changes
 
-**Performance Targets:**
-- Throughput: ≥60 FPS ✅
-- Latency: <20ms p95 ✅
-- Memory: <10% growth over 5 minutes ✅
+**Performance Targets (not yet proven on representative hardware):**
+- Throughput: ≥60 FPS
+- Latency: <20ms p95 for the benchmark's detector scope
+- Memory: <10% growth over 5 minutes after a defined warm-up
 
 **Usage:**
 ```bash

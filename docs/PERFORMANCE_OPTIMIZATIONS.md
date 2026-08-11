@@ -1,5 +1,12 @@
 # Performance Optimizations - 2026-01-22
 
+> **Historical / unverified estimates:** This page records implementation intent
+> and earlier observations. Percentage improvements, codec availability, and
+> quality-impact statements were not reproduced by the 2026-08-11 audit. The
+> current benchmark also conflates submitted and processed frames. Do not use
+> this page as a release or platform decision record; see
+> [review/PERFORMANCE_BASELINE.md](review/PERFORMANCE_BASELINE.md).
+
 ## Overview
 
 This document describes performance optimizations implemented to improve operational efficiency while maintaining video quality.

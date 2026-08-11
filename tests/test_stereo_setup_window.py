@@ -37,6 +37,7 @@ def test_stereo_setup_window_first_step_navigation_state(qapp):
         assert not window._back_button.isEnabled()
         assert not window._next_button.isHidden()
         assert window._finish_button.isHidden()
+        assert window._content_scroll.widget() is window._content_stack
     finally:
         window.close()
 
@@ -99,6 +100,25 @@ def test_stereo_setup_window_disables_navigation_while_step_is_busy(qapp):
         step.set_busy(False)
         qapp.processEvents()
         assert window._next_button.isEnabled()
+    finally:
+        window.close()
+
+
+def test_stereo_setup_window_restores_back_navigation_after_capture_stops(qapp):
+    window = StereoSetupWindow()
+    try:
+        first_step = window._machine.current
+        window._widget_by_step[first_step].set_complete(True)
+        window._machine.mark_complete(first_step, True)
+        window._machine.advance()
+        window._show_current()
+
+        current = window._current_widget()
+        current.set_busy(True)
+        assert not window._back_button.isEnabled()
+
+        current.set_busy(False)
+        assert window._back_button.isEnabled()
     finally:
         window.close()
 

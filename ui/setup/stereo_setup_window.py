@@ -54,8 +54,18 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         self._step_indicator = self._build_step_indicator()
 
         self._content_stack = QtWidgets.QStackedWidget()
+        self._content_stack.setMinimumSize(0, 0)
         for step in self._steps:
             self._content_stack.addWidget(step)
+
+        self._content_scroll = QtWidgets.QScrollArea()
+        self._content_scroll.setWidgetResizable(True)
+        self._content_scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        self._content_scroll.setSizeAdjustPolicy(
+            QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustIgnored
+        )
+        self._content_scroll.setMinimumSize(0, 0)
+        self._content_scroll.setWidget(self._content_stack)
 
         self._nav_layout = self._build_navigation()
 
@@ -63,7 +73,7 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         apply_standard_layout(layout)
         layout.addWidget(header)
         layout.addWidget(self._step_indicator)
-        layout.addWidget(self._content_stack, 1)
+        layout.addWidget(self._content_scroll, 1)
         layout.addLayout(self._nav_layout)
 
         container = QtWidgets.QWidget()

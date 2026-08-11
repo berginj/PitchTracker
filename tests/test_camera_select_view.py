@@ -80,7 +80,7 @@ def test_present_camera_selection_success_uses_success_tone_and_rows() -> None:
     assert view.warnings == []
 
 
-def test_grade_selection_rejects_unrecognized_physical_cameras() -> None:
+def test_grade_selection_allows_unrecognized_physical_cameras_for_diagnostics() -> None:
     snapshot = CameraSelectionSnapshot(
         cameras=(
             _camera("left-serial", "Unknown Left", SIDE_LEFT),
@@ -88,13 +88,16 @@ def test_grade_selection_rejects_unrecognized_physical_cameras() -> None:
         )
     )
 
-    passed, reason = grade_selection(snapshot)
+    view = present_camera_selection(snapshot)
 
-    assert passed is False
-    assert "recognized global-shutter" in reason
+    assert grade_selection(snapshot) == (True, "")
+    assert view.headline == "Camera selection: diagnostic only"
+    assert view.tone == "warning"
+    assert view.rows[-1].value == "PASS (DIAGNOSTIC ONLY)"
+    assert "production measurement remains blocked" in view.warnings[0]
 
 
-def test_grade_selection_rejects_recognized_rolling_shutter_camera() -> None:
+def test_grade_selection_allows_recognized_rolling_shutter_camera_for_diagnostics() -> None:
     snapshot = CameraSelectionSnapshot(
         cameras=(
             _camera("left-serial", "Global Left", SIDE_LEFT, recognized=True, global_shutter=True),
@@ -102,10 +105,11 @@ def test_grade_selection_rejects_recognized_rolling_shutter_camera() -> None:
         )
     )
 
-    passed, reason = grade_selection(snapshot)
+    view = present_camera_selection(snapshot)
 
-    assert passed is False
-    assert "Rolling Right" in reason
+    assert grade_selection(snapshot) == (True, "")
+    assert view.tone == "warning"
+    assert "Rolling Right" in view.warnings[0]
 
 
 def test_present_camera_selection_failure_uses_error_tone_for_empty_snapshot() -> None:

@@ -63,7 +63,14 @@ def empty_camera_selection() -> CameraSelectionSnapshot:
 
 
 def grade_selection(snapshot: CameraSelectionSnapshot) -> tuple[bool, str]:
-    """Validate that distinct physical cameras are assigned left and right."""
+    """Validate that distinct physical cameras are assigned left and right.
+
+    Camera technology is a production-eligibility concern, not a discovery
+    concern.  Allow an operator to continue setup with an unrecognized or
+    rolling-shutter UVC pair for diagnostic capture; the persisted setup
+    snapshot remains fail-closed because it requires recognized global-shutter
+    cameras.
+    """
     if not snapshot.cameras:
         return False, "No cameras discovered."
 
@@ -85,10 +92,6 @@ def grade_selection(snapshot: CameraSelectionSnapshot) -> tuple[bool, str]:
         return False, "Camera hardware id is missing."
     if left_id == right_id:
         return False, "Left and right are the same device."
-    unsupported = [camera for camera in (left[0], right[0]) if not camera.recognized or not camera.global_shutter]
-    if unsupported:
-        labels = ", ".join(camera.friendly_name or camera.hardware_id for camera in unsupported)
-        return False, f"Production measurement requires recognized global-shutter cameras: {labels}."
 
     return True, ""
 
@@ -96,8 +99,14 @@ def grade_selection(snapshot: CameraSelectionSnapshot) -> tuple[bool, str]:
 def present_camera_selection(snapshot: CameraSelectionSnapshot) -> ReportView:
     """Format camera selection into a headline, labelled rows, and warnings."""
     passed, reason = grade_selection(snapshot)
-    tone = _headline_tone(snapshot, passed)
-    headline = "Camera selection: ready" if passed else "Camera selection: incomplete"
+    compatibility_warnings = _production_compatibility_warnings(snapshot) if passed else []
+    tone = _headline_tone(snapshot, passed, bool(compatibility_warnings))
+    if not passed:
+        headline = "Camera selection: incomplete"
+    elif compatibility_warnings:
+        headline = "Camera selection: diagnostic only"
+    else:
+        headline = "Camera selection: ready"
 
     rows = [_camera_row(camera) for camera in snapshot.cameras]
     if snapshot.recommended_left_id and snapshot.recommended_right_id:
@@ -111,18 +120,44 @@ def present_camera_selection(snapshot: CameraSelectionSnapshot) -> ReportView:
     rows.append(
         ReportRow(
             "Result",
-            "PASS" if passed else "FAIL",
-            tone="success" if passed else "error",
+            "PASS (DIAGNOSTIC ONLY)" if compatibility_warnings else "PASS" if passed else "FAIL",
+            tone="warning" if compatibility_warnings else "success" if passed else "error",
         )
     )
-    warnings = [] if passed else [reason]
+    warnings = compatibility_warnings if passed else [reason]
     return ReportView(headline=headline, tone=tone, rows=rows, warnings=warnings)
 
 
-def _headline_tone(snapshot: CameraSelectionSnapshot, passed: bool) -> str:
+def _headline_tone(
+    snapshot: CameraSelectionSnapshot,
+    passed: bool,
+    diagnostic_only: bool = False,
+) -> str:
+    if diagnostic_only:
+        return "warning"
     if passed:
         return "success"
     return "error" if not snapshot.cameras else "warning"
+
+
+def _production_compatibility_warnings(snapshot: CameraSelectionSnapshot) -> list[str]:
+    selected = [
+        camera
+        for camera in snapshot.cameras
+        if camera.side in {SIDE_LEFT, SIDE_RIGHT}
+    ]
+    unsupported = [
+        camera
+        for camera in selected
+        if not camera.recognized or not camera.global_shutter
+    ]
+    if not unsupported:
+        return []
+    labels = ", ".join(camera.friendly_name or camera.hardware_id for camera in unsupported)
+    return [
+        "Diagnostic setup is allowed, but production measurement remains blocked "
+        f"until both cameras are recognized global-shutter models: {labels}."
+    ]
 
 
 def _camera_row(camera: DiscoveredCamera) -> ReportRow:
@@ -137,9 +172,9 @@ def _camera_row(camera: DiscoveredCamera) -> ReportRow:
         validation = ", previously validated" if camera.previously_validated else ""
         value = f"{side} (recognized global shutter{validation}{recommendation})"
     elif camera.recognized:
-        value = f"{side} (recognized, not global shutter{recommendation})"
+        value = f"{side} (recognized, not global shutter; diagnostic only{recommendation})"
     else:
-        value = f"{side}{recommendation}"
+        value = f"{side} (unrecognized; diagnostic only{recommendation})"
     return ReportRow(label, value)
 
 

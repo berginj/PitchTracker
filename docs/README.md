@@ -20,6 +20,9 @@ documents in the first section and open a documentation issue.
   automated-test traceability.
 - [ARCHITECTURE_CURRENT_STATE.md](ARCHITECTURE_CURRENT_STATE.md) — current service
   and agent boundaries.
+- [review/EXECUTIVE_REVIEW.md](review/EXECUTIVE_REVIEW.md) — 2026-08-11 full
+  repository, UI, test, performance, documentation, and platform audit; the
+  remaining review files provide its evidence matrices and remediation plan.
 
 ## User and operator guides
 
@@ -77,4 +80,4 @@ When changing behavior:
 5. Move superseded point-in-time reports to an archive instead of leaving two
    competing status sources.
 
-Last reviewed: **2026-07-22**.
+Last reviewed: **2026-08-11**.

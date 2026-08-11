@@ -100,7 +100,11 @@ class CameraSelectStep(BaseStep):
         return "Select Cameras"
 
     def get_description(self) -> str:
-        return "Assign distinct left and right global-shutter cameras for stereo tracking."
+        return (
+            "Assign distinct left and right cameras. Recognized global-shutter "
+            "models are required for production measurement; other UVC cameras "
+            "may continue for diagnostic setup."
+        )
 
     def validate(self) -> tuple[bool, str]:
         if self._last_snapshot is None:

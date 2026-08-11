@@ -160,6 +160,26 @@ def test_discover_empty_device_list():
     assert grade_selection(snap) == (False, "No cameras discovered.")
 
 
+def test_discover_recommends_diagnostic_fallback_pair_when_global_shutter_pair_is_unavailable():
+    devices = [
+        {"serial": "A", "friendly_name": "Webcam A"},
+        {"serial": "B", "friendly_name": "Webcam B"},
+        {"serial": "C", "friendly_name": "Webcam C"},
+    ]
+
+    snap = discover_camera_selection(
+        list_devices=lambda: devices,
+        catalog=_FakeCatalog(),
+        requested_mode=(1280, 720, 60),
+    )
+
+    assert snap.recommended_left_id
+    assert snap.recommended_right_id
+    assert snap.recommended_left_id != snap.recommended_right_id
+    assert snap.recommendation_source == "diagnostic_fallback"
+    assert "diagnostic setup only" in snap.recommendation_reason
+
+
 def test_discover_falls_back_to_instance_id_when_no_serial():
     devices = [{"friendly_name": "Cam", "instance_id": "USB\\ABC"}]
     snap = discover_camera_selection(list_devices=lambda: devices, catalog=None)

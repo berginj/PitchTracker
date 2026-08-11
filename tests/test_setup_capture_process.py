@@ -90,6 +90,7 @@ def test_context_reduces_process_backed_focus_artifacts(tmp_path: Path) -> None:
     )
     context.assign("sim-left", "sim-right")
     request = context.build_capture_request(SetupCapturePurpose.FOCUS, frames=1)
+    assert request.overall_deadline_ms == 45_000
     service = SupervisedSetupCaptureService(artifact_root=tmp_path / "jobs")
 
     job = service.submit(request)

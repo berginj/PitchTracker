@@ -37,9 +37,12 @@ pip install -r requirements.txt
   raw/corrected values, error budgets, and quality verdicts.
 - Physical-validation v2 protocol and exact signed approval binding.
 
-Automated implementation is complete for the current evidence-first scope.
-Physical global-shutter compatibility, operating envelope, and speed/location
-accuracy remain unvalidated. Current work is tracked in `docs/ROADMAP.md`.
+Automated implementation is broad for the current evidence-first scope, but it
+is not complete as a release-readiness claim. The 2026-08-11 audit identified
+open coaching-UI, test-lane, event-metadata, benchmark, layout, and packaging
+gates. Physical global-shutter compatibility, operating envelope, and
+speed/location accuracy remain unvalidated. Current work is tracked in
+`docs/ROADMAP.md` and `docs/review/REMEDIATION_PLAN.md`.
 
 ---
 

@@ -6,7 +6,7 @@ import time
 import math
 from collections import deque
 from dataclasses import dataclass
-from typing import Deque, Optional
+from typing import Deque, Optional, Sequence
 
 import cv2
 import numpy as np
@@ -62,6 +62,17 @@ class UvcCamera(CameraDevice):
         self._flip_180 = False
         self._rotation_correction = 0.0  # Degrees to rotate for alignment correction
         self._vertical_offset_px = 0
+        self._discovered_devices: Optional[tuple[dict[str, str], ...]] = None
+
+    def set_discovered_devices(self, devices: Sequence[dict[str, str]]) -> None:
+        """Reuse one discovery snapshot while opening a stereo pair.
+
+        OpenCV's DirectShow backend opens cameras by numeric index, while setup
+        persists stable PnP hardware IDs. The setup worker supplies the exact
+        discovery snapshot used to translate both IDs without repeating the
+        comparatively slow PowerShell query for each camera.
+        """
+        self._discovered_devices = tuple(dict(device) for device in devices)
 
     @retry_on_failure(
         policy=RetryPolicy(
@@ -91,14 +102,15 @@ class UvcCamera(CameraDevice):
             serial_str = str(serial)
             logger.info(f"Opening UVC camera with serial: {serial_str}")
             self._serial = serial_str
+            self._friendly_name = None
             target = self._resolve_device(serial_str)
-            self._friendly_name = target
+            self._friendly_name = self._friendly_name or target
 
             def _open_camera():
                 """Inner function for timeout wrapper."""
-                if target.isdigit() and target == serial_str:
+                if target.isdigit():
                     # Validate index before using it
-                    index = int(serial_str)
+                    index = int(target)
                     if index < 0:
                         raise ValueError(f"Camera index must be non-negative, got: {index}")
                     if index > 15:
@@ -179,12 +191,12 @@ class UvcCamera(CameraDevice):
             self._rotation_correction = rotation_correction
             self._vertical_offset_px = vertical_offset_px
 
-            self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-            self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-            self._capture.set(cv2.CAP_PROP_FPS, fps)
             fourcc_name = {"YUYV": "YUY2", "YUY2": "YUY2", "MJPG": "MJPG"}.get(pixfmt.upper())
             if fourcc_name:
                 self._capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*fourcc_name))
+            self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+            self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+            self._capture.set(cv2.CAP_PROP_FPS, fps)
 
             # Verify settings were applied
             actual_width = self._capture.get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -484,16 +496,23 @@ class UvcCamera(CameraDevice):
             serial: Camera serial number
 
         Returns:
-            Device friendly name or index
+            Numeric DirectShow index corresponding to the stable PnP ID
 
         Raises:
             CameraNotFoundError: If camera is not found
         """
         try:
-            from capture.device_discovery import list_uvc_devices
+            if self._discovered_devices is None:
+                from capture.device_discovery import list_uvc_devices
 
-            devices = list_uvc_devices()
-            matches = [dev for dev in devices if dev["serial"].lower() == serial.lower()]
+                devices = list_uvc_devices()
+            else:
+                devices = list(self._discovered_devices)
+            matches = [
+                (index, dev)
+                for index, dev in enumerate(devices)
+                if str(dev.get("serial") or "").lower() == serial.lower()
+            ]
 
             if not matches:
                 if serial.isdigit():
@@ -514,9 +533,13 @@ class UvcCamera(CameraDevice):
                     camera_id=serial,
                 )
 
-            friendly_name = matches[0]["friendly_name"]
-            logger.debug(f"Resolved camera {serial} to {friendly_name}")
-            return friendly_name
+            directshow_index, device = matches[0]
+            friendly_name = str(device.get("friendly_name") or serial)
+            self._friendly_name = friendly_name
+            logger.debug(
+                f"Resolved camera {serial} ({friendly_name}) to DirectShow index {directshow_index}"
+            )
+            return str(directshow_index)
 
         except CameraNotFoundError:
             raise

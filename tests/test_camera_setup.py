@@ -95,6 +95,7 @@ class TestUVCCameraInitialization:
 
                 # 2. Open camera
                 camera.open("TEST123")
+                mock_cap.assert_called_with(0, cv2.CAP_DSHOW)
 
                 # 3. Set mode
                 camera.set_mode(640, 480, 30, "GRAY8")
@@ -179,6 +180,33 @@ class TestCameraSetupWorkflow:
 
                 assert left_frame is not None
                 assert right_frame is not None
+
+    def test_uvc_stereo_pair_uses_distinct_directshow_indices_from_one_discovery_snapshot(self):
+        devices = [
+            {
+                "serial": "LEFT123",
+                "friendly_name": "Logitech BRIO",
+                "instance_id": "USB\\VID_046D&PID_085E\\LEFT123",
+            },
+            {
+                "serial": "RIGHT456",
+                "friendly_name": "Logitech BRIO",
+                "instance_id": "USB\\VID_046D&PID_085E\\RIGHT456",
+            },
+        ]
+        left_camera = UvcCamera()
+        right_camera = UvcCamera()
+        left_camera.set_discovered_devices(devices)
+        right_camera.set_discovered_devices(devices)
+
+        with patch("capture.uvc_backend.cv2.VideoCapture") as mock_cap:
+            mock_cap.return_value.isOpened.return_value = True
+
+            left_camera.open("LEFT123")
+            right_camera.open("RIGHT456")
+
+        assert mock_cap.call_args_list[0].args == (0, cv2.CAP_DSHOW)
+        assert mock_cap.call_args_list[1].args == (1, cv2.CAP_DSHOW)
 
 
 class TestIndexExtraction:

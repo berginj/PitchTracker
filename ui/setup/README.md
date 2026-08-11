@@ -69,7 +69,9 @@ the `SimulatedCamera` backend — no physical cameras required.
   (carry-over side assignment by hardware id, model recognition, and explicit
   pair recommendation). It preselects the newest connected previously validated
   pair; otherwise it ranks recognized global-shutter cameras against the
-  requested mode, synchronization, throughput, and control capabilities.
+  requested mode, synchronization, throughput, and control capabilities. If no
+  such pair exists, it recommends a distinct UVC fallback pair for diagnostic
+  setup while the persisted production-readiness assessment remains blocked.
 - `capture_paired_preview(left, right, ...)` — grabs a burst from any
   `CameraDevice` pair (real `UvcCamera` or `SimulatedCamera`); a `CameraError`
   marks a dead side honestly instead of raising.

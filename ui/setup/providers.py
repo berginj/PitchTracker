@@ -169,7 +169,7 @@ class LiveSetupContext:
         purpose: SetupCapturePurpose,
         *,
         frames: int | None = None,
-        overall_deadline_ms: int = 20_000,
+        overall_deadline_ms: int = 45_000,
     ) -> SetupCaptureRequest:
         """Build a process-safe request bound to the current setup evidence."""
         default_frames = {
@@ -790,12 +790,42 @@ def _apply_camera_recommendation(
 
     eligible = [camera for camera in cameras if camera.recognized and camera.global_shutter]
     if len(eligible) < 2:
-        return CameraSelectionSnapshot(
-            cameras=tuple(cameras),
-            recommendation_source="unavailable",
-            recommendation_reason="Fewer than two recognized global-shutter cameras are available.",
+        if len(cameras) < 2:
+            return CameraSelectionSnapshot(
+                cameras=tuple(cameras),
+                recommendation_source="unavailable",
+                recommendation_reason="Fewer than two cameras are available.",
+            )
+        return _best_camera_pair_snapshot(
+            cameras,
+            cameras,
+            requested_mode,
+            source="diagnostic_fallback",
+            reason=(
+                "No pair of two recognized global-shutter cameras is available. "
+                "This fallback pair may be used for diagnostic setup only; "
+                "production measurement remains blocked."
+            ),
         )
 
+    return _best_camera_pair_snapshot(
+        cameras,
+        eligible,
+        requested_mode,
+        source="capability_score",
+        reason_prefix="Best compatible recognized global-shutter pair",
+    )
+
+
+def _best_camera_pair_snapshot(
+    cameras: list[DiscoveredCamera],
+    eligible: list[DiscoveredCamera],
+    requested_mode: Optional[tuple[int, int, int]],
+    *,
+    source: str,
+    reason: str = "",
+    reason_prefix: str = "",
+) -> CameraSelectionSnapshot:
     pair_candidates = []
     for first, second in combinations(eligible, 2):
         score = _camera_pair_score(first, second, requested_mode)
@@ -812,15 +842,17 @@ def _apply_camera_recommendation(
         if requested_mode is not None
         else "the requested mode"
     )
+    if not reason:
+        reason = (
+            f"{reason_prefix} for {requested_text}; ranking considers requested-mode "
+            "support, synchronization, common modes, controls, and throughput."
+        )
     return _recommended_snapshot(
         cameras,
         left.hardware_id,
         right.hardware_id,
-        source="capability_score",
-        reason=(
-            f"Best compatible recognized global-shutter pair for {requested_text}; "
-            "ranking considers requested-mode support, synchronization, common modes, controls, and throughput."
-        ),
+        source=source,
+        reason=reason,
     )
 
 

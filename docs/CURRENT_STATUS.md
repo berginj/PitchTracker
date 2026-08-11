@@ -1,18 +1,21 @@
 # PitchTracker Current Status
 
-**Last updated:** 2026-07-22
+**Last updated:** 2026-08-11
 **Published release:** `v2.0.0` / internal app version `2.0.0`
-**Development status:** software hardening complete on `main`; physical validation pending
+**Development status:** broad automated implementation on `main`; UI, test-lane,
+performance, packaging, and physical-validation gates remain
 
 ## Summary
 
-PitchTracker has a complete evidence-first software path for stereo setup,
+PitchTracker has a broad evidence-first software path for stereo setup,
 capture, candidate tracking, global association, trajectory analysis, recording,
 replay, correction accounting, and validation gating. The canonical setup now
 persists a content-addressed system snapshot and recommends camera pairs using
 prior validated hardware or measured catalog capabilities.
 
-The system is ready for controlled hardware and field testing. It is not yet
+The architecture is ready for controlled engineering and simulator testing.
+Field testing remains gated by the UI, camera, installer, and evidence work in
+the 2026-08-11 review. It is not yet
 appropriate to publish speed or plate-location accuracy claims because no
 independently reviewed physical confirmation dataset has been approved.
 
@@ -24,11 +27,17 @@ independently reviewed physical confirmation dataset has been approved.
 | Release installer asset | Not currently attached to the GitHub release |
 | Current `main` | Includes PT-001–PT-015, adversarial follow-ups, and setup snapshot/camera recommendation work beyond the tag |
 | Latest local clean build | Commit `40158c1`; PyInstaller and Inno Setup completed |
-| Full automated suite | 1,267 passed, 32 skipped, 0 failed at `211d246` |
+| Full automated suite | Historical CI: 1,267 passed, 32 skipped, 0 failed at `211d246`; current audit: 1,302 collected and serial offscreen 1,235 passed, 34 failed, 33 skipped on the dirty worktree |
 | Physical accuracy approval | None; results must remain estimated/degraded/unavailable/rejected as evidence requires |
 
 The locally built installer must be smoke-tested on a clean Windows machine
 before it is attached to a refreshed release.
+
+The current audit attributes the 34 displayed serial failures to video-writer
+failure when Qt offscreen mode is set on the audit host; writers open outside
+that mode. Ten UI workflow tests also skip behind an incorrect `pytest_qt`
+import guard, and the coaching simulator window fails during construction. See
+[the executive review](review/EXECUTIVE_REVIEW.md) for the evidence boundary.
 
 ## Delivered software
 

@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0",
+  "entries": [
+    {
+      "model": "ArduCam USB Global Shutter",
+      "vendor": "ArduCam",
+      "capabilities": {
+        "supported_modes": [
+          {
+            "width": 1280,
+            "height": 800,
+            "fps": 60
+          },
+          {
+            "width": 640,
+            "height": 480,
+            "fps": 120
+          }
+        ],
+        "controls": [
+          "exposure",
+          "gain",
+          "white_balance"
+        ],
+        "global_shutter": true,
+        "sync_capable": false
+      },
+      "known_good": {
+        "exposure_us": 4000.0,
+        "gain": 8.0,
+        "white_balance_k": 4600.0,
+        "working_distance_in": 120.0,
+        "mode": {
+          "width": 1280,
+          "height": 800,
+          "fps": 60
+        },
+        "notes": "Conservative starting point; refine from a real calibration."
+      },
+      "global_shutter": true,
+      "match_names": [
+        "arducam",
+        "global shutter",
+        "ov9281",
+        "ov2311"
+      ],
+      "notes": "Seed entry for ArduCam USB global-shutter fixed-focus cameras.",
+      "schema_version": "1.0"
+    }
+  ],
+  "devices": [
+    {
+      "hardware_id": "7&24884040&3&0000",
+      "model": "",
+      "friendly_name": "Logitech BRIO",
+      "side": "left",
+      "last_seen_utc": "2026-07-24T14:56:40.227436+00:00"
+    },
+    {
+      "hardware_id": "7&B6951DF&1&0000",
+      "model": "",
+      "friendly_name": "Logitech BRIO",
+      "side": "right",
+      "last_seen_utc": "2026-07-24T14:56:40.227481+00:00"
+    }
+  ]
+}
