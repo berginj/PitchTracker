@@ -85,7 +85,7 @@ class TestGeometryFunctions:
 class TestDrawingFunctions:
     """Test drawing utility functions."""
 
-    def test_frame_to_pixmap_grayscale(self):
+    def test_frame_to_pixmap_grayscale(self, qtbot):
         """Test converting grayscale frame to pixmap."""
         from ui.drawing import frame_to_pixmap
 
@@ -96,7 +96,7 @@ class TestDrawingFunctions:
         assert isinstance(pixmap, QtGui.QPixmap)
         assert not pixmap.isNull()
 
-    def test_frame_to_pixmap_color(self):
+    def test_frame_to_pixmap_color(self, qtbot):
         """Test converting color frame to pixmap."""
         from ui.drawing import frame_to_pixmap
 
@@ -107,7 +107,7 @@ class TestDrawingFunctions:
         assert isinstance(pixmap, QtGui.QPixmap)
         assert not pixmap.isNull()
 
-    def test_frame_to_pixmap_with_overlays(self):
+    def test_frame_to_pixmap_with_overlays(self, qtbot):
         """Test converting frame with ROI overlays."""
         from ui.drawing import frame_to_pixmap
 

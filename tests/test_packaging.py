@@ -1,7 +1,7 @@
 """Packaging guardrails for release artifacts."""
 
+import re
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -20,3 +20,30 @@ def test_installer_only_adds_checked_in_config_yaml_directly():
 
     assert 'Source: "configs\\*.yaml"' in installer_text
     assert 'Source: "configs\\*"' not in installer_text
+
+
+def test_github_actions_are_pinned_to_commit_shas():
+    workflows = list((ROOT / ".github" / "workflows").glob("*.yml"))
+    uses_pattern = re.compile(r"uses:\s+[^@\s]+@([^\s#]+)")
+
+    for workflow in workflows:
+        for action_ref in uses_pattern.findall(workflow.read_text(encoding="utf-8")):
+            assert re.fullmatch(
+                r"[0-9a-f]{40}", action_ref
+            ), f"{workflow.name} uses a mutable action reference: {action_ref}"
+
+
+def test_release_workflow_builds_checksum_without_publishing():
+    workflow_text = (ROOT / ".github" / "workflows" / "package-installer.yml").read_text(encoding="utf-8")
+
+    assert "workflow_dispatch:" in workflow_text
+    assert "build_installer.ps1 -Clean" in workflow_text
+    assert "Get-FileHash" in workflow_text
+    assert "gh release create" not in workflow_text
+
+
+def test_local_installer_build_generates_checksum():
+    script_text = (ROOT / "build_installer.ps1").read_text(encoding="utf-8")
+
+    assert "Get-FileHash" in script_text
+    assert '".sha256"' in script_text or ".sha256" in script_text

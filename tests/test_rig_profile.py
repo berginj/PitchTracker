@@ -338,7 +338,7 @@ def test_profile_save_preserves_existing_json_when_atomic_replace_fails(
     def fail_replace(_source, _destination):
         raise OSError("simulated replace failure")
 
-    monkeypatch.setattr("app.services.rig_profile.os.replace", fail_replace)
+    monkeypatch.setattr("app.services.rig_profile_persistence.os.replace", fail_replace)
     with pytest.raises(OSError, match="simulated replace failure"):
         service.save(replace(profile, diagnostics={"changed": True}))
 
@@ -358,7 +358,7 @@ def test_activation_preserves_existing_marker_when_atomic_replace_fails(
     def fail_replace(_source, _destination):
         raise OSError("simulated replace failure")
 
-    monkeypatch.setattr("app.services.rig_profile.os.replace", fail_replace)
+    monkeypatch.setattr("app.services.rig_profile_persistence.os.replace", fail_replace)
     with pytest.raises(OSError, match="simulated replace failure"):
         service.activate(second.profile_id)
 

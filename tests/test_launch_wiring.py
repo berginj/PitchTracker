@@ -29,7 +29,7 @@ def test_launcher_exposes_stereo_setup_entry_point(qapp, monkeypatch):
     window = launcher.LauncherWindow()
     try:
         assert hasattr(window, "_launch_stereo_setup")
-        assert window._stereo_setup_button.accessibleName() == "Launch Stereo Setup"
+        assert window._setup_button.accessibleName() == "Launch Setup and Calibration"
     finally:
         window.close()
 

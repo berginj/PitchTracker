@@ -2,7 +2,7 @@
 -r requirements.txt
 
 # Code quality
-black==23.12.1
+black==26.3.1
 mypy==1.7.1
 flake8==6.1.0
 
@@ -11,13 +11,16 @@ py-spy==0.3.14
 memory-profiler==0.61.0
 
 # Security
-safety==3.0.1
+pip-audit==2.9.0
 
 # Test reliability (fail fast on hangs instead of blocking CI)
-pytest-timeout==2.3.1
+pytest==9.0.3
+pytest-cov==7.1.0
+hypothesis==6.92.2
+pytest-timeout==2.4.0
 
 # Qt test harness (qtbot fixture used across UI tests)
 pytest-qt==4.5.0
 
 # Parallel test execution (keeps the full suite well under the CI timeout)
-pytest-xdist==3.6.1
+pytest-xdist==3.8.0

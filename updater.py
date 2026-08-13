@@ -243,7 +243,7 @@ def download_update(
     dest_path: Optional[Path] = None,
     progress_callback: Optional[callable] = None,
     expected_sha256: Optional[str] = None,
-    require_checksum: bool = False,
+    require_checksum: bool = True,
 ) -> Optional[Path]:
     """Download update installer with optional integrity verification.
 
@@ -254,8 +254,8 @@ def download_update(
         expected_sha256: Expected SHA-256 hex digest for verification
         require_checksum: When True, a missing or mismatched checksum is a hard
             failure (the downloaded file is discarded and ``None`` is returned).
-            Production update flows should enable this so an unverified installer
-            is never launched.
+            This defaults to True so unverified installers are rejected unless a
+            non-production caller explicitly opts out.
 
     Returns:
         Path to downloaded file, or None if download or verification failed

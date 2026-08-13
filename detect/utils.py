@@ -57,10 +57,11 @@ def compute_focus_score(image: np.ndarray) -> float:
 
 
 def connected_components(mask: np.ndarray) -> list[Component]:
-    """Find connected components using OpenCV (optimized C++ implementation).
+    """Find connected components using OpenCV connectedComponentsWithStats.
 
-    This replaces the previous pure-Python BFS implementation with OpenCV's
-    connectedComponentsWithStats, providing 10-20x speedup.
+    Computes each perimeter within its component bounding box, avoiding the
+    previous per-component full-frame allocation while preserving
+    four-connected component semantics.
 
     Args:
         mask: Binary mask (non-zero values considered foreground)
@@ -70,31 +71,21 @@ def connected_components(mask: np.ndarray) -> list[Component]:
     """
     import cv2
 
-    # Ensure mask is uint8 for OpenCV
     mask_uint8 = mask.astype(np.uint8)
 
-    # Find connected components (4-connectivity)
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask_uint8, connectivity=4)
+    if num_labels <= 1:
+        return []
 
     components: list[Component] = []
-
-    # Iterate through components (skip label 0 which is background)
     for i in range(1, num_labels):
-        # Extract stats: [left, top, width, height, area]
         left, top, width, height, area = stats[i]
-
-        # Calculate perimeter (approximate using contour)
-        component_mask = (labels == i).astype(np.uint8)
-        contours, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        perimeter = cv2.arcLength(contours[0], closed=True) if contours else 0
-
-        # Centroid from OpenCV (already computed)
         centroid = (float(centroids[i][0]), float(centroids[i][1]))
-
-        # Bounding box (convert from x,y,w,h to min_x, min_y, max_x, max_y)
         bbox = (left, top, left + width - 1, top + height - 1)
-
-        components.append(Component(area=area, perimeter=int(perimeter), centroid=centroid, bbox=bbox))
+        component_mask = (labels[top : top + height, left : left + width] == i).astype(np.uint8)
+        contours, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        perimeter = int(sum(cv2.arcLength(contour, closed=True) for contour in contours))
+        components.append(Component(area=area, perimeter=perimeter, centroid=centroid, bbox=bbox))
 
     return components
 

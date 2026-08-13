@@ -99,7 +99,9 @@ Treat both locations as private.
 
 - [Current status](CURRENT_STATUS.md)
 - [Testing help needed](TESTING_NEEDED.md)
+- [Operator daily-session runbook](OPERATOR_RUNBOOK.md)
 - [Setup snapshot requirements](SETUP_SNAPSHOT_REQUIREMENTS.md)
+- [Physical validation execution checklist](PHYSICAL_VALIDATION_EXECUTION_CHECKLIST.md)
 - [Troubleshooting](user/TROUBLESHOOTING.md)
 - [FAQ](FAQ.md)
 - [GitHub issues](https://github.com/berginj/PitchTracker/issues)

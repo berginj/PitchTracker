@@ -19,6 +19,32 @@ from ui.themes import (
 )
 
 
+class CameraDiscoverySignals(QtCore.QObject):
+    """Signals emitted by a camera discovery worker."""
+
+    finished_signal = QtCore.Signal(list)
+    error_signal = QtCore.Signal(str)
+
+
+class CameraDiscoveryWorker(QtCore.QRunnable):
+    """Probe USB/UVC devices on the application thread pool."""
+
+    def __init__(self, backend: str):
+        super().__init__()
+        self._backend = backend
+        self.signals = CameraDiscoverySignals()
+
+    def run(self) -> None:
+        try:
+            if self._backend == "opencv":
+                devices = probe_opencv_indices(max_index=DEFAULT_OPENCV_MAX_INDEX, parallel=False, use_cache=False)
+            else:
+                devices = probe_uvc_devices()
+            self.signals.finished_signal.emit(devices or [])
+        except Exception as exc:  # noqa: BLE001
+            self.signals.error_signal.emit(str(exc))
+
+
 class CameraStep(BaseStep):
     """Camera discovery, selection, and preview step."""
 
@@ -86,13 +112,16 @@ class CameraStep(BaseStep):
 
         self._left_combo = QtWidgets.QComboBox()
         self._left_combo.setMinimumWidth(300)
+        self._left_combo.setAccessibleName("Left camera selection")
         self._left_combo.currentTextChanged.connect(self._on_left_changed)
 
         self._right_combo = QtWidgets.QComboBox()
         self._right_combo.setMinimumWidth(300)
+        self._right_combo.setAccessibleName("Right camera selection")
         self._right_combo.currentTextChanged.connect(self._on_right_changed)
 
         self._refresh_button = QtWidgets.QPushButton("Refresh Devices")
+        self._refresh_button.setAccessibleName("Refresh camera device list")
         self._refresh_button.clicked.connect(self._refresh_devices)
         self._style_manager.style_button(self._refresh_button, "primary")
 
@@ -148,51 +177,70 @@ class CameraStep(BaseStep):
         )
 
     def _refresh_devices(self) -> None:
-        """Discover available cameras."""
+        """Discover available cameras in a background thread."""
+        if getattr(self, "_discovery_worker", None) is not None:
+            return
         self._set_status_message("Searching for cameras...", "info")
-        QtWidgets.QApplication.processEvents()
+        self._refresh_button.setEnabled(False)
+        self._show_loading(True)
+
+        self._discovery_worker = CameraDiscoveryWorker(self._backend)
+        self._discovery_worker.signals.finished_signal.connect(self._on_discovery_complete)
+        self._discovery_worker.signals.error_signal.connect(self._on_discovery_error)
+        QtCore.QThreadPool.globalInstance().start(self._discovery_worker)
+
+    def _show_loading(self, visible: bool) -> None:
+        """Show or hide the loading indicator."""
+        if not hasattr(self, "_loading_frame"):
+            from ui.themes.dialog_helpers import build_loading_indicator
+
+            self._loading_frame, self._loading_label, self._loading_bar = build_loading_indicator(
+                "Probing USB devices...", self
+            )
+            self._loading_bar.setRange(0, 0)
+            self.layout().insertWidget(self.layout().count() - 1, self._loading_frame)
+        self._loading_frame.setVisible(visible)
+
+    def _on_discovery_complete(self, devices: list) -> None:
+        """Handle device discovery results on the main thread."""
+        self._show_loading(False)
+        self._refresh_button.setEnabled(True)
+        self._discovery_worker = None
+
         self._left_combo.clear()
         self._right_combo.clear()
 
-        try:
-            if self._backend == "opencv":
-                indices = probe_opencv_indices(max_index=DEFAULT_OPENCV_MAX_INDEX, parallel=False, use_cache=False)
-                if not indices:
-                    self._set_status_message("No cameras found. Check connections and try again.", "error")
-                    return
+        if not devices:
+            self._set_status_message("No cameras found. Check connections and try again.", "error")
+            return
 
-                self._left_combo.addItem("(Select Camera)", None)
-                self._right_combo.addItem("(Select Camera)", None)
-                for index in indices:
-                    label = f"Camera {index}"
-                    self._left_combo.addItem(label, str(index))
-                    self._right_combo.addItem(label, str(index))
+        self._left_combo.addItem("(Select Camera)", None)
+        self._right_combo.addItem("(Select Camera)", None)
 
-                self._set_status_message(
-                    f"Found {len(indices)} camera(s). Select left and right cameras above.",
-                    "success",
-                )
-            else:
-                devices = probe_uvc_devices()
-                if not devices:
-                    self._set_status_message("No cameras found. Check connections and try again.", "error")
-                    return
+        if self._backend == "opencv":
+            for index in devices:
+                label = f"Camera {index}"
+                self._left_combo.addItem(label, str(index))
+                self._right_combo.addItem(label, str(index))
+        else:
+            for device in devices:
+                serial = device.get("serial", "")
+                friendly_name = device.get("friendly_name", "")
+                label = f"{serial} - {friendly_name}" if serial and friendly_name else (friendly_name or serial)
+                self._left_combo.addItem(label, serial)
+                self._right_combo.addItem(label, serial)
 
-                self._left_combo.addItem("(Select Camera)", None)
-                self._right_combo.addItem("(Select Camera)", None)
-                for device in devices:
-                    serial = device.get("serial", "")
-                    friendly_name = device.get("friendly_name", "")
-                    label = f"{serial} - {friendly_name}" if serial and friendly_name else (friendly_name or serial)
-                    self._left_combo.addItem(label, serial)
-                    self._right_combo.addItem(label, serial)
+        self._set_status_message(
+            f"Found {len(devices)} camera(s). Select left and right cameras above.",
+            "success",
+        )
 
-                self._set_status_message(
-                    f"Found {len(devices)} camera(s). Select left and right cameras above.",
-                    "success",
-                )
-        except Exception as exc:
-            self._set_status_message(f"Error discovering cameras: {exc}", "error")
+    def _on_discovery_error(self, message: str) -> None:
+        """Handle device discovery failure on the main thread."""
+        self._show_loading(False)
+        self._refresh_button.setEnabled(True)
+        self._discovery_worker = None
+        self._set_status_message(f"Error discovering cameras: {message}", "error")
 
     def _on_left_changed(self, text: str) -> None:
         """Handle left camera selection change."""

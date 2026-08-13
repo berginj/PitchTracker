@@ -153,33 +153,19 @@ class LauncherWindow(QtWidgets.QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(20)
 
-        # Setup Wizard button
+        # Setup & Calibration button (single canonical entry point)
         self._setup_button = self._create_role_button(
             "Setup & Calibration",
             "For technicians and installers\n\n"
-            "- Camera configuration\n"
+            "- Camera discovery & pairing\n"
             "- Stereo calibration\n"
-            "- ROI setup\n"
+            "- ROI & alignment setup\n"
             "- System validation\n\n"
             "Run once or when reconfiguring",
             "#4CAF50",
             self._launch_stereo_setup,
         )
-        self._setup_button.setAccessibleName("Launch Setup Wizard")
-
-        # Stereo Setup button
-        self._stereo_setup_button = self._create_role_button(
-            "Stereo Setup",
-            "For genuine stereo rig setup\n\n"
-            "- Live camera discovery\n"
-            "- Paired preview checks\n"
-            "- Alignment workflow\n"
-            "- Calibration quality review\n\n"
-            "Use for the 9-step stereo flow",
-            "#4CAF50",
-            self._launch_stereo_setup,
-        )
-        self._stereo_setup_button.setAccessibleName("Launch Stereo Setup")
+        self._setup_button.setAccessibleName("Launch Setup and Calibration")
 
         # Coaching App button
         self._coach_button = self._create_role_button(
@@ -195,16 +181,36 @@ class LauncherWindow(QtWidgets.QMainWindow):
         )
         self._coach_button.setAccessibleName("Launch Coaching App")
 
+        # Review Sessions button
+        self._review_button = self._create_role_button(
+            "Review Sessions",
+            "For post-session analysis\n\n"
+            "- Replay recorded pitches\n"
+            "- Trajectory diagnostics\n"
+            "- Parameter tuning\n"
+            "- Export configurations\n\n"
+            "Use after coaching sessions",
+            "#9C27B0",
+            self._launch_review,
+        )
+        self._review_button.setAccessibleName("Launch Review Sessions")
+
         layout.addWidget(self._setup_button)
-        layout.addWidget(self._stereo_setup_button)
         layout.addWidget(self._coach_button)
+        layout.addWidget(self._review_button)
 
         widget.setLayout(layout)
         return widget
 
     def _create_role_button(self, title: str, description: str, color: str, callback) -> QtWidgets.QPushButton:
         """Create a styled role selection button."""
-        accent = "success" if color.lower() == "#4caf50" else "primary"
+        color_lower = color.lower()
+        if color_lower == "#4caf50":
+            accent = "success"
+        elif color_lower == "#9c27b0":
+            accent = "default"
+        else:
+            accent = "primary"
 
         button = QtWidgets.QPushButton()
         button.setMinimumSize(300, 350)
@@ -325,8 +331,8 @@ class LauncherWindow(QtWidgets.QMainWindow):
     def _set_role_buttons_enabled(self, enabled: bool) -> None:
         """Enable or disable launcher entry points."""
         self._setup_button.setEnabled(enabled)
-        self._stereo_setup_button.setEnabled(enabled)
         self._coach_button.setEnabled(enabled)
+        self._review_button.setEnabled(enabled)
 
     def _update_warning_banner(self) -> None:
         """Render the current startup status into the banner."""
@@ -405,6 +411,26 @@ class LauncherWindow(QtWidgets.QMainWindow):
                 f"Failed to launch Coaching App:\n{str(e)}\n\n"
                 "Make sure all dependencies are installed and "
                 "the system is configured (run Setup Wizard first).",
+            )
+            self.show()
+
+    def _launch_review(self):
+        """Launch Review Sessions window."""
+        try:
+            from ui.review.review_window import ReviewWindow
+
+            self.hide()
+
+            self.review_window = ReviewWindow()
+            self.review_window.show()
+
+            self.review_window.destroyed.connect(self._on_child_closed)
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Launch Error",
+                f"Failed to launch Review Sessions:\n{str(e)}\n\n" "Make sure all dependencies are installed.",
             )
             self.show()
 

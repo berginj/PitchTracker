@@ -33,6 +33,7 @@ test.tmp
 recordings/
 calibration/
 camera_tests/
+validation_output/
 
 # Benchmark results
 benchmarks/results_*.json

@@ -25,8 +25,3 @@ keyring>=24.0.0
 # TAG Sports Integration (Phase 3: Bluetooth PC Ingest)
 # bleak==0.21.1  # Bluetooth Low Energy library (cross-platform)
 # Uncomment when Phase 3 development begins (Months 7-9)
-
-# Testing (dev dependencies)
-pytest==7.4.3
-pytest-cov==4.1.0
-hypothesis==6.92.2

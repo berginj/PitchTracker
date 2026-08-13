@@ -3,7 +3,11 @@
 **Document Type:** Technical Design & Implementation Plan
 **Date:** March 26, 2026
 **Version:** 1.0 (MVP Specification)
-**Status:** READY FOR DEVELOPMENT
+**Status:** SPECULATIVE — no partnership agreement, no MOU signed, no production
+implementation. Specifications are complete; Phase 1 implementation is 2–4 weeks
+of remaining engineering work. Do not present this as an active or shipped
+integration. See `docs/tag_partnership/TAG_IMPLEMENTATION_STATUS.md` for the
+authoritative implementation gap summary.
 **Owner:** Engineering Lead
 
 ---

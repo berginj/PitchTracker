@@ -27,6 +27,7 @@ documents in the first section and open a documentation issue.
 ## User and operator guides
 
 - [QUICK_START.md](QUICK_START.md)
+- [OPERATOR_RUNBOOK.md](OPERATOR_RUNBOOK.md) — daily-session setup, recording, and shutdown steps
 - [FAQ.md](FAQ.md)
 - [user/TROUBLESHOOTING.md](user/TROUBLESHOOTING.md)
 - [user/CALIBRATION_TIPS.md](user/CALIBRATION_TIPS.md)
@@ -34,10 +35,12 @@ documents in the first section and open a documentation issue.
 - [HARDWARE_PROFILE.md](HARDWARE_PROFILE.md)
 - [CALIBRATION_TROUBLESHOOTING.md](CALIBRATION_TROUBLESHOOTING.md)
 - [CAMERA_RECONNECTION.md](CAMERA_RECONNECTION.md)
+- [PHYSICAL_VALIDATION_EXECUTION_CHECKLIST.md](PHYSICAL_VALIDATION_EXECUTION_CHECKLIST.md) — field evidence record form
 
 ## Developer guides
 
 - [../REQ.md](../REQ.md)
+- [ml/TRAINING.md](ml/TRAINING.md) — current (v2) ML detector training guide
 - [decisions/0001-core-pipeline.md](decisions/0001-core-pipeline.md)
 - [DECISION_REPLAY_ARCHITECTURE.md](DECISION_REPLAY_ARCHITECTURE.md)
 - [evidence_contracts.md](evidence_contracts.md)
@@ -59,8 +62,14 @@ documents in the first section and open a documentation issue.
   status comes from `CURRENT_STATUS.md`.
 - `core_pipeline_workback_plan.md` and `implementation_plan.md` are superseded by
   ADR-0001, the PT/AR traceability record, and `ROADMAP.md`.
-- TAG documents are partnership concepts until an agreement and implementation
-  issue explicitly activate them.
+- TAG documents are partnership **concept specifications** with no signed
+  agreement, no operational cloud backend, and no shipped Bluetooth or UI
+  integration. Phase 1 implementation is 2–4 weeks of remaining engineering work;
+  Phase 2 (cloud) and Phase 3 (Bluetooth) are unstarted. Do not treat them as
+  current product capability. `TAG_INTEGRATION_TECHNICAL_SPEC.md`,
+  `TAG_DEEP_INTEGRATION_API_SPEC.md`, and `CLOUD_SUBMISSION_GUIDE.md` each carry
+  a speculative-status notice in their headers. The authoritative implementation
+  gap record is `tag_partnership/TAG_IMPLEMENTATION_STATUS.md`.
 
 ## Historical material
 

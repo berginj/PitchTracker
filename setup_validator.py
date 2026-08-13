@@ -49,7 +49,7 @@ class ValidationCheck:
         self.fix = fix
 
     def __repr__(self):
-        status = f"{Colors.GREEN}✓ PASS{Colors.RESET}" if self.passed else f"{Colors.RED}✗ FAIL{Colors.RESET}"
+        status = f"{Colors.GREEN}[PASS]{Colors.RESET}" if self.passed else f"{Colors.RED}[FAIL]{Colors.RESET}"
         return f"{status} - {self.name}: {self.message}"
 
 
@@ -291,19 +291,19 @@ def print_results(checks: List[ValidationCheck]):
     print("=" * 70)
 
     if failed:
-        print(f"{Colors.RED}✗ {len(failed)} checks failed{Colors.RESET}")
+        print(f"{Colors.RED}[FAIL] {len(failed)} checks failed{Colors.RESET}")
         print("=" * 70)
         print()
         print("Issues that need fixing:")
         print()
         for check in failed:
-            print(f"  {Colors.YELLOW}⚠{Colors.RESET}  {check.name}")
+            print(f"  {Colors.YELLOW}[WARN]{Colors.RESET} {check.name}")
             print(f"      Problem: {check.message}")
             if check.fix:
                 print(f"      Fix: {Colors.BLUE}{check.fix}{Colors.RESET}")
             print()
     else:
-        print(f"{Colors.GREEN}✓ All {len(passed)} checks passed!{Colors.RESET}")
+        print(f"{Colors.GREEN}[PASS] All {len(passed)} checks passed!{Colors.RESET}")
         print("=" * 70)
         print()
         print("You're ready to use PitchTracker!")

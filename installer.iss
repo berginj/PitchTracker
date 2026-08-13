@@ -37,8 +37,8 @@ LicenseFile=LICENSE
 DisableWelcomePage=no
 
 ; Architecture
-ArchitecturesAllowed=x64
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 
 ; Windows version
 MinVersion=10.0

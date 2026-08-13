@@ -71,9 +71,6 @@ class RecordingServiceImpl(RecordingService):
         """
         self._event_bus = event_bus
         self._lock = threading.Lock()
-        # Serializes frame submission with pitch-boundary fences. The worker
-        # never takes this lock, so boundaries can drain queued work safely.
-        self._submission_lock = threading.Lock()
 
         # Session recorder
         self._session_recorder: Optional[SessionRecorder] = None
@@ -142,9 +139,7 @@ class RecordingServiceImpl(RecordingService):
             if self._session_active:
                 raise RuntimeError("Session already active")
             if not self._frame_worker.start():
-                raise RuntimeError(
-                    "Recording worker from the previous session is still stopping; retry after it exits"
-                )
+                raise RuntimeError("Recording worker from the previous session is still stopping; retry after it exits")
 
             self._config = config
             self._session_name = session_name
@@ -226,7 +221,6 @@ class RecordingServiceImpl(RecordingService):
             )
 
         with self._lock:
-
             # Stop any active pitch recording first
             if self._pitch_active:
                 self._stop_pitch_internal()
@@ -322,45 +316,65 @@ class RecordingServiceImpl(RecordingService):
         Raises:
             RecordingError: If no session is active or pitch already active
         """
-        with self._submission_lock:
-            # Ensure every frame classified as pre-pitch has reached the
-            # pre-roll buffer before its snapshot is flushed to the new pitch.
-            if not self._frame_worker.wait_idle(timeout=10.0):
-                raise RuntimeError("Recording queue did not drain before pitch start")
+        # Validate state eagerly so callers get immediate errors.
+        with self._lock:
+            if not self._session_active:
+                raise RuntimeError("No session active")
+            if self._pitch_active:
+                raise RuntimeError("Pitch already active")
+            session_dir = self._session_recorder.get_session_dir()
+            if session_dir is None:
+                raise RuntimeError("Session directory not available")
+            config = self._config
 
-            with self._lock:
-                if not self._session_active:
-                    raise RuntimeError("No session active")
-                if self._pitch_active:
-                    raise RuntimeError("Pitch already active")
+        # The actual recorder setup is injected into the worker FIFO as a
+        # control command.  All frames queued before this point are processed
+        # first (FIFO guarantee), so the pre-roll snapshot is exact.
+        # Crucially, no publisher-blocking lock is held while waiting.
+        ready = threading.Event()
+        error_box: list[Exception] = []
 
-                session_dir = self._session_recorder.get_session_dir()
-                if session_dir is None:
-                    raise RuntimeError("Session directory not available")
+        def _activate_pitch() -> None:
+            try:
+                with self._lock:
+                    if not self._session_active:
+                        error_box.append(RuntimeError("No session active"))
+                        return
+                    if self._pitch_active:
+                        error_box.append(RuntimeError("Pitch already active"))
+                        return
+                    recorder = PitchRecorder(config=config, session_dir=session_dir, pitch_id=pitch_id)
+                    for frame in list(self._pre_roll_buffer["left"]):
+                        recorder.buffer_pre_roll("left", frame)
+                    for frame in list(self._pre_roll_buffer["right"]):
+                        recorder.buffer_pre_roll("right", frame)
+                    recorder.start_pitch()
+                    self._pitch_recorder = recorder
+                    self._pitch_active = True
+                    self._current_pitch_id = pitch_id
+                    self._last_pitch_id = pitch_id
+            except Exception as exc:
+                error_box.append(exc)
+            finally:
+                ready.set()
 
-                # Create pitch recorder
-                self._pitch_recorder = PitchRecorder(config=self._config, session_dir=session_dir, pitch_id=pitch_id)
+        if not self._frame_worker.submit_control(_activate_pitch):
+            raise RuntimeError("Recording queue did not accept pitch start command")
 
-                # Buffer current pre-roll frames to pitch recorder
-                for frame in list(self._pre_roll_buffer["left"]):
-                    self._pitch_recorder.buffer_pre_roll("left", frame)
-                for frame in list(self._pre_roll_buffer["right"]):
-                    self._pitch_recorder.buffer_pre_roll("right", frame)
+        # Wait without holding any lock — publishers continue submitting.
+        if not ready.wait(timeout=10.0):
+            raise RuntimeError("Pitch start timed out waiting for worker")
+        if error_box:
+            raise error_box[0]
 
-                # Start pitch recording (opens writers, flushes pre-roll)
-                self._pitch_recorder.start_pitch()
-
-                self._pitch_active = True
-                self._current_pitch_id = pitch_id
-                self._last_pitch_id = pitch_id
-
-                # Invoke callbacks
-                self._invoke_callback(
-                    "pitch_started",
-                    json.dumps({"pitch_id": pitch_id, "pitch_dir": str(self._pitch_recorder.get_pitch_dir())}),
-                )
-
-                logger.info(f"Pitch started: {pitch_id}")
+        # Callbacks run on caller's thread after the worker has committed.
+        with self._lock:
+            pitch_dir = str(self._pitch_recorder.get_pitch_dir()) if self._pitch_recorder else ""
+        self._invoke_callback(
+            "pitch_started",
+            json.dumps({"pitch_id": pitch_id, "pitch_dir": pitch_dir}),
+        )
+        logger.info(f"Pitch started: {pitch_id}")
 
     def stop_pitch(self) -> Optional[Path]:
         """Stop recording current pitch and finalize.
@@ -373,19 +387,31 @@ class RecordingServiceImpl(RecordingService):
         Raises:
             RecordingError: If finalization fails
         """
-        with self._submission_lock:
-            with self._lock:
-                if not self._pitch_active:
-                    return None
-                detached = self._detach_pitch_locked()
-                if detached is None:
-                    return None
+        with self._lock:
+            if not self._pitch_active:
+                return None
 
-            if not self._frame_worker.wait_idle(timeout=10.0):
-                logger.warning("Recording frame queue did not drain before pitch stop")
+        ready = threading.Event()
+        result: list[tuple[PitchRecorder, Optional[str]]] = []
 
-            with self._lock:
-                return self._finalize_pitch_locked(*detached)
+        def _detach_after_queued_frames() -> None:
+            try:
+                with self._lock:
+                    detached = self._detach_pitch_locked()
+                    if detached is not None:
+                        result.append(detached)
+            finally:
+                ready.set()
+
+        if not self._frame_worker.submit_control(_detach_after_queued_frames):
+            raise RuntimeError("Recording queue did not accept pitch stop command")
+        if not ready.wait(timeout=10.0):
+            raise RuntimeError("Pitch stop timed out waiting for worker")
+        if not result:
+            return None
+
+        with self._lock:
+            return self._finalize_pitch_locked(*result[0])
 
     def _stop_pitch_internal(self) -> Optional[Path]:
         """Internal pitch stop (assumes lock is held).
@@ -439,23 +465,21 @@ class RecordingServiceImpl(RecordingService):
         Thread-Safety: Thread-safe via lock
         Performance: < 1ms per frame
         """
-        with self._submission_lock:
-            with self._lock:
-                if not self._session_active:
-                    raise RuntimeError("No session active")
-                if self._session_paused:
-                    return
-                pitch_recorder = self._pitch_recorder if self._pitch_active else None
-            if not self._frame_worker.submit((camera_id, frame, pitch_recorder)):
-                logger.warning(
-                    "Recording queue full; dropping newest frame camera=%s index=%s",
-                    camera_id,
-                    frame.frame_index,
-                )
+        with self._lock:
+            if not self._session_active:
+                raise RuntimeError("No session active")
+            if self._session_paused:
+                return
+        if not self._frame_worker.submit((camera_id, frame)):
+            logger.warning(
+                "Recording queue full; dropping newest frame camera=%s index=%s",
+                camera_id,
+                frame.frame_index,
+            )
 
     def _record_frame_sync(self, item) -> None:
         """Perform codec and CSV I/O on the recording worker thread."""
-        camera_id, frame, pitch_recorder = item
+        camera_id, frame = item
         with self._lock:
             if not self._session_active or self._session_recorder is None:
                 return
@@ -464,7 +488,9 @@ class RecordingServiceImpl(RecordingService):
             # Buffer for pre-roll (always buffer even if no pitch active)
             self._pre_roll_buffer[camera_id].append(frame)
 
-            # Write to pitch recorder if active
+            # Write to pitch recorder if active (state read at processing
+            # time — ordering is guaranteed by FIFO control commands).
+            pitch_recorder = self._pitch_recorder if self._pitch_active else None
             if pitch_recorder is not None:
                 pitch_recorder.write_frame(camera_id, frame)
 
@@ -702,9 +728,7 @@ class RecordingServiceImpl(RecordingService):
             logger.debug("PitchEndEvent received for %s", event.pitch_id)
             with self._lock:
                 recorder = (
-                    self._pitch_recorder
-                    if self._pitch_active and self._current_pitch_id == event.pitch_id
-                    else None
+                    self._pitch_recorder if self._pitch_active and self._current_pitch_id == event.pitch_id else None
                 )
             if recorder is not None:
                 recorder.add_analysis_observations(
