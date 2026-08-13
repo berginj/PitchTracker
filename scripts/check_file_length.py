@@ -31,15 +31,11 @@ EXCLUDED_PREFIXES = (
 # tracked extraction issue; see GitHub issue #12 for the July 2026 baseline.
 # Remove an entry once the file is brought under MAX.
 ALLOWLIST = {
-    "ui/review/review_window.py",
-    "ui/coaching/coach_window.py",
     "ui/themes/glass_theme.py",
     "ui/analytics/comparison_dashboard.py",
     "analysis/trend_analyzer.py",
     "ui/dialogs/calibration_wizard_dialog.py",
     "scripts/check_camera_alignment.py",
-    "app/services/recording/implementation.py",
-    "app/services/analysis/implementation.py",
     "tests/integration/test_pipeline_orchestrator.py",
     "ui/review/comparison_view.py",
     "tests/test_profile_manager.py",
