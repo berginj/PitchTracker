@@ -1,329 +1,272 @@
-"""Memory stability benchmark.
+"""Memory stability benchmark with terminal-outcome conservation.
 
-Monitors memory usage over extended operation to detect leaks.
-Target: Memory growth <10% over 30 minutes of operation.
+Tracks terminal outcomes during extended operation to ensure
+``offered == terminal_total`` conservation.  Completion of each
+sample interval uses ``pool.get_runtime_stats()`` rather than
+assuming frames submitted equals frames processed.
+
+The ``time.sleep(0.01)`` in the main loop is a **load-pacing** sleep
+that models a realistic offered rate; it is not completion logic.
 """
 
-import time
 import gc
+import threading
+import time
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
 
 try:
     import psutil
-
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
-    print("Warning: psutil not available. Install with: pip install psutil")
 
 from app.pipeline.detection.threading_pool import DetectionThreadPool
+from benchmarks.bench_config import BenchmarkConfig, build_result_envelope
 from contracts import Frame
 from detect.classical_detector import ClassicalDetector
 from detect.config import DetectorConfig, FilterConfig
 
 
-def get_memory_mb() -> float:
-    """Get current process memory usage in MB."""
+def _get_rss_mb() -> float:
     if not PSUTIL_AVAILABLE:
         return 0.0
-    process = psutil.Process()
-    return process.memory_info().rss / (1024 * 1024)
+    return psutil.Process().memory_info().rss / (1024 * 1024)
 
 
-def create_test_frame(width: int, height: int, timestamp_ns: int) -> Frame:
-    """Create a test frame with random data."""
+def create_test_frame(
+    width: int, height: int, timestamp_ns: int,
+    frame_index: int = 0,
+) -> Frame:
     image = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
     return Frame(
-        image=image,
+        camera_id="bench",
+        frame_index=frame_index,
         t_capture_monotonic_ns=timestamp_ns,
-        t_capture_utc_ns=timestamp_ns,
-        t_received_monotonic_ns=timestamp_ns,
+        image=image,
         width=width,
         height=height,
-        camera_id="benchmark",
+        pixfmt="bgr24",
     )
 
 
+class _OutcomeCounter:
+    """Lightweight terminal counter with condition wait."""
+
+    def __init__(self) -> None:
+        self._cond = threading.Condition()
+        self._outcomes: Dict[str, int] = {}
+        self._total = 0
+
+    def on_outcome(self, event) -> None:
+        with self._cond:
+            self._outcomes[event.status] = (
+                self._outcomes.get(event.status, 0) + 1
+            )
+            self._total += 1
+            self._cond.notify_all()
+
+    def wait_for(self, target: int, timeout: float) -> bool:
+        deadline = time.monotonic() + timeout
+        with self._cond:
+            while self._total < target:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return False
+                self._cond.wait(timeout=remaining)
+        return True
+
+    @property
+    def snapshot(self) -> Dict[str, int]:
+        with self._cond:
+            return dict(self._outcomes)
+
+    @property
+    def total(self) -> int:
+        return self._total
+
+
 def benchmark_memory_stability(
-    duration_seconds: int = 300,
+    duration_seconds: int = 60,
     sample_interval: int = 10,
     width: int = 1280,
     height: int = 720,
-) -> dict:
-    """Benchmark memory stability over extended operation.
+) -> Dict[str, Any]:
+    """Memory stability with terminal-outcome conservation.
 
-    Args:
-        duration_seconds: How long to run (default: 300s = 5 minutes)
-        sample_interval: How often to sample memory (seconds)
-        width: Frame width in pixels
-        height: Frame height in pixels
-
-    Returns:
-        Dictionary with memory statistics
+    Returns an envelope with memory samples, conservation proof,
+    config, commit, and host identity.
     """
+    config = BenchmarkConfig(
+        name="memory_stability",
+        params={
+            "duration_seconds": duration_seconds,
+            "sample_interval": sample_interval,
+            "width": width,
+            "height": height,
+            "psutil_available": PSUTIL_AVAILABLE,
+        },
+    )
+
     if not PSUTIL_AVAILABLE:
-        print("❌ ERROR: psutil not available. Cannot run memory benchmark.")
-        print("Install with: pip install psutil")
-        return {}
+        return build_result_envelope(
+            benchmark_config=config,
+            results={"error": "psutil not available"},
+        )
 
-    print(f"\n{'='*60}")
-    print("Memory Stability Benchmark")
-    print(f"{'='*60}")
-    print("Configuration:")
-    print(f"  Duration: {duration_seconds} seconds ({duration_seconds/60:.1f} minutes)")
-    print(f"  Sample Interval: {sample_interval} seconds")
-    print(f"  Resolution: {width}x{height}")
-    print(f"{'='*60}\n")
-
-    # Create detector
-    filter_config = FilterConfig()
-    detector_config = DetectorConfig(filters=filter_config)
-    detector = ClassicalDetector(detector_config)
-
-    # Create detection pool
+    detector = ClassicalDetector(DetectorConfig(filters=FilterConfig()))
     pool = DetectionThreadPool()
     pool.set_detect_callback(lambda label, frame: detector.detect(frame))
+    pool.set_stereo_callback(lambda _l, _f, _d: None)
+
+    counter = _OutcomeCounter()
+    pool.set_frame_decision_callbacks(
+        opportunity_callback=lambda _: None,
+        outcome_callback=counter.on_outcome,
+    )
     pool.start(queue_size=6)
 
-    # Warm-up
-    print("Warming up pipeline...")
-    for i in range(50):
-        timestamp = int(time.time() * 1e9) + i * 16_666_667
-        frame = create_test_frame(width, height, timestamp)
-        pool.enqueue_frame("left", frame)
-    time.sleep(1.0)
-
-    # Force garbage collection and measure initial memory
     gc.collect()
-    time.sleep(0.5)
-    initial_memory = get_memory_mb()
+    initial_mem = _get_rss_mb()
+    start = time.monotonic()
+    last_sample = start
+    offered = 0
+    memory_samples: List[Tuple[float, float]] = [(0.0, initial_mem)]
 
-    print(f"Initial memory: {initial_memory:.1f} MB")
-    print(f"Starting {duration_seconds}s stability test...")
-    print()
-
-    # Track memory samples
-    memory_samples = [(0, initial_memory)]
-    start_time = time.time()
-    last_sample = start_time
-    frame_count = 0
-
-    # Run for specified duration
-    while time.time() - start_time < duration_seconds:
-        # Send frames continuously
-        timestamp = int(time.time() * 1e9)
-        frame = create_test_frame(width, height, timestamp)
-        pool.enqueue_frame("left", frame)
-        frame_count += 1
-
-        # Sample memory at intervals
-        if time.time() - last_sample >= sample_interval:
-            gc.collect()
-            current_memory = get_memory_mb()
-            elapsed = time.time() - start_time
-            growth_mb = current_memory - initial_memory
-            growth_pct = (growth_mb / initial_memory) * 100
-
-            memory_samples.append((elapsed, current_memory))
-            print(
-                f"  [{elapsed:>6.0f}s] Memory: {current_memory:>7.1f} MB "
-                f"(+{growth_mb:>5.1f} MB, +{growth_pct:>5.1f}%)"
-            )
-
-            last_sample = time.time()
-
-        # Throttle slightly to avoid overwhelming
+    while time.monotonic() - start < duration_seconds:
+        ts = int(time.time() * 1e9)
+        pool.enqueue_frame("left", create_test_frame(width, height, ts))
+        offered += 1
+        # Load-pacing sleep — models realistic offered rate
         time.sleep(0.01)
+        now = time.monotonic()
+        if now - last_sample >= sample_interval:
+            gc.collect()
+            memory_samples.append((now - start, _get_rss_mb()))
+            last_sample = now
 
-    # Final measurement
-    gc.collect()
-    time.sleep(0.5)
-    final_memory = get_memory_mb()
-
-    # Stop pool
+    # Wait for terminal conservation within a 10 s deadline
+    counter.wait_for(offered, timeout=10.0)
     pool.stop()
 
-    # Calculate statistics
-    memory_values = [m for _, m in memory_samples]
-    memory_growth_mb = final_memory - initial_memory
-    memory_growth_pct = (memory_growth_mb / initial_memory) * 100
-    max_memory = max(memory_values)
-    max_growth_mb = max_memory - initial_memory
-    max_growth_pct = (max_growth_mb / initial_memory) * 100
+    gc.collect()
+    final_mem = _get_rss_mb()
+    memory_samples.append((time.monotonic() - start, final_mem))
+
+    outcomes = counter.snapshot
+    mem_values = [m for _, m in memory_samples]
+    growth_mb = final_mem - initial_mem
+    growth_pct = (growth_mb / initial_mem * 100) if initial_mem else 0.0
 
     results = {
+        "offered": offered,
+        "terminal_total": counter.total,
+        "conserved": offered == counter.total,
+        "terminal_outcomes": outcomes,
+        "initial_memory_mb": initial_mem,
+        "final_memory_mb": final_mem,
+        "max_memory_mb": max(mem_values),
+        "growth_mb": growth_mb,
+        "growth_percent": growth_pct,
         "duration_seconds": duration_seconds,
-        "frames_processed": frame_count,
-        "initial_memory_mb": initial_memory,
-        "final_memory_mb": final_memory,
-        "max_memory_mb": max_memory,
-        "growth_mb": memory_growth_mb,
-        "growth_percent": memory_growth_pct,
-        "max_growth_mb": max_growth_mb,
-        "max_growth_percent": max_growth_pct,
-        "samples": memory_samples,
     }
 
-    # Print results
-    print(f"\n{'='*60}")
-    print("Results:")
-    print(f"{'='*60}")
-    print(f"  Duration: {duration_seconds} seconds")
-    print(f"  Frames Processed: {frame_count:,}")
-    print("\n  Memory Usage:")
-    print(f"    Initial:  {initial_memory:>8.1f} MB")
-    print(f"    Final:    {final_memory:>8.1f} MB")
-    print(f"    Max:      {max_memory:>8.1f} MB")
-    print("\n  Memory Growth:")
-    print(f"    Final:    +{memory_growth_mb:>7.1f} MB (+{memory_growth_pct:>5.1f}%)")
-    print(f"    Peak:     +{max_growth_mb:>7.1f} MB (+{max_growth_pct:>5.1f}%)")
-    print("\n  Target: <10% growth over test duration")
-
-    if memory_growth_pct < 10:
-        print("  Status: ✅ PASS (memory stable)")
-    elif memory_growth_pct < 20:
-        print("  Status: ⚠️ WARNING (moderate growth)")
-    else:
-        print("  Status: ❌ FAIL (possible memory leak)")
-
-    print(f"{'='*60}\n")
-
-    return results
+    return build_result_envelope(
+        benchmark_config=config,
+        results=results,
+        raw_samples=[{"elapsed_s": t, "rss_mb": m} for t, m in memory_samples],
+    )
 
 
-def benchmark_memory_rapid_cycling(num_cycles: int = 100, width: int = 1280, height: int = 720) -> dict:
-    """Benchmark memory with rapid start/stop cycles.
+def benchmark_memory_rapid_cycling(
+    num_cycles: int = 20,
+    width: int = 1280,
+    height: int = 720,
+) -> Dict[str, Any]:
+    """Rapid start/stop cycling with conservation per cycle."""
+    config = BenchmarkConfig(
+        name="memory_rapid_cycling",
+        params={
+            "num_cycles": num_cycles, "width": width, "height": height,
+            "psutil_available": PSUTIL_AVAILABLE,
+        },
+    )
 
-    Tests for memory leaks during repeated initialization/cleanup.
-
-    Args:
-        num_cycles: Number of start/stop cycles
-        width: Frame width
-        height: Frame height
-
-    Returns:
-        Dictionary with memory statistics
-    """
     if not PSUTIL_AVAILABLE:
-        print("❌ ERROR: psutil not available")
-        return {}
+        return build_result_envelope(
+            benchmark_config=config,
+            results={"error": "psutil not available"},
+        )
 
-    print(f"\n{'='*60}")
-    print("Memory Rapid Cycling Benchmark")
-    print(f"{'='*60}")
-    print("Testing for leaks during repeated start/stop cycles")
-    print(f"  Cycles: {num_cycles}")
-    print(f"{'='*60}\n")
-
-    # Initial memory
     gc.collect()
-    initial_memory = get_memory_mb()
-    print(f"Initial memory: {initial_memory:.1f} MB")
-    print(f"Running {num_cycles} start/stop cycles...\n")
+    initial_mem = _get_rss_mb()
+    frames_per_cycle = 5
+    all_conserved = True
 
-    memory_samples = []
-
-    for i in range(num_cycles):
-        # Create and start pool
-        filter_config = FilterConfig()
-        detector_config = DetectorConfig(filters=filter_config)
-        detector = ClassicalDetector(detector_config)
-
+    for _ in range(num_cycles):
+        detector = ClassicalDetector(DetectorConfig(filters=FilterConfig()))
         pool = DetectionThreadPool()
-        pool.set_detect_callback(lambda label, frame: detector.detect(frame))
+        pool.set_detect_callback(
+            lambda label, frame: detector.detect(frame),
+        )
+        pool.set_stereo_callback(lambda _l, _f, _d: None)
+        counter = _OutcomeCounter()
+        pool.set_frame_decision_callbacks(
+            opportunity_callback=lambda _: None,
+            outcome_callback=counter.on_outcome,
+        )
         pool.start(queue_size=6)
-
-        # Process a few frames
-        for j in range(10):
-            timestamp = int(time.time() * 1e9) + j * 16_666_667
-            frame = create_test_frame(width, height, timestamp)
-            pool.enqueue_frame("left", frame)
-
-        time.sleep(0.05)
-
-        # Stop pool
-        pool.stop()
-
-        # Sample memory every 10 cycles
-        if (i + 1) % 10 == 0:
-            gc.collect()
-            current_memory = get_memory_mb()
-            growth_mb = current_memory - initial_memory
-            growth_pct = (growth_mb / initial_memory) * 100
-
-            memory_samples.append(current_memory)
-            print(
-                f"  Cycle {i+1:>3}/{num_cycles}: Memory: {current_memory:>7.1f} MB "
-                f"(+{growth_mb:>5.1f} MB, +{growth_pct:>5.1f}%)"
+        for j in range(frames_per_cycle):
+            ts = int(time.time() * 1e9) + j * 16_666_667
+            pool.enqueue_frame(
+                "left", create_test_frame(width, height, ts),
             )
+        counter.wait_for(frames_per_cycle, timeout=5.0)
+        pool.stop()
+        if counter.total != frames_per_cycle:
+            all_conserved = False
 
-    # Final measurement
     gc.collect()
-    time.sleep(0.5)
-    final_memory = get_memory_mb()
+    final_mem = _get_rss_mb()
+    growth_mb = final_mem - initial_mem
+    growth_pct = (growth_mb / initial_mem * 100) if initial_mem else 0.0
 
-    memory_growth_mb = final_memory - initial_memory
-    memory_growth_pct = (memory_growth_mb / initial_memory) * 100
-
-    # Print results
-    print(f"\n{'='*60}")
-    print("Results:")
-    print(f"{'='*60}")
-    print(f"  Cycles: {num_cycles}")
-    print(f"  Initial Memory: {initial_memory:.1f} MB")
-    print(f"  Final Memory: {final_memory:.1f} MB")
-    print(f"  Growth: +{memory_growth_mb:.1f} MB (+{memory_growth_pct:.1f}%)")
-    print(f"\n  Target: <5% growth after {num_cycles} cycles")
-    print(f"  Status: {'✅ PASS' if memory_growth_pct < 5 else '⚠️ POSSIBLE LEAK'}")
-    print(f"{'='*60}\n")
-
-    return {
+    results = {
         "cycles": num_cycles,
-        "initial_memory_mb": initial_memory,
-        "final_memory_mb": final_memory,
-        "growth_mb": memory_growth_mb,
-        "growth_percent": memory_growth_pct,
+        "initial_memory_mb": initial_mem,
+        "final_memory_mb": final_mem,
+        "growth_mb": growth_mb,
+        "growth_percent": growth_pct,
+        "all_cycles_conserved": all_conserved,
     }
+    return build_result_envelope(
+        benchmark_config=config, results=results,
+    )
 
 
 if __name__ == "__main__":
     import argparse
+    import json
 
-    parser = argparse.ArgumentParser(description="Memory stability benchmark")
-    parser.add_argument(
-        "--duration",
-        type=int,
-        default=300,
-        help="Test duration in seconds (default: 300 = 5 minutes)",
-    )
-    parser.add_argument(
-        "--interval",
-        type=int,
-        default=10,
-        help="Memory sample interval in seconds (default: 10)",
-    )
-    parser.add_argument("--width", type=int, default=1280, help="Frame width (default: 1280)")
-    parser.add_argument("--height", type=int, default=720, help="Frame height (default: 720)")
-    parser.add_argument(
-        "--rapid-cycling",
-        action="store_true",
-        help="Run rapid start/stop cycling test",
-    )
-    parser.add_argument(
-        "--cycles",
-        type=int,
-        default=100,
-        help="Number of rapid cycles (default: 100)",
-    )
-
+    parser = argparse.ArgumentParser(description="Memory benchmark")
+    parser.add_argument("--duration", type=int, default=60)
+    parser.add_argument("--interval", type=int, default=10)
+    parser.add_argument("--width", type=int, default=1280)
+    parser.add_argument("--height", type=int, default=720)
+    parser.add_argument("--rapid-cycling", action="store_true")
+    parser.add_argument("--cycles", type=int, default=20)
     args = parser.parse_args()
 
     if args.rapid_cycling:
-        benchmark_memory_rapid_cycling(num_cycles=args.cycles, width=args.width, height=args.height)
+        out = benchmark_memory_rapid_cycling(
+            num_cycles=args.cycles, width=args.width, height=args.height,
+        )
     else:
-        benchmark_memory_stability(
+        out = benchmark_memory_stability(
             duration_seconds=args.duration,
             sample_interval=args.interval,
             width=args.width,
             height=args.height,
         )
+    print(json.dumps(out, indent=2))

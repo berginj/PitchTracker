@@ -25,6 +25,10 @@ Launcher readiness, simulator pitch end-to-end latency, recording throughput, co
 
 ## PERF-001 — Existing benchmark semantics are invalid
 
+> **Status: Remediated 2026-08-13** — see `benchmarks/throughput.py`,
+> `benchmarks/latency.py`, `benchmarks/memory.py`, `benchmarks/run_all.py`,
+> `benchmarks/bench_config.py`, and `tests/test_benchmark_conservation.py`.
+
 - **Finding:** `benchmarks/throughput.py` reports submitted frames as processed after a fixed one-second sleep; related latency paths use fixed sleeps and may time only detector calls or an observed subset.
 - **Evidence:** Source inspection compared counters, enqueue paths, callbacks, and formulas. The corrected burst showed 360 terminal outcomes but only 14–15 processed frames.
 - **Impact:** Current “60 FPS pass” and optimization claims can be wrong by orders of magnitude.
