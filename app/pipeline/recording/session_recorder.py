@@ -59,6 +59,7 @@ class SessionRecorder:
         # Disk space monitoring
         self._disk_monitor_thread: Optional[threading.Thread] = None
         self._monitoring_disk = False
+        self._disk_monitor_stop = threading.Event()
         self._disk_error_callback: Optional[callable] = None
         self._critical_disk_gb = 5.0  # Stop recording if below this
         self._warning_disk_gb = 20.0  # Warn user if below this
@@ -170,11 +171,13 @@ class SessionRecorder:
                         )
 
                 # Check every 5 seconds
-                time.sleep(5.0)
+                if self._disk_monitor_stop.wait(5.0):
+                    break
 
             except Exception as e:
                 logger.error(f"Error monitoring disk space: {e}")
-                time.sleep(5.0)  # Continue monitoring despite error
+                if self._disk_monitor_stop.wait(5.0):
+                    break
 
         logger.info("Disk space monitoring stopped")
 
@@ -206,6 +209,7 @@ class SessionRecorder:
 
         # Start background disk space monitoring
         self._monitoring_disk = True
+        self._disk_monitor_stop.clear()
         self._disk_monitor_thread = threading.Thread(
             target=self._monitor_disk_space, name="DiskSpaceMonitor", daemon=False  # Non-daemon so we can join cleanly
         )
@@ -241,6 +245,7 @@ class SessionRecorder:
         """
         # Stop disk space monitoring thread
         self._monitoring_disk = False
+        self._disk_monitor_stop.set()
         if self._disk_monitor_thread is not None and self._disk_monitor_thread.is_alive():
             logger.info("Stopping disk space monitoring...")
             self._disk_monitor_thread.join(timeout=2.0)
