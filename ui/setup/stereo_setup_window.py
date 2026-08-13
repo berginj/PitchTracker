@@ -126,7 +126,16 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         indicator_widget.setProperty("surface", "toolbar")
         self._style_manager.polish(indicator_widget)
         indicator_widget.setLayout(indicator_layout)
-        return indicator_widget
+
+        indicator_scroll = QtWidgets.QScrollArea()
+        indicator_scroll.setWidgetResizable(True)
+        indicator_scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        indicator_scroll.setVerticalScrollBarPolicy(
+            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        indicator_scroll.setFixedHeight(52)
+        indicator_scroll.setWidget(indicator_widget)
+        return indicator_scroll
 
     def _apply_step_style(
         self,
@@ -149,19 +158,23 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
     def _build_navigation(self) -> QtWidgets.QHBoxLayout:
         """Build wizard navigation buttons."""
         self._back_button = GlassButton("< Back", variant="ghost")
+        self._back_button.setAccessibleName("Go to previous step")
         self._back_button.setMinimumWidth(100)
         self._back_button.clicked.connect(self._go_back)
 
         self._skip_button = GlassButton("Skip Step", variant="ghost")
+        self._skip_button.setAccessibleName("Skip current step")
         self._skip_button.setMinimumWidth(100)
         self._skip_button.clicked.connect(self._skip_step)
 
         self._next_button = GlassButton("Next >", variant="primary")
+        self._next_button.setAccessibleName("Go to next step")
         self._next_button.setMinimumWidth(100)
         self._next_button.clicked.connect(self._go_next)
         self._next_button.setDefault(True)
 
         self._finish_button = GlassButton("Finish", variant="success")
+        self._finish_button.setAccessibleName("Finish setup wizard")
         self._finish_button.setMinimumWidth(100)
         self._finish_button.clicked.connect(self._finish_wizard)
         self._finish_button.hide()

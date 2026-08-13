@@ -93,7 +93,7 @@ class CalibrationStepLayoutMixin:
         left_group = QtWidgets.QGroupBox()
         left_group.setTitle("")  # No title for cleaner look
         self._left_view = QtWidgets.QLabel("No preview")
-        self._left_view.setMinimumSize(800, 600)  # Much larger preview
+        self._left_view.setMinimumSize(200, 150)
         self._left_view.setScaledContents(True)
         self._left_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._left_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
@@ -120,7 +120,7 @@ class CalibrationStepLayoutMixin:
         right_group = QtWidgets.QGroupBox()
         right_group.setTitle("")  # No title for cleaner look
         self._right_view = QtWidgets.QLabel("No preview")
-        self._right_view.setMinimumSize(800, 600)  # Much larger preview
+        self._right_view.setMinimumSize(200, 150)
         self._right_view.setScaledContents(True)
         self._right_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._right_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)

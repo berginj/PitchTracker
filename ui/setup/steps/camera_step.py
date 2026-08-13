@@ -26,6 +26,22 @@ class CameraDiscoverySignals(QtCore.QObject):
     error_signal = QtCore.Signal(str)
 
 
+def _safe_emit_finished(signals: CameraDiscoverySignals, devices: list) -> None:
+    """Emit finished_signal, silently absorbing RuntimeError from deleted C++."""
+    try:
+        signals.finished_signal.emit(devices)
+    except RuntimeError:
+        pass
+
+
+def _safe_emit_error(signals: CameraDiscoverySignals, message: str) -> None:
+    """Emit error_signal, silently absorbing RuntimeError from deleted C++."""
+    try:
+        signals.error_signal.emit(message)
+    except RuntimeError:
+        pass
+
+
 class CameraDiscoveryWorker(QtCore.QRunnable):
     """Probe USB/UVC devices on the application thread pool."""
 
@@ -40,9 +56,10 @@ class CameraDiscoveryWorker(QtCore.QRunnable):
                 devices = probe_opencv_indices(max_index=DEFAULT_OPENCV_MAX_INDEX, parallel=False, use_cache=False)
             else:
                 devices = probe_uvc_devices()
-            self.signals.finished_signal.emit(devices or [])
         except Exception as exc:  # noqa: BLE001
-            self.signals.error_signal.emit(str(exc))
+            _safe_emit_error(self.signals, str(exc))
+            return
+        _safe_emit_finished(self.signals, devices or [])
 
 
 class CameraStep(BaseStep):
@@ -135,14 +152,14 @@ class CameraStep(BaseStep):
         apply_standard_layout(preview_layout, margins=(8, 8, 8, 8), spacing=12)
 
         self._left_preview = QtWidgets.QLabel("Left Camera Preview\n\nSelect a camera to see live preview")
-        self._left_preview.setMinimumSize(400, 300)
+        self._left_preview.setMinimumSize(200, 150)
         self._left_preview.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._left_preview.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         style_preview_surface(self._left_preview)
         self._left_preview.setScaledContents(False)
 
         self._right_preview = QtWidgets.QLabel("Right Camera Preview\n\nSelect a camera to see live preview")
-        self._right_preview.setMinimumSize(400, 300)
+        self._right_preview.setMinimumSize(200, 150)
         self._right_preview.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._right_preview.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         style_preview_surface(self._right_preview)
@@ -294,6 +311,12 @@ class CameraStep(BaseStep):
             self._refresh_devices()
 
     def on_exit(self) -> None:
+        self._stop_resources()
+
+    def _stop_resources(self) -> None:
+        """Stop timers and close cameras — safe to call multiple times."""
+        if self._preview_timer is not None:
+            self._preview_timer.stop()
         self._close_left_camera()
         self._close_right_camera()
 

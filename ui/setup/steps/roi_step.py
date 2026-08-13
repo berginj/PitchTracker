@@ -62,7 +62,7 @@ class RoiStep(BaseStep):
 
         preview_group = QtWidgets.QGroupBox("Left Camera Preview")
         self._roi_view = RoiLabel(on_rect_update=self._on_rect_update)
-        self._roi_view.setMinimumSize(640, 480)
+        self._roi_view.setMinimumSize(320, 240)
         self._roi_view.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self._roi_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         style_preview_surface(self._roi_view)

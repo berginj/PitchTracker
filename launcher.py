@@ -87,7 +87,12 @@ class LauncherWindow(QtWidgets.QMainWindow):
         layout.addWidget(footer_widget)
 
         central.setLayout(layout)
-        self.setCentralWidget(central)
+
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        scroll.setWidget(central)
+        self.setCentralWidget(scroll)
 
         # Set window icon if available
         self._set_window_icon()
@@ -109,6 +114,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
 
         # Subtitle
         subtitle = QtWidgets.QLabel("Baseball Pitch Tracking & Analysis System")
+        subtitle.setWordWrap(True)
         subtitle.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._style_manager.style_label(subtitle, "muted")
         layout.addWidget(subtitle)
@@ -165,7 +171,6 @@ class LauncherWindow(QtWidgets.QMainWindow):
             "#4CAF50",
             self._launch_stereo_setup,
         )
-        self._setup_button.setAccessibleName("Launch Setup and Calibration")
 
         # Coaching App button
         self._coach_button = self._create_role_button(
@@ -179,7 +184,6 @@ class LauncherWindow(QtWidgets.QMainWindow):
             "#2196F3",
             self._launch_coaching,
         )
-        self._coach_button.setAccessibleName("Launch Coaching App")
 
         # Review Sessions button
         self._review_button = self._create_role_button(
@@ -193,7 +197,6 @@ class LauncherWindow(QtWidgets.QMainWindow):
             "#9C27B0",
             self._launch_review,
         )
-        self._review_button.setAccessibleName("Launch Review Sessions")
 
         layout.addWidget(self._setup_button)
         layout.addWidget(self._coach_button)
@@ -213,7 +216,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
             accent = "primary"
 
         button = QtWidgets.QPushButton()
-        button.setMinimumSize(300, 350)
+        button.setMinimumSize(180, 200)
         button.setProperty("variant", "role-card")
         button.setProperty("accent", accent)
         self._style_manager.polish(button)
@@ -250,6 +253,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
         button.setLayout(button_layout)
 
         button.clicked.connect(callback)
+        button.setAccessibleName(f"Launch {title}")
         return button
 
     def _darken_color(self, color: str, factor: float = 0.9) -> str:
@@ -276,6 +280,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
 
         # Auto-update toggle (persisted)
         self._auto_update_checkbox = QtWidgets.QCheckBox("Install updates automatically")
+        self._auto_update_checkbox.setAccessibleName("Install updates automatically")
         self._auto_update_checkbox.setChecked(is_auto_update_enabled())
         self._auto_update_checkbox.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self._auto_update_checkbox.setToolTip(
@@ -367,6 +372,12 @@ class LauncherWindow(QtWidgets.QMainWindow):
         super().showEvent(event)
         self.raise_()
         self.activateWindow()
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        """Ensure background threads are joined before destruction."""
+        if self._validation_thread is not None and self._validation_thread.isRunning():
+            self._validation_thread.wait(3000)
+        super().closeEvent(event)
 
     def _launch_setup(self):
         """Compatibility route to the single canonical stereo setup wizard."""

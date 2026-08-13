@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ui.coaching.widgets.games.base_game import BaseGame
-from ui.themes import get_style_manager
+from ui.themes import apply_standard_layout, get_style_manager
 
 if TYPE_CHECKING:
     from app.pipeline_service import PitchSummary
@@ -71,7 +71,7 @@ class TargetScoringGame(BaseGame):
         layout.addWidget(reset_btn)
 
         layout.addStretch()
-        self._style_manager.apply_standard_layout(layout)
+        apply_standard_layout(layout)
         self.setLayout(layout)
 
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:

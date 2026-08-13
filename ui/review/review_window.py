@@ -91,7 +91,8 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self.setStatusBar(self._status_bar)
         self._status_bar.showMessage("Ready. Open a session to begin.")
 
-        # Set central widget
+        # Set central widget — splitter + right-panel scroll handle all
+        # responsiveness; no outer scroll wrapper needed.
         self.setCentralWidget(content)
 
     def _create_menu_bar(self) -> None:
@@ -223,11 +224,18 @@ class ReviewWindow(QtWidgets.QMainWindow):
         # Right section: Parameter panel + trajectory diagnostics + pitch list
         right_section = self._build_right_panel()
 
-        # Main horizontal layout
+        # Resizable splitter between video and right panel
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        splitter.addWidget(left_section)
+        splitter.addWidget(right_section)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 0)
+        splitter.setAccessibleName("Review layout splitter")
+
+        # Main layout
         main_layout = QtWidgets.QHBoxLayout()
         apply_standard_layout(main_layout)
-        main_layout.addWidget(left_section, 1)  # Video section takes most space
-        main_layout.addWidget(right_section)  # Right panel
+        main_layout.addWidget(splitter)
 
         container = QtWidgets.QWidget()
         container.setObjectName("ReviewShell")
@@ -260,9 +268,15 @@ class ReviewWindow(QtWidgets.QMainWindow):
         layout.addWidget(self._trajectory_diagnostics_panel)
         layout.addWidget(self._pitch_list, 1)
 
-        container = QtWidgets.QWidget()
-        container.setLayout(layout)
-        return container
+        inner = QtWidgets.QWidget()
+        inner.setLayout(layout)
+
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        scroll.setMinimumWidth(280)
+        scroll.setWidget(inner)
+        return scroll
 
     def _build_video_and_controls_section(self) -> QtWidgets.QWidget:
         """Build video displays, timeline, and playback controls.
