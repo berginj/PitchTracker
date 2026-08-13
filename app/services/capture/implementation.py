@@ -16,6 +16,7 @@ from typing import Dict, List, Optional, Tuple
 from app.camera import CameraState
 from app.events.event_bus import EventBus
 from app.events.event_types import FrameCapturedEvent
+from app.events.event_metadata import make_event_metadata
 from app.pipeline.camera_management import CameraManager
 from app.pipeline.initialization import PipelineInitializer
 from app.services.capture.interface import (
@@ -78,6 +79,7 @@ class CaptureServiceImpl(CaptureService):
         # Callbacks (for backward compatibility with UI)
         self._frame_callbacks: List[FrameCallback] = []
         self._state_callbacks: List[CameraStateCallback] = []
+        self._session_id: Optional[str] = None
 
         logger.info(f"CaptureService initialized with backend={backend}")
 
@@ -218,13 +220,14 @@ class CaptureServiceImpl(CaptureService):
             logger.debug(f"Registered camera state callback ({len(self._state_callbacks)} total)")
 
     def is_capturing(self) -> bool:
-        """Check if capture is currently active.
-
-        Returns:
-            True if capturing, False otherwise
-        """
+        """Check if capture is currently active."""
         with self._lock:
             return self._capturing
+
+    def set_session_id(self, session_id: Optional[str]) -> None:
+        """Set or clear the active session_id for event metadata."""
+        with self._lock:
+            self._session_id = session_id
 
     # Internal Event Handlers
 
@@ -241,7 +244,19 @@ class CaptureServiceImpl(CaptureService):
         """
         try:
             # Publish to EventBus (PRIMARY path for event-driven architecture)
-            event = FrameCapturedEvent(camera_id=camera_id, frame=frame, timestamp_ns=frame.t_capture_monotonic_ns)
+            sid = self._session_id
+            event = FrameCapturedEvent(
+                camera_id=camera_id,
+                frame=frame,
+                timestamp_ns=frame.t_capture_monotonic_ns,
+                metadata=make_event_metadata(
+                    "FrameCapturedEvent",
+                    correlation_id=f"{camera_id}_{frame.frame_index}",
+                    timestamp_ns=frame.t_capture_monotonic_ns,
+                    camera_id=camera_id,
+                    session_id=sid,
+                ),
+            )
             self._event_bus.publish(event)
 
             # Invoke registered callbacks (for backward compatibility).

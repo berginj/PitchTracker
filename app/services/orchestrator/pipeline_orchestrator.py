@@ -42,22 +42,14 @@ class PipelineOrchestrator(PipelineService):
     def __init__(self, backend: str = "uvc"):
         self._backend = backend
         self._lock = threading.Lock()
-
-        # EventBus and event coordinator
         self._event_bus = EventBus()
         self._event_coordinator = EventCoordinator(self._event_bus)
-
-        # Services
         self._capture_service: Optional[CaptureServiceImpl] = None
         self._detection_service: Optional[DetectionServiceImpl] = None
         self._recording_service: Optional[RecordingServiceImpl] = None
         self._analysis_service: Optional[AnalysisServiceImpl] = None
-
-        # Pitch tracking
         self._pitch_config = PitchConfig()
         self._pitch_tracker: Optional[PitchStateMachineV2] = None
-
-        # Config and rig state
         self._config: Optional[AppConfig] = None
         self._config_path: Optional[Path] = None
         self._record_dir: Optional[Path] = None
@@ -69,8 +61,6 @@ class PipelineOrchestrator(PipelineService):
         self._runtime_calibration_path: Optional[Path] = None
         self._runtime_roi_path: Optional[Path] = None
         self._runtime_calibration_report: Optional[dict] = None
-
-        # Capture/recording state flags
         self._capturing = False
         self._detection_started = False
         self._recording_active = False
@@ -212,6 +202,7 @@ class PipelineOrchestrator(PipelineService):
                     config_path=self._config_path,
                 )
             except Exception:
+                self._propagate_session_id(None)
                 if analysis_started_here and self._analysis_service is not None:
                     try:
                         self._analysis_service.stop_analysis()
@@ -224,6 +215,7 @@ class PipelineOrchestrator(PipelineService):
                     except Exception:
                         logger.exception("Roll back detection failed")
                 raise
+            self._propagate_session_id(session_name or "session")
             self._recording_active = True
             self._recording_paused = False
             return warning
@@ -256,6 +248,7 @@ class PipelineOrchestrator(PipelineService):
             bundle = self._recording_service.stop_session()
             self._recording_active = False
             self._recording_paused = False
+            self._propagate_session_id(None)
             return bundle
 
     def pause_recording(self) -> None:
@@ -434,6 +427,14 @@ class PipelineOrchestrator(PipelineService):
     def get_recent_pitches(self, count: int = 10) -> List:
         """Return the most recent analyzed pitches for coaching UI compatibility."""
         return list(self.get_session_summary().pitches[-count:])
+
+    def _propagate_session_id(self, session_id: Optional[str]) -> None:
+        """Set or clear session_id on all event-producing services."""
+        self._event_coordinator.set_session_id(session_id)
+        if self._capture_service is not None:
+            self._capture_service.set_session_id(session_id)
+        if self._detection_service is not None:
+            self._detection_service.set_session_id(session_id)
 
     def get_session_dir(self) -> Optional[Path]:
         """Return the current session directory, or None if not recording."""

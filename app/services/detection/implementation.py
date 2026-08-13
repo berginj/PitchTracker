@@ -18,6 +18,7 @@ import threading
 from typing import Dict, List, Optional, Tuple
 
 from app.events.event_bus import EventBus
+from app.events.event_metadata import make_event_metadata
 from app.events.event_types import (
     FrameCapturedEvent,
     FrameProcessingOpportunityEvent,
@@ -131,6 +132,7 @@ class DetectionServiceImpl(DetectionService):
         )
         self._last_drift_status = None
         self._decision_bindings_cache: Optional[DecisionArtifactBindings] = None
+        self._session_id: Optional[str] = None
 
         logger.info("DetectionService initialized")
 
@@ -532,13 +534,14 @@ class DetectionServiceImpl(DetectionService):
             logger.info(f"Runtime calibration path set to {self._calibration_path}")
 
     def is_running(self) -> bool:
-        """Check if detection is currently running.
-
-        Returns:
-            True if detection threads are active, False otherwise
-        """
+        """Check if detection is currently running."""
         with self._lock:
             return self._running
+
+    def set_session_id(self, session_id: Optional[str]) -> None:
+        """Set or clear the active session_id for event metadata."""
+        with self._lock:
+            self._session_id = session_id
 
     def update_config(self, config: AppConfig) -> None:
         """Update detection configuration used for future processor work."""
@@ -675,21 +678,34 @@ class DetectionServiceImpl(DetectionService):
             if outcome.status == "UNMATCHED":
                 reason = outcome.reason_codes[0] if outcome.reason_codes else "UNSPECIFIED"
                 self._pairing_unmatched_counts[reason] += outcome.frame_count
+        sid = self._session_id
         self._event_bus.publish(
             PairingOutcomeEvent(
                 outcome,
                 bindings=self._decision_bindings(f"{outcome.pairing_mode}_pairing", "2"),
+                metadata=make_event_metadata(
+                    "PairingOutcomeEvent",
+                    correlation_id=outcome.outcome_id,
+                    timestamp_ns=outcome.left_timestamp_ns or 0,
+                    session_id=sid,
+                ),
             )
         )
 
     def _on_association_outcome(self, event: StereoAssociationOutcomeEvent) -> None:
         version = "2" if event.primary_algorithm == "global_v2" else "1"
-        self._event_bus.publish(
-            replace(
-                event,
-                bindings=self._decision_bindings(event.primary_algorithm, version),
-            )
+        sid = self._session_id
+        updated = replace(
+            event,
+            bindings=self._decision_bindings(event.primary_algorithm, version),
+            metadata=make_event_metadata(
+                "StereoAssociationOutcomeEvent",
+                correlation_id=event.pair_id,
+                timestamp_ns=event.timestamp_ns,
+                session_id=sid,
+            ),
         )
+        self._event_bus.publish(updated)
 
     def _decision_bindings(self, algorithm_name: str, algorithm_version: str) -> DecisionArtifactBindings:
         base = self._decision_bindings_cache
@@ -758,9 +774,11 @@ class DetectionServiceImpl(DetectionService):
             with self._lock:
                 self._pair_count += 1
                 self._pair_rejection_counts.update(rejection_reasons)
+            pid = stereo_pair_id(left_frame, right_frame)
+            sid = self._session_id
             self._event_bus.publish(
                 StereoFrameProcessedEvent(
-                    pair_id=stereo_pair_id(left_frame, right_frame),
+                    pair_id=pid,
                     timestamp_ns=pair_timestamp_ns,
                     left_timestamp_ns=left_frame.t_capture_monotonic_ns,
                     right_timestamp_ns=right_frame.t_capture_monotonic_ns,
@@ -773,6 +791,12 @@ class DetectionServiceImpl(DetectionService):
                     adjusted_left_timestamp_ns=timing.adjusted_left_ns,
                     adjusted_right_timestamp_ns=timing.adjusted_right_ns,
                     time_sync_offset_ns=timing.right_offset_ns,
+                    metadata=make_event_metadata(
+                        "StereoFrameProcessedEvent",
+                        correlation_id=pid,
+                        timestamp_ns=pair_timestamp_ns,
+                        session_id=sid,
+                    ),
                 )
             )
 
@@ -780,7 +804,17 @@ class DetectionServiceImpl(DetectionService):
             for obs in observations:
                 with self._lock:
                     self._latest_observations.append(obs)
-                event = ObservationDetectedEvent(observation=obs, timestamp_ns=obs.t_ns, confidence=obs.confidence)
+                event = ObservationDetectedEvent(
+                    observation=obs,
+                    timestamp_ns=obs.t_ns,
+                    confidence=obs.confidence,
+                    metadata=make_event_metadata(
+                        "ObservationDetectedEvent",
+                        correlation_id=pid,
+                        timestamp_ns=obs.t_ns,
+                        session_id=sid,
+                    ),
+                )
                 self._event_bus.publish(event)
 
                 # Invoke registered callbacks (backward compatibility)
@@ -806,14 +840,22 @@ class DetectionServiceImpl(DetectionService):
         plate_count: int,
     ) -> None:
         """Publish per-camera ray observations generated by the processor."""
-        del camera_id, frame, lane_count, plate_count
+        del lane_count, plate_count
         try:
+            sid = self._session_id
             for obs in observations:
                 self._event_bus.publish(
                     RayObservationDetectedEvent(
                         observation=obs,
                         timestamp_ns=obs.t_ns,
                         confidence=obs.confidence,
+                        metadata=make_event_metadata(
+                            "RayObservationDetectedEvent",
+                            correlation_id=f"{camera_id}_{frame.frame_index}",
+                            timestamp_ns=obs.t_ns,
+                            camera_id=camera_id,
+                            session_id=sid,
+                        ),
                     )
                 )
         except Exception as e:

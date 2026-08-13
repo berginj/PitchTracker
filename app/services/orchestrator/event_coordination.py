@@ -11,6 +11,7 @@ from dataclasses import replace
 from typing import Optional, TYPE_CHECKING
 
 from app.events.event_bus import EventBus
+from app.events.event_metadata import make_event_metadata
 from app.events.event_types import (
     ObservationDetectedEvent,
     PitchEndEvent,
@@ -47,6 +48,7 @@ class EventCoordinator:
         self._active_rig_profile: Optional[RigProfile] = None
         self._config: Optional[AppConfig] = None
         self._latest_observation: Optional[StereoObservation] = None
+        self._session_id: Optional[str] = None
 
     # --- Mutable state setters (called by orchestrator) ---
 
@@ -58,6 +60,9 @@ class EventCoordinator:
 
     def set_config(self, config: Optional[AppConfig]) -> None:
         self._config = config
+
+    def set_session_id(self, session_id: Optional[str]) -> None:
+        self._session_id = session_id
 
     @property
     def latest_observation(self) -> Optional[StereoObservation]:
@@ -105,6 +110,13 @@ class EventCoordinator:
                 pitch_id=make_pitch_id(pitch_index),
                 pitch_index=pitch_index,
                 timestamp_ns=pitch_data.start_ns,
+                metadata=make_event_metadata(
+                    "PitchStartEvent",
+                    correlation_id=make_pitch_id(pitch_index),
+                    timestamp_ns=pitch_data.start_ns,
+                    pitch_id=make_pitch_id(pitch_index),
+                    session_id=self._session_id,
+                ),
             )
             self._event_bus.publish(event)
             logger.info(f"Pitch started: {pitch_index}")
@@ -114,8 +126,9 @@ class EventCoordinator:
     def on_pitch_end(self, pitch_data: PitchData) -> None:
         """Publish PitchEndEvent to EventBus."""
         try:
+            pitch_id_str = make_pitch_id(pitch_data.pitch_index)
             event = PitchEndEvent(
-                pitch_id=make_pitch_id(pitch_data.pitch_index),
+                pitch_id=pitch_id_str,
                 observations=pitch_data.observations,
                 timestamp_ns=pitch_data.end_ns,
                 duration_ns=pitch_data.duration_ns(),
@@ -130,6 +143,13 @@ class EventCoordinator:
                     self._active_rig_profile.profile_id
                     if self._active_rig_profile
                     else None
+                ),
+                metadata=make_event_metadata(
+                    "PitchEndEvent",
+                    correlation_id=pitch_id_str,
+                    timestamp_ns=pitch_data.end_ns,
+                    pitch_id=pitch_id_str,
+                    session_id=self._session_id,
                 ),
             )
             self._event_bus.publish(event)

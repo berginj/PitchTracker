@@ -18,6 +18,7 @@ from typing import List, Optional
 
 from app.contracts import PitchSummary, SessionSummary, measurement_is_usable, session_summary_from_dict
 from app.events.event_bus import EventBus
+from app.events.event_metadata import make_event_metadata
 from app.events.event_types import PitchAnalyzedEvent, PitchEndEvent
 from app.pipeline.analysis.pitch_summary import PitchAnalyzer
 from app.pipeline.pitch_tracking_v2 import PitchData
@@ -614,11 +615,19 @@ class AnalysisServiceImpl(AnalysisService):
             self._terminal_pitch_ids.add(event.pitch_id)
             session_summary = self._session_summary
 
+        sid = session_summary.session_id if session_summary else None
         self._event_bus.publish(
             PitchAnalyzedEvent(
                 pitch_id=event.pitch_id,
                 summary=summary,
                 session_summary=session_summary,
+                metadata=make_event_metadata(
+                    "PitchAnalyzedEvent",
+                    correlation_id=event.pitch_id,
+                    timestamp_ns=event.timestamp_ns,
+                    pitch_id=event.pitch_id,
+                    session_id=sid,
+                ),
             )
         )
         logger.info(
