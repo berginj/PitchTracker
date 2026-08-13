@@ -12,10 +12,15 @@ import numpy as np
 import pytest
 
 from app.events.event_bus import EventBus
-from app.events.event_types import FrameCapturedEvent, ObservationDetectedEvent, StereoFrameProcessedEvent
+from app.events.event_types import (
+    FrameCapturedEvent,
+    ObservationDetectedEvent,
+    RayObservationDetectedEvent,
+    StereoFrameProcessedEvent,
+)
 from app.services.detection import DetectionServiceImpl
 from configs.settings import load_config
-from contracts import Frame, StereoObservation
+from contracts import Frame, RayObservation, StereoObservation
 from detect.config import Mode
 
 
@@ -278,6 +283,29 @@ class TestDetectionServiceEventBusIntegration:
         assert event.pair_skew_ns == 0
         assert event.timestamp_ns == 100_000_000
         assert "PAIR_SKEW_OUT_OF_TOLERANCE" not in event.rejection_reasons
+
+    def test_ray_publication_does_not_replace_stereo_publication(self):
+        bus = EventBus()
+        service = DetectionServiceImpl(bus, create_test_config())
+        service.set_session_id("session-1")
+        ray_events: List[RayObservationDetectedEvent] = []
+        stereo_events: List[ObservationDetectedEvent] = []
+        bus.subscribe(RayObservationDetectedEvent, ray_events.append)
+        bus.subscribe(ObservationDetectedEvent, stereo_events.append)
+        left = create_test_frame("left", 7, 10_000_000)
+        right = create_test_frame("right", 7, 10_000_000)
+        ray = RayObservation("left", 7, 10_000_000, 12.0, 13.0, 3.0, 0.8)
+        stereo = StereoObservation(10_000_000, (12.0, 13.0), (11.0, 13.0), 1.0, 2.0, 3.0, 0.9)
+
+        service._on_ray_observations("left", left, [ray], lane_count=1, plate_count=0)
+        service._on_stereo_pair(left, right, [], [], [stereo], lane_count=1, plate_count=0)
+
+        assert [event.observation for event in ray_events] == [ray]
+        assert ray_events[0].metadata.camera_id == "left"
+        assert ray_events[0].metadata.session_id == "session-1"
+        assert [event.observation for event in stereo_events] == [stereo]
+        assert stereo_events[0].metadata.session_id == "session-1"
+        assert service.get_latest_observations() == [stereo]
 
 
 class TestDetectionServiceCallbacks:
