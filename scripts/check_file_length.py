@@ -32,7 +32,6 @@ EXCLUDED_PREFIXES = (
 # Remove an entry once the file is brought under MAX.
 ALLOWLIST = {
     "ui/review/review_window.py",
-    "calib/quick_calibrate.py",
     "ui/coaching/coach_window.py",
     "ui/themes/glass_theme.py",
     "ui/analytics/comparison_dashboard.py",
