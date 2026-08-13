@@ -1,45 +1,44 @@
-"""Camera management for capture lifecycle and frame acquisition."""
+"""Camera management facade for capture lifecycle and frame acquisition.
+
+Delegates to focused collaborators:
+- CameraBackendFactory: backend construction and configuration
+- CameraFrameRouter: capture loops and callback routing
+- CameraLifecycleManager: reconnection and recovery
+- CameraPreviewStats: preview frames and statistics
+"""
 
 from __future__ import annotations
 
 import logging
 import threading
-import time
 from typing import Callable, Optional, Tuple
 
-from capture import CameraDevice, SimulatedCamera, UvcCamera
-from capture.opencv_backend import OpenCVCamera
+from capture import CameraDevice
 from configs.settings import AppConfig
 from contracts import Frame
 from exceptions import (
     CameraConfigurationError,
     CameraConnectionError,
-    PitchTrackerError,
 )
 
-# System hardening integration
 from app.events import publish_error, ErrorCategory, ErrorSeverity
+from app.camera import CameraState
 
-# Camera reconnection support
-from app.camera import CameraReconnectionManager, CameraState
-
+from .camera_backend_factory import CameraBackendFactory
+from .camera_frame_router import CameraFrameRouter
+from .camera_lifecycle import CameraLifecycleManager
+from .camera_preview_stats import CameraPreviewStats
 from .initialization import PipelineInitializer
 
 logger = logging.getLogger(__name__)
-
-# Maximum consecutive frame read failures before stopping capture
-MAX_CONSECUTIVE_FAILURES = 10
-
-# Time without frames before considering camera stalled (seconds)
-FRAME_STALL_TIMEOUT = 5.0
 
 
 class CameraManager:
     """Manages camera lifecycle, capture threads, and frame acquisition.
 
-    Handles opening/closing cameras, configuring them, starting/stopping
-    capture threads, and providing preview frames. Uses callback pattern
-    to notify parent when frames are captured.
+    Thin facade delegating to backend factory, frame router, lifecycle
+    manager, and preview/stats collaborators. Preserves the original
+    public API surface.
     """
 
     def __init__(self, backend: str, initializer: PipelineInitializer):
@@ -58,72 +57,51 @@ class CameraManager:
         self._left_id: Optional[str] = None
         self._right_id: Optional[str] = None
 
-        # Capture threading
-        self._capture_running = False
-        self._left_thread: Optional[threading.Thread] = None
-        self._right_thread: Optional[threading.Thread] = None
-
-        # Per-camera stop signals. Allows a single camera's capture loop to be
-        # stopped (e.g. for reconnection) without tearing down the other, and
-        # lets us signal-then-join a loop BEFORE closing its camera so close()
-        # never races an in-flight read_frame() on the same device.
-        self._left_stop = threading.Event()
-        self._right_stop = threading.Event()
-        # Guards swapping the self._left/self._right device references during
-        # reconnection while preview/other code may read them.
+        # Lock for swapping device references during reconnection
         self._camera_lock = threading.Lock()
 
-        # Latest frames for preview
-        self._left_latest: Optional[Frame] = None
-        self._right_latest: Optional[Frame] = None
-        self._latest_lock = threading.Lock()
+        # Collaborators
+        self._factory = CameraBackendFactory(backend)
+        self._frame_router = CameraFrameRouter()
+        self._preview = CameraPreviewStats()
+        self._lifecycle = CameraLifecycleManager(
+            self._factory, self._frame_router, self._camera_lock
+        )
 
-        # Callback for frame captured events
-        self._on_frame_captured: Optional[Callable[[str, Frame], None]] = None
+        # Wire preview callback into frame router
+        self._frame_router.set_preview_callback(self._preview.update_frame)
 
-        # Callback for camera errors
-        self._on_camera_error: Optional[Callable[[str, str], None]] = None
+        # Reconnection policy
+        self._enable_reconnection = backend != "sim"
 
-        # Camera reconnection manager
-        self._reconnection_mgr: Optional[CameraReconnectionManager] = None
-        self._enable_reconnection = backend != "sim"  # Don't reconnect simulated cameras
-
-        # Stored config for reconnection
-        self._config: Optional[AppConfig] = None
+    # ------------------------------------------------------------------
+    # Public API — callbacks
+    # ------------------------------------------------------------------
 
     def set_frame_callback(self, callback: Callable[[str, Frame], None]) -> None:
-        """Set callback for frame captured events.
-
-        Args:
-            callback: Function to call when frame is captured, receives (label, frame)
-        """
-        self._on_frame_captured = callback
+        """Set callback for frame captured events."""
+        self._frame_router.set_frame_callback(callback)
 
     def set_error_callback(self, callback: Callable[[str, str], None]) -> None:
-        """Set callback for camera error events.
+        """Set callback for camera error events."""
+        self._frame_router.set_error_callback(callback)
 
-        Args:
-            callback: Function to call on camera error, receives (label, error_message)
-        """
-        self._on_camera_error = callback
-
-    def set_camera_state_callback(self, callback: Callable[[str, CameraState], None]) -> None:
-        """Set callback for camera state changes (for UI updates).
-
-        Args:
-            callback: Function to call on camera state change, receives (camera_id, state)
-        """
-        if self._reconnection_mgr:
-            self._reconnection_mgr.set_state_change_callback(callback)
+    def set_camera_state_callback(
+        self, callback: Callable[[str, CameraState], None]
+    ) -> None:
+        """Set callback for camera state changes (for UI updates)."""
+        self._lifecycle.set_state_change_callback(callback)
 
     def enable_reconnection(self, enabled: bool = True) -> None:
-        """Enable or disable automatic camera reconnection.
-
-        Args:
-            enabled: Whether to enable reconnection (default: True)
-        """
+        """Enable or disable automatic camera reconnection."""
         self._enable_reconnection = enabled and self._backend != "sim"
-        logger.info(f"Camera reconnection {'enabled' if self._enable_reconnection else 'disabled'}")
+        logger.info(
+            f"Camera reconnection {'enabled' if self._enable_reconnection else 'disabled'}"
+        )
+
+    # ------------------------------------------------------------------
+    # Public API — capture lifecycle
+    # ------------------------------------------------------------------
 
     def start_capture(
         self,
@@ -134,11 +112,6 @@ class CameraManager:
         """Start capture on both cameras.
 
         Opens cameras, configures them, and starts capture threads.
-
-        Args:
-            config: Application configuration
-            left_serial: Left camera serial number
-            right_serial: Right camera serial number
 
         Raises:
             CameraConnectionError: If cameras fail to open
@@ -164,89 +137,36 @@ class CameraManager:
                     source="CameraManager.start_capture",
                     exception=exc,
                 )
-                raise CameraConnectionError(f"Failed to initialize camera objects: {exc}") from exc
+                raise CameraConnectionError(
+                    f"Failed to initialize camera objects: {exc}"
+                ) from exc
 
             # Open left camera
-            try:
-                logger.debug(f"Opening left camera: {left_serial}")
-                self._left.open(left_serial)
-            except Exception as exc:
-                logger.error(f"Failed to open left camera {left_serial}: {exc}")
-                error_msg = (
-                    f"Failed to open left camera (serial: {left_serial})\n\n"
-                    f"Error: {exc}\n\n"
-                    f"Possible solutions:\n"
-                    f"  • Check that the camera is plugged in\n"
-                    f"  • Try a different USB port (preferably USB 3.0)\n"
-                    f"  • Close other applications using the camera\n"
-                    f"  • Verify the camera serial/index is correct\n"
-                    f"  • Check Windows Device Manager for camera status"
-                )
-                publish_error(
-                    category=ErrorCategory.CAMERA,
-                    severity=ErrorSeverity.CRITICAL,
-                    message=f"Failed to open left camera: {exc}",
-                    source="CameraManager.start_capture",
-                    exception=exc,
-                    camera_id="left",
-                    serial=left_serial,
-                )
-                raise CameraConnectionError(error_msg) from exc
+            self._factory.open_camera(self._left, left_serial, "left")
 
-            # Open right camera
+            # Open right camera (rollback left on failure)
             try:
-                logger.debug(f"Opening right camera: {right_serial}")
-                self._right.open(right_serial)
-            except Exception as exc:
-                logger.error(f"Failed to open right camera {right_serial}: {exc}")
-                error_msg = (
-                    f"Failed to open right camera (serial: {right_serial})\n\n"
-                    f"Error: {exc}\n\n"
-                    f"Note: Left camera opened successfully.\n\n"
-                    f"Possible solutions:\n"
-                    f"  • Check that the right camera is plugged in\n"
-                    f"  • Try a different USB port (preferably USB 3.0)\n"
-                    f"  • Close other applications using the camera\n"
-                    f"  • Verify the camera serial/index is correct\n"
-                    f"  • Check that cameras are on separate USB controllers\n"
-                    f"  • Check Windows Device Manager for camera status"
-                )
-                publish_error(
-                    category=ErrorCategory.CAMERA,
-                    severity=ErrorSeverity.CRITICAL,
-                    message=f"Failed to open right camera: {exc}",
-                    source="CameraManager.start_capture",
-                    exception=exc,
-                    camera_id="right",
-                    serial=right_serial,
-                )
-                # Clean up left camera before raising
+                self._factory.open_camera(self._right, right_serial, "right")
+            except CameraConnectionError:
                 try:
                     self._left.close()
                 except Exception:
                     pass
-                raise CameraConnectionError(error_msg) from exc
+                raise
 
-            # Configure cameras
+            # Configure both cameras
             try:
-                logger.debug("Configuring left camera")
-                PipelineInitializer.configure_camera(self._left, config, is_left=True)
-                logger.debug("Configuring right camera")
-                PipelineInitializer.configure_camera(self._right, config, is_left=False)
-                if self._backend == "uvc":
-                    PipelineInitializer.verify_camera_configuration(self._left, config)
-                    PipelineInitializer.verify_camera_configuration(self._right, config)
-            except Exception as exc:
-                logger.error(f"Failed to configure cameras: {exc}")
+                self._factory.configure_camera(self._left, config, is_left=True)
+                self._factory.configure_camera(self._right, config, is_left=False)
+            except CameraConfigurationError as exc:
                 error_msg = (
                     f"Failed to configure cameras: {exc}\n\n"
                     f"Both cameras opened successfully but configuration failed.\n\n"
                     f"Possible solutions:\n"
-                    f"  • Check camera settings in default.yaml (FPS, resolution, exposure)\n"
+                    f"  • Check camera settings in default.yaml\n"
                     f"  • Verify cameras support requested resolution/FPS\n"
                     f"  • Try reducing FPS (e.g., from 60 to 30 FPS)\n"
-                    f"  • Reset camera settings to defaults\n"
-                    f"  • Check that USB bandwidth is sufficient for both cameras"
+                    f"  • Check that USB bandwidth is sufficient"
                 )
                 publish_error(
                     category=ErrorCategory.CAMERA,
@@ -258,12 +178,11 @@ class CameraManager:
                     right_serial=right_serial,
                 )
                 self._cleanup_cameras()
-                raise CameraConfigurationError(error_msg) from exc
+                raise CameraConfigurationError(error_msg) from exc.__cause__
 
             # Start capture threads
             try:
-                logger.debug("Starting capture threads")
-                self._start_capture_threads()
+                self._frame_router.start_threads(self._left, self._right)
             except Exception as exc:
                 logger.error(f"Failed to start capture threads: {exc}")
                 publish_error(
@@ -274,74 +193,43 @@ class CameraManager:
                     exception=exc,
                 )
                 self._cleanup_cameras()
-                raise CameraConnectionError(f"Failed to start capture threads: {exc}") from exc
+                raise CameraConnectionError(
+                    f"Failed to start capture threads: {exc}"
+                ) from exc
 
-            # Initialize reconnection manager (if enabled)
+            # Initialize reconnection manager
             if self._enable_reconnection:
-                logger.debug("Initializing camera reconnection manager")
-                self._config = config  # Store config for reconnection attempts
-                self._reconnection_mgr = CameraReconnectionManager(
-                    max_reconnect_attempts=5, base_delay=1.0, max_delay=30.0
+                self._lifecycle.initialize(
+                    config=config,
+                    left_id=left_serial,
+                    right_id=right_serial,
+                    left_ref_setter=self._set_left,
+                    right_ref_setter=self._set_right,
+                    build_camera_fn=self._build_camera,
+                    get_camera_fn=self._get_camera,
                 )
-                self._reconnection_mgr.set_reconnect_callback(self._try_reconnect_camera)
-                self._reconnection_mgr.register_camera("left")
-                self._reconnection_mgr.register_camera("right")
-                logger.info("Camera reconnection enabled")
 
             logger.info("Capture started successfully")
 
         except (CameraConnectionError, CameraConfigurationError):
-            # Re-raise our custom exceptions
             raise
         except Exception as exc:
-            # Catch any unexpected errors
             logger.exception("Unexpected error during capture start")
             self._cleanup_cameras()
-            raise CameraConnectionError(f"Unexpected error starting capture: {exc}") from exc
+            raise CameraConnectionError(
+                f"Unexpected error starting capture: {exc}"
+            ) from exc
 
     def stop_capture(self) -> None:
-        """Stop capture on both cameras.
-
-        Stops capture threads and closes cameras. Best-effort cleanup,
-        does not raise exceptions.
-        """
+        """Stop capture on both cameras. Best-effort, does not raise."""
         logger.info("Stopping capture")
 
         try:
-            self._capture_running = False
-            # Signal both per-camera loops to exit promptly so the joins below
-            # don't have to wait out a full read timeout.
-            self._left_stop.set()
-            self._right_stop.set()
-
             # Unregister from reconnection manager
-            if self._reconnection_mgr:
-                try:
-                    if self._left_id:
-                        self._reconnection_mgr.unregister_camera("left")
-                    if self._right_id:
-                        self._reconnection_mgr.unregister_camera("right")
-                except Exception as exc:
-                    logger.warning(f"Error unregistering cameras from reconnection manager: {exc}")
+            self._lifecycle.shutdown()
 
             # Stop capture threads
-            if self._left_thread is not None:
-                try:
-                    self._left_thread.join(timeout=1.0)
-                    if self._left_thread.is_alive():
-                        logger.warning("Left capture thread did not stop within timeout")
-                    self._left_thread = None
-                except Exception as exc:
-                    logger.warning(f"Error joining left capture thread: {exc}")
-
-            if self._right_thread is not None:
-                try:
-                    self._right_thread.join(timeout=1.0)
-                    if self._right_thread.is_alive():
-                        logger.warning("Right capture thread did not stop within timeout")
-                    self._right_thread = None
-                except Exception as exc:
-                    logger.warning(f"Error joining right capture thread: {exc}")
+            self._frame_router.stop()
 
             # Close cameras
             if self._left is not None:
@@ -366,346 +254,81 @@ class CameraManager:
 
         except Exception:
             logger.exception("Unexpected error during capture stop")
-            # Don't raise - we want stop to be best-effort cleanup
+
+    # ------------------------------------------------------------------
+    # Public API — queries
+    # ------------------------------------------------------------------
 
     def get_preview_frames(self) -> Tuple[Frame, Frame]:
         """Get latest preview frames from both cameras.
-
-        Returns:
-            Tuple of (left_frame, right_frame)
 
         Raises:
             CameraConnectionError: If capture is not started
             PitchTrackerError: If frames are not yet available
         """
-        if self._left is None or self._right is None:
-            logger.error("Attempted to get preview frames but capture not started")
-            raise CameraConnectionError("Capture not started. Call start_capture() first.")
-
-        try:
-            with self._latest_lock:
-                left_frame = self._left_latest
-                right_frame = self._right_latest
-        except Exception as exc:
-            logger.error(f"Error accessing preview frames: {exc}")
-            raise PitchTrackerError(f"Error accessing frame buffer: {exc}") from exc
-
-        if left_frame is None or right_frame is None:
-            # This is normal during startup - cameras haven't produced frames yet
-            raise PitchTrackerError("Waiting for first camera frames. Please wait...")
-
-        return left_frame, right_frame
+        cameras_active = self._left is not None and self._right is not None
+        return self._preview.get_preview_frames(cameras_active)
 
     def get_stats(self):
-        """Get camera statistics.
-
-        Returns:
-            Dictionary with left/right camera stats, or empty dict if not capturing
-        """
-        if self._left is None or self._right is None:
-            return {}
-
-        from .utils import stats_to_dict
-
-        return {
-            "left": stats_to_dict(self._left.get_stats()),
-            "right": stats_to_dict(self._right.get_stats()),
-        }
+        """Get camera statistics dictionary, or empty dict if not capturing."""
+        return CameraPreviewStats.get_stats(self._left, self._right)
 
     def is_capturing(self) -> bool:
-        """Check if capture is currently running.
-
-        Returns:
-            True if capture is running, False otherwise
-        """
-        return self._capture_running
+        """Check if capture is currently running."""
+        return self._frame_router.capture_running
 
     def get_camera_ids(self) -> Tuple[Optional[str], Optional[str]]:
-        """Get current camera serial numbers.
-
-        Returns:
-            Tuple of (left_id, right_id)
-        """
+        """Get current camera serial numbers."""
         return self._left_id, self._right_id
 
-    def _try_reconnect_camera(self, camera_id: str) -> bool:
-        """Attempt to reconnect a disconnected camera.
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
 
-        Args:
-            camera_id: Camera identifier ("left" or "right")
+    @property
+    def _left_thread(self):
+        """Thread reference (compat shim for tests)."""
+        return self._frame_router.get_thread("left")
 
-        Returns:
-            True if reconnection succeeded, False otherwise
-        """
-        logger.info(f"Attempting to reconnect {camera_id} camera")
+    @_left_thread.setter
+    def _left_thread(self, val):
+        self._frame_router.set_thread("left", val)
 
-        new_camera: Optional[CameraDevice] = None
-        try:
-            # Determine which camera to reconnect
-            if camera_id == "left":
-                camera_ref = self._left
-                serial = self._left_id
-                thread_ref = self._left_thread
-                stop_event = self._left_stop
-            elif camera_id == "right":
-                camera_ref = self._right
-                serial = self._right_id
-                thread_ref = self._right_thread
-                stop_event = self._right_stop
-            else:
-                logger.error(f"Unknown camera_id: {camera_id}")
-                return False
+    @property
+    def _right_thread(self):
+        """Thread reference (compat shim for tests)."""
+        return self._frame_router.get_thread("right")
 
-            if not serial or not self._config:
-                logger.error(f"Missing serial or config for {camera_id} camera")
-                return False
+    @_right_thread.setter
+    def _right_thread(self, val):
+        self._frame_router.set_thread("right", val)
 
-            # Signal this camera's loop to stop and wait for it to exit BEFORE
-            # closing the device, so close() never races an in-flight
-            # read_frame() on the same camera object.
-            stop_event.set()
-            if thread_ref is not None and thread_ref.is_alive():
-                try:
-                    thread_ref.join(timeout=2.0)
-                    if thread_ref.is_alive():
-                        logger.warning(f"{camera_id} capture thread did not stop before reconnect")
-                except Exception as exc:
-                    logger.warning(f"Error joining {camera_id} thread: {exc}")
+    def _set_left(self, camera: CameraDevice) -> None:
+        """Update left camera reference (called by lifecycle manager)."""
+        self._left = camera
 
-            # Close existing camera if still open (loop has now exited)
-            if camera_ref is not None:
-                try:
-                    camera_ref.close()
-                    logger.debug(f"{camera_id} camera closed for reconnection")
-                except Exception as exc:
-                    logger.warning(f"Error closing {camera_id} camera: {exc}")
+    def _set_right(self, camera: CameraDevice) -> None:
+        """Update right camera reference (called by lifecycle manager)."""
+        self._right = camera
 
-            # Create new camera instance
-            new_camera = self._build_camera()
-
-            # Open camera
-            logger.debug(f"Opening {camera_id} camera with serial: {serial}")
-            new_camera.open(serial)
-
-            # Configure camera using the same left/right-specific path as initial startup.
-            PipelineInitializer.configure_camera(new_camera, self._config, is_left=(camera_id == "left"))
-            if self._backend == "uvc":
-                PipelineInitializer.verify_camera_configuration(new_camera, self._config)
-
-            # Update camera reference and re-arm the loop under the camera lock.
-            stop_event.clear()
-            with self._camera_lock:
-                if camera_id == "left":
-                    self._left = new_camera
-                else:
-                    self._right = new_camera
-
-            # Restart capture thread (daemon so it never blocks interpreter exit)
-            logger.debug(f"Starting capture thread for {camera_id} camera")
-            new_thread = threading.Thread(
-                target=self._capture_loop,
-                args=(camera_id, new_camera, stop_event),
-                name=f"Capture-{camera_id}",
-                daemon=True,
-            )
-
-            if camera_id == "left":
-                self._left_thread = new_thread
-            else:
-                self._right_thread = new_thread
-
-            new_thread.start()
-
-            logger.info(f"Successfully reconnected {camera_id} camera")
-            return True
-
-        except Exception as exc:
-            if new_camera is not None:
-                try:
-                    new_camera.close()
-                except Exception as close_exc:
-                    logger.warning(f"Failed to close rejected {camera_id} camera: {close_exc}")
-            logger.error(f"Failed to reconnect {camera_id} camera: {exc}", exc_info=True)
-            return False
+    def _get_camera(self, camera_id: str):
+        """Get current camera device by id (called by lifecycle manager)."""
+        if camera_id == "left":
+            return self._left
+        return self._right
 
     def _build_camera(self) -> CameraDevice:
-        """Build camera instance based on backend.
+        """Build camera instance (delegates to factory, kept for test compat)."""
+        return self._factory.build_camera()
 
-        Returns:
-            CameraDevice instance
-        """
-        if self._backend == "opencv":
-            return OpenCVCamera()
-        if self._backend == "sim":
-            return SimulatedCamera()
-        return UvcCamera()
+    def _try_reconnect_camera(self, camera_id: str) -> bool:
+        """Reconnect camera (delegates to lifecycle, kept for test compat)."""
+        return self._lifecycle._try_reconnect_camera(camera_id)
 
-    def _start_capture_threads(self) -> None:
-        """Start capture threads for both cameras.
-
-        Both cameras are already opened and configured at this point; we flush
-        any stale buffered frames and start both loops together so the first
-        delivered frames are as close in time as the backends allow.
-        """
-        if self._left is None or self._right is None:
-            return
-
-        self._capture_running = True
-        self._left_stop.clear()
-        self._right_stop.clear()
-        self._left_thread = threading.Thread(
-            target=self._capture_loop,
-            args=("left", self._left, self._left_stop),
-            name="Capture-left",
-            daemon=True,
-        )
-        self._right_thread = threading.Thread(
-            target=self._capture_loop,
-            args=("right", self._right, self._right_stop),
-            name="Capture-right",
-            daemon=True,
-        )
-        self._left_thread.start()
-        self._right_thread.start()
-
-    def _capture_loop(self, label: str, camera: CameraDevice, stop_event: threading.Event) -> None:
-        """Main capture loop for a camera.
-
-        Continuously reads frames from camera and:
-        1. Updates latest frame for preview
-        2. Calls frame callback if set
-
-        Implements robust error handling:
-        - Logs all exceptions with full traceback
-        - Tracks consecutive failures
-        - Detects stalled cameras (no frames for N seconds)
-        - Calls error callback on fatal errors
-        - Stops loop after too many consecutive failures
-
-        Args:
-            label: Camera label ("left" or "right")
-            camera: Camera device to read from
-            stop_event: Per-camera stop signal; the loop exits when this is set
-                (used by reconnection to stop just this camera) or when the
-                global capture flag clears.
-        """
-        consecutive_failures = 0
-        last_frame_time = time.monotonic()
-        total_frames = 0
-
-        logger.info(f"Camera {label}: Capture loop started")
-
-        while self._capture_running and not stop_event.is_set():
-            try:
-                frame = camera.read_frame(timeout_ms=200)
-
-                # Frame read succeeded - reset failure counter
-                consecutive_failures = 0
-                last_frame_time = time.monotonic()
-                total_frames += 1
-
-                # Validate frame
-                if not self._validate_frame(label, frame):
-                    logger.warning(f"Camera {label}: Invalid frame received (frame {total_frames})")
-                    continue
-
-                # Update latest frame for preview
-                with self._latest_lock:
-                    if label == "left":
-                        self._left_latest = frame
-                    else:
-                        self._right_latest = frame
-
-                # Notify parent via callback
-                if self._on_frame_captured:
-                    try:
-                        self._on_frame_captured(label, frame)
-                    except Exception as e:
-                        logger.error(f"Camera {label}: Error in frame callback: {e}", exc_info=True)
-
-            except TimeoutError:
-                # Timeout is expected occasionally, don't log as error
-                logger.debug(f"Camera {label}: Frame read timeout")
-                continue
-
-            except Exception as exc:
-                consecutive_failures += 1
-                logger.error(
-                    f"Camera {label}: Frame read failed "
-                    f"(attempt {consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}): {exc}",
-                    exc_info=True,
-                )
-
-                # Check for fatal error conditions
-                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
-                    error_msg = (
-                        f"Camera {label} failed after {MAX_CONSECUTIVE_FAILURES} consecutive attempts. "
-                        f"Last error: {exc}"
-                    )
-                    logger.critical(error_msg)
-
-                    if self._on_camera_error:
-                        self._on_camera_error(label, error_msg)
-
-                    # Report disconnection to reconnection manager
-                    if self._reconnection_mgr:
-                        self._reconnection_mgr.report_disconnection(label)
-
-                    break
-
-            # Health check: detect stalled camera
-            time_since_frame = time.monotonic() - last_frame_time
-            if time_since_frame > FRAME_STALL_TIMEOUT:
-                error_msg = f"Camera {label} stalled - no frames for {time_since_frame:.1f} seconds"
-                logger.critical(error_msg)
-
-                if self._on_camera_error:
-                    self._on_camera_error(label, error_msg)
-
-                # Report disconnection to reconnection manager
-                if self._reconnection_mgr:
-                    self._reconnection_mgr.report_disconnection(label)
-
-                break
-
-        logger.info(
-            f"Camera {label}: Capture loop stopped " f"(total_frames={total_frames}, failures={consecutive_failures})"
-        )
-
-    def _validate_frame(self, label: str, frame: Frame) -> bool:
-        """Validate that frame is usable.
-
-        Args:
-            label: Camera label for logging
-            frame: Frame to validate
-
-        Returns:
-            True if frame is valid, False otherwise
-        """
-        import numpy as np
-
-        # Check frame exists
-        if frame is None:
-            logger.error(f"Camera {label}: Frame is None")
-            return False
-
-        # Check image data exists
-        if frame.image is None:
-            logger.error(f"Camera {label}: Frame image is None")
-            return False
-
-        # Check dimensions are reasonable
-        if frame.width <= 0 or frame.height <= 0:
-            logger.error(f"Camera {label}: Invalid dimensions {frame.width}x{frame.height}")
-            return False
-
-        # Check for all-zero frames (common failure mode)
-        if isinstance(frame.image, np.ndarray):
-            if np.all(frame.image == 0):
-                logger.warning(f"Camera {label}: All-zero frame detected")
-                return False
-
-        return True
+    def _validate_frame(self, label: str, frame) -> bool:
+        """Validate frame (delegates to module function, kept for test compat)."""
+        from .camera_frame_router import _validate_frame
+        return _validate_frame(label, frame)
 
     def _cleanup_cameras(self) -> None:
         """Clean up camera resources on error."""
