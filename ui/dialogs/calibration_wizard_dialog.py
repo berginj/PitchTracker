@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import json
-import time
 from typing import TYPE_CHECKING, Optional
 
-import yaml
 from PySide6 import QtCore, QtWidgets
 
-from configs.settings import load_config
 from ui.device_utils import current_serial
+from ui.dialogs.calibration_wizard_support import (
+    CalibrationWizardSupport,
+    build_wizard_steps,
+)
 from ui.themes import (
     apply_standard_layout,
     get_style_manager,
@@ -47,77 +47,8 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._fiducial_error_scroll: Optional[QtWidgets.QScrollArea] = None
         self._baseline_spin: Optional[QtWidgets.QDoubleSpinBox] = None
         self._baseline_inches_label: Optional[QtWidgets.QLabel] = None
-        self._steps = [
-            {
-                "title": "Start Capture + Health Check",
-                "detail": "Select cameras, refresh devices if needed, start capture, and confirm FPS/drops.",
-                "action_label": "Start Capture",
-                "action": self._parent._start_capture,
-                "widget": self._build_device_selector,
-                "validate": self._validate_health,
-            },
-            {
-                "title": "Calibration Target (Checkerboard)",
-                "detail": "Place the checkerboard in view. The indicator turns green when detected.",
-                "action_label": "Open Guide",
-                "action": self._parent._open_calibration_guide,
-                "widget": self._build_target_indicator,
-                "validate": self._validate_target_detected,
-                "target_overlay": True,
-            },
-            {
-                "title": "Fiducials (Plate + Rubber)",
-                "detail": "Place AprilTags on the front of the plate and rubber. Both IDs must be detected.",
-                "action_label": None,
-                "action": None,
-                "widget": self._build_fiducial_indicator,
-                "validate": self._validate_fiducials,
-                "fiducial_overlay": True,
-            },
-            {
-                "title": "Lane ROI",
-                "detail": "Draw the lane ROI on the left camera view.",
-                "action_label": "Edit Lane ROI",
-                "action": lambda: self._parent._set_roi_mode("lane"),
-                "widget": self._build_lane_helper,
-                "validate": self._validate_lane_roi,
-            },
-            {
-                "title": "Plate ROI",
-                "detail": "Draw the plate ROI on the left camera view.",
-                "action_label": "Edit Plate ROI",
-                "action": lambda: self._parent._set_roi_mode("plate"),
-                "validate": self._validate_plate_roi,
-            },
-            {
-                "title": "Quick Calibrate (Checkerboard)",
-                "detail": "Run quick stereo calibration from captured checkerboard images.",
-                "action_label": "Quick Calibrate",
-                "action": self._parent._open_quick_calibrate,
-                "validate": self._validate_quick_calibrate,
-            },
-            {
-                "title": "Plate Plane Calibration",
-                "detail": "Estimate plate plane Z from a left/right image pair.",
-                "action_label": "Plate Plane Calibrate",
-                "action": self._parent._open_plate_calibrate,
-                "validate": self._validate_plate_plane,
-            },
-            {
-                "title": "Detector Test",
-                "detail": "Run the cue card test and confirm detections appear.",
-                "action_label": "Cue Card Test",
-                "action": self._parent._cue_card_test,
-                "validate": self._validate_detector_activity,
-            },
-            {
-                "title": "Ready",
-                "detail": "Calibration steps are complete. You can enter the app.",
-                "action_label": None,
-                "action": None,
-                "validate": None,
-            },
-        ]
+        self._support = CalibrationWizardSupport(parent)
+        self._steps = build_wizard_steps(self, parent)
 
         self._title = QtWidgets.QLabel()
         self._style_manager.style_label(self._title, "pageTitle")
@@ -306,26 +237,6 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         right = current_serial(self._parent._right_input)
         return bool(left and right)
 
-    def _validate_target_detected(self) -> bool:
-        """Validate that calibration target is detected.
-
-        Returns:
-            True if target found
-        """
-        return bool(self._parent._target_found)
-
-    def _validate_fiducials(self) -> bool:
-        """Validate that required fiducials are detected.
-
-        Returns:
-            True if all required fiducials detected
-        """
-        if self._parent._fiducial_error:
-            return False
-        ids = {det.tag_id for det in self._parent._fiducial_detections}
-        required = set(self._parent._fiducial_ids.values())
-        return required.issubset(ids)
-
     def _refresh_devices_and_sync(self) -> None:
         """Refresh device list and sync dropdowns."""
         self._parent._refresh_devices()
@@ -400,8 +311,8 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         flip_left_btn.setChecked(self._parent._config.camera.flip_left)
         flip_right_btn.setChecked(self._parent._config.camera.flip_right)
 
-        flip_left_btn.clicked.connect(lambda checked: self._toggle_flip("left", checked))
-        flip_right_btn.clicked.connect(lambda checked: self._toggle_flip("right", checked))
+        flip_left_btn.clicked.connect(lambda checked: self._support.toggle_flip("left", checked))
+        flip_right_btn.clicked.connect(lambda checked: self._support.toggle_flip("right", checked))
 
         flip_layout.addWidget(flip_left_btn)
         flip_layout.addWidget(flip_right_btn)
@@ -417,7 +328,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._baseline_spin.setDecimals(3)
         self._baseline_spin.setValue(self._parent._config.stereo.baseline_ft)
         self._baseline_spin.setSuffix(" ft")
-        self._baseline_spin.valueChanged.connect(self._update_baseline)
+        self._baseline_spin.valueChanged.connect(self._baseline_changed)
 
         # Helper label showing inches
         baseline_inches = self._parent._config.stereo.baseline_ft * 12
@@ -489,62 +400,12 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         widget.setLayout(form)
         return widget
 
-    def _toggle_flip(self, camera: str, checked: bool) -> None:
-        """Toggle camera flip and restart capture.
-
-        Args:
-            camera: "left" or "right"
-            checked: True to flip 180°, False for normal orientation
-        """
-        # Update config file
-        config_path = self._parent._config_path()
-        data = yaml.safe_load(config_path.read_text())
-        data.setdefault("camera", {})
-
-        if camera == "left":
-            data["camera"]["flip_left"] = checked
-        else:
-            data["camera"]["flip_right"] = checked
-
-        config_path.write_text(yaml.safe_dump(data, sort_keys=False))
-
-        # Reload config
-        self._parent._config = load_config(config_path)
-
-        # Restart capture to apply
-        if self._parent._capture_running:
-            self._parent._stop_capture()
-            QtCore.QTimer.singleShot(200, self._parent._start_capture)
-
-        # Show feedback
-        orientation = "flipped 180°" if checked else "normal"
-        self._parent._status_label.setText(f"{camera.capitalize()} camera {orientation}. Capture restarted.")
-
-    def _update_baseline(self, value_ft: float) -> None:
-        """Update baseline distance in config.
-
-        Args:
-            value_ft: Baseline distance in feet
-        """
-        # Update config file
-        config_path = self._parent._config_path()
-        data = yaml.safe_load(config_path.read_text())
-        data.setdefault("stereo", {})
-        data["stereo"]["baseline_ft"] = float(value_ft)
-        config_path.write_text(yaml.safe_dump(data, sort_keys=False))
-
-        # Reload config
-        self._parent._config = load_config(config_path)
-
-        # Update inches label
+    def _baseline_changed(self, value_ft: float) -> None:
+        """Persist a baseline edit and refresh its derived display."""
+        self._support.update_baseline(value_ft)
         baseline_inches = value_ft * 12
-        if hasattr(self, "_baseline_inches_label"):
+        if self._baseline_inches_label is not None:
             self._baseline_inches_label.setText(f"({baseline_inches:.1f} inches)")
-
-        # Show feedback
-        self._parent._status_label.setText(
-            f"Baseline updated to {value_ft:.3f} ft ({baseline_inches:.1f} inches). Run calibration to refine."
-        )
 
     def _update_live_status(self) -> None:
         """Update live status indicators (called by timer)."""
@@ -573,107 +434,14 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
                 self._fiducial_error_label.setText("")
                 self._fiducial_error_scroll.setVisible(False)
 
-    def _validate_health(self) -> bool:
-        """Validate system health.
-
-        Returns:
-            True if health check passes
-        """
-        return self._parent._health_ok()
-
-    def _validate_lane_roi(self) -> bool:
-        """Validate that lane ROI is set for both cameras.
-
-        Returns:
-            True if both lane ROIs set
-        """
-        return self._parent._lane_rect is not None and self._parent._lane_rect_right is not None
-
-    def _validate_plate_roi(self) -> bool:
-        """Validate that plate ROI is set.
-
-        Returns:
-            True if plate ROI set
-        """
-        return self._parent._plate_rect is not None
-
-    def _validate_quick_calibrate(self) -> bool:
-        """Validate that stereo calibration is complete.
-
-        Returns:
-            True if stereo calibration parameters are set
-        """
-        config = load_config(self._parent._config_path())
-        return (
-            config.stereo.cx is not None
-            and config.stereo.cy is not None
-            and config.stereo.baseline_ft > 0
-            and config.stereo.focal_length_px > 0
-        )
-
-    def _validate_plate_plane(self) -> bool:
-        """Validate that plate plane calibration is complete.
-
-        Returns:
-            True if plate plane Z is set and last calibration succeeded
-        """
-        config = load_config(self._parent._config_path())
-        plate_z = config.metrics.plate_plane_z_ft
-        if plate_z is None or abs(plate_z) < 0.001:
-            return False
-        log_path = self._parent._config_path().parent / "plate_plane_log.csv"
-        if not log_path.exists():
-            return True
-        try:
-            lines = [line.strip() for line in log_path.read_text().splitlines() if line.strip()]
-            if len(lines) <= 1:
-                return True
-            last = lines[-1].split(",")
-            return len(last) >= 2 and last[1].strip() == "1"
-        except OSError:
-            return True
-
-    def _validate_detector_activity(self) -> bool:
-        """Validate that detector is producing detections.
-
-        Returns:
-            True if detector has recent detections
-        """
-        try:
-            detections = self._parent._service.get_latest_detections()
-        except Exception:
-            return False
-        total = sum(len(items) for items in detections.values())
-        return total > 0
-
     def _finalize(self) -> None:
         """Finalize wizard, stop capture, and write log."""
         try:
             self._parent._stop_capture()
         except Exception:
             pass
-        self._write_log()
+        self._support.write_log(self._skipped_steps)
         self.accept()
-
-    def _write_log(self) -> None:
-        """Write wizard completion log."""
-        log_path = self._parent._config_path().parent / "calibration_wizard_log.json"
-        entry = {
-            "completed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "skipped_steps": self._skipped_steps,
-        }
-        payload = {"runs": []}
-        try:
-            if log_path.exists():
-                payload = json.loads(log_path.read_text())
-        except Exception:
-            payload = {"runs": []}
-        payload.setdefault("runs", [])
-        payload["runs"].append(entry)
-        try:
-            log_path.write_text(json.dumps(payload, indent=2))
-        except Exception:
-            pass
 
 
 __all__ = ["CalibrationWizardDialog"]
