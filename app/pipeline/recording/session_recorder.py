@@ -16,6 +16,10 @@ import cv2
 
 from app.events import ErrorCategory, ErrorSeverity, publish_error
 from app.pipeline.recording.manifest import create_session_manifest
+from app.pipeline.recording.session_recording_io import (
+    open_video_writer,
+    write_session_summary_csv,
+)
 from configs.settings import AppConfig
 from contracts import Frame
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
@@ -406,37 +410,7 @@ class SessionRecorder:
         Raises:
             RuntimeError: If no codec works
         """
-        # Try codecs in order of preference (H.264 first for better compression)
-        codec_list = ["H264", "avc1", "XVID", "MP4V", "MJPG"]
-
-        for codec_name in codec_list:
-            fourcc = cv2.VideoWriter_fourcc(*codec_name)
-            writer = cv2.VideoWriter(str(path), fourcc, float(fps), (width, height), True)
-
-            if writer.isOpened():
-                logger.info(f"Video writer opened successfully: {path.name} with {codec_name} codec")
-                return writer
-            else:
-                # Clean up failed attempt
-                writer.release()
-                logger.debug(f"Codec {codec_name} failed for {path.name}, trying next...")
-
-        # All codecs failed - publish error event
-        error_msg = (
-            f"Failed to open video writer for {path.name}. "
-            f"Tried codecs: {codec_list}. Check that ffmpeg or system codecs are installed."
-        )
-
-        publish_error(
-            category=ErrorCategory.RECORDING,
-            severity=ErrorSeverity.CRITICAL,
-            message=f"All video codecs failed for {path.name}",
-            source="SessionRecorder._open_video_writer",
-            video_path=str(path),
-            tried_codecs=codec_list,
-        )
-
-        raise RuntimeError(error_msg)
+        return open_video_writer(path, width, height, fps)
 
     def _open_writers(self) -> None:
         """Open video writers and CSV files."""
@@ -504,69 +478,6 @@ class SessionRecorder:
         if self._session_dir is None:
             return
 
-        path = self._session_dir / "session_summary.csv"
-        with path.open("w", newline="") as handle:
-            writer = csv.writer(handle)
-            writer.writerow(
-                [
-                    "pitch_id",
-                    "t_start_ns",
-                    "t_end_ns",
-                    "is_strike",
-                    "zone_row",
-                    "zone_col",
-                    "run_in",
-                    "rise_in",
-                    "speed_mph",
-                    "rotation_rpm",
-                    "sample_count",
-                    "trajectory_plate_x_ft",
-                    "trajectory_plate_y_ft",
-                    "trajectory_plate_z_ft",
-                    "trajectory_plate_t_ns",
-                    "trajectory_model",
-                    "trajectory_mode",
-                    "trajectory_expected_error_ft",
-                    "trajectory_confidence",
-                    "ray_rmse_px",
-                    "estimated_camera_time_offset_ms",
-                    "measurement_status",
-                    "speed_source",
-                    "movement_basis",
-                    "movement_validated",
-                ]
-            )
-            for pitch in summary.pitches:
-                writer.writerow(
-                    [
-                        pitch.pitch_id,
-                        pitch.t_start_ns,
-                        pitch.t_end_ns,
-                        int(pitch.is_strike),
-                        pitch.zone_row if pitch.zone_row is not None else "",
-                        pitch.zone_col if pitch.zone_col is not None else "",
-                        f"{pitch.run_in:.3f}",
-                        f"{pitch.rise_in:.3f}",
-                        f"{pitch.speed_mph:.3f}" if pitch.speed_mph is not None else "",
-                        f"{pitch.rotation_rpm:.3f}" if pitch.rotation_rpm is not None else "",
-                        pitch.sample_count,
-                        f"{pitch.trajectory_plate_x_ft:.4f}" if pitch.trajectory_plate_x_ft is not None else "",
-                        f"{pitch.trajectory_plate_y_ft:.4f}" if pitch.trajectory_plate_y_ft is not None else "",
-                        f"{pitch.trajectory_plate_z_ft:.4f}" if pitch.trajectory_plate_z_ft is not None else "",
-                        pitch.trajectory_plate_t_ns if pitch.trajectory_plate_t_ns is not None else "",
-                        pitch.trajectory_model if pitch.trajectory_model is not None else "",
-                        pitch.trajectory_mode if pitch.trajectory_mode is not None else "",
-                        f"{pitch.trajectory_expected_error_ft:.4f}"
-                        if pitch.trajectory_expected_error_ft is not None
-                        else "",
-                        f"{pitch.trajectory_confidence:.3f}" if pitch.trajectory_confidence is not None else "",
-                        f"{pitch.ray_rmse_px:.3f}" if pitch.ray_rmse_px is not None else "",
-                        f"{pitch.estimated_camera_time_offset_ms:.3f}"
-                        if pitch.estimated_camera_time_offset_ms is not None
-                        else "",
-                        pitch.measurement_status,
-                        pitch.speed_source or "",
-                        (pitch.quality_diagnostics or {}).get("movement_basis", ""),
-                        int(bool((pitch.quality_diagnostics or {}).get("movement_validated"))),
-                    ]
-                )
+        write_session_summary_csv(
+            self._session_dir / "session_summary.csv", summary
+        )

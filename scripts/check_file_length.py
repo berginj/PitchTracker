@@ -42,7 +42,6 @@ ALLOWLIST = {
     "app/services/detection/implementation.py",
     "tests/test_system_stress.py",
     "tests/app/pipeline/test_pitch_tracking_v2.py",
-    "app/pipeline/recording/session_recorder.py",
     "tests/integration/test_analysis_service.py",
     "app/review/review_service.py",
     "app/pipeline/pitch_tracking_v2.py",
