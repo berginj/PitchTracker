@@ -108,6 +108,7 @@ class RecordingServiceImpl(RecordingService):
         self._frame_worker = BoundedRecordingWorker(self._record_frame_sync, max_queue=240)
         self._decision_journal: Optional[SessionEvidenceJournal] = None
         self._decision_evidence_incomplete = False
+        self._pitch_lifecycle_metadata: Dict[str, Dict[str, dict]] = {}
 
         logger.info("RecordingService initialized")
 
@@ -226,6 +227,11 @@ class RecordingServiceImpl(RecordingService):
                 self._stop_pitch_internal()
 
             # Stop session recorder
+            session_event_metadata = {
+                "session_id": self._session_name,
+                "message_type": "session_lifecycle",
+                "schema_version": "1.0.0",
+            }
             self._session_recorder.stop_session(
                 config_path=self._config_path,
                 pitch_id=self._last_pitch_id or "unknown",
@@ -236,6 +242,7 @@ class RecordingServiceImpl(RecordingService):
                 calibration_report=self._calibration_report,
                 decision_evidence_manifest=decision_evidence_manifest,
                 decision_evidence_complete=decision_evidence_complete,
+                event_metadata=session_event_metadata,
             )
 
             session_dir = self._session_recorder.get_session_dir()
@@ -252,6 +259,7 @@ class RecordingServiceImpl(RecordingService):
             self._config_path = None
             self._completed_pitch_recorders.clear()
             self._decision_evidence_incomplete = False
+            self._pitch_lifecycle_metadata.clear()
 
             # Clear pre-roll buffers
             self._pre_roll_buffer["left"].clear()
@@ -704,29 +712,24 @@ class RecordingServiceImpl(RecordingService):
             logger.error("Required decision evidence was not journaled at sequence %s", result.sequence)
 
     def _on_pitch_start(self, event: PitchStartEvent) -> None:
-        """Handle PitchStartEvent from EventBus.
-
-        Creates pitch recorder and flushes pre-roll.
-
-        Args:
-            event: PitchStartEvent with pitch_id, pitch_index, timestamp_ns
-        """
+        """Handle PitchStartEvent from EventBus."""
         try:
+            with self._lock:
+                self._pitch_lifecycle_metadata[event.pitch_id] = {
+                    "pitch_start": event.metadata.to_dict(),
+                }
             self.start_pitch(event.pitch_id)
         except Exception as e:
             logger.error(f"Error starting pitch recording: {e}", exc_info=True)
 
     def _on_pitch_end(self, event: PitchEndEvent) -> None:
-        """Handle PitchEndEvent from EventBus.
-
-        Finalizes pitch recording and writes manifest.
-
-        Args:
-            event: PitchEndEvent with pitch_id, observations, timestamp_ns, duration_ns
-        """
+        """Handle PitchEndEvent from EventBus."""
         try:
             logger.debug("PitchEndEvent received for %s", event.pitch_id)
             with self._lock:
+                lifecycle = self._pitch_lifecycle_metadata.get(event.pitch_id)
+                if lifecycle is not None:
+                    lifecycle["pitch_end"] = event.metadata.to_dict()
                 recorder = (
                     self._pitch_recorder if self._pitch_active and self._current_pitch_id == event.pitch_id else None
                 )
@@ -744,10 +747,7 @@ class RecordingServiceImpl(RecordingService):
             logger.error(f"Error handling pitch end: {e}", exc_info=True)
 
     def _on_pitch_analyzed(self, event: PitchAnalyzedEvent) -> None:
-        """Handle PitchAnalyzedEvent from EventBus.
-
-        Writes the finalized pitch manifest once analysis is complete.
-        """
+        """Handle PitchAnalyzedEvent from EventBus."""
         try:
             with self._lock:
                 recorder = None
@@ -755,17 +755,47 @@ class RecordingServiceImpl(RecordingService):
                     recorder = self._pitch_recorder
                 if recorder is None:
                     recorder = self._completed_pitch_recorders.get(event.pitch_id)
+                lifecycle = self._pitch_lifecycle_metadata.pop(event.pitch_id, {})
 
             if recorder is None:
                 logger.warning("No pitch recorder available for analyzed pitch %s", event.pitch_id)
                 return
 
-            recorder.write_manifest(event.summary, self._config_path)
+            lifecycle["pitch_analyzed"] = event.metadata.to_dict()
+            self._validate_lifecycle_metadata(event.pitch_id, lifecycle)
+            recorder.write_manifest(
+                event.summary,
+                self._config_path,
+                event_metadata=lifecycle,
+            )
 
             with self._lock:
                 self._completed_pitch_recorders.pop(event.pitch_id, None)
         except Exception as e:
             logger.error(f"Error writing pitch manifest: {e}", exc_info=True)
+
+    def _validate_lifecycle_metadata(self, pitch_id: str, lifecycle: Dict[str, dict]) -> None:
+        """Log warnings if session_id/pitch_id are inconsistent across lifecycle phases."""
+        session_ids = set()
+        pitch_ids = set()
+        for phase in ("pitch_start", "pitch_end", "pitch_analyzed"):
+            meta = lifecycle.get(phase)
+            if meta is None:
+                continue
+            sid = meta.get("session_id")
+            pid = meta.get("pitch_id")
+            if sid is not None:
+                session_ids.add(sid)
+            if pid is not None:
+                pitch_ids.add(pid)
+        if len(session_ids) > 1:
+            logger.warning(
+                "Pitch %s lifecycle has inconsistent session_ids: %s", pitch_id, session_ids,
+            )
+        if len(pitch_ids) > 1:
+            logger.warning(
+                "Pitch %s lifecycle has inconsistent pitch_ids: %s", pitch_id, pitch_ids,
+            )
 
     # EventBus Subscription Management
 

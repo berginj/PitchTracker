@@ -226,6 +226,7 @@ class SessionRecorder:
         calibration_report: Optional[dict] = None,
         decision_evidence_manifest: Optional[str] = None,
         decision_evidence_complete: Optional[bool] = None,
+        event_metadata: Optional[dict] = None,
     ) -> None:
         """Stop session recording.
 
@@ -266,6 +267,7 @@ class SessionRecorder:
             calibration_report=calibration_report,
             decision_evidence_manifest=decision_evidence_manifest,
             decision_evidence_complete=decision_evidence_complete,
+            event_metadata=event_metadata,
         )
         (self._session_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
         self._session_started_utc = None

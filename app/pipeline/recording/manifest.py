@@ -34,6 +34,7 @@ def create_session_manifest(
     calibration_report: Optional[Dict[str, Any]] = None,
     decision_evidence_manifest: Optional[str] = None,
     decision_evidence_complete: Optional[bool] = None,
+    event_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Create session manifest.
 
@@ -71,6 +72,8 @@ def create_session_manifest(
             "session_right_timestamps": "session_right_timestamps.csv",
         }
     )
+    if event_metadata:
+        manifest["event_metadata"] = event_metadata
     return _json_safe(manifest)
 
 
@@ -80,6 +83,7 @@ def create_pitch_manifest(
     performance_metrics: Optional[Dict] = None,
     left_video: str = "left.avi",
     right_video: str = "right.avi",
+    event_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Create pitch manifest.
 
@@ -146,6 +150,9 @@ def create_pitch_manifest(
     # Add performance metrics if provided
     if performance_metrics:
         manifest["performance_metrics"] = performance_metrics
+
+    if event_metadata:
+        manifest["event_metadata"] = event_metadata
 
     return _json_safe(manifest)
 

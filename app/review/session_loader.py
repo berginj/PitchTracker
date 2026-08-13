@@ -43,6 +43,7 @@ class LoadedPitch:
     original_detections_right: Optional[dict] = None
     original_observations: Optional[list] = None
     frame_files: Optional[list[Path]] = None
+    event_metadata: Optional[dict] = None
 
 
 @dataclass
@@ -504,6 +505,7 @@ class SessionLoader:
             original_detections_right=detections_right,
             original_observations=observations,
             frame_files=frame_files,
+            event_metadata=manifest.get("event_metadata"),
         )
 
     @staticmethod

@@ -327,20 +327,21 @@ class PitchRecorder:
         self._evidence.write()
         self._evidence_written = True
 
-    def write_manifest(self, summary, config_path: Optional[str], performance_metrics: Optional[Dict] = None) -> None:
-        """Write pitch manifest to JSON file.
-
-        Args:
-            summary: PitchSummary object
-            config_path: Path to config file used
-            performance_metrics: Optional performance metrics dict
-        """
+    def write_manifest(
+        self,
+        summary,
+        config_path: Optional[str],
+        performance_metrics: Optional[Dict] = None,
+        event_metadata: Optional[Dict] = None,
+    ) -> None:
+        """Write pitch manifest to JSON file."""
         manifest = create_pitch_manifest(
             summary,
             config_path,
             performance_metrics,
             left_video=self._left_video_name,
             right_video=self._right_video_name,
+            event_metadata=event_metadata,
         )
         manifest["evidence_manifest"] = "evidence/manifest.json"
         manifest["corrections"] = summary.correction_records or []
