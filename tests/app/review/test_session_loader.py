@@ -53,3 +53,61 @@ def test_load_session_supports_current_manifest_names(tmp_path):
     assert len(loaded.pitches) == 1
     assert loaded.pitches[0].pitch_id == "pitch_00001"
     assert loaded.pitches[0].left_video_path.name == "left.mp4"
+
+
+def test_load_session_supports_legacy_manifest_names(tmp_path):
+    session_dir = tmp_path / "legacy_session"
+    session_dir.mkdir()
+    (session_dir / "session_manifest.json").write_text(
+        json.dumps({"session_name": "legacy", "session_left_video": "left.avi"})
+    )
+    (session_dir / "left.avi").write_bytes(b"")
+    pitch_dir = session_dir / "pitch_00002"
+    pitch_dir.mkdir()
+    (pitch_dir / "pitch_manifest.json").write_text(json.dumps({"pitch_id": "pitch_00002"}))
+
+    loaded = SessionLoader.load_session(session_dir)
+
+    assert loaded.session_id == "legacy"
+    assert [pitch.pitch_id for pitch in loaded.pitches] == ["pitch_00002"]
+
+
+def test_load_session_rejects_manifest_path_traversal(tmp_path):
+    session_dir = tmp_path / "session"
+    session_dir.mkdir()
+    (session_dir / "manifest.json").write_text(json.dumps({"session_left_video": "../outside.avi"}))
+    (session_dir / "session_left.avi").write_bytes(b"")
+
+    loaded = SessionLoader.load_session(session_dir)
+
+    assert loaded.left_video_path == session_dir / "session_left.avi"
+
+
+def test_load_session_skips_corrupt_optional_pitch_json(tmp_path):
+    session_dir = tmp_path / "session"
+    session_dir.mkdir()
+    (session_dir / "manifest.json").write_text(json.dumps({}))
+    (session_dir / "session_left.avi").write_bytes(b"")
+    pitch_dir = session_dir / "pitch_00001"
+    pitch_dir.mkdir()
+    (pitch_dir / "manifest.json").write_text(json.dumps({}))
+    (pitch_dir / "observations.json").write_text("{broken")
+
+    loaded = SessionLoader.load_session(session_dir)
+
+    assert loaded.pitches[0].original_observations is None
+
+
+def test_load_session_skips_non_utf8_optional_pitch_json(tmp_path):
+    session_dir = tmp_path / "session"
+    session_dir.mkdir()
+    (session_dir / "manifest.json").write_text(json.dumps({}))
+    (session_dir / "session_left.avi").write_bytes(b"")
+    pitch_dir = session_dir / "pitch_00001"
+    pitch_dir.mkdir()
+    (pitch_dir / "manifest.json").write_text(json.dumps({}))
+    (pitch_dir / "observations.json").write_bytes(b"\xff\xfe")
+
+    loaded = SessionLoader.load_session(session_dir)
+
+    assert loaded.pitches[0].original_observations is None
