@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from contracts import Frame
+from contracts.capability_observation import CapabilityObservation
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,10 @@ class CameraDevice(ABC):
 
     def get_controls(self) -> Optional[dict[str, Any]]:
         """Return control readback and verification metadata when supported."""
+        return None
+
+    def get_capability_observation(self) -> Optional[CapabilityObservation]:
+        """Return typed capability observation when the backend supports it."""
         return None
 
     @abstractmethod

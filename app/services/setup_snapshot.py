@@ -177,6 +177,12 @@ def _camera_inventory(camera: Any, unavailable: list[str], side: str) -> dict[st
         "capability_score": int(getattr(camera, "capability_score", 0) or 0),
         "recommendation_reason": str(getattr(camera, "recommendation_reason", "") or ""),
     }
+    # Persist typed capability observations when available.
+    observation = getattr(camera, "capability_observation", None)
+    if observation is not None and hasattr(observation, "to_payload"):
+        values["capability_observation"] = observation.to_payload()
+    else:
+        unavailable.append(f"cameras.{side}.capability_observation")
     for field in ("instance_id", "device_path", "usb_controller", "driver_version", "firmware_version"):
         if values[field] in {None, ""}:
             unavailable.append(f"cameras.{side}.{field}")

@@ -91,11 +91,6 @@ class UvcCamera(CameraDevice):
         Raises:
             CameraNotFoundError: If camera is not found
             CameraConnectionError: If connection fails
-
-        Note:
-            - Uses 5 second timeout to prevent hanging
-            - Retries up to 3 times with exponential backoff
-            - Logs all attempts for debugging
         """
         try:
             # Ensure serial is a string (might be int from some code paths)
@@ -162,15 +157,6 @@ class UvcCamera(CameraDevice):
         vertical_offset_px: int = 0,
     ) -> None:
         """Set camera capture mode.
-
-        Args:
-            width: Frame width in pixels
-            height: Frame height in pixels
-            fps: Target frames per second
-            pixfmt: Pixel format (GRAY8, RGB24, etc.)
-            flip_180: Rotate frame 180° (for upside-down camera mount)
-            rotation_correction: Degrees to rotate for alignment correction (e.g., -3.7)
-            vertical_offset_px: Shift image up by this many pixels after rotation.
 
         Raises:
             CameraConfigurationError: If mode setting fails
@@ -362,6 +348,18 @@ class UvcCamera(CameraDevice):
                 else "Control write/readback mismatch; measurement setup must remain blocked."
             ),
         }
+
+    def get_capability_observation(self):
+        """Build typed capability observation from current UVC readback."""
+        if self._capture is None:
+            return None
+        from capture.uvc_capability_observation import build_uvc_observation
+        return build_uvc_observation(
+            serial=self._serial or "",
+            requested_width=self._width, requested_height=self._height,
+            requested_fps=self._fps, requested_pixfmt=self._pixfmt,
+            mode=self.get_mode() or {}, controls=self.get_controls() or {},
+        )
 
     def read_frame(self, timeout_ms: int) -> Frame:
         """Read a frame from the camera.

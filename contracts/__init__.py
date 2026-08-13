@@ -37,6 +37,13 @@ from .catalog import (
     KnownDevice,
     KnownGoodSettings,
 )
+from .capability_observation import (
+    ALL_CONTROLS,
+    CapabilityObservation,
+    ControlQueryResult,
+    ControlQueryStatus,
+    build_simulated_observation,
+)
 from .evidence import (
     AssociationEdgeEvidence,
     Candidate2DEvidence,
@@ -104,6 +111,11 @@ __all__ = [
     "KnownGoodSettings",
     "CameraCatalogEntry",
     "KnownDevice",
+    "ALL_CONTROLS",
+    "CapabilityObservation",
+    "ControlQueryResult",
+    "ControlQueryStatus",
+    "build_simulated_observation",
     "Candidate2DEvidence",
     "CandidateDecisionEvidence",
     "DecisionArtifactBindings",
