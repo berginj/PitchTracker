@@ -1,14 +1,27 @@
-"""Review window for analyzing recorded sessions."""
+"""Review window for analyzing recorded sessions.
+
+This module is the thin facade/shell. Domain controllers live in sibling modules:
+- _session_controller: session load/nav/delete
+- _playback_controller: timer, speed, stepping
+- _export_controller: config/annotation export
+- _trajectory_controller: overlay rendering & diagnostics
+- _menu_bar: menu construction
+"""
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.review import PitchScore, ReviewService
+from ui.review._export_controller import ExportController
+from ui.review._menu_bar import build_menu_bar
+from ui.review._playback_controller import PlaybackController
+from ui.review._session_controller import SessionController
+from ui.review._trajectory_controller import TrajectoryController
 from ui.review.widgets import (
     ParameterPanel,
     PitchListWidget,
@@ -17,12 +30,7 @@ from ui.review.widgets import (
     TrajectoryDiagnosticsPanel,
     VideoDisplayWidget,
 )
-from ui.themes import apply_standard_layout, ask_confirmation, get_style_manager, show_message_dialog
-from visualization.trajectory_renderer import (
-    RenderStyle,
-    TrajectoryRenderConfig,
-    TrajectoryRenderer,
-)
+from ui.themes import apply_standard_layout, get_style_manager
 
 logger = logging.getLogger(__name__)
 
@@ -56,175 +64,90 @@ class ReviewWindow(QtWidgets.QMainWindow):
         # Review service backend
         self._service = ReviewService()
 
-        # Playback timer
-        self._playback_timer = QtCore.QTimer()
-        self._playback_timer.timeout.connect(self._on_playback_tick)
-        self._is_playing = False
-        self._loop_enabled = False
-
-        # Trajectory overlay
-        self._trajectory_overlay_enabled = False
-        self._trajectory_renderer_left: Optional[TrajectoryRenderer] = None
-        self._trajectory_renderer_right: Optional[TrajectoryRenderer] = None
-        self._current_observations: List = []
-
-        # Session navigation
-        self._session_list: list[Path] = []
-        self._current_session_index = -1
-
-        # Build UI
-        self._build_ui()
-        self._update_ui_state()
-
-        logger.info("ReviewWindow initialized")
-
-    def _build_ui(self) -> None:
-        """Build the main UI layout."""
-        # Create menu bar
-        self._create_menu_bar()
-
-        # Main content area
-        content = self._build_content_area()
-
-        # Status bar
+        # Status bar (needed by controllers)
         self._status_bar = QtWidgets.QStatusBar()
         self.setStatusBar(self._status_bar)
         self._status_bar.showMessage("Ready. Open a session to begin.")
 
-        # Set central widget — splitter + right-panel scroll handle all
-        # responsiveness; no outer scroll wrapper needed.
+        # Controllers
+        self._session_ctrl = SessionController(
+            self._service,
+            parent_widget=self,
+            on_session_loaded=self._on_session_loaded,
+            on_session_closed=self._on_session_closed,
+            status_bar=self._status_bar,
+        )
+        self._playback_ctrl = PlaybackController(
+            self._service,
+            status_bar=self._status_bar,
+            on_frame_changed=self._update_video_displays,
+            get_timeline_updater=self._timeline_set_frame,
+        )
+        self._trajectory_ctrl = TrajectoryController(self._service)
+
+        # Build UI (creates widgets needed by export controller)
+        self._build_ui()
+
+        self._export_ctrl = ExportController(
+            self._service,
+            parent_widget=self,
+            get_pitch_scores=self._pitch_list.get_pitch_scores,
+        )
+
+        self._update_ui_state()
+        logger.info("ReviewWindow initialized")
+
+    # ------------------------------------------------------------------
+    # Timeline helper (needed before _build_ui runs)
+    # ------------------------------------------------------------------
+
+    def _timeline_set_frame(self, frame_index: int) -> None:
+        """Proxy for timeline widget frame update."""
+        self._timeline.set_current_frame(frame_index)
+
+    # ------------------------------------------------------------------
+    # UI Construction
+    # ------------------------------------------------------------------
+
+    def _build_ui(self) -> None:
+        """Build the main UI layout."""
+        self._create_menu_bar()
+        content = self._build_content_area()
         self.setCentralWidget(content)
 
     def _create_menu_bar(self) -> None:
         """Create menu bar with File, Playback, Tools, Export menus."""
-        menubar = self.menuBar()
-
-        # File menu
-        file_menu = menubar.addMenu("&File")
-
-        open_action = QtGui.QAction("&Open Session...", self)
-        open_action.setShortcut("Ctrl+O")
-        open_action.triggered.connect(self._open_session)
-        file_menu.addAction(open_action)
-
-        review_all_action = QtGui.QAction("Review &All Sessions", self)
-        review_all_action.setShortcut("Ctrl+Shift+O")
-        review_all_action.triggered.connect(self._review_all_sessions)
-        file_menu.addAction(review_all_action)
-
-        file_menu.addSeparator()
-
-        prev_session_action = QtGui.QAction("&Previous Session", self)
-        prev_session_action.setShortcut("Ctrl+PgUp")
-        prev_session_action.triggered.connect(self._previous_session)
-        file_menu.addAction(prev_session_action)
-        self._prev_session_action = prev_session_action
-
-        next_session_action = QtGui.QAction("&Next Session", self)
-        next_session_action.setShortcut("Ctrl+PgDown")
-        next_session_action.triggered.connect(self._next_session)
-        file_menu.addAction(next_session_action)
-        self._next_session_action = next_session_action
-
-        file_menu.addSeparator()
-
-        delete_session_action = QtGui.QAction("&Delete Current Session...", self)
-        delete_session_action.setShortcut("Ctrl+D")
-        delete_session_action.triggered.connect(self._delete_current_session)
-        file_menu.addAction(delete_session_action)
-        self._delete_session_action = delete_session_action
-
-        file_menu.addSeparator()
-
-        close_action = QtGui.QAction("&Close Session", self)
-        close_action.setShortcut("Ctrl+W")
-        close_action.triggered.connect(self._close_session)
-        file_menu.addAction(close_action)
-
-        file_menu.addSeparator()
-
-        exit_action = QtGui.QAction("E&xit", self)
-        exit_action.setShortcut("Ctrl+Q")
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
-
-        # Playback menu
-        playback_menu = menubar.addMenu("&Playback")
-
-        play_pause_action = QtGui.QAction("Play/Pause", self)
-        play_pause_action.setShortcut("Space")
-        play_pause_action.triggered.connect(self._toggle_playback)
-        playback_menu.addAction(play_pause_action)
-
-        step_forward_action = QtGui.QAction("Step Forward", self)
-        step_forward_action.setShortcut("Right")
-        step_forward_action.triggered.connect(self._step_forward)
-        playback_menu.addAction(step_forward_action)
-
-        step_back_action = QtGui.QAction("Step Backward", self)
-        step_back_action.setShortcut("Left")
-        step_back_action.triggered.connect(self._step_backward)
-        playback_menu.addAction(step_back_action)
-
-        playback_menu.addSeparator()
-
-        seek_start_action = QtGui.QAction("Seek to Start", self)
-        seek_start_action.setShortcut("Home")
-        seek_start_action.triggered.connect(self._seek_to_start)
-        playback_menu.addAction(seek_start_action)
-
-        seek_end_action = QtGui.QAction("Seek to End", self)
-        seek_end_action.setShortcut("End")
-        seek_end_action.triggered.connect(self._seek_to_end)
-        playback_menu.addAction(seek_end_action)
-
-        # Tools menu
-        tools_menu = menubar.addMenu("&Tools")
-
-        annotation_action = QtGui.QAction("Toggle Annotation Mode", self)
-        annotation_action.setShortcut("A")
-        annotation_action.setCheckable(True)
-        annotation_action.triggered.connect(self._toggle_annotation_mode)
-        tools_menu.addAction(annotation_action)
-        self._annotation_action = annotation_action
-
-        clear_annotations_action = QtGui.QAction("Clear Annotations", self)
-        clear_annotations_action.triggered.connect(self._clear_annotations)
-        tools_menu.addAction(clear_annotations_action)
-
-        tools_menu.addSeparator()
-
-        trajectory_action = QtGui.QAction("Toggle Trajectory Overlay", self)
-        trajectory_action.setShortcut("T")
-        trajectory_action.setCheckable(True)
-        trajectory_action.triggered.connect(self._toggle_trajectory_overlay)
-        tools_menu.addAction(trajectory_action)
-        self._trajectory_action = trajectory_action
-
-        # Export menu
-        export_menu = menubar.addMenu("&Export")
-
-        export_config_action = QtGui.QAction("Export &Config...", self)
-        export_config_action.triggered.connect(self._export_config)
-        export_menu.addAction(export_config_action)
-
-        export_annotations_action = QtGui.QAction("Export &Annotations...", self)
-        export_annotations_action.triggered.connect(self._export_annotations)
-        export_menu.addAction(export_annotations_action)
+        handlers = {
+            "open_session": self._session_ctrl.open_session_dialog,
+            "review_all": self._session_ctrl.review_all_sessions,
+            "prev_session": self._session_ctrl.previous_session,
+            "next_session": self._session_ctrl.next_session,
+            "delete_session": self._session_ctrl.delete_current_session,
+            "close_session": self._session_ctrl.close_session,
+            "play_pause": self._playback_ctrl.toggle_playback,
+            "step_forward": self._playback_ctrl.step_forward,
+            "step_backward": self._playback_ctrl.step_backward,
+            "seek_start": self._playback_ctrl.seek_to_start,
+            "seek_end": self._playback_ctrl.seek_to_end,
+            "toggle_annotation": self._toggle_annotation_mode,
+            "clear_annotations": self._clear_annotations,
+            "toggle_trajectory": self._toggle_trajectory_overlay,
+            "export_config": lambda: self._export_ctrl.export_config(),
+            "export_annotations": lambda: self._export_ctrl.export_annotations(),
+        }
+        build_menu_bar(self, handlers)
+        actions = handlers["_actions"]
+        self._prev_session_action = actions["prev_session"]
+        self._next_session_action = actions["next_session"]
+        self._delete_session_action = actions["delete_session"]
+        self._annotation_action = actions["annotation"]
+        self._trajectory_action = actions["trajectory"]
 
     def _build_content_area(self) -> QtWidgets.QWidget:
-        """Build main content area with video displays and controls.
-
-        Returns:
-            Widget containing the main UI layout
-        """
-        # Left section: Videos + timeline + controls
+        """Build main content area with video displays and controls."""
         left_section = self._build_video_and_controls_section()
-
-        # Right section: Parameter panel + trajectory diagnostics + pitch list
         right_section = self._build_right_panel()
 
-        # Resizable splitter between video and right panel
         splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
         splitter.addWidget(left_section)
         splitter.addWidget(right_section)
@@ -232,7 +155,6 @@ class ReviewWindow(QtWidgets.QMainWindow):
         splitter.setStretchFactor(1, 0)
         splitter.setAccessibleName("Review layout splitter")
 
-        # Main layout
         main_layout = QtWidgets.QHBoxLayout()
         apply_standard_layout(main_layout)
         main_layout.addWidget(splitter)
@@ -243,25 +165,17 @@ class ReviewWindow(QtWidgets.QMainWindow):
         return container
 
     def _build_right_panel(self) -> QtWidgets.QWidget:
-        """Build right panel with parameters, diagnostics, and pitch list.
-
-        Returns:
-            Widget with right panel layout
-        """
-        # Parameter tuning panel
+        """Build right panel with parameters, diagnostics, and pitch list."""
         self._parameter_panel = ParameterPanel()
         self._parameter_panel.parameter_changed.connect(self._on_parameters_changed)
 
-        # Trajectory diagnostics panel
         self._trajectory_diagnostics_panel = TrajectoryDiagnosticsPanel()
 
-        # Pitch list widget
         self._pitch_list = PitchListWidget()
         self._pitch_list.pitch_highlighted.connect(self._on_pitch_highlighted)
         self._pitch_list.pitch_selected.connect(self._on_pitch_selected)
         self._pitch_list.pitch_scored.connect(self._on_pitch_scored)
 
-        # Vertical layout
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._parameter_panel)
@@ -279,34 +193,30 @@ class ReviewWindow(QtWidgets.QMainWindow):
         return scroll
 
     def _build_video_and_controls_section(self) -> QtWidgets.QWidget:
-        """Build video displays, timeline, and playback controls.
-
-        Returns:
-            Widget with video section layout
-        """
-        # Top: Dual video displays
+        """Build video displays, timeline, and playback controls."""
         video_section = self._build_video_section()
 
-        # Middle: Timeline
         self._timeline = TimelineWidget()
-        self._timeline.seek_requested.connect(self._on_timeline_seek)
+        self._timeline.seek_requested.connect(
+            lambda idx: self._playback_ctrl.seek_to_frame(idx)
+        )
 
-        # Bottom: Playback controls
         self._controls = PlaybackControls()
-        self._controls.play_pause_clicked.connect(self._toggle_playback)
-        self._controls.step_forward_clicked.connect(self._step_forward)
-        self._controls.step_backward_clicked.connect(self._step_backward)
-        self._controls.seek_start_clicked.connect(self._seek_to_start)
-        self._controls.seek_end_clicked.connect(self._seek_to_end)
-        self._controls.speed_changed.connect(self._on_speed_changed)
-        self._controls.loop_toggled.connect(self._on_loop_toggled)
+        self._controls.play_pause_clicked.connect(self._playback_ctrl.toggle_playback)
+        self._controls.step_forward_clicked.connect(self._playback_ctrl.step_forward)
+        self._controls.step_backward_clicked.connect(self._playback_ctrl.step_backward)
+        self._controls.seek_start_clicked.connect(self._playback_ctrl.seek_to_start)
+        self._controls.seek_end_clicked.connect(self._playback_ctrl.seek_to_end)
+        self._controls.speed_changed.connect(self._playback_ctrl.on_speed_changed)
+        self._controls.loop_toggled.connect(self._playback_ctrl.on_loop_toggled)
         self._controls.prev_pitch_clicked.connect(self._prev_pitch)
         self._controls.next_pitch_clicked.connect(self._next_pitch)
 
-        # Layout
+        self._playback_ctrl.set_controls_widget(self._controls)
+
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(video_section, 1)  # Takes most space
+        layout.addWidget(video_section, 1)
         layout.addWidget(self._timeline)
         layout.addWidget(self._controls)
 
@@ -315,28 +225,25 @@ class ReviewWindow(QtWidgets.QMainWindow):
         return container
 
     def _build_video_section(self) -> QtWidgets.QWidget:
-        """Build dual video display section.
-
-        Returns:
-            Widget with left and right video displays
-        """
-        # Left camera display
+        """Build dual video display section."""
         left_group = QtWidgets.QGroupBox("Left Camera")
         self._left_display = VideoDisplayWidget()
-        self._left_display.annotation_added.connect(lambda x, y: self._on_annotation_added("left", x, y))
+        self._left_display.annotation_added.connect(
+            lambda x, y: self._on_annotation_added("left", x, y)
+        )
         left_layout = QtWidgets.QVBoxLayout()
         left_layout.addWidget(self._left_display)
         left_group.setLayout(left_layout)
 
-        # Right camera display
         right_group = QtWidgets.QGroupBox("Right Camera")
         self._right_display = VideoDisplayWidget()
-        self._right_display.annotation_added.connect(lambda x, y: self._on_annotation_added("right", x, y))
+        self._right_display.annotation_added.connect(
+            lambda x, y: self._on_annotation_added("right", x, y)
+        )
         right_layout = QtWidgets.QVBoxLayout()
         right_layout.addWidget(self._right_display)
         right_group.setLayout(right_layout)
 
-        # Horizontal layout for side-by-side
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(left_group)
         layout.addWidget(right_group)
@@ -345,527 +252,125 @@ class ReviewWindow(QtWidgets.QMainWindow):
         container.setLayout(layout)
         return container
 
-    def _open_session(self) -> None:
-        """Show dialog to select and open a session."""
-        # Browse for session directory
-        recordings_dir = Path("recordings")
-        if not recordings_dir.exists():
-            show_message_dialog(
-                self,
-                "Recordings Not Found",
-                f"Recordings directory not found: {recordings_dir}\n\n"
-                "Please record at least one session before using Review Mode.",
-                tone="warning",
-            )
-            return
+    # ------------------------------------------------------------------
+    # Session lifecycle callbacks
+    # ------------------------------------------------------------------
 
-        session_dir = QtWidgets.QFileDialog.getExistingDirectory(
-            self,
-            "Select Session Directory",
-            str(recordings_dir),
-            QtWidgets.QFileDialog.Option.ShowDirsOnly,
-        )
+    def _on_session_loaded(self) -> None:
+        """Called by SessionController after successful load."""
+        session = self._service.session
+        self.setWindowTitle(f"PitchTracker - Review Mode - {session.session_id}")
 
-        if not session_dir:
-            return  # User cancelled
+        self._timeline.set_total_frames(self._service.total_frames)
+        self._timeline.set_fps(self._service.video_reader.fps)
 
-        self._load_session(Path(session_dir))
+        if self._service.detector_config:
+            cfg = self._service.detector_config
+            from detect.config import Mode
 
-    def _load_session(self, session_dir: Path) -> None:
-        """Load a session for review.
-
-        Args:
-            session_dir: Path to session directory
-        """
-        try:
-            logger.info(f"Loading session: {session_dir}")
-            self._status_bar.showMessage(f"Loading session: {session_dir.name}...")
-            QtWidgets.QApplication.processEvents()
-
-            # Load session via service
-            session = self._service.load_session(session_dir)
-
-            # Update window title
-            self.setWindowTitle(f"PitchTracker - Review Mode - {session.session_id}")
-
-            # Update timeline
-            self._timeline.set_total_frames(self._service.total_frames)
-            self._timeline.set_fps(self._service.video_reader.fps)
-
-            # Load detector config into parameter panel
-            if self._service.detector_config:
-                cfg = self._service.detector_config
-                from detect.config import Mode
-
-                self._parameter_panel.load_parameters(
-                    mode=Mode(cfg.mode),
-                    frame_diff_threshold=cfg.frame_diff_threshold,
-                    bg_diff_threshold=cfg.bg_diff_threshold,
-                    min_area=cfg.filters.min_area,
-                    max_area=cfg.filters.max_area or 500,
-                    min_circularity=cfg.filters.min_circularity,
-                )
-
-            # Load pitches into pitch list
-            pitch_scores = self._service._pitch_scores
-            self._pitch_list.load_pitches(session.pitches, pitch_scores)
-            if session.pitches:
-                self._show_trajectory_diagnostics_for_pitch(0)
-            else:
-                self._trajectory_diagnostics_panel.clear()
-
-            # Initialize trajectory renderers for overlay
-            self._init_trajectory_renderers()
-
-            # Load trajectory for first pitch if available
-            if session.pitches:
-                self._load_trajectory_for_pitch(0)
-
-            # Load and display first frame
-            self._update_video_displays()
-
-            # Update status
-            self._status_bar.showMessage(
-                f"Loaded session: {session.session_id} "
-                f"({len(session.pitches)} pitches, {self._service.total_frames} frames)"
+            self._parameter_panel.load_parameters(
+                mode=Mode(cfg.mode),
+                frame_diff_threshold=cfg.frame_diff_threshold,
+                bg_diff_threshold=cfg.bg_diff_threshold,
+                min_area=cfg.filters.min_area,
+                max_area=cfg.filters.max_area or 500,
+                min_circularity=cfg.filters.min_circularity,
             )
 
-            # Update UI state
-            self._update_ui_state()
+        pitch_scores = self._service._pitch_scores
+        self._pitch_list.load_pitches(session.pitches, pitch_scores)
+        if session.pitches:
+            self._trajectory_diagnostics_panel.load_pitch(session.pitches[0])
+        else:
+            self._trajectory_diagnostics_panel.clear()
 
-            logger.info(f"Session loaded successfully: {session.session_id}")
+        self._trajectory_ctrl.init_renderers()
+        if session.pitches:
+            self._trajectory_ctrl.load_trajectory_for_pitch(0)
 
-        except Exception as e:
-            logger.exception(f"Failed to load session: {e}")
-            show_message_dialog(
-                self,
-                "Load Error",
-                f"Failed to load session:\n{str(e)}",
-                tone="error",
-            )
-            self._status_bar.showMessage("Failed to load session")
+        self._update_video_displays()
+        self._update_ui_state()
 
-    def _close_session(self) -> None:
-        """Close current session."""
-        if self._is_playing:
-            self._toggle_playback()  # Stop playback
-
-        self._service.close()
+    def _on_session_closed(self) -> None:
+        """Called by SessionController before service.close()."""
+        self._playback_ctrl.stop_playback()
         self._left_display.clear()
         self._right_display.clear()
         self._timeline.reset()
         self._pitch_list.clear()
         self._trajectory_diagnostics_panel.clear()
-
-        # Clear trajectory state
-        self._trajectory_renderer_left = None
-        self._trajectory_renderer_right = None
-        self._current_observations = []
-        self._trajectory_overlay_enabled = False
+        self._trajectory_ctrl.clear()
         self._trajectory_action.setChecked(False)
-
         self.setWindowTitle("PitchTracker - Review Mode")
-        self._status_bar.showMessage("Session closed. Open a session to begin.")
         self._update_ui_state()
 
-        logger.info("Session closed")
-
-    def _review_all_sessions(self) -> None:
-        """Load all sessions in recordings directory for sequential review."""
-        recordings_dir = Path("recordings")
-        if not recordings_dir.exists():
-            show_message_dialog(
-                self,
-                "Recordings Not Found",
-                f"Recordings directory not found: {recordings_dir}\n\n"
-                "Please record at least one session before using Review Mode.",
-                tone="warning",
-            )
-            return
-
-        # Get all session directories (sorted by name)
-        from app.review import SessionLoader
-
-        self._session_list = SessionLoader.get_available_sessions()
-
-        if not self._session_list:
-            show_message_dialog(
-                self,
-                "No Sessions Found",
-                "No recorded sessions found in the recordings directory.",
-                tone="info",
-            )
-            return
-
-        # Load first session
-        self._current_session_index = 0
-        self._load_session(self._session_list[0])
-        self._update_session_navigation_ui()
-
-        logger.info(f"Loaded {len(self._session_list)} sessions for review")
-
-    def _next_session(self) -> None:
-        """Load next session in the list."""
-        if not self._session_list or self._current_session_index < 0:
-            show_message_dialog(self, "No Sessions", "Use 'Review All Sessions' first.", tone="info")
-            return
-
-        if self._current_session_index >= len(self._session_list) - 1:
-            show_message_dialog(self, "Last Session", "This is the last session in the list.", tone="info")
-            return
-
-        self._current_session_index += 1
-        self._load_session(self._session_list[self._current_session_index])
-        self._update_session_navigation_ui()
-
-    def _previous_session(self) -> None:
-        """Load previous session in the list."""
-        if not self._session_list or self._current_session_index < 0:
-            show_message_dialog(self, "No Sessions", "Use 'Review All Sessions' first.", tone="info")
-            return
-
-        if self._current_session_index <= 0:
-            show_message_dialog(self, "First Session", "This is the first session in the list.", tone="info")
-            return
-
-        self._current_session_index -= 1
-        self._load_session(self._session_list[self._current_session_index])
-        self._update_session_navigation_ui()
-
-    def _delete_current_session(self) -> None:
-        """Delete the currently loaded session from disk."""
-        if not self._service.session:
-            show_message_dialog(self, "No Session", "No session is currently loaded.", tone="warning")
-            return
-
-        session = self._service.session
-        session_dir = session.session_dir
-
-        # Confirm deletion
-        if not ask_confirmation(
-            self,
-            "Delete Session",
-            f"Are you sure you want to delete this session?\n\n"
-            f"Session: {session.session_id}\n"
-            f"Path: {session_dir}\n\n"
-            "This will permanently delete all files in this session directory.\n"
-            "This action cannot be undone!",
-            confirm_variant="danger",
-        ):
-            return
-
-        try:
-            # Close the session first
-            self._close_session()
-
-            # Delete the directory
-            import shutil
-
-            shutil.rmtree(session_dir)
-
-            logger.info(f"Deleted session: {session_dir}")
-            show_message_dialog(
-                self,
-                "Session Deleted",
-                f"Session {session.session_id} has been deleted.",
-                tone="success",
-            )
-
-            # If we're in "review all" mode, update the list and load next session
-            if self._session_list:
-                # Remove deleted session from list
-                if self._current_session_index < len(self._session_list):
-                    self._session_list.pop(self._current_session_index)
-
-                # Load next session if available
-                if self._session_list:
-                    # Adjust index if we were at the end
-                    if self._current_session_index >= len(self._session_list):
-                        self._current_session_index = len(self._session_list) - 1
-
-                    self._load_session(self._session_list[self._current_session_index])
-                    self._update_session_navigation_ui()
-                else:
-                    # No more sessions
-                    self._current_session_index = -1
-                    self._status_bar.showMessage("No more sessions to review")
-
-        except Exception as e:
-            logger.exception(f"Failed to delete session: {e}")
-            show_message_dialog(
-                self,
-                "Delete Error",
-                f"Failed to delete session:\n{str(e)}",
-                tone="error",
-            )
-
-    def _update_session_navigation_ui(self) -> None:
-        """Update UI elements related to session navigation."""
-        if self._session_list and self._current_session_index >= 0:
-            total = len(self._session_list)
-            current = self._current_session_index + 1
-            session_info = f"Session {current}/{total}"
-
-            # Update status bar with session counter
-            current_message = self._status_bar.currentMessage()
-            if " | " in current_message:
-                # Preserve existing status, add session info
-                base_message = current_message.split(" | ")[0]
-                self._status_bar.showMessage(f"{base_message} | {session_info}")
-            else:
-                self._status_bar.showMessage(f"Ready | {session_info}")
-
-            # Enable/disable navigation actions
-            self._prev_session_action.setEnabled(self._current_session_index > 0)
-            self._next_session_action.setEnabled(self._current_session_index < total - 1)
-            self._delete_session_action.setEnabled(True)
-        else:
-            # Disable navigation if not in "review all" mode
-            self._prev_session_action.setEnabled(False)
-            self._next_session_action.setEnabled(False)
-            self._delete_session_action.setEnabled(self._service.session is not None)
-
-    def _toggle_playback(self) -> None:
-        """Toggle between play and pause."""
-        if not self._service.session:
-            return
-
-        if self._is_playing:
-            # Pause
-            self._playback_timer.stop()
-            self._is_playing = False
-            self._controls.set_playing(False)
-            self._status_bar.showMessage("Paused")
-            logger.debug("Playback paused")
-        else:
-            # Play
-            # Calculate timer interval based on FPS and playback speed
-            fps = self._service.video_reader.fps
-            speed = self._service.playback_speed
-            interval_ms = int(1000.0 / (fps * speed))
-
-            self._playback_timer.start(interval_ms)
-            self._is_playing = True
-            self._controls.set_playing(True)
-            self._status_bar.showMessage(f"Playing (Speed: {speed:.1f}x)")
-            logger.debug(f"Playback started at {speed:.1f}x speed")
-
-    def _on_playback_tick(self) -> None:
-        """Called on each playback timer tick to advance frame."""
-        # Advance to next frame
-        if not self._service.step_forward():
-            # Reached end of video
-            if self._loop_enabled:
-                # Loop back to start
-                self._service.seek_to_start()
-                self._update_video_displays()
-                self._timeline.set_current_frame(0)
-                return
-            else:
-                self._toggle_playback()  # Stop
-                self._status_bar.showMessage("Reached end of video")
-                return
-
-        # Update displays
-        self._update_video_displays()
-        self._timeline.set_current_frame(self._service.current_frame_index)
-
-    def _step_forward(self) -> None:
-        """Step forward one frame."""
-        if not self._service.session:
-            return
-
-        if self._service.step_forward():
-            self._update_video_displays()
-            self._timeline.set_current_frame(self._service.current_frame_index)
-            self._status_bar.showMessage(f"Frame {self._service.current_frame_index + 1}/{self._service.total_frames}")
-
-    def _step_backward(self) -> None:
-        """Step backward one frame."""
-        if not self._service.session:
-            return
-
-        if self._service.step_backward():
-            self._update_video_displays()
-            self._timeline.set_current_frame(self._service.current_frame_index)
-            self._status_bar.showMessage(f"Frame {self._service.current_frame_index + 1}/{self._service.total_frames}")
-
-    def _seek_to_start(self) -> None:
-        """Seek to start of video."""
-        if not self._service.session:
-            return
-
-        self._service.seek_to_start()
-        self._update_video_displays()
-        self._timeline.set_current_frame(0)
-        self._status_bar.showMessage("Seeked to start")
-
-    def _seek_to_end(self) -> None:
-        """Seek to end of video."""
-        if not self._service.session:
-            return
-
-        self._service.seek_to_end()
-        self._update_video_displays()
-        self._timeline.set_current_frame(self._service.current_frame_index)
-        self._status_bar.showMessage("Seeked to end")
-
-    def _on_timeline_seek(self, frame_index: int) -> None:
-        """Handle seek request from timeline widget.
-
-        Args:
-            frame_index: Frame to seek to
-        """
-        if not self._service.session:
-            return
-
-        self._service.seek_to_frame(frame_index)
-        self._update_video_displays()
-        self._status_bar.showMessage(f"Seeked to frame {frame_index + 1}/{self._service.total_frames}")
-
-    def _on_speed_changed(self, speed: float) -> None:
-        """Handle playback speed change.
-
-        Args:
-            speed: New playback speed multiplier
-        """
-        self._service.playback_speed = speed
-
-        # If playing, restart timer with new interval
-        if self._is_playing:
-            self._playback_timer.stop()
-            fps = self._service.video_reader.fps
-            interval_ms = int(1000.0 / (fps * speed))
-            self._playback_timer.start(interval_ms)
-
-        self._status_bar.showMessage(f"Playback speed: {speed:.1f}x")
-
-    def _on_loop_toggled(self, enabled: bool) -> None:
-        """Handle loop mode toggle.
-
-        Args:
-            enabled: True if loop mode is enabled
-        """
-        self._loop_enabled = enabled
-        mode_str = "ON" if enabled else "OFF"
-        self._status_bar.showMessage(f"Loop mode: {mode_str}")
-        logger.info(f"Loop mode: {mode_str}")
+    # ------------------------------------------------------------------
+    # Pitch navigation
+    # ------------------------------------------------------------------
 
     def _prev_pitch(self) -> None:
         """Navigate to previous pitch in session."""
-        if not self._service.session:
-            return
-
-        pitches = self._service.session.pitches
-        if not pitches:
-            return
-
-        # Find current pitch based on frame index
-        current_frame = self._service.current_frame_index
-        current_pitch_idx = -1
-
-        for i, pitch in enumerate(pitches):
-            # Get pitch start frame from timestamp
-            pitch_start_frame = self._service.get_frame_for_timestamp(pitch.t_start_ns)
-            if pitch_start_frame is not None and pitch_start_frame <= current_frame:
-                current_pitch_idx = i
-
-        # Go to previous pitch
-        target_idx = max(0, current_pitch_idx - 1)
-        if target_idx < len(pitches):
-            self._load_trajectory_for_pitch(target_idx)
-            self._show_trajectory_diagnostics_for_pitch(target_idx)
-            self._service.seek_to_pitch(target_idx)
-            self._update_video_displays()
-            self._timeline.set_current_frame(self._service.current_frame_index)
-            self._status_bar.showMessage(f"Jumped to pitch {target_idx + 1}/{len(pitches)}")
+        target_idx = self._playback_ctrl.prev_pitch()
+        if target_idx is not None:
+            self._navigate_to_pitch(target_idx)
 
     def _next_pitch(self) -> None:
         """Navigate to next pitch in session."""
-        if not self._service.session:
-            return
+        target_idx = self._playback_ctrl.next_pitch()
+        if target_idx is not None:
+            self._navigate_to_pitch(target_idx)
 
+    def _navigate_to_pitch(self, pitch_index: int) -> None:
+        """Seek to pitch and update trajectory/diagnostics."""
+        self._trajectory_ctrl.load_trajectory_for_pitch(pitch_index)
+        self._trajectory_diagnostics_panel.load_pitch(
+            self._service.session.pitches[pitch_index]
+        )
+        self._playback_ctrl.seek_to_pitch(pitch_index)
         pitches = self._service.session.pitches
-        if not pitches:
-            return
-
-        # Find current pitch based on frame index
-        current_frame = self._service.current_frame_index
-        current_pitch_idx = -1
-
-        for i, pitch in enumerate(pitches):
-            # Get pitch start frame from timestamp
-            pitch_start_frame = self._service.get_frame_for_timestamp(pitch.t_start_ns)
-            if pitch_start_frame is not None and pitch_start_frame <= current_frame:
-                current_pitch_idx = i
-
-        # Go to next pitch
-        target_idx = min(len(pitches) - 1, current_pitch_idx + 1)
-        if target_idx >= 0:
-            self._load_trajectory_for_pitch(target_idx)
-            self._show_trajectory_diagnostics_for_pitch(target_idx)
-            self._service.seek_to_pitch(target_idx)
-            self._update_video_displays()
-            self._timeline.set_current_frame(self._service.current_frame_index)
-            self._status_bar.showMessage(f"Jumped to pitch {target_idx + 1}/{len(pitches)}")
+        self._status_bar.showMessage(
+            f"Jumped to pitch {pitch_index + 1}/{len(pitches)}"
+        )
 
     def _on_pitch_highlighted(self, pitch_index: int) -> None:
-        """Preview diagnostics for the highlighted pitch row."""
-        self._show_trajectory_diagnostics_for_pitch(pitch_index)
+        """Preview diagnostics for highlighted pitch row."""
+        self._show_trajectory_diagnostics(pitch_index)
 
     def _on_pitch_selected(self, pitch_index: int) -> None:
-        """Handle pitch selection from list.
-
-        Args:
-            pitch_index: Index of selected pitch
-        """
+        """Handle pitch selection from list."""
         if not self._service.session:
             return
-
-        # Load trajectory for selected pitch
-        self._load_trajectory_for_pitch(pitch_index)
-        self._show_trajectory_diagnostics_for_pitch(pitch_index)
-
-        # Seek to pitch
-        self._service.seek_to_pitch(pitch_index)
-        self._update_video_displays()
-        self._timeline.set_current_frame(self._service.current_frame_index)
-
+        self._trajectory_ctrl.load_trajectory_for_pitch(pitch_index)
+        self._show_trajectory_diagnostics(pitch_index)
+        self._playback_ctrl.seek_to_pitch(pitch_index)
         pitch = self._service.session.pitches[pitch_index]
         self._status_bar.showMessage(f"Navigated to pitch: {pitch.pitch_id}")
 
-    def _show_trajectory_diagnostics_for_pitch(self, pitch_index: int) -> None:
-        """Load diagnostics for a pitch index, or clear if unavailable."""
+    def _show_trajectory_diagnostics(self, pitch_index: int) -> None:
+        """Load diagnostics panel for a pitch index."""
         if not self._service.session:
             self._trajectory_diagnostics_panel.clear()
             return
-
         pitches = self._service.session.pitches
         if pitch_index < 0 or pitch_index >= len(pitches):
             self._trajectory_diagnostics_panel.clear()
             return
-
         self._trajectory_diagnostics_panel.load_pitch(pitches[pitch_index])
 
     def _on_pitch_scored(self, pitch_id: str, score: PitchScore) -> None:
-        """Handle pitch scoring.
-
-        Args:
-            pitch_id: Pitch identifier
-            score: Pitch score
-        """
-        # Update service
+        """Handle pitch scoring."""
         self._service.score_pitch(pitch_id, score)
-
         self._status_bar.showMessage(f"Scored {pitch_id}: {score.value}")
         logger.info(f"Pitch scored: {pitch_id} = {score.value}")
 
+    # ------------------------------------------------------------------
+    # Detection parameters
+    # ------------------------------------------------------------------
+
     def _on_parameters_changed(self) -> None:
-        """Handle parameter changes - update detector config and re-run detection."""
+        """Handle parameter changes - update detector and refresh."""
         if not self._service.session:
             return
-
-        # Update detector config in service
         self._service.update_detector_config(
             frame_diff_threshold=self._parameter_panel.frame_diff_threshold,
             bg_diff_threshold=self._parameter_panel.bg_diff_threshold,
@@ -874,297 +379,118 @@ class ReviewWindow(QtWidgets.QMainWindow):
             min_circularity=self._parameter_panel.min_circularity,
             mode=self._parameter_panel.mode,
         )
-
-        # Update displays with new detections
         self._update_video_displays()
-
         self._status_bar.showMessage("Detection parameters updated")
+
+    # ------------------------------------------------------------------
+    # Video display
+    # ------------------------------------------------------------------
 
     def _update_video_displays(self) -> None:
         """Update video displays with current frames and detections."""
         left_frame, right_frame = self._service.get_current_frames()
-
         if left_frame is None or right_frame is None:
             return
 
-        # Run detection on current frame
         try:
-            left_detections, right_detections = self._service.run_detection_on_current_frame()
+            left_det, right_det = self._service.run_detection_on_current_frame()
 
-            # Apply trajectory overlay if enabled
-            if self._trajectory_overlay_enabled and self._current_observations:
-                left_frame = self._apply_trajectory_overlay(left_frame, "left")
-                right_frame = self._apply_trajectory_overlay(right_frame, "right")
+            if self._trajectory_ctrl.overlay_enabled and self._trajectory_ctrl.current_observations:
+                left_frame = self._trajectory_ctrl.apply_overlay(left_frame, "left")
+                right_frame = self._trajectory_ctrl.apply_overlay(right_frame, "right")
 
-            # Update displays with frames and detections
-            self._left_display.set_frame(left_frame, left_detections)
-            self._right_display.set_frame(right_frame, right_detections)
+            self._left_display.set_frame(left_frame, left_det)
+            self._right_display.set_frame(right_frame, right_det)
 
-            # Update status with detection count
             self._status_bar.showMessage(
                 f"Frame {self._service.current_frame_index + 1}/{self._service.total_frames} "
-                f"| Detections: L={len(left_detections)}, R={len(right_detections)}"
+                f"| Detections: L={len(left_det)}, R={len(right_det)}"
             )
-
         except Exception as e:
             logger.exception(f"Detection failed: {e}")
-            # Still show frames even if detection fails
             self._left_display.set_frame(left_frame)
             self._right_display.set_frame(right_frame)
 
-    def _apply_trajectory_overlay(
-        self,
-        frame,
-        camera: str,
-    ):
-        """Apply trajectory overlay to a frame.
-
-        Args:
-            frame: Video frame
-            camera: "left" or "right"
-
-        Returns:
-            Frame with trajectory overlay
-        """
-        renderer = self._trajectory_renderer_left if camera == "left" else self._trajectory_renderer_right
-
-        if renderer is None or not self._current_observations:
-            return frame
-
-        try:
-            return renderer.render_on_frame(frame, self._current_observations)
-        except Exception as e:
-            logger.debug(f"Trajectory overlay failed: {e}")
-            return frame
-
-    def _load_trajectory_for_pitch(self, pitch_index: int) -> None:
-        """Load trajectory observations for a pitch.
-
-        Args:
-            pitch_index: Index of pitch in session
-        """
-        if not self._service.session:
-            return
-
-        pitches = self._service.session.pitches
-        if pitch_index < 0 or pitch_index >= len(pitches):
-            self._current_observations = []
-            return
-
-        pitch = pitches[pitch_index]
-
-        # Load observations from pitch data if available
-        if pitch.original_observations:
-            self._current_observations = pitch.original_observations
-            logger.debug(f"Loaded {len(self._current_observations)} trajectory observations")
-        else:
-            self._current_observations = []
-
-    def _init_trajectory_renderers(self) -> None:
-        """Initialize trajectory renderers for current session."""
-        if not self._service.session:
-            self._trajectory_renderer_left = None
-            self._trajectory_renderer_right = None
-            return
-
-        # Try to load stereo geometry from session calibration
-        try:
-            from stereo.simple_stereo import StereoGeometry
-
-            # Use default geometry if calibration not available
-            # These are reasonable defaults for typical camera setup
-            geometry = StereoGeometry(
-                focal_length_px=1000.0,
-                baseline_ft=0.5,
-                cx=640.0,
-                cy=360.0,
-            )
-
-            # Load from session calibration if available
-            if self._service.session.calibration:
-                cal = self._service.session.calibration
-                geometry = StereoGeometry(
-                    focal_length_px=cal.get("focal_length_px", 1000.0),
-                    baseline_ft=cal.get("baseline_ft", 0.5),
-                    cx=cal.get("cx", 640.0),
-                    cy=cal.get("cy", 360.0),
-                )
-
-            config = TrajectoryRenderConfig(
-                style=RenderStyle.GRADIENT,
-                line_thickness=2,
-                show_release_point=True,
-                show_plate_crossing=True,
-            )
-
-            self._trajectory_renderer_left = TrajectoryRenderer(geometry, camera="left", config=config)
-            self._trajectory_renderer_right = TrajectoryRenderer(geometry, camera="right", config=config)
-
-            logger.info("Trajectory renderers initialized")
-
-        except Exception as e:
-            logger.warning(f"Could not initialize trajectory renderers: {e}")
-            self._trajectory_renderer_left = None
-            self._trajectory_renderer_right = None
-
-    def _export_config(self) -> None:
-        """Export tuned detector configuration."""
-        if not self._service.session:
-            show_message_dialog(self, "No Session", "Please load a session first.", tone="warning")
-            return
-
-        # Get save file path
-        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self,
-            "Export Detector Config",
-            "config_tuned.json",
-            "JSON Files (*.json);;All Files (*)",
-        )
-
-        if not file_path:
-            return
-
-        try:
-            self._service.export_config(Path(file_path))
-            show_message_dialog(
-                self,
-                "Export Successful",
-                f"Detector configuration exported to:\n{file_path}",
-                tone="success",
-            )
-            logger.info(f"Exported config to {file_path}")
-        except Exception as e:
-            logger.exception(f"Failed to export config: {e}")
-            show_message_dialog(self, "Export Error", f"Failed to export config:\n{str(e)}", tone="error")
-
-    def _export_annotations(self) -> None:
-        """Export annotations to JSON file."""
-        if not self._service.session:
-            show_message_dialog(self, "No Session", "Please load a session first.", tone="warning")
-            return
-
-        # Sync pitch scores from pitch list to service
-        pitch_scores = self._pitch_list.get_pitch_scores()
-        for pitch_id, score in pitch_scores.items():
-            self._service.score_pitch(pitch_id, score)
-
-        # Get save file path
-        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self,
-            "Export Annotations",
-            "annotations.json",
-            "JSON Files (*.json);;All Files (*)",
-        )
-
-        if not file_path:
-            return
-
-        try:
-            self._service.export_annotations(Path(file_path))
-
-            # Show statistics in message
-            summary = self._service.get_pitch_score_summary()
-            stats_text = (
-                f"Annotations exported to:\n{file_path}\n\n"
-                f"Statistics:\n"
-                f"Good: {summary['good']}\n"
-                f"Partial: {summary['partial']}\n"
-                f"Missed: {summary['missed']}\n"
-                f"Unscored: {summary['unscored']}"
-            )
-
-            show_message_dialog(
-                self,
-                "Export Successful",
-                stats_text,
-                tone="success",
-            )
-            logger.info(f"Exported annotations to {file_path}")
-        except Exception as e:
-            logger.exception(f"Failed to export annotations: {e}")
-            show_message_dialog(self, "Export Error", f"Failed to export annotations:\n{str(e)}", tone="error")
-
-    def _update_ui_state(self) -> None:
-        """Update UI element enabled/disabled state based on session loaded."""
-        has_session = self._service.session is not None
-
-        # Update session navigation states
-        if self._session_list and self._current_session_index >= 0:
-            # In "review all" mode
-            total = len(self._session_list)
-            self._prev_session_action.setEnabled(self._current_session_index > 0)
-            self._next_session_action.setEnabled(self._current_session_index < total - 1)
-        else:
-            # Not in "review all" mode
-            self._prev_session_action.setEnabled(False)
-            self._next_session_action.setEnabled(False)
-
-        # Delete is enabled if any session is loaded
-        self._delete_session_action.setEnabled(has_session)
+    # ------------------------------------------------------------------
+    # Annotations & tools
+    # ------------------------------------------------------------------
 
     def _toggle_annotation_mode(self, checked: bool) -> None:
-        """Toggle annotation mode on/off.
-
-        Args:
-            checked: True to enable annotation mode, False to disable
-        """
+        """Toggle annotation mode on/off."""
         self._left_display.set_annotation_mode(checked)
         self._right_display.set_annotation_mode(checked)
-
         mode_str = "ON" if checked else "OFF"
         self._status_bar.showMessage(f"Annotation mode: {mode_str}")
         logger.info(f"Annotation mode: {mode_str}")
 
     def _toggle_trajectory_overlay(self, checked: bool) -> None:
-        """Toggle trajectory overlay on/off.
-
-        Args:
-            checked: True to enable trajectory overlay
-        """
-        self._trajectory_overlay_enabled = checked
-
+        """Toggle trajectory overlay on/off."""
+        self._trajectory_ctrl.overlay_enabled = checked
         mode_str = "ON" if checked else "OFF"
         self._status_bar.showMessage(f"Trajectory overlay: {mode_str}")
         logger.info(f"Trajectory overlay: {mode_str}")
-
-        # Refresh display to show/hide trajectory
         if self._service.session:
             self._update_video_displays()
 
     def _clear_annotations(self) -> None:
-        """Clear all manual annotations from both displays."""
+        """Clear all manual annotations."""
         self._left_display.clear_annotations()
         self._right_display.clear_annotations()
-
         self._status_bar.showMessage("Annotations cleared")
         logger.info("Annotations cleared")
 
     def _on_annotation_added(self, camera: str, x: float, y: float) -> None:
-        """Handle annotation added to video display.
-
-        Args:
-            camera: "left" or "right"
-            x: X coordinate in frame coordinates
-            y: Y coordinate in frame coordinates
-        """
+        """Handle annotation added to video display."""
         frame_index = self._service.current_frame_index
         self._service.add_annotation(frame_index, camera, x, y)
-
-        self._status_bar.showMessage(f"Added annotation: {camera} camera at ({x:.1f}, {y:.1f}) frame {frame_index}")
+        self._status_bar.showMessage(
+            f"Added annotation: {camera} camera at ({x:.1f}, {y:.1f}) frame {frame_index}"
+        )
         logger.info(f"Annotation added: {camera} ({x:.1f}, {y:.1f}) at frame {frame_index}")
 
+    # ------------------------------------------------------------------
+    # UI state
+    # ------------------------------------------------------------------
+
+    def _update_ui_state(self) -> None:
+        """Update navigation action enabled states."""
+        has_session = self._service.session is not None
+        self._prev_session_action.setEnabled(self._session_ctrl.can_go_previous())
+        self._next_session_action.setEnabled(self._session_ctrl.can_go_next())
+        self._delete_session_action.setEnabled(has_session)
+
+        nav_state = self._session_ctrl.get_navigation_state()
+        if nav_state:
+            current = self._status_bar.currentMessage()
+            if " | " in current:
+                base = current.split(" | ")[0]
+                self._status_bar.showMessage(f"{base} | {nav_state}")
+            else:
+                self._status_bar.showMessage(f"Ready | {nav_state}")
+
+    # ------------------------------------------------------------------
+    # Compatibility shims for existing tests
+    # ------------------------------------------------------------------
+
+    def _load_session(self, session_dir: Path) -> None:
+        """Compatibility: delegates to session controller."""
+        self._session_ctrl.load_session(session_dir)
+
+    def _close_session(self) -> None:
+        """Compatibility: delegates to session controller."""
+        self._session_ctrl.close_session()
+
+    def _show_trajectory_diagnostics_for_pitch(self, pitch_index: int) -> None:
+        """Compatibility: delegates to _show_trajectory_diagnostics."""
+        self._show_trajectory_diagnostics(pitch_index)
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
-        """Handle window close event.
-
-        Args:
-            event: Close event
-        """
-        # Stop playback if active
-        if self._is_playing:
-            self._playback_timer.stop()
-
-        # Close service
+        """Handle window close event."""
+        self._playback_ctrl.teardown()
         self._service.close()
-
         event.accept()
         logger.info("ReviewWindow closed")
