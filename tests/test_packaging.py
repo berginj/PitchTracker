@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+WORKFLOW_PROPOSALS = ROOT / "docs" / "review" / "workflow-proposals"
 
 
 def test_launcher_spec_does_not_bundle_runtime_local_config_state():
@@ -22,8 +23,9 @@ def test_installer_only_adds_checked_in_config_yaml_directly():
     assert 'Source: "configs\\*"' not in installer_text
 
 
-def test_github_actions_are_pinned_to_commit_shas():
-    workflows = list((ROOT / ".github" / "workflows").glob("*.yml"))
+def test_proposed_github_actions_are_pinned_to_commit_shas():
+    workflows = list(WORKFLOW_PROPOSALS.glob("*.yml"))
+    assert workflows
     uses_pattern = re.compile(r"uses:\s+[^@\s]+@([^\s#]+)")
 
     for workflow in workflows:
@@ -33,8 +35,10 @@ def test_github_actions_are_pinned_to_commit_shas():
             ), f"{workflow.name} uses a mutable action reference: {action_ref}"
 
 
-def test_release_workflow_builds_checksum_without_publishing():
-    workflow_text = (ROOT / ".github" / "workflows" / "package-installer.yml").read_text(encoding="utf-8")
+def test_proposed_release_workflow_builds_checksum_without_publishing():
+    workflow_text = (WORKFLOW_PROPOSALS / "package-installer.yml").read_text(
+        encoding="utf-8"
+    )
 
     assert "workflow_dispatch:" in workflow_text
     assert "build_installer.ps1 -Clean" in workflow_text
