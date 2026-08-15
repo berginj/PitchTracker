@@ -307,6 +307,12 @@ class CameraStep(BaseStep):
         return self._backend
 
     def on_enter(self) -> None:
+        if self._preview_timer is not None and not self._preview_timer.isActive():
+            self._preview_timer.start(33)
+        if self._left_serial and self._left_camera is None:
+            self._open_left_camera()
+        if self._right_serial and self._right_camera is None:
+            self._open_right_camera()
         if self._left_combo.count() == 0:
             self._refresh_devices()
 

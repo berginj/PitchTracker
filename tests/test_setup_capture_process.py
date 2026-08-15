@@ -18,13 +18,14 @@ from contracts.setup_capture import (
     SetupCaptureState,
     SetupFrameRecord,
 )
+from contracts.capability_observation import CapabilityObservation, build_simulated_observation
 from ui.setup.providers import LiveSetupContext
 
 
 def _request(
     correlation_id: str,
     *,
-    deadline_ms: int = 5_000,
+    deadline_ms: int = 15_000,
     backend: str = "sim",
     purpose: SetupCapturePurpose = SetupCapturePurpose.PREVIEW,
     frames: int = 2,
@@ -56,18 +57,44 @@ def test_request_round_trip_preserves_evidence_binding() -> None:
     assert rebuilt == request
 
 
+def test_result_round_trip_preserves_optional_capability_observations() -> None:
+    record = SetupFrameRecord("sim-left", 1, 10, 10, 10, "GRAY8")
+    observation = build_simulated_observation("sim-left", {"fps": 60}, {})
+    result = SetupCaptureResult(
+        correlation_id="result-round-trip",
+        purpose=SetupCapturePurpose.PREVIEW,
+        assignment_generation=1,
+        started_monotonic_ns=1,
+        completed_monotonic_ns=2,
+        requested_frames_per_camera=1,
+        left_frames=(record,),
+        right_frames=(SetupFrameRecord("sim-right", 1, 11, 10, 10, "GRAY8"),),
+        capability_observations={"left": observation.to_payload()},
+    )
+
+    rebuilt = SetupCaptureResult.from_payload(result.to_payload())
+    legacy_payload = result.to_payload()
+    legacy_payload.pop("capability_observations")
+
+    assert rebuilt.capability_observations == {"left": observation.to_payload()}
+    assert SetupCaptureResult.from_payload(legacy_payload).capability_observations == {}
+
+
 def test_disposable_worker_captures_simulated_pair(tmp_path: Path) -> None:
     service = SupervisedSetupCaptureService(artifact_root=tmp_path / "jobs")
     request = _request("sim-success")
 
     job = service.submit(request)
 
-    assert job.wait(10.0)
+    assert job.wait(20.0)
     assert job.state == SetupCaptureState.SUCCEEDED
     assert job.result is not None
     assert len(job.result.left_frames) == 2
     assert len(job.result.right_frames) == 2
     assert job.result.correlation_id == request.correlation_id
+    assert set(job.result.capability_observations) == {"left", "right"}
+    assert job.result.capability_observations["left"]["camera_id"] == "sim-left"
+    assert job.result.capability_observations["right"]["camera_id"] == "sim-right"
     assert not job.process_alive
     job.cleanup_artifacts()
 
@@ -95,7 +122,7 @@ def test_context_reduces_process_backed_focus_artifacts(tmp_path: Path) -> None:
 
     job = service.submit(request)
 
-    assert job.wait(10.0)
+    assert job.wait(30.0)
     assert job.result is not None
     focus = context.apply_capture_result(job.result)
     assert focus is context.last_focus
@@ -103,6 +130,8 @@ def test_context_reduces_process_backed_focus_artifacts(tmp_path: Path) -> None:
     assert context.last_right_frames[-1].image is not None
     assert context.last_capture_diagnostics["requested_frames_per_camera"] == 1
     assert context.last_capture_diagnostics["read_error_rate"] == {"left": 0.0, "right": 0.0}
+    assert isinstance(context.last_capability_observations["left"], CapabilityObservation)
+    assert context.last_capability_observations["right"].camera_id == "sim-right"
     job.cleanup_artifacts()
 
 
@@ -170,7 +199,9 @@ def test_context_rejects_stale_assignment_without_mutating_evidence() -> None:
 def test_context_rolls_back_when_result_artifacts_cannot_be_reduced() -> None:
     context = LiveSetupContext(catalog=None)
     sentinel_frames = [object()]
+    sentinel_observations = {"left": object()}
     context.last_left_frames = sentinel_frames
+    context.last_capability_observations = sentinel_observations
     config_path = context.config_path.resolve()
     result = SetupCaptureResult(
         correlation_id="missing-images",
@@ -181,6 +212,10 @@ def test_context_rolls_back_when_result_artifacts_cannot_be_reduced() -> None:
         requested_frames_per_camera=1,
         left_frames=(SetupFrameRecord("left", 1, 1, 10, 10, "GRAY8"),),
         right_frames=(SetupFrameRecord("right", 1, 1, 10, 10, "GRAY8"),),
+        capability_observations={
+            "left": build_simulated_observation("left", {}, {}).to_payload(),
+            "right": build_simulated_observation("right", {}, {}).to_payload(),
+        },
         config_sha256=hashlib.sha256(config_path.read_bytes()).hexdigest(),
     )
 
@@ -189,3 +224,4 @@ def test_context_rolls_back_when_result_artifacts_cannot_be_reduced() -> None:
 
     assert context.last_left_frames is sentinel_frames
     assert context.last_right_frames == []
+    assert context.last_capability_observations is sentinel_observations

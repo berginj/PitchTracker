@@ -29,6 +29,7 @@ from app.events.event_types import (
     FrameProcessingOpportunityEvent,
     FrameProcessingOutcomeEvent,
     ObservationDetectedEvent,
+    PairingOutcomeEvent,
     PitchAnalyzedEvent,
     PitchEndEvent,
     PitchStartEvent,
@@ -36,6 +37,7 @@ from app.events.event_types import (
     StereoAssociationOutcomeEvent,
     StereoFrameProcessedEvent,
 )
+from contracts.evidence import PairingOutcomeEvidence
 
 
 class TestEventMetadataContract:
@@ -167,6 +169,27 @@ class TestPostInitTimestampNormalization:
         e = StereoAssociationOutcomeEvent("pair_1", 300, "greedy_v1")
         assert e.metadata.correlation_id == "pair_1"
         assert e.metadata.timestamp_ns == 300
+
+    @pytest.mark.parametrize(
+        ("left_timestamp_ns", "right_timestamp_ns", "expected"),
+        ((100, None, 100), (None, 200, 200), (300, 400, 300), (0, 400, 0)),
+    )
+    def test_pairing_outcome_uses_available_timestamp(
+        self,
+        left_timestamp_ns,
+        right_timestamp_ns,
+        expected,
+    ):
+        e = PairingOutcomeEvent(
+            PairingOutcomeEvidence(
+                outcome_id="pairing_1",
+                status="UNMATCHED",
+                left_timestamp_ns=left_timestamp_ns,
+                right_timestamp_ns=right_timestamp_ns,
+            )
+        )
+        assert e.timestamp_ns == expected
+        assert e.metadata.timestamp_ns == expected
 
     def test_error_event_default_metadata(self):
         e = ErrorEvent("svc", "type", "msg", timestamp_ns=42)

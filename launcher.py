@@ -434,9 +434,8 @@ class LauncherWindow(QtWidgets.QMainWindow):
             self.hide()
 
             self.review_window = ReviewWindow()
+            self.review_window.closed.connect(self._on_child_closed)
             self.review_window.show()
-
-            self.review_window.destroyed.connect(self._on_child_closed)
 
         except Exception as e:
             QtWidgets.QMessageBox.critical(

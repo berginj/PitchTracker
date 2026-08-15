@@ -84,6 +84,8 @@ def test_live_context_persists_assignment_and_reuses_it_for_capture(tmp_path):
     left, right = context.capture(frames=2)
     assert len(left) == len(right) == 2
     assert context.last_controls["left"]["readback_verified"] is True
+    assert set(context.last_capability_observations) == {"left", "right"}
+    assert context.last_capability_observations["left"].camera_id == "LEFTSER"
     context.sync()
     assert context.last_qualification is not None
     assert context.last_qualification.controls_verified is True
@@ -106,6 +108,7 @@ def test_reassignment_is_exclusive_and_resets_downstream_evidence(tmp_path):
     context.last_right_frames = [object()]
     context.last_controls = {"left": {"readback_verified": True}}
     context.last_modes = {"left": {"fps": 60}}
+    context.last_capability_observations = {"left": object()}
     context.last_qualification = object()
     context.last_sync = object()
     context.last_focus = object()
@@ -125,6 +128,7 @@ def test_reassignment_is_exclusive_and_resets_downstream_evidence(tmp_path):
     assert context.last_right_frames == []
     assert context.last_controls == {}
     assert context.last_modes == {}
+    assert context.last_capability_observations == {}
     assert context.last_qualification is None
     assert context.last_sync is None
     assert context.last_focus is None
@@ -185,6 +189,7 @@ def test_fake_live_persistence_writes_and_activates_profile(tmp_path, monkeypatc
     from app.services.rig_profile import RigProfileService
     from configs.settings import load_config
     from contracts.setup import CalibrationQualityReport, QUALITY_GRADE_GOOD, StereoCalibrationProfile
+    from contracts.capability_observation import build_simulated_observation
 
     config_path = (Path(__file__).parent.parent / "configs" / "default.yaml").resolve()
     monkeypatch.chdir(tmp_path)
@@ -231,6 +236,10 @@ def test_fake_live_persistence_writes_and_activates_profile(tmp_path, monkeypatc
             "wb_source": "auto_sampled_then_locked",
         },
     }
+    context.last_capability_observations = {
+        "left": build_simulated_observation("LEFTSER", context.last_modes["left"], {}),
+        "right": build_simulated_observation("RIGHTSER", context.last_modes["right"], {}),
+    }
     context.quality_report = lambda: CalibrationQualityReport(
         grade=QUALITY_GRADE_GOOD,
         rms_reprojection_px=0.3,
@@ -268,5 +277,8 @@ def test_fake_live_persistence_writes_and_activates_profile(tmp_path, monkeypatc
     assert service.roi_path(active).read_text(encoding="utf-8") == "{}"
     assert active.artifact_hashes.keys() >= {"calibration", "roi"}
     assert active.setup_snapshot["schema_version"] == "setup_system_snapshot.v2"
+    snapshot_cameras = active.setup_snapshot["sections"]["cameras"]
+    assert snapshot_cameras["left"]["capability_observation"]["camera_id"] == "LEFTSER"
+    assert snapshot_cameras["right"]["capability_observation"]["camera_id"] == "RIGHTSER"
     assert service.setup_snapshot_path(active).exists()
     assert active.artifact_hashes.keys() >= {"setup_snapshot"}

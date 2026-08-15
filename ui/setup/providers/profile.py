@@ -214,6 +214,7 @@ def persist_profile_for_context(ctx: "LiveSetupContext", stereo_profile) -> str:
         },
         calibration_path=profile_dir / "stereo_calibration.npz",
         roi_path=profile_dir / "roi.json",
+        capability_observations=ctx.last_capability_observations,
     )
     profile = replace(
         profile,

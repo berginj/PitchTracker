@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import cv2
 import pytest
@@ -156,6 +157,81 @@ class TestPipelineOrchestratorPreview:
 
 class TestPipelineOrchestratorRecording:
     """Test recording functionality."""
+
+    def test_session_id_is_propagated_before_any_recording_producer_starts(self):
+        orchestrator = PipelineOrchestrator(backend="sim")
+        orchestrator._capturing = True
+        orchestrator._config = create_test_config()
+        order = []
+        session_ids = {}
+        capture = MagicMock()
+        detection = MagicMock()
+        analysis = MagicMock()
+        recording = MagicMock()
+        recording.start_session.return_value = ""
+        orchestrator._capture_service = capture
+        orchestrator._detection_service = detection
+        orchestrator._analysis_service = analysis
+        orchestrator._recording_service = recording
+
+        capture.set_session_id.side_effect = lambda value: session_ids.__setitem__("capture", value)
+        detection.set_session_id.side_effect = lambda value: session_ids.__setitem__("detection", value)
+
+        def start_detection():
+            order.append("detection")
+            assert orchestrator._event_coordinator._session_id == "bullpen"
+            assert session_ids == {"capture": "bullpen", "detection": "bullpen"}
+
+        def start_analysis(*, session_id):
+            order.append("analysis")
+            assert session_id == "bullpen"
+            assert orchestrator._event_coordinator._session_id == "bullpen"
+
+        def start_session(**kwargs):
+            order.append("recording")
+            assert kwargs["session_name"] == "bullpen"
+            assert orchestrator._event_coordinator._session_id == "bullpen"
+            return ""
+
+        detection.start_detection.side_effect = start_detection
+        analysis.start_analysis.side_effect = start_analysis
+        recording.start_session.side_effect = start_session
+
+        assert orchestrator.start_recording(session_name="bullpen") == ""
+        assert order == ["detection", "analysis", "recording"]
+
+    def test_start_failure_stops_new_producers_before_clearing_session_ids(self):
+        orchestrator = PipelineOrchestrator(backend="sim")
+        orchestrator._capturing = True
+        orchestrator._config = create_test_config()
+        order = []
+        capture = MagicMock()
+        detection = MagicMock()
+        analysis = MagicMock()
+        recording = MagicMock()
+        orchestrator._capture_service = capture
+        orchestrator._detection_service = detection
+        orchestrator._analysis_service = analysis
+        orchestrator._recording_service = recording
+
+        capture.set_session_id.side_effect = lambda value: order.append(f"capture-id:{value}")
+        detection.set_session_id.side_effect = lambda value: order.append(f"detection-id:{value}")
+        detection.stop_detection.side_effect = lambda: order.append("stop-detection")
+        analysis.stop_analysis.side_effect = lambda: order.append("stop-analysis")
+        recording.start_session.side_effect = RuntimeError("disk unavailable")
+
+        with pytest.raises(RuntimeError, match="disk unavailable"):
+            orchestrator.start_recording(session_name="rollback")
+
+        stop_analysis = order.index("stop-analysis")
+        stop_detection = order.index("stop-detection")
+        clear_capture = order.index("capture-id:None")
+        clear_detection = order.index("detection-id:None")
+        assert stop_analysis < clear_capture
+        assert stop_detection < clear_capture
+        assert stop_detection < clear_detection
+        assert orchestrator._event_coordinator._session_id is None
+        assert orchestrator._detection_started is False
 
     def test_recording_start_failure_rolls_back_detection_and_analysis(self, monkeypatch):
         orchestrator = PipelineOrchestrator(backend="sim")

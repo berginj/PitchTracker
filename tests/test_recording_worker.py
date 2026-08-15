@@ -58,6 +58,42 @@ def test_submit_control_returns_false_when_worker_not_running() -> None:
     assert worker.submit_control(lambda: None) is False
 
 
+def test_controls_bypass_full_frame_capacity_without_reordering() -> None:
+    entered = threading.Event()
+    release = threading.Event()
+    controls_done = threading.Event()
+    order: list[str] = []
+
+    def handler(item: str) -> None:
+        if item == "in-flight":
+            entered.set()
+            release.wait(2.0)
+        order.append(item)
+
+    worker = BoundedRecordingWorker(handler, max_queue=1)
+    assert worker.start()
+    assert worker.submit("in-flight")
+    assert entered.wait(0.5)
+    assert worker.submit("queued")
+    assert worker.submit("dropped") is False
+    assert worker.submit_control(lambda: order.append("pitch-start"))
+
+    def stop_pitch() -> None:
+        order.append("pitch-stop")
+        controls_done.set()
+
+    assert worker.submit_control(stop_pitch)
+    release.set()
+
+    assert controls_done.wait(2.0)
+    assert worker.stop(drain=True, timeout=2.0)
+    assert order == ["in-flight", "queued", "pitch-start", "pitch-stop"]
+    stats = worker.stats()
+    assert stats.submitted == 2
+    assert stats.written == 2
+    assert stats.dropped == 1
+
+
 def test_start_pitch_returns_promptly_while_frame_work_is_slow() -> None:
     """Prove start_pitch (via submit_control + event.wait) does NOT block
     the publisher thread while slow frame processing is underway.

@@ -30,7 +30,8 @@ class BoundedRecordingWorker:
         if max_queue <= 0:
             raise ValueError("max_queue must be positive")
         self._handler = handler
-        self._queue: queue.Queue[Any] = queue.Queue(maxsize=max_queue)
+        self._queue: queue.Queue[Any] = queue.Queue()
+        self._frame_capacity = threading.BoundedSemaphore(max_queue)
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._lifecycle_lock = threading.Lock()
@@ -60,15 +61,14 @@ class BoundedRecordingWorker:
                 with self._stats_lock:
                     self._dropped += 1
                 return False
-            try:
-                self._queue.put_nowait(item)
-                with self._stats_lock:
-                    self._submitted += 1
-                return True
-            except queue.Full:
+            if not self._frame_capacity.acquire(blocking=False):
                 with self._stats_lock:
                     self._dropped += 1
                 return False
+            self._queue.put_nowait(item)
+            with self._stats_lock:
+                self._submitted += 1
+            return True
 
     def submit_control(self, fn: Callable[[], None]) -> bool:
         """Enqueue a callable that the worker executes in FIFO order.
@@ -76,17 +76,14 @@ class BoundedRecordingWorker:
         Control commands are processed between data items, preserving strict
         ordering.  They do not count toward submitted/written stats.
 
-        Returns True if the command was enqueued, False on timeout or if the
-        worker is not running.
+        Controls bypass frame capacity. Returns True if the command was
+        enqueued, or False only when the worker is not running.
         """
         with self._lifecycle_lock:
             if not self._accepting or self._stop.is_set() or not self._thread or not self._thread.is_alive():
                 return False
-            try:
-                self._queue.put_nowait((_CONTROL_SENTINEL, fn))
-                return True
-            except queue.Full:
-                return False
+            self._queue.put_nowait((_CONTROL_SENTINEL, fn))
+            return True
 
     def wait_idle(self, timeout: float = 10.0) -> bool:
         deadline = time.monotonic() + timeout
@@ -130,8 +127,15 @@ class BoundedRecordingWorker:
                 item = self._queue.get(timeout=0.05)
             except queue.Empty:
                 continue
+            is_control = (
+                isinstance(item, tuple)
+                and len(item) == 2
+                and item[0] is _CONTROL_SENTINEL
+            )
+            if not is_control:
+                self._frame_capacity.release()
             try:
-                if isinstance(item, tuple) and len(item) == 2 and item[0] is _CONTROL_SENTINEL:
+                if is_control:
                     item[1]()
                     continue
                 self._handler(item)

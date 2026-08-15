@@ -8,6 +8,7 @@ from app.services.setup_snapshot import assemble_setup_snapshot
 from calib.capture_qualification import CaptureQualification
 from configs.settings import load_config
 from contracts import QualityAssessment
+from contracts.capability_observation import build_simulated_observation
 from contracts.setup import StereoCalibrationProfile
 from contracts.setup_snapshot import assess_setup_snapshot_payload
 from ui.setup.camera_select_view import DiscoveredCamera
@@ -89,6 +90,9 @@ def test_assembler_builds_complete_content_addressed_snapshot(tmp_path: Path, mo
             device_path="path-right", usb_controller="controller", driver_version="1", firmware_version="1",
         ),
     )
+    capability_observations = {
+        side: build_simulated_observation(side, mode, {}) for side in ("left", "right")
+    }
 
     snapshot = assemble_setup_snapshot(
         profile=profile,
@@ -99,11 +103,14 @@ def test_assembler_builds_complete_content_addressed_snapshot(tmp_path: Path, mo
         capture_diagnostics={"modes": {"left": mode, "right": mode}},
         calibration_path=calibration,
         roi_path=roi,
+        capability_observations=capability_observations,
     )
 
     assert snapshot.assessment.configuration_evidence_complete is True
     assert snapshot.verify_fingerprint() is True
     assert snapshot.sections["cameras"]["left"]["driver_version"] == "1"
+    assert snapshot.sections["cameras"]["left"]["capability_observation"]["camera_id"] == "left"
+    assert "cameras.left.capability_observation" not in snapshot.sections["inventory_unavailable"]
     assert snapshot.sections["validation"]["validated_configuration_ready"] is False
 
 
@@ -133,6 +140,10 @@ def test_snapshot_tampering_and_missing_capture_fail_closed(tmp_path: Path, monk
         roi_path=roi,
     )
     assert snapshot.assessment.configuration_evidence_complete is False
+    assert set(snapshot.sections["inventory_unavailable"]) >= {
+        "cameras.left.capability_observation",
+        "cameras.right.capability_observation",
+    }
     payload = snapshot.to_payload()
     payload["sections"]["rig"]["backend"] = "tampered"
     tampered = assess_setup_snapshot_payload(payload)

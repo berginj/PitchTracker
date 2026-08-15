@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional
 from capture.camera_device import CameraDevice
 from capture.device_discovery import list_uvc_devices
 from capture.uvc_backend import UvcCamera
+from contracts.capability_observation import CapabilityObservation
 from contracts.catalog import SIDE_UNASSIGNED, SIDE_LEFT, SIDE_RIGHT
 from contracts.setup_capture import SetupCapturePurpose, SetupCaptureRequest, SetupCaptureResult, SetupFrameRecord
 from contracts.types import Frame
@@ -70,6 +71,7 @@ class LiveSetupContext:
     last_right_frames: list[Frame] = field(default_factory=list)
     last_controls: dict[str, dict] = field(default_factory=dict)
     last_modes: dict[str, dict] = field(default_factory=dict)
+    last_capability_observations: dict[str, CapabilityObservation] = field(default_factory=dict)
     last_qualification: object = None
     last_sync: object = None
     last_focus: object = None
@@ -139,6 +141,7 @@ class LiveSetupContext:
         self.last_right_frames = []
         self.last_controls = {}
         self.last_modes = {}
+        self.last_capability_observations = {}
         self.last_qualification = None
         self.last_sync = None
         self.last_focus = None
@@ -214,12 +217,23 @@ class LiveSetupContext:
         right_frames = [self._frame_from_record(record) for record in result.right_frames]
         if not left_frames or not right_frames:
             raise RuntimeError("setup capture did not return both camera streams")
+        capability_observations = {}
+        for side, records in (("left", result.left_frames), ("right", result.right_frames)):
+            if side not in result.capability_observations:
+                continue
+            observation = CapabilityObservation.from_payload(
+                dict(result.capability_observations[side])
+            )
+            if observation.camera_id and observation.camera_id != records[0].camera_id:
+                raise RuntimeError(f"{side} capability observation camera ID mismatch")
+            capability_observations[side] = observation
 
         previous = (
             self.last_left_frames,
             self.last_right_frames,
             self.last_modes,
             self.last_controls,
+            self.last_capability_observations,
             self.last_qualification,
             self.last_sync,
             self.last_focus,
@@ -231,6 +245,7 @@ class LiveSetupContext:
         self.last_right_frames = right_frames
         self.last_modes = {side: _normalize_mode(dict(mode)) for side, mode in result.modes.items()}
         self.last_controls = {side: dict(control) for side, control in result.controls.items()}
+        self.last_capability_observations = capability_observations
         requested = result.requested_frames_per_camera
         self.last_capture_diagnostics = {
             "schema_version": result.schema_version,
@@ -268,6 +283,7 @@ class LiveSetupContext:
                 self.last_right_frames,
                 self.last_modes,
                 self.last_controls,
+                self.last_capability_observations,
                 self.last_qualification,
                 self.last_sync,
                 self.last_focus,
@@ -314,6 +330,11 @@ class LiveSetupContext:
             self.last_controls = {
                 "left": left.get_controls() or {},
                 "right": right.get_controls() or {},
+            }
+            self.last_capability_observations = {
+                side: observation
+                for side, camera in (("left", left), ("right", right))
+                if (observation := camera.get_capability_observation()) is not None
             }
         finally:
             left.close()

@@ -50,6 +50,8 @@ class ReviewWindow(QtWidgets.QMainWindow):
         >>> window.show()
     """
 
+    closed = QtCore.Signal()
+
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
         """Initialize review window.
 
@@ -492,5 +494,6 @@ class ReviewWindow(QtWidgets.QMainWindow):
         """Handle window close event."""
         self._playback_ctrl.teardown()
         self._service.close()
+        self.closed.emit()
         event.accept()
         logger.info("ReviewWindow closed")

@@ -45,6 +45,11 @@ class DetectionEventPublisher:
 
     def on_pairing_outcome(self, outcome: PairingOutcomeEvidence) -> None:
         service = self._service
+        timestamp_ns = (
+            outcome.left_timestamp_ns
+            if outcome.left_timestamp_ns is not None
+            else outcome.right_timestamp_ns or 0
+        )
         with service._lock:
             service._pairing_frame_count += outcome.frame_count
             if outcome.status == "UNMATCHED":
@@ -58,7 +63,7 @@ class DetectionEventPublisher:
                 metadata=make_event_metadata(
                     "PairingOutcomeEvent",
                     correlation_id=outcome.outcome_id,
-                    timestamp_ns=outcome.left_timestamp_ns or 0,
+                    timestamp_ns=timestamp_ns,
                     session_id=session_id,
                 ),
             )

@@ -27,6 +27,7 @@ def assemble_setup_snapshot(
     capture_diagnostics: Mapping[str, Any],
     calibration_path: Path,
     roi_path: Path,
+    capability_observations: Mapping[str, Any] | None = None,
 ) -> SetupSystemSnapshot:
     """Build an immutable snapshot; unavailable probe data is explicit, never invented."""
     by_id = {str(getattr(camera, "hardware_id", "")): camera for camera in cameras}
@@ -42,7 +43,12 @@ def assemble_setup_snapshot(
     camera_sections = {}
     for side, hardware_id in (("left", left_id), ("right", right_id)):
         camera = by_id.get(hardware_id)
-        raw = _camera_inventory(camera, unavailable, side)
+        observation = (
+            getattr(camera, "capability_observation", None)
+            if capability_observations is None
+            else capability_observations.get(side)
+        )
+        raw = _camera_inventory(camera, unavailable, side, observation)
         raw.update(
             {
                 "hardware_id": hardware_id,
@@ -160,7 +166,12 @@ def assemble_setup_snapshot(
     )
 
 
-def _camera_inventory(camera: Any, unavailable: list[str], side: str) -> dict[str, Any]:
+def _camera_inventory(
+    camera: Any,
+    unavailable: list[str],
+    side: str,
+    capability_observation: Any,
+) -> dict[str, Any]:
     values = {
         "friendly_name": str(getattr(camera, "friendly_name", "") or ""),
         "model": str(getattr(camera, "model", "") or ""),
@@ -178,9 +189,10 @@ def _camera_inventory(camera: Any, unavailable: list[str], side: str) -> dict[st
         "recommendation_reason": str(getattr(camera, "recommendation_reason", "") or ""),
     }
     # Persist typed capability observations when available.
-    observation = getattr(camera, "capability_observation", None)
-    if observation is not None and hasattr(observation, "to_payload"):
-        values["capability_observation"] = observation.to_payload()
+    if capability_observation is not None and hasattr(capability_observation, "to_payload"):
+        values["capability_observation"] = capability_observation.to_payload()
+    elif isinstance(capability_observation, Mapping):
+        values["capability_observation"] = _jsonable(capability_observation)
     else:
         unavailable.append(f"cameras.{side}.capability_observation")
     for field in ("instance_id", "device_path", "usb_controller", "driver_version", "firmware_version"):

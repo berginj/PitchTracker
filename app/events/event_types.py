@@ -183,13 +183,20 @@ class PairingOutcomeEvent:
     metadata: EventMetadata = field(default_factory=EventMetadata)
 
     def __post_init__(self) -> None:
-        ts = getattr(self.outcome, "left_timestamp_ns", None) or 0
         cid = getattr(self.outcome, "outcome_id", "") or ""
         object.__setattr__(self, "metadata", hydrate_metadata(
             "PairingOutcomeEvent", self.metadata,
-            timestamp_ns=ts,
+            timestamp_ns=self.timestamp_ns,
             correlation_id=cid,
         ))
+
+    @property
+    def timestamp_ns(self) -> int:
+        """Use the left timestamp when present, otherwise the right timestamp."""
+        left = getattr(self.outcome, "left_timestamp_ns", None)
+        if left is not None:
+            return int(left)
+        return int(getattr(self.outcome, "right_timestamp_ns", None) or 0)
 
 
 @dataclass(frozen=True)

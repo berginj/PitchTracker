@@ -165,6 +165,7 @@ class SetupCaptureResult:
     right_frames: tuple[SetupFrameRecord, ...]
     modes: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     controls: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+    capability_observations: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     errors_by_side: Mapping[str, int] = field(default_factory=dict)
     config_sha256: str = ""
     artifact_dir: Path | None = None
@@ -179,6 +180,11 @@ class SetupCaptureResult:
             raise ValueError("capture completion precedes capture start")
         if self.requested_frames_per_camera < 1:
             raise ValueError("requested_frames_per_camera must be positive")
+        invalid_sides = set(self.capability_observations) - {"left", "right"}
+        if invalid_sides:
+            raise ValueError(f"unsupported capability observation sides: {sorted(invalid_sides)}")
+        if any(not isinstance(value, Mapping) for value in self.capability_observations.values()):
+            raise TypeError("capability observations must be mappings")
 
     def to_payload(self) -> dict[str, Any]:
         return {
@@ -193,6 +199,9 @@ class SetupCaptureResult:
             "right_frames": [frame.to_payload() for frame in self.right_frames],
             "modes": {side: dict(values) for side, values in self.modes.items()},
             "controls": {side: dict(values) for side, values in self.controls.items()},
+            "capability_observations": {
+                side: dict(values) for side, values in self.capability_observations.items()
+            },
             "errors_by_side": dict(self.errors_by_side),
             "config_sha256": self.config_sha256,
             "artifact_dir": None if self.artifact_dir is None else str(self.artifact_dir),
@@ -213,6 +222,10 @@ class SetupCaptureResult:
             right_frames=tuple(SetupFrameRecord.from_payload(item) for item in payload.get("right_frames", ())),
             modes={str(side): dict(values) for side, values in dict(payload.get("modes", {})).items()},
             controls={str(side): dict(values) for side, values in dict(payload.get("controls", {})).items()},
+            capability_observations={
+                str(side): dict(values)
+                for side, values in dict(payload.get("capability_observations", {})).items()
+            },
             errors_by_side={str(side): int(value) for side, value in dict(payload.get("errors_by_side", {})).items()},
             config_sha256=str(payload.get("config_sha256", "")),
             artifact_dir=None if artifact_dir is None else Path(str(artifact_dir)),

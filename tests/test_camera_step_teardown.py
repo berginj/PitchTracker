@@ -13,7 +13,7 @@ import importlib.util
 import os
 import threading
 from typing import TYPE_CHECKING
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from PySide6 import QtCore, QtWidgets
@@ -104,3 +104,34 @@ def test_camera_step_on_exit_stops_timer(qtbot: "QtBot") -> None:
     step.on_exit()
 
     assert not step._preview_timer.isActive()
+
+
+@requires_pytest_qt
+def test_camera_step_on_enter_reopens_selected_cameras(qtbot: "QtBot") -> None:
+    """Back navigation restarts preview without discarding camera selection."""
+    from ui.setup.steps.camera_step import CameraStep
+
+    step = CameraStep(backend="opencv")
+    qtbot.addWidget(step)
+    step._left_serial = "left-selected"
+    step._right_serial = "right-selected"
+    step._left_camera = MagicMock()
+    step._right_camera = MagicMock()
+
+    step.on_exit()
+
+    assert not step._preview_timer.isActive()
+    assert step._left_camera is None
+    assert step._right_camera is None
+    with (
+        patch.object(step, "_open_left_camera") as open_left,
+        patch.object(step, "_open_right_camera") as open_right,
+        patch.object(step, "_refresh_devices"),
+    ):
+        step.on_enter()
+
+    assert step._preview_timer.isActive()
+    assert step._left_serial == "left-selected"
+    assert step._right_serial == "right-selected"
+    open_left.assert_called_once_with()
+    open_right.assert_called_once_with()

@@ -176,9 +176,10 @@ class PipelineOrchestrator(PipelineService):
             if self._recording_service is None:
                 raise RuntimeError("Recording service not initialized")
 
-            detection_started_here = False
-            analysis_started_here = False
+            session_id = session_name or "session"
+            detection_started_here = analysis_started_here = False
             try:
+                self._propagate_session_id(session_id)
                 if not self._detection_started and self._detection_service is not None:
                     self._detection_service.configure_detectors(
                         config=self._config.detector,
@@ -186,23 +187,22 @@ class PipelineOrchestrator(PipelineService):
                         detector_type="classical",
                     )
                     self._detection_service.configure_threading(mode="per_camera", worker_count=2)
+                    detection_started_here = True
                     self._detection_service.start_detection()
                     self._detection_started = True
-                    detection_started_here = True
 
                 if self._analysis_service is not None:
-                    self._analysis_service.start_analysis(session_id=session_name or "session")
                     analysis_started_here = True
+                    self._analysis_service.start_analysis(session_id=session_id)
 
                 warning = self._recording_service.start_session(
-                    session_name=session_name or "session",
+                    session_name=session_id,
                     config=self._config,
                     mode=mode,
                     pitch_id=pitch_id,
                     config_path=self._config_path,
                 )
             except Exception:
-                self._propagate_session_id(None)
                 if analysis_started_here and self._analysis_service is not None:
                     try:
                         self._analysis_service.stop_analysis()
@@ -214,8 +214,8 @@ class PipelineOrchestrator(PipelineService):
                         self._detection_started = False
                     except Exception:
                         logger.exception("Roll back detection failed")
+                self._propagate_session_id(None)
                 raise
-            self._propagate_session_id(session_name or "session")
             self._recording_active = True
             self._recording_paused = False
             return warning
