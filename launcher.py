@@ -253,7 +253,8 @@ class LauncherWindow(QtWidgets.QMainWindow):
         button.setLayout(button_layout)
 
         button.clicked.connect(callback)
-        button.setAccessibleName(f"Launch {title}")
+        accessible_title = title.replace(" & ", " and ")
+        button.setAccessibleName(f"Launch {accessible_title}")
         return button
 
     def _darken_color(self, color: str, factor: float = 0.9) -> str:
