@@ -1,0 +1,4 @@
+# Reproducible Windows packaging environment.
+-r requirements-dev.txt
+
+pyinstaller==6.14.2

@@ -38,7 +38,7 @@ class VideoDisplayWidget(QtWidgets.QLabel):
         self._style_manager = get_style_manager()
 
         # Configure label
-        self.setMinimumSize(640, 480)
+        self.setMinimumSize(160, 120)
         self.setFrameStyle(QtWidgets.QFrame.Shape.Box)
         self.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.setProperty("surface", "preview")

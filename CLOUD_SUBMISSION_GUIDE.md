@@ -1,5 +1,10 @@
 # Cloud Submission Quick Guide
 
+> **Status (2026-08-11): Speculative.** No cloud backend exists. This guide
+> describes the intended data packaging format for a future cloud ML training
+> pipeline that has not been built. The local recording format it references is
+> current, but the submission and ingest endpoints are not operational.
+
 > **TL;DR:** Package your PitchTracker sessions for cloud ML training. Two options: Full (videos + data, trains all models) or Telemetry-only (data only, privacy-preserving, trains 2 of 5 models).
 
 ---

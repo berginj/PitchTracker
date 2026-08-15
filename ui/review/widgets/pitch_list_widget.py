@@ -70,6 +70,7 @@ class PitchListWidget(QtWidgets.QWidget):
 
         # Navigation button
         nav_btn = QtWidgets.QPushButton("Go to Selected Pitch")
+        nav_btn.setAccessibleName("Go to Selected Pitch")
         self._style_manager.style_button(nav_btn, "primary")
         nav_btn.clicked.connect(self._on_go_to_pitch)
         layout.addWidget(nav_btn)

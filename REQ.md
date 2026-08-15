@@ -150,7 +150,8 @@ Provide a service interface that the UI uses (in-process for v1) with:
   - `rig_id` (if known)
   - `created_utc` timestamp (ISO 8601)
 
-Example (recording manifest):
+Example (recording manifest, **v1.2-era** — current schema is v2.0.0; see
+`contracts/versioning.py` and `MANIFEST_SCHEMA.md`):
 ```json
 {
   "schema_version": "1.0.0",
@@ -414,7 +415,11 @@ All tunables must live in versioned config files:
 - Automated tests exist and pass on a target laptop
 
 ## 15) Training Guide
-See `TRAINING.md` for dataset capture, labeling, and configuration guidance.
+See [`docs/ml/TRAINING.md`](docs/ml/TRAINING.md) for current (v2) dataset
+capture, labeling, and configuration guidance.
+
+The earlier v1.2-era notes are archived at
+[`archive/docs/reference/TRAINING.md`](archive/docs/reference/TRAINING.md).
 
 ## 16) SWA Export + API Contract (Azure Static Web Apps)
 Goal: A separate SWA repo ingests session summaries for dashboards (heatmap, strikes/balls, pitcher summaries).
@@ -426,7 +431,13 @@ Shared contract source of truth:
 ### 16.1 Export Artifact (from this app)
 The app must write a JSON summary file per session:
 - Path: `<recordings>/<session_id>/session_summary.json`
-- JSON schema:
+- Current schema version is `2.0.0`; see `contracts/versioning.py` (`SCHEMA_VERSION`).
+
+The JSON example below is a **v1.2-era reference** (schema `1.0.0`, app `0.2.0`).
+It documents the original contract shape. The current schema is defined in
+`contracts-shared/schema/session_summary.schema.json`; current manifests embed
+`schema_version: "2.0.0"`.
+
 ```json
 {
   "schema_version": "1.0.0",
@@ -458,7 +469,7 @@ The app must write a JSON summary file per session:
 The SWA Functions API ingests the JSON summary and exposes it for the UI.
 
 #### POST `/api/sessions`
-Body: session_summary.json payload (as above).  
+Body: session_summary.json payload (as above).
 Response: `{ "session_id": "..." }`
 
 #### GET `/api/sessions`

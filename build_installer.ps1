@@ -152,6 +152,9 @@ if (-not $SkipInnoSetup) {
 
     $installerPath = $installerFiles[0].FullName
     $installerSize = $installerFiles[0].Length / 1MB
+    $installerHash = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $checksumPath = "$installerPath.sha256"
+    "$installerHash  $($installerFiles[0].Name)" | Set-Content -LiteralPath $checksumPath -Encoding ascii
 
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
@@ -160,6 +163,8 @@ if (-not $SkipInnoSetup) {
     Write-Host ""
     Write-Host "Installer: $installerPath" -ForegroundColor Yellow
     Write-Host "Size:      $($installerSize.ToString('0.0')) MB" -ForegroundColor Yellow
+    Write-Host "SHA-256:   $installerHash" -ForegroundColor Yellow
+    Write-Host "Checksum:  $checksumPath" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Next steps:" -ForegroundColor Cyan
     Write-Host "  1. Test installer on clean Windows machine" -ForegroundColor Gray

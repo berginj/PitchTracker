@@ -3,6 +3,14 @@
 All events are immutable dataclasses that flow through the EventBus.
 Services publish events when significant actions occur, and other services
 subscribe to react to those events.
+
+AGT-001: Every applicable event carries an optional ``metadata`` field
+(``EventMetadata``) providing message_type, schema_version, correlation_id,
+timestamp_ns, and session_id/pitch_id/camera_id where applicable.
+The field defaults to an empty ``EventMetadata()`` so all existing
+positional constructors remain backwards-compatible.  ``__post_init__``
+auto-hydrates a default metadata from top-level event fields, ensuring
+``metadata.timestamp_ns`` always equals the event's own ``timestamp_ns``.
 """
 
 from __future__ import annotations
@@ -11,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from app.contracts import PitchSummary, SessionSummary
+from app.events.event_metadata import EventMetadata, hydrate_metadata
 from contracts import Detection, Frame, RayObservation, StereoObservation
 from contracts.evidence import (
     AssociationEdgeEvidence,
@@ -22,22 +31,20 @@ from contracts.evidence import (
 
 @dataclass(frozen=True)
 class FrameCapturedEvent:
-    """Published when a frame is captured from camera.
-
-    Published By: CaptureService
-    Subscribed By: RecordingService (priority), DetectionService (best-effort)
-
-    Frequency: 60 events/sec (30fps × 2 cameras)
-
-    Attributes:
-        camera_id: Camera identifier ("left" or "right")
-        frame: Captured frame data
-        timestamp_ns: Capture timestamp in nanoseconds
-    """
+    """Published when a frame is captured from camera."""
 
     camera_id: str
     frame: Frame
     timestamp_ns: int
+    metadata: EventMetadata = field(default_factory=EventMetadata)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", hydrate_metadata(
+            "FrameCapturedEvent", self.metadata,
+            timestamp_ns=self.timestamp_ns,
+            correlation_id=f"{self.camera_id}_{getattr(self.frame, 'frame_index', 0)}",
+            camera_id=self.camera_id,
+        ))
 
 
 @dataclass(frozen=True)
@@ -50,6 +57,15 @@ class FrameProcessingOpportunityEvent:
     frame_index: int
     timestamp_ns: int
     bindings: DecisionArtifactBindings = field(default_factory=DecisionArtifactBindings)
+    metadata: EventMetadata = field(default_factory=EventMetadata)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", hydrate_metadata(
+            "FrameProcessingOpportunityEvent", self.metadata,
+            timestamp_ns=self.timestamp_ns,
+            correlation_id=self.opportunity_id,
+            camera_id=self.camera_id,
+        ))
 
 
 @dataclass(frozen=True)
@@ -65,26 +81,31 @@ class FrameProcessingOutcomeEvent:
     detections: tuple[Detection, ...] = ()
     reason_codes: tuple[str, ...] = ()
     bindings: DecisionArtifactBindings = field(default_factory=DecisionArtifactBindings)
+    metadata: EventMetadata = field(default_factory=EventMetadata)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", hydrate_metadata(
+            "FrameProcessingOutcomeEvent", self.metadata,
+            timestamp_ns=self.timestamp_ns,
+            correlation_id=self.opportunity_id,
+            camera_id=self.camera_id,
+        ))
 
 
 @dataclass(frozen=True)
 class ObservationDetectedEvent:
-    """Published when a stereo observation is generated.
-
-    Published By: DetectionService (after stereo matching)
-    Subscribed By: RecordingService, AnalysisService, PipelineOrchestrator
-
-    Frequency: Variable, depends on ball detections (typically 0-30/sec)
-
-    Attributes:
-        observation: Stereo observation with 3D position
-        timestamp_ns: Detection timestamp in nanoseconds
-        confidence: Detection confidence score (0.0-1.0)
-    """
+    """Published when a stereo observation is generated."""
 
     observation: StereoObservation
     timestamp_ns: int
     confidence: float = 1.0
+    metadata: EventMetadata = field(default_factory=EventMetadata)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", hydrate_metadata(
+            "ObservationDetectedEvent", self.metadata,
+            timestamp_ns=self.timestamp_ns,
+        ))
 
 
 @dataclass(frozen=True)
@@ -94,6 +115,13 @@ class RayObservationDetectedEvent:
     observation: RayObservation
     timestamp_ns: int
     confidence: float = 1.0
+    metadata: EventMetadata = field(default_factory=EventMetadata)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", hydrate_metadata(
+            "RayObservationDetectedEvent", self.metadata,
+            timestamp_ns=self.timestamp_ns,
+        ))
 
 
 @dataclass(frozen=True)
@@ -118,6 +146,14 @@ class StereoFrameProcessedEvent:
     adjusted_left_timestamp_ns: Optional[int] = None
     adjusted_right_timestamp_ns: Optional[int] = None
     time_sync_offset_ns: int = 0
+    metadata: EventMetadata = field(default_factory=EventMetadata)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", hydrate_metadata(
+            "StereoFrameProcessedEvent", self.metadata,
+            timestamp_ns=self.timestamp_ns,
+            correlation_id=self.pair_id,
+        ))
 
     @property
     def raw_pair_skew_ns(self) -> int:
@@ -125,8 +161,16 @@ class StereoFrameProcessedEvent:
 
     @property
     def pair_skew_ns(self) -> int:
-        left = self.left_timestamp_ns if self.adjusted_left_timestamp_ns is None else self.adjusted_left_timestamp_ns
-        right = self.right_timestamp_ns if self.adjusted_right_timestamp_ns is None else self.adjusted_right_timestamp_ns
+        left = (
+            self.left_timestamp_ns
+            if self.adjusted_left_timestamp_ns is None
+            else self.adjusted_left_timestamp_ns
+        )
+        right = (
+            self.right_timestamp_ns
+            if self.adjusted_right_timestamp_ns is None
+            else self.adjusted_right_timestamp_ns
+        )
         return abs(left - right)
 
 
@@ -136,6 +180,23 @@ class PairingOutcomeEvent:
 
     outcome: PairingOutcomeEvidence
     bindings: DecisionArtifactBindings = field(default_factory=DecisionArtifactBindings)
+    metadata: EventMetadata = field(default_factory=EventMetadata)
+
+    def __post_init__(self) -> None:
+        cid = getattr(self.outcome, "outcome_id", "") or ""
+        object.__setattr__(self, "metadata", hydrate_metadata(
+            "PairingOutcomeEvent", self.metadata,
+            timestamp_ns=self.timestamp_ns,
+            correlation_id=cid,
+        ))
+
+    @property
+    def timestamp_ns(self) -> int:
+        """Use the left timestamp when present, otherwise the right timestamp."""
+        left = getattr(self.outcome, "left_timestamp_ns", None)
+        if left is not None:
+            return int(left)
+        return int(getattr(self.outcome, "right_timestamp_ns", None) or 0)
 
 
 @dataclass(frozen=True)
@@ -153,43 +214,37 @@ class StereoAssociationOutcomeEvent:
     rejection_reasons: tuple[str, ...] = ()
     schema_version: str = "decision_evidence.v2"
     bindings: DecisionArtifactBindings = field(default_factory=DecisionArtifactBindings)
+    metadata: EventMetadata = field(default_factory=EventMetadata)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", hydrate_metadata(
+            "StereoAssociationOutcomeEvent", self.metadata,
+            timestamp_ns=self.timestamp_ns,
+            correlation_id=self.pair_id,
+        ))
 
 
 @dataclass(frozen=True)
 class PitchStartEvent:
-    """Published when pitch detection begins.
-
-    Published By: PipelineOrchestrator (from PitchStateMachineV2)
-    Subscribed By: RecordingService (create PitchRecorder, write pre-roll)
-
-    Frequency: Rare, typically 0-10 times per session
-
-    Attributes:
-        pitch_id: Unique identifier for the pitch
-        pitch_index: Sequential pitch number in session
-        timestamp_ns: When pitch started (first detection)
-    """
+    """Published when pitch detection begins."""
 
     pitch_id: str
     pitch_index: int
     timestamp_ns: int
+    metadata: EventMetadata = field(default_factory=EventMetadata)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", hydrate_metadata(
+            "PitchStartEvent", self.metadata,
+            timestamp_ns=self.timestamp_ns,
+            correlation_id=self.pitch_id,
+            pitch_id=self.pitch_id,
+        ))
 
 
 @dataclass(frozen=True)
 class PitchEndEvent:
-    """Published when pitch is finalized.
-
-    Published By: PipelineOrchestrator (from PitchStateMachineV2)
-    Subscribed By: RecordingService (finalize PitchRecorder), AnalysisService (analyze trajectory)
-
-    Frequency: Rare, typically 0-10 times per session
-
-    Attributes:
-        pitch_id: Unique identifier for the pitch
-        observations: All observations collected for this pitch
-        timestamp_ns: When pitch ended (last detection + post-roll)
-        duration_ns: Total duration of pitch in nanoseconds
-    """
+    """Published when pitch is finalized."""
 
     pitch_id: str
     observations: List[StereoObservation]
@@ -198,41 +253,37 @@ class PitchEndEvent:
     ray_observations: List[RayObservation] = field(default_factory=list)
     coordinate_frame: str = "camera"
     rig_profile_id: Optional[str] = None
+    metadata: EventMetadata = field(default_factory=EventMetadata)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", hydrate_metadata(
+            "PitchEndEvent", self.metadata,
+            timestamp_ns=self.timestamp_ns,
+            correlation_id=self.pitch_id,
+            pitch_id=self.pitch_id,
+        ))
 
 
 @dataclass(frozen=True)
 class PitchAnalyzedEvent:
-    """Published when pitch analysis has produced a durable summary.
-
-    Published By: AnalysisService
-    Subscribed By: RecordingService, UI observers
-
-    Attributes:
-        pitch_id: Unique identifier for the pitch
-        summary: Computed pitch summary
-        session_summary: Latest aggregate session summary after this pitch
-    """
+    """Published when pitch analysis has produced a durable summary."""
 
     pitch_id: str
     summary: PitchSummary
     session_summary: SessionSummary
+    metadata: EventMetadata = field(default_factory=EventMetadata)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", hydrate_metadata(
+            "PitchAnalyzedEvent", self.metadata,
+            correlation_id=self.pitch_id,
+            pitch_id=self.pitch_id,
+        ))
 
 
 @dataclass(frozen=True)
 class ConfigUpdateEvent:
-    """Published when configuration changes during session.
-
-    NOTE: Currently unused as config is static per session.
-    Reserved for future use if runtime config updates are needed.
-
-    Published By: ConfigService (if/when runtime updates added)
-    Subscribed By: All services that need config
-
-    Attributes:
-        config_key: What configuration changed
-        config_value: New value (as string, services cast as needed)
-        timestamp_ns: When config changed
-    """
+    """Reserved for future runtime config updates. Do not add metadata."""
 
     config_key: str
     config_value: str
@@ -241,21 +292,17 @@ class ConfigUpdateEvent:
 
 @dataclass(frozen=True)
 class ErrorEvent:
-    """Published when errors occur in services.
-
-    Published By: Any service
-    Subscribed By: MainWindow (for UI notifications), Logging
-
-    Attributes:
-        service_name: Which service encountered the error
-        error_type: Error classification (e.g., "CameraConnectionError")
-        message: Human-readable error message
-        details: Optional additional context
-        timestamp_ns: When error occurred
-    """
+    """Published when errors occur in services."""
 
     service_name: str
     error_type: str
     message: str
     details: str = ""
     timestamp_ns: int = 0
+    metadata: EventMetadata = field(default_factory=EventMetadata)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", hydrate_metadata(
+            "ErrorEvent", self.metadata,
+            timestamp_ns=self.timestamp_ns,
+        ))

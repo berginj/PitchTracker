@@ -11,6 +11,8 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+_CONTROL_SENTINEL = object()
+
 
 @dataclass(frozen=True)
 class RecordingWorkerStats:
@@ -28,7 +30,8 @@ class BoundedRecordingWorker:
         if max_queue <= 0:
             raise ValueError("max_queue must be positive")
         self._handler = handler
-        self._queue: queue.Queue[Any] = queue.Queue(maxsize=max_queue)
+        self._queue: queue.Queue[Any] = queue.Queue()
+        self._frame_capacity = threading.BoundedSemaphore(max_queue)
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._lifecycle_lock = threading.Lock()
@@ -37,7 +40,7 @@ class BoundedRecordingWorker:
         self._submitted = self._written = self._dropped = self._failed = 0
 
     def start(self) -> bool:
-        """Start a fresh accepting generation, or report a stale live generation."""
+        """Start a fresh accepting generation."""
         with self._lifecycle_lock:
             if self._thread and self._thread.is_alive():
                 return self._accepting and not self._stop.is_set()
@@ -53,19 +56,34 @@ class BoundedRecordingWorker:
 
     def submit(self, item: Any) -> bool:
         with self._lifecycle_lock:
+            live = self._accepting and not self._stop.is_set() and self._thread and self._thread.is_alive()
+            if not live:
+                with self._stats_lock:
+                    self._dropped += 1
+                return False
+            if not self._frame_capacity.acquire(blocking=False):
+                with self._stats_lock:
+                    self._dropped += 1
+                return False
+            self._queue.put_nowait(item)
+            with self._stats_lock:
+                self._submitted += 1
+            return True
+
+    def submit_control(self, fn: Callable[[], None]) -> bool:
+        """Enqueue a callable that the worker executes in FIFO order.
+
+        Control commands are processed between data items, preserving strict
+        ordering.  They do not count toward submitted/written stats.
+
+        Controls bypass frame capacity. Returns True if the command was
+        enqueued, or False only when the worker is not running.
+        """
+        with self._lifecycle_lock:
             if not self._accepting or self._stop.is_set() or not self._thread or not self._thread.is_alive():
-                with self._stats_lock:
-                    self._dropped += 1
                 return False
-            try:
-                self._queue.put_nowait(item)
-                with self._stats_lock:
-                    self._submitted += 1
-                return True
-            except queue.Full:
-                with self._stats_lock:
-                    self._dropped += 1
-                return False
+            self._queue.put_nowait((_CONTROL_SENTINEL, fn))
+            return True
 
     def wait_idle(self, timeout: float = 10.0) -> bool:
         deadline = time.monotonic() + timeout
@@ -109,7 +127,17 @@ class BoundedRecordingWorker:
                 item = self._queue.get(timeout=0.05)
             except queue.Empty:
                 continue
+            is_control = (
+                isinstance(item, tuple)
+                and len(item) == 2
+                and item[0] is _CONTROL_SENTINEL
+            )
+            if not is_control:
+                self._frame_capacity.release()
             try:
+                if is_control:
+                    item[1]()
+                    continue
                 self._handler(item)
                 with self._stats_lock:
                     self._written += 1

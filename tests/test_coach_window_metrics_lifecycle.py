@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from types import SimpleNamespace
 
-import ui.coaching.coach_window as coach_window_module
+import ui.coaching.session_controller as session_controller_module
 from ui.coaching.coach_window import CoachWindow
+from ui.coaching.pitch_display import PitchDisplay
+from ui.coaching.session_controller import SessionController
 from ui.coaching.widgets.mode_widgets.game_mode_view import GameModeWidget
 from ui.coaching.widgets.mode_widgets.session_progression_view import SessionProgressionWidget
 
@@ -111,8 +113,13 @@ def _metrics_window(service: _SummaryService):
         _session_tracker=tracker,
         _mode_stack=_Stack(mode),
         _fatigue_indicator=fatigue,
-        _update_quality_health=lambda: None,
+        _quality_indicator=_Label(),
+        _style_manager=SimpleNamespace(
+            style_status_indicator=lambda widget, tone: None
+        ),
     )
+    service.get_quality_diagnostics = lambda: {"quality": {"status": "ESTIMATED"}}
+    window._pitch_display = PitchDisplay(window)
     return window, mode, tracker, fatigue
 
 
@@ -203,7 +210,7 @@ def test_progression_render_does_not_append_to_shared_tracker() -> None:
 
 def _end_window(service):
     statuses = []
-    return SimpleNamespace(
+    window = SimpleNamespace(
         _service=service,
         _session_name="bullpen",
         _pitcher_name="pitcher",
@@ -221,6 +228,8 @@ def _end_window(service):
         _set_status_message=lambda message, tone: statuses.append((message, tone)),
         _statuses=statuses,
     )
+    window._session_ctrl = SessionController(window)
+    return window
 
 
 def test_end_session_reads_summary_only_after_successful_stop(qapp, monkeypatch) -> None:
@@ -240,9 +249,9 @@ def test_end_session_reads_summary_only_after_successful_stop(qapp, monkeypatch)
             raise AssertionError("pre-drain summary must not be read")
 
     messages = []
-    monkeypatch.setattr(coach_window_module, "ask_confirmation", lambda *args, **kwargs: True)
+    monkeypatch.setattr(session_controller_module, "ask_confirmation", lambda *args, **kwargs: True)
     monkeypatch.setattr(
-        coach_window_module,
+        session_controller_module,
         "show_message_dialog",
         lambda *args, **kwargs: messages.append((args, kwargs)),
     )
@@ -265,9 +274,9 @@ def test_end_session_failure_preserves_active_paused_ui(qapp, monkeypatch) -> No
             raise AssertionError("failed stop has no final summary")
 
     messages = []
-    monkeypatch.setattr(coach_window_module, "ask_confirmation", lambda *args, **kwargs: True)
+    monkeypatch.setattr(session_controller_module, "ask_confirmation", lambda *args, **kwargs: True)
     monkeypatch.setattr(
-        coach_window_module,
+        session_controller_module,
         "show_message_dialog",
         lambda *args, **kwargs: messages.append((args, kwargs)),
     )
@@ -296,6 +305,7 @@ def test_estimated_quality_uses_neutral_tone() -> None:
             style_status_indicator=lambda widget, tone: styled.append((widget, tone))
         ),
     )
+    window._pitch_display = PitchDisplay(window)
 
     CoachWindow._update_quality_health(window)
 

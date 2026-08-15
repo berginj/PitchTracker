@@ -16,6 +16,10 @@ from configs.settings import AppConfig
 from contracts import Frame, Detection, StereoObservation
 
 from app.pipeline.recording.manifest import create_pitch_manifest
+from app.pipeline.recording.pitch_artifact_export import (
+    export_detections,
+    export_observations,
+)
 from app.pipeline.recording.evidence_package import EvidencePackageWriter
 from app.pipeline.recording.frame_extractor import FrameExtractor
 
@@ -327,20 +331,21 @@ class PitchRecorder:
         self._evidence.write()
         self._evidence_written = True
 
-    def write_manifest(self, summary, config_path: Optional[str], performance_metrics: Optional[Dict] = None) -> None:
-        """Write pitch manifest to JSON file.
-
-        Args:
-            summary: PitchSummary object
-            config_path: Path to config file used
-            performance_metrics: Optional performance metrics dict
-        """
+    def write_manifest(
+        self,
+        summary,
+        config_path: Optional[str],
+        performance_metrics: Optional[Dict] = None,
+        event_metadata: Optional[Dict] = None,
+    ) -> None:
+        """Write pitch manifest to JSON file."""
         manifest = create_pitch_manifest(
             summary,
             config_path,
             performance_metrics,
             left_video=self._left_video_name,
             right_video=self._right_video_name,
+            event_metadata=event_metadata,
         )
         manifest["evidence_manifest"] = "evidence/manifest.json"
         manifest["corrections"] = summary.correction_records or []
@@ -475,31 +480,17 @@ class PitchRecorder:
 
     def _export_detections(self) -> None:
         """Export detection data to JSON files."""
-        detections_dir = self._pitch_dir / "detections"
-        detections_dir.mkdir(exist_ok=True)
-
-        for camera in ["left", "right"]:
-            if self._detections[camera]:
-                detection_file = detections_dir / f"{camera}_detections.json"
-                data = {
-                    "pitch_id": self._pitch_id,
-                    "camera": camera,
-                    "detection_count": self._detection_count[camera],
-                    "detections": self._detections[camera],
-                }
-                detection_file.write_text(json.dumps(data, indent=2))
-                logger.info(f"Exported {self._detection_count[camera]} detections to {detection_file}")
+        export_detections(
+            self._pitch_dir,
+            self._pitch_id,
+            self._detections,
+            self._detection_count,
+        )
 
     def _export_observations(self) -> None:
         """Export stereo observations to JSON file."""
-        obs_dir = self._pitch_dir / "observations"
-        obs_dir.mkdir(exist_ok=True)
-
-        obs_file = obs_dir / "stereo_observations.json"
-        data = {
-            "pitch_id": self._pitch_id,
-            "observation_count": len(self._observations),
-            "observations": self._observations,
-        }
-        obs_file.write_text(json.dumps(data, indent=2))
-        logger.info(f"Exported {len(self._observations)} observations to {obs_file}")
+        export_observations(
+            self._pitch_dir,
+            self._pitch_id,
+            self._observations,
+        )

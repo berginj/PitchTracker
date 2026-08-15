@@ -5,6 +5,7 @@ Validates that camera enumeration is fast, reliable, and properly cached.
 
 from __future__ import annotations
 
+import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -123,19 +124,14 @@ class TestOpenCVIndexProbing:
 
     def test_probe_opencv_indices_sequential(self):
         """Sequential probing should check indices one by one."""
-        with patch("cv2.VideoCapture") as mock_cap:
-            mock_instance = MagicMock()
-            mock_cap.return_value = mock_instance
+        test_thread = threading.current_thread()
 
-            # Camera only at index 1
-            call_count = {"count": 0}
+        def probe(index, _timeout):
+            if threading.current_thread() is test_thread and index == 1:
+                return index
+            return None
 
-            def is_opened_side_effect():
-                call_count["count"] += 1
-                return call_count["count"] == 2  # Second call (index 1)
-
-            mock_instance.isOpened.side_effect = is_opened_side_effect
-
+        with patch("ui.device_utils._probe_single_index", side_effect=probe):
             indices = probe_opencv_indices(max_index=4, parallel=False, use_cache=False)
 
             assert 1 in indices
@@ -161,16 +157,19 @@ class TestOpenCVIndexProbing:
 
     def test_probe_opencv_default_max_index_covers_four_camera_rigs(self):
         """Default max_index should scan enough indices for four-camera rigs."""
-        with patch("cv2.VideoCapture") as mock_cap:
-            mock_instance = MagicMock()
-            mock_cap.return_value = mock_instance
-            mock_instance.isOpened.return_value = False
+        test_thread = threading.current_thread()
+        probed_indices = []
 
-            # Call with defaults
+        def record_probe(index, _timeout):
+            if threading.current_thread() is test_thread:
+                probed_indices.append(index)
+            return None
+
+        with patch("ui.device_utils._probe_single_index", side_effect=record_probe):
             probe_opencv_indices(parallel=False, use_cache=False)
 
             # Should check indices 0-15 by default.
-            assert mock_cap.call_count == 16
+            assert probed_indices == list(range(16))
 
     def test_probe_opencv_timeout_protection(self):
         """Should timeout on stuck cameras (tested via integration)."""

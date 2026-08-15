@@ -66,6 +66,28 @@ def test_launcher_window_keeps_actions_disabled_when_validation_fails(
     assert "worker crashed" in window._warning_body.text()
 
 
+def test_closing_review_sessions_restores_launcher_synchronously(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _ensure_qapp()
+    monkeypatch.setattr(launcher.QtCore.QTimer, "singleShot", lambda *_args: None)
+    window = launcher.LauncherWindow()
+    window.show()
+
+    try:
+        window._launch_review()
+        app.processEvents()
+        assert window.isVisible() is False
+        assert window.review_window.isVisible() is True
+
+        window.review_window.close()
+
+        assert window.isVisible() is True
+        assert app.closingDown() is False
+    finally:
+        window.close()
+
+
 def test_project_root_is_not_added_twice_when_path_case_differs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -203,6 +203,7 @@ def publish_error(
     message: str,
     source: str,
     exception: Optional[Exception] = None,
+    event_metadata: Optional[Dict[str, Any]] = None,
     **metadata: Any,
 ) -> None:
     """Convenience function to publish error event.
@@ -213,15 +214,19 @@ def publish_error(
         message: Error message
         source: Source component
         exception: Optional exception
+        event_metadata: Optional AGT-001 EventMetadata dict to include
         **metadata: Additional metadata
     """
+    combined = dict(metadata)
+    if event_metadata is not None:
+        combined["event_metadata"] = event_metadata
     event = ErrorEvent(
         category=category,
         severity=severity,
         message=message,
         source=source,
         exception=exception,
-        metadata=metadata,
+        metadata=combined,
     )
     get_error_bus().publish(event)
 

@@ -31,9 +31,11 @@ class StartupDialog(QtWidgets.QDialog):
 
         # Initialize widgets
         self._profile = QtWidgets.QComboBox()
+        self._profile.setAccessibleName("Location profile")
         self._profile.addItems(list_profiles())
 
         self._pitcher = QtWidgets.QComboBox()
+        self._pitcher.setAccessibleName("Pitcher name")
         self._pitcher.setEditable(True)
         self._pitcher.addItems(load_pitchers())
 
@@ -63,8 +65,10 @@ class StartupDialog(QtWidgets.QDialog):
 
         # Buttons
         button_box = QtWidgets.QDialogButtonBox()
-        button_box.addButton("Continue", QtWidgets.QDialogButtonBox.AcceptRole)
-        button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.RejectRole)
+        continue_btn = button_box.addButton("Continue", QtWidgets.QDialogButtonBox.AcceptRole)
+        continue_btn.setAccessibleName("Continue to session")
+        cancel_btn = button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.RejectRole)
+        cancel_btn.setAccessibleName("Cancel session setup")
         style_dialog_button_box(button_box, primary=True)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)

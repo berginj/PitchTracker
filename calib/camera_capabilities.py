@@ -15,6 +15,11 @@ import cv2
 import numpy as np
 
 from capture.camera_device import CameraDevice
+from contracts.capability_observation import (
+    CapabilityObservation,
+    ControlQueryStatus,
+    CONTROL_FOCUS,
+)
 from detect.utils import compute_focus_score
 
 
@@ -33,6 +38,7 @@ class CameraCapabilities:
     focus_cv: float  # Coefficient of variation for focus scores
     focal_drift_percent: float  # Percentage focal length drift over test period
     recommendations: list[str]  # User-facing guidance
+    capability_observation: Optional[CapabilityObservation] = None
 
     def __str__(self) -> str:
         """Human-readable summary."""
@@ -119,6 +125,7 @@ class CameraCapabilityDetector:
         logger.info("Stage 4: Querying UVC autofocus capability...")
         uvc_autofocus = self._query_uvc_autofocus(camera_device)
         logger.info(f"UVC autofocus query: {uvc_autofocus}")
+        observation = camera_device.get_capability_observation()
 
         # Classification logic
         camera_type, has_autofocus = self._classify_camera(focus_cv, focal_drift, uvc_autofocus)
@@ -146,6 +153,7 @@ class CameraCapabilityDetector:
             focus_cv=focus_cv,
             focal_drift_percent=focal_drift,
             recommendations=recommendations,
+            capability_observation=observation,
         )
 
         logger.info(f"Detection complete:\n{capabilities}")
@@ -306,19 +314,28 @@ class CameraCapabilityDetector:
             return np.array([]), np.array([])
 
     def _query_uvc_autofocus(self, camera: CameraDevice) -> Optional[bool]:
-        """Query UVC device for autofocus capability.
+        """Determine whether the camera has autofocus hardware from observations.
 
-        Note: Not implemented in current backends, placeholder for future.
-
-        Args:
-            camera: Camera device to query
+        Uses the typed ``ControlQueryStatus`` of the focus control rather than
+        raw readback values.  A *verified* successful autofocus-disable write
+        plus readback (SUPPORTED status) proves the device exposes the control,
+        so the camera *has* autofocus hardware.
 
         Returns:
-            True if autofocus capable, False if manual only, None if unknown
+            True  — focus control is SUPPORTED (autofocus hardware present).
+            False — focus control is UNSUPPORTED (verified absent).
+            None  — status is QUERY_FAILED, UNAVAILABLE, or no observation.
         """
-        # TODO: Implement UVC control queries
-        # This would require extending uvc_backend.py to query controls
-        # For now, return None (unknown)
+        observation = camera.get_capability_observation()
+        if observation is None:
+            return None
+        focus = observation.results.get(CONTROL_FOCUS)
+        if focus is None:
+            return None
+        if focus.status == ControlQueryStatus.SUPPORTED:
+            return True
+        if focus.status == ControlQueryStatus.UNSUPPORTED:
+            return False
         return None
 
     def _classify_camera(

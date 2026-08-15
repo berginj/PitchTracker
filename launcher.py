@@ -87,7 +87,12 @@ class LauncherWindow(QtWidgets.QMainWindow):
         layout.addWidget(footer_widget)
 
         central.setLayout(layout)
-        self.setCentralWidget(central)
+
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        scroll.setWidget(central)
+        self.setCentralWidget(scroll)
 
         # Set window icon if available
         self._set_window_icon()
@@ -109,6 +114,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
 
         # Subtitle
         subtitle = QtWidgets.QLabel("Baseball Pitch Tracking & Analysis System")
+        subtitle.setWordWrap(True)
         subtitle.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._style_manager.style_label(subtitle, "muted")
         layout.addWidget(subtitle)
@@ -153,33 +159,18 @@ class LauncherWindow(QtWidgets.QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(20)
 
-        # Setup Wizard button
+        # Setup & Calibration button (single canonical entry point)
         self._setup_button = self._create_role_button(
             "Setup & Calibration",
             "For technicians and installers\n\n"
-            "- Camera configuration\n"
+            "- Camera discovery & pairing\n"
             "- Stereo calibration\n"
-            "- ROI setup\n"
+            "- ROI & alignment setup\n"
             "- System validation\n\n"
             "Run once or when reconfiguring",
             "#4CAF50",
             self._launch_stereo_setup,
         )
-        self._setup_button.setAccessibleName("Launch Setup Wizard")
-
-        # Stereo Setup button
-        self._stereo_setup_button = self._create_role_button(
-            "Stereo Setup",
-            "For genuine stereo rig setup\n\n"
-            "- Live camera discovery\n"
-            "- Paired preview checks\n"
-            "- Alignment workflow\n"
-            "- Calibration quality review\n\n"
-            "Use for the 9-step stereo flow",
-            "#4CAF50",
-            self._launch_stereo_setup,
-        )
-        self._stereo_setup_button.setAccessibleName("Launch Stereo Setup")
 
         # Coaching App button
         self._coach_button = self._create_role_button(
@@ -193,21 +184,39 @@ class LauncherWindow(QtWidgets.QMainWindow):
             "#2196F3",
             self._launch_coaching,
         )
-        self._coach_button.setAccessibleName("Launch Coaching App")
+
+        # Review Sessions button
+        self._review_button = self._create_role_button(
+            "Review Sessions",
+            "For post-session analysis\n\n"
+            "- Replay recorded pitches\n"
+            "- Trajectory diagnostics\n"
+            "- Parameter tuning\n"
+            "- Export configurations\n\n"
+            "Use after coaching sessions",
+            "#9C27B0",
+            self._launch_review,
+        )
 
         layout.addWidget(self._setup_button)
-        layout.addWidget(self._stereo_setup_button)
         layout.addWidget(self._coach_button)
+        layout.addWidget(self._review_button)
 
         widget.setLayout(layout)
         return widget
 
     def _create_role_button(self, title: str, description: str, color: str, callback) -> QtWidgets.QPushButton:
         """Create a styled role selection button."""
-        accent = "success" if color.lower() == "#4caf50" else "primary"
+        color_lower = color.lower()
+        if color_lower == "#4caf50":
+            accent = "success"
+        elif color_lower == "#9c27b0":
+            accent = "default"
+        else:
+            accent = "primary"
 
         button = QtWidgets.QPushButton()
-        button.setMinimumSize(300, 350)
+        button.setMinimumSize(180, 200)
         button.setProperty("variant", "role-card")
         button.setProperty("accent", accent)
         self._style_manager.polish(button)
@@ -244,6 +253,8 @@ class LauncherWindow(QtWidgets.QMainWindow):
         button.setLayout(button_layout)
 
         button.clicked.connect(callback)
+        accessible_title = title.replace(" & ", " and ")
+        button.setAccessibleName(f"Launch {accessible_title}")
         return button
 
     def _darken_color(self, color: str, factor: float = 0.9) -> str:
@@ -270,6 +281,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
 
         # Auto-update toggle (persisted)
         self._auto_update_checkbox = QtWidgets.QCheckBox("Install updates automatically")
+        self._auto_update_checkbox.setAccessibleName("Install updates automatically")
         self._auto_update_checkbox.setChecked(is_auto_update_enabled())
         self._auto_update_checkbox.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self._auto_update_checkbox.setToolTip(
@@ -325,8 +337,8 @@ class LauncherWindow(QtWidgets.QMainWindow):
     def _set_role_buttons_enabled(self, enabled: bool) -> None:
         """Enable or disable launcher entry points."""
         self._setup_button.setEnabled(enabled)
-        self._stereo_setup_button.setEnabled(enabled)
         self._coach_button.setEnabled(enabled)
+        self._review_button.setEnabled(enabled)
 
     def _update_warning_banner(self) -> None:
         """Render the current startup status into the banner."""
@@ -361,6 +373,12 @@ class LauncherWindow(QtWidgets.QMainWindow):
         super().showEvent(event)
         self.raise_()
         self.activateWindow()
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        """Ensure background threads are joined before destruction."""
+        if self._validation_thread is not None and self._validation_thread.isRunning():
+            self._validation_thread.wait(3000)
+        super().closeEvent(event)
 
     def _launch_setup(self):
         """Compatibility route to the single canonical stereo setup wizard."""
@@ -405,6 +423,25 @@ class LauncherWindow(QtWidgets.QMainWindow):
                 f"Failed to launch Coaching App:\n{str(e)}\n\n"
                 "Make sure all dependencies are installed and "
                 "the system is configured (run Setup Wizard first).",
+            )
+            self.show()
+
+    def _launch_review(self):
+        """Launch Review Sessions window."""
+        try:
+            from ui.review.review_window import ReviewWindow
+
+            self.hide()
+
+            self.review_window = ReviewWindow()
+            self.review_window.closed.connect(self._on_child_closed)
+            self.review_window.show()
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Launch Error",
+                f"Failed to launch Review Sessions:\n{str(e)}\n\n" "Make sure all dependencies are installed.",
             )
             self.show()
 

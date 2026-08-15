@@ -38,16 +38,20 @@ class RecordingSettingsDialog(QtWidgets.QDialog):
 
         # Initialize widgets
         self._session = QtWidgets.QLineEdit(session)
+        self._session.setAccessibleName("Session name")
 
         self._output_dir = QtWidgets.QLineEdit(output_dir)
+        self._output_dir.setAccessibleName("Output directory")
 
         self._speed = QtWidgets.QDoubleSpinBox()
+        self._speed.setAccessibleName("Measured speed")
         self._speed.setMinimum(0.0)
         self._speed.setMaximum(130.0)
         self._speed.setSuffix(" mph")
         self._speed.setValue(speed_mph)
 
         self._browse_button = QtWidgets.QPushButton("Browse...")
+        self._browse_button.setAccessibleName("Browse output directory")
         self._browse_button.clicked.connect(self._browse)
 
         self._build_ui()
@@ -79,8 +83,10 @@ class RecordingSettingsDialog(QtWidgets.QDialog):
 
         # Buttons
         button_box = QtWidgets.QDialogButtonBox()
-        button_box.addButton("Apply", QtWidgets.QDialogButtonBox.AcceptRole)
-        button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.RejectRole)
+        apply_btn = button_box.addButton("Apply", QtWidgets.QDialogButtonBox.AcceptRole)
+        apply_btn.setAccessibleName("Apply recording settings")
+        cancel_btn = button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.RejectRole)
+        cancel_btn.setAccessibleName("Cancel recording settings")
         style_dialog_button_box(button_box, primary=True)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)

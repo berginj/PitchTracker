@@ -71,6 +71,22 @@ class SimulatedCamera(CameraDevice):
     def get_controls(self):
         return dict(self._controls)
 
+    def get_capability_observation(self):
+        if self._serial is None:
+            return None
+        from contracts.capability_observation import build_simulated_observation
+
+        return build_simulated_observation(
+            camera_id=self._serial or "sim",
+            requested_mode={
+                "width": self._width,
+                "height": self._height,
+                "fps": self._fps,
+                "pixfmt": self._pixfmt,
+            },
+            controls=self._controls,
+        )
+
     def read_frame(self, timeout_ms: int) -> Frame:
         if self._fps > 0:
             target_delay = 1.0 / self._fps

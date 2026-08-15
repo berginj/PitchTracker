@@ -125,6 +125,8 @@ Acceptance evidence:
 - [Split setup providers by workflow boundary](https://github.com/berginj/PitchTracker/issues/15)
   so `ui/setup/providers.py` can leave the file-length baseline without moving
   pipeline or calibration logic into the UI.
+- Use [OVERSIZED_MODULE_TRIAGE.md](OVERSIZED_MODULE_TRIAGE.md) as the
+  churn-ranked ownership queue for the remaining grandfathered modules.
 
 ## Later or conditional
 

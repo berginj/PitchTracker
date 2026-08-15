@@ -37,6 +37,10 @@ class MockCameraDevice:
         self.frame_index += 1
         return frame
 
+    def get_capability_observation(self):
+        """Return None — mock has no real backend."""
+        return None
+
 
 def create_stable_brightness_frames(index: int) -> MockFrame:
     """Generate frames with stable brightness (industrial camera)."""

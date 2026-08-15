@@ -125,6 +125,7 @@ def _capture(request: SetupCaptureRequest) -> SetupCaptureResult:
     errors_by_side = {"left": 0, "right": 0}
     modes: dict[str, dict[str, Any]] = {}
     controls: dict[str, dict[str, Any]] = {}
+    capability_observations: dict[str, dict[str, Any]] = {}
     started_ns = time.monotonic_ns()
 
     try:
@@ -176,6 +177,10 @@ def _capture(request: SetupCaptureRequest) -> SetupCaptureResult:
             "left": _json_safe(left.get_controls() or {}),
             "right": _json_safe(right.get_controls() or {}),
         }
+        for side, camera in (("left", left), ("right", right)):
+            observation = camera.get_capability_observation()
+            if observation is not None:
+                capability_observations[side] = _json_safe(observation.to_payload())
     finally:
         # Normal completion uses backend cleanup.  A driver-level stall here is
         # still bounded because the parent owns the process deadline.
@@ -213,6 +218,7 @@ def _capture(request: SetupCaptureRequest) -> SetupCaptureResult:
         right_frames=tuple(right_records),
         modes=modes,
         controls=controls,
+        capability_observations=capability_observations,
         errors_by_side=errors_by_side,
         config_sha256=config_digest,
         artifact_dir=artifact_dir,

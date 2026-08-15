@@ -3,7 +3,10 @@
 **Document Type:** Technical Architecture & API Specification
 **Date:** March 26, 2026
 **Version:** 2.0 (Deep Integration - Bluetooth + Cloud API)
-**Status:** DESIGN COMPLETE - Ready for TAG Sports Partnership Proposal
+**Status:** SPECULATIVE — design only. Cloud backend, Bluetooth integration, and
+UI components do not exist. Phase 2 (cloud sync) requires 12–18 weeks of
+engineering plus infrastructure. Phase 3 (Bluetooth) is unstarted. No partnership
+agreement exists. Do not treat this document as current product capability.
 **Owner:** Engineering Lead + Platform Architect
 
 ---

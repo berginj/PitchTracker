@@ -148,8 +148,8 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         self.assertEqual(len(callback_called), 0)
 
     @patch("time.sleep")
-    def test_monitoring_stops_on_flag_change(self, mock_sleep):
-        """Test that monitoring thread stops when flag is set to False."""
+    def test_monitoring_stops_on_stop_signal(self, mock_sleep):
+        """Test that monitoring exits promptly when stop is requested."""
 
         # Make sleep return immediately so loop iterates quickly
         mock_sleep.return_value = None
@@ -167,6 +167,7 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
 
         # Stop monitoring
         self.recorder._monitoring_disk = False
+        self.recorder._disk_monitor_stop.set()
         monitor_thread.join(timeout=2.0)
 
         # Thread should be dead

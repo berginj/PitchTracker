@@ -1,5 +1,6 @@
 """Integration tests for video codec fallback mechanism."""
 
+import os
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -15,7 +16,15 @@ except ImportError:
     CV2_AVAILABLE = False
 
 
+import pytest
+
+
+_OFFSCREEN = os.environ.get("QT_QPA_PLATFORM") == "offscreen"
+
+
+@pytest.mark.requires_no_offscreen
 @unittest.skipIf(not CV2_AVAILABLE, "OpenCV not available")
+@unittest.skipIf(_OFFSCREEN, "Codec probes unreliable under offscreen Qt platform")
 class TestCodecFallbackIntegration(unittest.TestCase):
     """Integration tests for codec fallback in session recorder."""
 

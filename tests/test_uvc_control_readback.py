@@ -4,6 +4,11 @@ import cv2
 import pytest
 
 from capture.uvc_backend import UvcCamera
+from contracts.capability_observation import (
+    CONTROL_FPS,
+    CONTROL_RESOLUTION,
+    ControlQueryStatus,
+)
 
 
 class _FakeCapture:
@@ -103,3 +108,50 @@ def test_uvc_jitter_reports_cadence_outlier() -> None:
     stats = camera.get_stats()
 
     assert stats.jitter_p95_ms > 0.0
+
+
+def test_capability_observation_keeps_requested_and_negotiated_modes() -> None:
+    camera = UvcCamera()
+    capture = _FakeCapture()
+    capture.values.update(
+        {
+            cv2.CAP_PROP_FRAME_WIDTH: 1280,
+            cv2.CAP_PROP_FRAME_HEIGHT: 720,
+            cv2.CAP_PROP_FPS: 60,
+            cv2.CAP_PROP_FOURCC: cv2.VideoWriter_fourcc(*"MJPG"),
+        }
+    )
+    camera._capture = capture
+    camera._serial = "private-camera-id"
+    camera._width = 1920
+    camera._height = 1080
+    camera._fps = 120
+    camera._pixfmt = "MJPG"
+    camera.set_controls(2000, 2.0, None, 4600)
+
+    observation = camera.get_capability_observation()
+
+    assert observation is not None
+    assert observation.requested_mode["width"] == 1920
+    assert observation.requested_mode["fps"] == 120
+    assert observation.negotiated_mode["width"] == 1280
+    assert observation.negotiated_mode["fps"] == 60
+    assert observation.results[CONTROL_RESOLUTION].requested_value == "1920x1080"
+    assert observation.results[CONTROL_FPS].observed_value == 60
+    assert observation.results[CONTROL_FPS].status == ControlQueryStatus.SUPPORTED
+    assert observation.provenance_note == "DirectShow UVC backend readback."
+
+
+def test_close_releases_capture_and_remains_idempotent(monkeypatch) -> None:
+    camera = UvcCamera()
+    capture = _FakeCapture()
+    capture.released = False
+    capture.release = lambda: setattr(capture, "released", True)
+    camera._capture = capture
+    monkeypatch.setattr("capture.uvc_backend.time.sleep", lambda _seconds: None)
+
+    camera.close()
+    camera.close()
+
+    assert capture.released is True
+    assert camera._capture is None

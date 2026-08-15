@@ -1,15 +1,18 @@
 # PitchTracker Performance Benchmarks
 
 **Date Created:** 2026-01-18
-**Status:** Historical benchmark design; existing pass/fail output is not a
-valid processed-frame baseline
+**Updated:** 2026-08-13 — PERF-001 implemented
+**Status:** Benchmarks now conserve terminal outcomes
 
-> **2026-08-11 audit notice:** The throughput implementation divides submitted
-> frames by elapsed time after a fixed sleep and labels them processed. It does
-> not reconcile processed, failed, cancelled, and dropped terminal outcomes.
-> Existing check marks and example PASS output below are non-decisional. Use
-> [review/PERFORMANCE_BASELINE.md](review/PERFORMANCE_BASELINE.md) for corrected
-> host-specific evidence and required semantics.
+> **2026-08-13 PERF-001 remediation:** Throughput, latency, and memory
+> benchmarks now track every offered frame to exactly one terminal outcome
+> (`PROCESSING_COMPLETE`, `DETECTOR_FAILED`, `INPUT_QUEUE_DROPPED`,
+> `RESULT_QUEUE_DROPPED`, `CANCELLED_ON_STOP`).  Completion uses a
+> condition-variable deadline, not a fixed sleep.  Throughput FPS is
+> `processed / elapsed`, not `offered / elapsed`.  Result payloads include
+> raw samples, benchmark config, commit identity, and host identity.
+> See [review/PERFORMANCE_BASELINE.md](review/PERFORMANCE_BASELINE.md)
+> for corrected host-specific evidence.
 
 ---
 
