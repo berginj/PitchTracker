@@ -136,7 +136,7 @@ def test_main_shows_launcher_without_blocking_on_validation(
     monkeypatch.setattr(launcher, "create_required_directories", lambda: None)
     monkeypatch.setattr(launcher, "get_current_version", lambda: "1.0.0")
 
-    def build_launcher() -> DummyLauncher:
+    def build_launcher(**_kwargs) -> DummyLauncher:
         window = DummyLauncher()
         created_windows.append(window)
         return window

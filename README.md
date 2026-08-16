@@ -74,11 +74,14 @@ python setup_validator.py
 python launcher.py
 ```
 
-Run against UVC cameras:
+The repository wrapper enters the same canonical role launcher:
 
 ```powershell
 .\run.ps1 -Backend uvc
 ```
+
+The older ``ui.qt_app``/``MainWindow`` import remains a compatibility path for
+integrations, but new users and scripts should launch through ``launcher.py``.
 
 Simulator-backed development and most automated tests do not require cameras.
 

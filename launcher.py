@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """PitchTracker unified launcher - role selector entry point."""
 
+import argparse
 import os
 import sys
 from pathlib import Path
@@ -45,6 +46,8 @@ class LauncherWindow(QtWidgets.QMainWindow):
         self,
         startup_warnings: list[str] | None = None,
         validation_service: ToolingService | None = None,
+        backend: str = "uvc",
+        config_path: Path | None = None,
     ):
         super().__init__()
         self._style_manager = get_style_manager()
@@ -52,6 +55,8 @@ class LauncherWindow(QtWidgets.QMainWindow):
         self._startup_errors: list[str] = []
         self._validation_state = "pending"
         self._validation_service = validation_service or get_tooling_service()
+        self._backend = backend
+        self._config_path = config_path
         self._validation_thread: StartupValidationThread | None = None
         self._update_controller = LauncherUpdateController(self)
         self.setWindowTitle("PitchTracker")
@@ -410,7 +415,10 @@ class LauncherWindow(QtWidgets.QMainWindow):
             self.hide()
 
             # Create and show coaching window
-            self.coach_window = CoachWindow(backend="uvc")
+            self.coach_window = CoachWindow(
+                backend=self._backend,
+                config_path=self._config_path,
+            )
             self.coach_window.show()
 
             # When coaching window closes, show launcher again
@@ -458,8 +466,18 @@ class LauncherWindow(QtWidgets.QMainWindow):
         dialog.exec()
 
 
-def main():
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse launcher options while tolerating test-runner arguments."""
+    parser = argparse.ArgumentParser(description="PitchTracker role launcher.")
+    parser.add_argument("--backend", choices=("uvc", "opencv", "sim"), default="uvc")
+    parser.add_argument("--config", type=Path, default=None)
+    args, _unknown = parser.parse_known_args(argv)
+    return args
+
+
+def main(argv: list[str] | None = None):
     """Main entry point."""
+    args = parse_args(argv)
     # Create required directories first
     create_required_directories()
 
@@ -476,7 +494,7 @@ def main():
     app.setOrganizationName("PitchTracker")
 
     # Create and show launcher
-    launcher = LauncherWindow()
+    launcher = LauncherWindow(backend=args.backend, config_path=args.config)
     launcher.show()
 
     sys.exit(app.exec())
