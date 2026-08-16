@@ -98,6 +98,13 @@ class TrajectoryFit:
 
 @dataclass(frozen=True)
 class PitchMetrics:
+    """Legacy offline metric DTO.
+
+    The active application result is ``app.contracts.PitchResult``.  This
+    narrow DTO remains for compatibility with the older metrics module until
+    its callers are migrated to the canonical result contract.
+    """
+
     pitch_id: str
     t_start_ns: int
     t_end_ns: int

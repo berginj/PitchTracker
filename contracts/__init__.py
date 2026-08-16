@@ -58,6 +58,7 @@ from .evidence import (
 from .quality import (
     CorrectionRecord,
     MeasurementEvidence,
+    MeasurementStatus,
     QualityAssessment,
     QUALITY_DEGRADED,
     QUALITY_ESTIMATED,
@@ -127,6 +128,7 @@ __all__ = [
     "PitchVerdictEvidence",
     "CorrectionRecord",
     "MeasurementEvidence",
+    "MeasurementStatus",
     "QualityAssessment",
     "QUALITY_DEGRADED",
     "QUALITY_ESTIMATED",

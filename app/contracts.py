@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from typing import Any, Optional
 
+from contracts.quality import MeasurementStatus
+
 
 @dataclass(frozen=True)
 class CalibrationProfile:
@@ -51,7 +53,7 @@ class PitchSummary:
     observation_quality_status: Optional[str] = None
     observation_rejection_reasons: list[str] | None = None
     observation_warning_reasons: list[str] | None = None
-    measurement_status: str = "ESTIMATED"
+    measurement_status: MeasurementStatus = MeasurementStatus.ESTIMATED
     speed_source: Optional[str] = None
     correction_records: list[dict[str, Any]] | None = None
     quality_diagnostics: dict[str, Any] | None = None
@@ -67,6 +69,11 @@ class SessionSummary:
     pitches: list[PitchSummary]
 
 
+# Public name for the active, durable pitch result.  ``PitchSummary`` remains
+# the compatibility name used by existing manifests and service interfaces.
+PitchResult = PitchSummary
+
+
 def measurement_is_usable(pitch: PitchSummary) -> bool:
     """Return whether a pitch may contribute to downstream coaching claims.
 
@@ -76,7 +83,16 @@ def measurement_is_usable(pitch: PitchSummary) -> bool:
     qualification and are usable by current coaching workflows.
     """
 
-    return str(pitch.measurement_status or "").upper() not in {"REJECTED", "UNAVAILABLE"}
+    try:
+        status = MeasurementStatus.coerce(pitch.measurement_status)
+    except ValueError:
+        # Preserve the historical permissive reader behavior for forward-added
+        # statuses while treating only explicit terminal states as unusable.
+        return str(pitch.measurement_status or "").upper() not in {
+            MeasurementStatus.REJECTED.value,
+            MeasurementStatus.UNAVAILABLE.value,
+        }
+    return status not in {MeasurementStatus.REJECTED, MeasurementStatus.UNAVAILABLE}
 
 
 def _filter_dataclass_fields(cls: type, payload: dict[str, Any]) -> dict[str, Any]:

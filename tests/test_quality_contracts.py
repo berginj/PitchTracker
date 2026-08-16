@@ -8,6 +8,7 @@ from app.monitoring.error_budget import ErrorBudget, MetricLimit
 from contracts import (
     CorrectionRecord,
     MeasurementEvidence,
+    MeasurementStatus,
     QualityAssessment,
     QUALITY_DEGRADED,
     QUALITY_ESTIMATED,
@@ -42,6 +43,12 @@ def test_measurement_and_correction_round_trip() -> None:
 
     assert MeasurementEvidence.from_payload(measurement.to_payload()) == measurement
     assert CorrectionRecord.from_payload(correction.to_payload()) == correction
+
+
+def test_measurement_status_is_canonical_and_string_compatible() -> None:
+    assert MeasurementStatus.ESTIMATED == QUALITY_ESTIMATED
+    assert MeasurementStatus.coerce("degraded") is MeasurementStatus.DEGRADED
+    assert MeasurementStatus.coerce(MeasurementStatus.REJECTED) is MeasurementStatus.REJECTED
 
 
 def test_validated_requires_ground_truth_dataset() -> None:
