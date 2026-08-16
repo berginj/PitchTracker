@@ -1,9 +1,10 @@
 # PitchTracker Current Status
 
-**Last updated:** 2026-08-11
+**Last updated:** 2026-08-16
 **Published release:** `v2.0.0` / internal app version `2.0.0`
-**Development status:** broad automated implementation on `main`; UI, test-lane,
-performance, packaging, and physical-validation gates remain
+**Development status:** broad automated implementation on `codex/python313-mypy`;
+physical validation, native-thread teardown, packaging provenance, and global
+mypy cleanup remain
 
 ## Summary
 
@@ -14,10 +15,9 @@ persists a content-addressed system snapshot and recommends camera pairs using
 prior validated hardware or measured catalog capabilities.
 
 The architecture is ready for controlled engineering and simulator testing.
-Field testing remains gated by the UI, camera, installer, and evidence work in
-the 2026-08-11 review. It is not yet
-appropriate to publish speed or plate-location accuracy claims because no
-independently reviewed physical confirmation dataset has been approved.
+It is not yet appropriate to publish speed or plate-location accuracy claims
+because no independently reviewed physical confirmation dataset has been
+approved.
 
 ## Release and build state
 
@@ -25,19 +25,18 @@ independently reviewed physical confirmation dataset has been approved.
 |---|---|
 | GitHub release | `v2.0.0`, published 2026-06-27 |
 | Release installer asset | Not currently attached to the GitHub release |
-| Current `main` | Includes PT-001–PT-015, adversarial follow-ups, and setup snapshot/camera recommendation work beyond the tag |
-| Latest local clean build | Commit `40158c1`; PyInstaller and Inno Setup completed |
-| Full automated suite | Historical CI: 1,267 passed, 32 skipped, 0 failed at `211d246`; current audit: 1,302 collected and serial offscreen 1,235 passed, 34 failed, 33 skipped on the dirty worktree |
+| Current working branch | `codex/python313-mypy`; latest pushed change `966c56f` |
+| Test collection | 1,612 tests collected under Python 3.13 |
+| Latest complete parallel suite | 1,577 passed, 28 skipped, followed by a Windows native-thread teardown access violation |
+| Static validation | Schema sync, file-length, Flake8, release-version, and focused packaging checks pass; mypy remains advisory and failing |
 | Physical accuracy approval | None; results must remain estimated/degraded/unavailable/rejected as evidence requires |
 
 The locally built installer must be smoke-tested on a clean Windows machine
 before it is attached to a refreshed release.
 
-The current audit attributes the 34 displayed serial failures to video-writer
-failure when Qt offscreen mode is set on the audit host; writers open outside
-that mode. Ten UI workflow tests also skip behind an incorrect `pytest_qt`
-import guard, and the coaching simulator window fails during construction. See
-[the executive review](review/EXECUTIVE_REVIEW.md) for the evidence boundary.
+Historical review documents under `docs/review/` retain their original dates and
+results. They are evidence archives, not current status. Current release work
+must use this document and the roadmap below.
 
 ## Delivered software
 
@@ -64,10 +63,10 @@ and automated evidence.
 The canonical open work is [ROADMAP.md](ROADMAP.md):
 
 1. Qualify real global-shutter cameras, controls, synchronization, and USB paths.
-2. Test setup repeatability and recovery from intentionally poor configurations.
+2. Resolve native-thread teardown and complete lifecycle failure injection.
 3. Run predeclared physical ground-truth speed and plate-location validation.
-4. Smoke-test the installer on clean Windows machines.
-5. Finish verified UVC capability/control queries.
+4. Smoke-test a signed installer on clean Windows machines.
+5. Reduce the global mypy baseline without adding new errors.
 6. Publish a hardware matrix and operating envelope only from collected evidence.
 
 ## Product boundary

@@ -1,8 +1,8 @@
 # PitchTracker Test Suite Documentation
 
-**Version:** v2.0.0 / `main` at `211d246`
-**Date:** 2026-07-22
-**Status:** Current automated run recorded; physical tests remain separate
+**Version:** v2.0.0 / `codex/python313-mypy` at `966c56f`
+**Date:** 2026-08-16
+**Status:** Current collection recorded; physical tests and native teardown remain separate gates
 
 > Historical version sections later in this file preserve point-in-time test
 > reports. Their failure counts and release recommendations are not current
@@ -14,12 +14,11 @@
 
 This document provides exhaustive documentation of the PitchTracker test suite, including all test modules, test counts, coverage areas, and execution details.
 
-**Historical CI Run:** `1267 passed, 32 skipped, 37 warnings in 245.18s` at
-`211d246`
-**2026-08-11 Worktree Audit:** 1,302 collected; serial Qt-offscreen run: 1,235
-passed, 34 failed, 33 skipped. The failures share a writer/offscreen condition,
-and ten skips use an incorrect pytest-qt import guard.
-**Pass Rate:** Do not summarize across these different baselines and environments.
+**Current collection:** `1,612 tests collected` under Python 3.13.
+**Latest complete parallel run:** `1,577 passed, 28 skipped`; pytest then
+reported a Windows native-thread teardown access violation.
+**Pass rate:** Do not treat the assertion count as a clean release pass until
+the teardown failure is eliminated.
 **Test Framework:** pytest 7.4.3
 
 Current interpretation and capability-level confidence are maintained in

@@ -110,21 +110,13 @@ pitch-level evidence must all remain eligible.
 python -m pytest -q
 ```
 
-Latest recorded run on `main` at commit `211d246`:
-
-- `1267 passed`
-- `32 skipped`
-- `0 failed`
-
-That count is historical CI evidence, not the current dirty-worktree result.
-The 2026-08-11 audit collected 1,302 tests. A serial Windows ARM64-host/AMD64-
-Python run with Qt offscreen produced 1,235 passed, 34 failed, and 33 skipped;
-all displayed failures shared a recording-codec/offscreen environment condition.
-See [the test confidence review](docs/review/TEST_CONFIDENCE_REVIEW.md) before
-interpreting either result. Skipped tests include optional, environment/hardware,
-and incorrectly guarded UI cases. See
-[Testing Help Needed](docs/TESTING_NEEDED.md) for physical test procedures and
-[Contributing](CONTRIBUTING.md) for required CI gates.
+Current checkout collection (Python 3.13) is `1,612 tests collected`. The most
+recent complete parallel run before the current documentation/launcher changes
+reported `1,577 passed, 28 skipped`; it also exposed a Windows native-thread
+teardown access violation after pytest reported success. Focused regression
+lanes for the current changes pass. Treat the teardown issue as a release gate,
+not as a clean full-suite pass. See [Testing Help](docs/TESTING_NEEDED.md) for
+physical procedures and [Contributing](CONTRIBUTING.md) for required gates.
 
 ## Build the Windows installer
 
