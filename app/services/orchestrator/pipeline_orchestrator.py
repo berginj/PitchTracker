@@ -13,7 +13,7 @@ from app.pipeline.service_contracts import PipelineService
 from app.services.analysis import AnalysisServiceImpl
 from app.services.capture import CaptureServiceImpl
 from app.services.detection import DetectionServiceImpl
-from app.services.orchestrator.event_coordination import EventCoordinator, make_pitch_id
+from app.services.orchestrator.event_coordination import EventCoordinator
 from app.services.orchestrator.lifecycle import shutdown_pipeline
 from app.services.orchestrator.quality_diagnostics import (
     build_quality_diagnostics,
@@ -495,10 +495,6 @@ class PipelineOrchestrator(PipelineService):
     def unsubscribe_event(self, event_type: Type, handler: Callable) -> bool:
         """Remove a public EventBus subscription."""
         return self._event_bus.unsubscribe(event_type, handler)
-
-    @staticmethod
-    def _make_pitch_id(pitch_index: int) -> str:
-        return make_pitch_id(pitch_index)
 
     def _to_field_coordinates(self, obs: StereoObservation) -> StereoObservation:
         self._event_coordinator.set_rig_profile(self._active_rig_profile)
