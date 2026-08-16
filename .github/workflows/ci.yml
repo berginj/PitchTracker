@@ -49,8 +49,16 @@ jobs:
       - name: Run tests
         # Native camera/Qt libraries are not safe to fan out to every CPU on
         # Windows. Two workers preserve parallel feedback without teardown and
-        # file-replacement races seen with ``-n auto``.
-        run: python -m pytest -n 2 --dist loadscope --tb=short -q
+        # file-replacement races seen with ``-n auto``. Python 3.14 currently
+        # also crashes while importing NumPy in multiple xdist workers, so keep
+        # that compatibility job serial while retaining full test coverage.
+        shell: pwsh
+        run: |
+          if ('${{ matrix.python-version }}' -eq '3.14') {
+            python -m pytest --tb=short -q
+          } else {
+            python -m pytest -n 2 --dist loadscope --tb=short -q
+          }
 
   security:
     runs-on: ubuntu-latest
