@@ -109,9 +109,11 @@ def _atomic_write_text(path: Path, content: str) -> None:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
+        replace_path = temporary_path
+        assert replace_path is not None
         for attempt in range(5):
             try:
-                os.replace(temporary_path, path)
+                os.replace(replace_path, path)
                 temporary_path = None
                 break
             except PermissionError:
