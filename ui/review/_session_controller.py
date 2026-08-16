@@ -197,16 +197,31 @@ class SessionController:
 
         try:
             self.close_session()
-            quarantine_dir = self._quarantine_session(session_dir)
+            try:
+                quarantine_dir = self._quarantine_session(session_dir)
+            except FileNotFoundError:
+                # Deletion is intentionally idempotent: a session may have
+                # been removed by another review window or an earlier retry.
+                quarantine_dir = None
+                logger.warning("Session %s was already absent from %s", session.session_id, session_dir)
 
-            logger.info("Quarantined session %s at %s", session_dir, quarantine_dir)
-            show_message_dialog(
-                self._parent,
-                "Session Moved to Trash",
-                f"Session {session.session_id} was moved to:\n{quarantine_dir}\n\n"
-                "The files remain recoverable until the trash folder is cleared.",
-                tone="success",
-            )
+            if quarantine_dir is not None:
+                logger.info("Quarantined session %s at %s", session_dir, quarantine_dir)
+                show_message_dialog(
+                    self._parent,
+                    "Session Moved to Trash",
+                    f"Session {session.session_id} was moved to:\n{quarantine_dir}\n\n"
+                    "The files remain recoverable until the trash folder is cleared.",
+                    tone="success",
+                )
+            else:
+                show_message_dialog(
+                    self._parent,
+                    "Session Already Removed",
+                    f"Session {session.session_id} was already absent from disk.\n\n"
+                    "It will be removed from this review list.",
+                    tone="warning",
+                )
 
             if self._session_list:
                 matching_index = next(
