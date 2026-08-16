@@ -29,6 +29,7 @@ def test_launcher_window_starts_in_pending_validation_state(
     assert window._validation_state == "pending"
     assert window._setup_button.isEnabled() is False
     assert window._coach_button.isEnabled() is False
+    assert window._review_button.isEnabled() is True
     assert window._warning_title.text() == "Checking system readiness"
     assert "background" in window._warning_body.text()
 
@@ -45,6 +46,7 @@ def test_launcher_window_enables_actions_when_validation_succeeds(
     assert window._validation_state == "completed"
     assert window._setup_button.isEnabled() is True
     assert window._coach_button.isEnabled() is True
+    assert window._review_button.isEnabled() is True
     assert window._warning_title.text() == "Startup warnings"
     assert "warning one" in window._warning_body.text()
     assert "warning two" in window._warning_body.text()
@@ -62,6 +64,7 @@ def test_launcher_window_keeps_actions_disabled_when_validation_fails(
     assert window._validation_state == "completed"
     assert window._setup_button.isEnabled() is False
     assert window._coach_button.isEnabled() is False
+    assert window._review_button.isEnabled() is True
     assert window._warning_title.text() == "Startup issues"
     assert "worker crashed" in window._warning_body.text()
 

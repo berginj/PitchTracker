@@ -97,7 +97,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
 
         # Set window icon if available
         self._set_window_icon()
-        self._set_role_buttons_enabled(False)
+        self._set_role_buttons_enabled(False, review_enabled=True)
 
     def _build_title(self) -> QtWidgets.QWidget:
         """Build title area."""
@@ -317,7 +317,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
         self._validation_state = "completed"
         self._startup_errors = list(errors)
         self._startup_warnings = list(warnings)
-        self._set_role_buttons_enabled(not bool(errors))
+        self._set_role_buttons_enabled(not bool(errors), review_enabled=True)
         self._update_warning_banner()
         self._validation_thread = None
         if thread is not None:
@@ -329,17 +329,17 @@ class LauncherWindow(QtWidgets.QMainWindow):
         self._validation_state = "completed"
         self._startup_errors = [f"Background validation failed: {error_message}"]
         self._startup_warnings = []
-        self._set_role_buttons_enabled(False)
+        self._set_role_buttons_enabled(False, review_enabled=True)
         self._update_warning_banner()
         self._validation_thread = None
         if thread is not None:
             thread.deleteLater()
 
-    def _set_role_buttons_enabled(self, enabled: bool) -> None:
+    def _set_role_buttons_enabled(self, enabled: bool, *, review_enabled: bool | None = None) -> None:
         """Enable or disable launcher entry points."""
         self._setup_button.setEnabled(enabled)
         self._coach_button.setEnabled(enabled)
-        self._review_button.setEnabled(enabled)
+        self._review_button.setEnabled(enabled if review_enabled is None else review_enabled)
 
     def _update_warning_banner(self) -> None:
         """Render the current startup status into the banner."""

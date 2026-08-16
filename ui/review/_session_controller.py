@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import time
 from pathlib import Path
 from typing import Callable, List, Optional
 
@@ -188,21 +189,22 @@ class SessionController:
             f"Are you sure you want to delete this session?\n\n"
             f"Session: {session.session_id}\n"
             f"Path: {session_dir}\n\n"
-            "This will permanently delete all files in this session directory.\n"
-            "This action cannot be undone!",
+            "The session will be moved to a recoverable trash folder.\n"
+            "You can restore it manually if needed.",
             confirm_variant="danger",
         ):
             return
 
         try:
             self.close_session()
-            shutil.rmtree(session_dir)
+            quarantine_dir = self._quarantine_session(session_dir)
 
-            logger.info(f"Deleted session: {session_dir}")
+            logger.info("Quarantined session %s at %s", session_dir, quarantine_dir)
             show_message_dialog(
                 self._parent,
-                "Session Deleted",
-                f"Session {session.session_id} has been deleted.",
+                "Session Moved to Trash",
+                f"Session {session.session_id} was moved to:\n{quarantine_dir}\n\n"
+                "The files remain recoverable until the trash folder is cleared.",
                 tone="success",
             )
 
@@ -235,6 +237,19 @@ class SessionController:
                 f"Failed to delete session:\n{str(e)}",
                 tone="error",
             )
+
+    @staticmethod
+    def _quarantine_session(session_dir: Path) -> Path:
+        """Move a session aside instead of irreversibly deleting recordings."""
+        resolved_session = session_dir.resolve()
+        if not resolved_session.is_dir():
+            raise FileNotFoundError(f"Session directory not found: {resolved_session}")
+
+        trash_root = resolved_session.parent / ".pitchtracker-trash"
+        trash_root.mkdir(parents=False, exist_ok=True)
+        quarantine_dir = trash_root / f"{resolved_session.name}-{time.time_ns()}"
+        shutil.move(str(resolved_session), str(quarantine_dir))
+        return quarantine_dir
 
     # ------------------------------------------------------------------
     # Navigation state helpers
