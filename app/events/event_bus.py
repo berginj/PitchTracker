@@ -174,10 +174,11 @@ class EventBus:
                 # Publish error event (but don't let it crash the bus)
                 try:
                     publish_error(
-                        category=ErrorCategory.INTERNAL,
+                        category=ErrorCategory.SYSTEM,
                         severity=ErrorSeverity.WARNING,
                         message=f"Event handler failed: {e}",
-                        details=f"Event: {event_type.__name__}, Handler: {handler.__name__}",
+                        source="event_bus",
+                        event_metadata={"event": event_type.__name__, "handler": handler.__name__},
                     )
                 except Exception:
                     pass  # Last resort - don't crash on error reporting

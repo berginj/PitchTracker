@@ -40,10 +40,11 @@ def summarize_observations(observations: Iterable[StereoObservation]) -> dict:
     rate_hz = ((len(obs) - 1) / (duration_ms / 1000.0)) if duration_ms > 0.0 else 0.0
     times_s = np.array([item.t_ns for item in obs], dtype=np.float64) / 1e9
     max_gap_ms = float(np.max(np.diff(times_s)) * 1000.0) if len(obs) > 1 else 0.0
-    z_values = [item.Z for item in obs]
+    z_values = [float(item.Z) for item in obs]
     confidences = [item.confidence for item in obs]
-    depth_sigmas = [_depth_sigma_ft(item) for item in obs]
-    depth_sigmas = [item for item in depth_sigmas if item is not None]
+    depth_sigmas: list[float] = [
+        item for item in (_depth_sigma_ft(observation) for observation in obs) if item is not None
+    ]
     quality_status, rejection_reasons, warning_reasons = _observation_quality(
         observation_count=len(obs),
         mean_confidence=float(np.mean(confidences)) if confidences else 0.0,

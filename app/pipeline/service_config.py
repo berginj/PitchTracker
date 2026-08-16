@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, cast
 
 from contracts import Detection, StereoObservation
 from detect.config import DetectorConfig as CvDetectorConfig, Mode
@@ -13,7 +13,14 @@ from metrics.strike_zone import StrikeResult
 logger = get_logger(__name__)
 
 
-class PipelineServiceConfigMixin:
+class _PipelineServiceState:
+    """Shared state supplied by InProcessPipelineService's other mixins."""
+
+    def __getattr__(self, name: str) -> Any:
+        raise AttributeError(name)
+
+
+class PipelineServiceConfigMixin(_PipelineServiceState):
     """Configuration and query methods extracted from InProcessPipelineService."""
 
     def set_detector_config(
@@ -55,22 +62,22 @@ class PipelineServiceConfigMixin:
 
     def get_latest_detections(self) -> Dict[str, list[Detection]]:
         if self._detection_processor:
-            return self._detection_processor.get_latest_detections()
+            return cast(Dict[str, list[Detection]], self._detection_processor.get_latest_detections())
         return {}
 
     def get_latest_gated_detections(self) -> Dict[str, Dict[str, list[Detection]]]:
         if self._detection_processor:
-            return self._detection_processor.get_latest_gated_detections()
+            return cast(Dict[str, Dict[str, list[Detection]]], self._detection_processor.get_latest_gated_detections())
         return {}
 
     def get_strike_result(self) -> StrikeResult:
         if self._detection_processor:
-            return self._detection_processor.get_strike_result()
+            return cast(StrikeResult, self._detection_processor.get_strike_result())
         return StrikeResult(is_strike=False, sample_count=0)
 
     def is_capturing(self) -> bool:
         """Check if cameras are currently capturing."""
-        return self._camera_mgr.is_capturing()
+        return bool(self._camera_mgr.is_capturing())
 
     def set_ball_type(self, ball_type: str) -> None:
         if self._config_service is not None:
@@ -101,5 +108,5 @@ class PipelineServiceConfigMixin:
 
     def get_session_dir(self) -> Optional[Path]:
         if self._session_recorder:
-            return self._session_recorder.get_session_dir()
+            return cast(Optional[Path], self._session_recorder.get_session_dir())
         return None

@@ -17,7 +17,7 @@ artifact provenance recording, and checksum verification.
 
 ### How do I run from source?
 
-Use Windows with Python 3.11 or 3.12:
+Use Windows with Python 3.13 or newer:
 
 ```powershell
 git clone https://github.com/berginj/PitchTracker.git

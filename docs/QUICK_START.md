@@ -13,7 +13,7 @@ public claim.
 ### Current public path: run from source
 
 The published `v2.0.0` release has no installer asset. On Windows with Python
-3.11 or 3.12:
+3.13 or newer:
 
 ```powershell
 git clone https://github.com/berginj/PitchTracker.git

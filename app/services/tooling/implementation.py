@@ -132,16 +132,16 @@ class SubprocessToolingService(ToolingService):
             worker_stderr = response.get("stderr")
             worker_traceback = response.get("traceback")
 
-            details: list[str] = [error_text]
+            error_details: list[str] = [error_text]
             if worker_stdout:
-                details.append(f"worker stdout:\n{worker_stdout}")
+                error_details.append(f"worker stdout:\n{worker_stdout}")
             if worker_stderr:
-                details.append(f"worker stderr:\n{worker_stderr}")
+                error_details.append(f"worker stderr:\n{worker_stderr}")
             if worker_traceback:
-                details.append(f"worker traceback:\n{worker_traceback}")
+                error_details.append(f"worker traceback:\n{worker_traceback}")
             self._raise_task_error(
                 task,
-                "\n\n".join(details),
+                "\n\n".join(error_details),
                 error_type=str(error_type) if error_type else None,
             )
 

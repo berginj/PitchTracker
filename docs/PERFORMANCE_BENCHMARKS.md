@@ -298,7 +298,7 @@ CPU: pending measurement
 RAM: pending measurement
 GPU: pending measurement, if using GPU acceleration
 OS: Windows 10/11
-Python: 3.11+
+Python: 3.13+
 ```
 
 **Expected Performance (pending measurement):**
@@ -437,7 +437,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.13'
 
       - name: Install dependencies
         run: |

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, cast
 
 from configs.settings import AppConfig
 from exceptions import PitchTrackerError
@@ -133,18 +133,18 @@ def load_pitch(pitch_dir: Path) -> LoadedPitch:
     validate_manifest(manifest, pitch=True)
     assert isinstance(manifest, dict)
     pitch_id = manifest.get("pitch_id") or pitch_dir.name
-    left_detections = load_optional_json(
+    left_detections = cast(Optional[dict[Any, Any]], load_optional_json(
         find_existing_path(pitch_dir, DETECTIONS_LEFT_CANDIDATES),
         f"left detections for {pitch_id}",
-    )
-    right_detections = load_optional_json(
+    ))
+    right_detections = cast(Optional[dict[Any, Any]], load_optional_json(
         find_existing_path(pitch_dir, DETECTIONS_RIGHT_CANDIDATES),
         f"right detections for {pitch_id}",
-    )
-    observations = load_optional_json(
+    ))
+    observations = cast(Optional[list[Any]], load_optional_json(
         find_existing_path(pitch_dir, OBSERVATIONS_CANDIDATES),
         f"observations for {pitch_id}",
-    )
+    ))
     frames_dir = pitch_dir / "frames"
     frame_files = sorted(frames_dir.glob("*.png")) if frames_dir.is_dir() else None
     logger.debug(f"Loaded pitch {pitch_id}")

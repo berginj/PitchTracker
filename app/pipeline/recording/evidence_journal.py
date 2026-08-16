@@ -8,7 +8,7 @@ import queue
 import threading
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from app.pipeline.recording.evidence_package import _atomic_write_text
 
@@ -146,7 +146,7 @@ def load_session_evidence_journal(
 
 def _jsonable(value: Any) -> Any:
     if is_dataclass(value):
-        return {key: _jsonable(item) for key, item in asdict(value).items()}
+        return {key: _jsonable(item) for key, item in asdict(cast(Any, value)).items()}
     if isinstance(value, dict):
         return {str(key): _jsonable(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):

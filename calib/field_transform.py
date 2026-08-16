@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, cast
 
 import numpy as np
 
@@ -40,7 +40,7 @@ class FieldTransform:
         if point.shape != (3,):
             raise ValueError("point must have three coordinates")
         transformed = np.asarray(self.matrix_4x4) @ np.append(point, 1.0)
-        return tuple(float(value) for value in transformed[:3])
+        return cast(tuple[float, float, float], tuple(float(value) for value in transformed[:3]))
 
     def to_payload(self) -> dict[str, object]:
         return {
@@ -83,7 +83,10 @@ def estimate_field_transform(
     matrix[:3, 3] = translation
     predicted = (rotation @ source.T).T + translation
     rms = float(np.sqrt(np.mean(np.sum((predicted - target) ** 2, axis=1))))
-    rows = tuple(tuple(float(value) for value in row) for row in matrix)
+    rows = cast(
+        tuple[tuple[float, float, float, float], ...],
+        tuple(tuple(float(value) for value in row) for row in matrix),
+    )
     return FieldTransform(rows, rms, fixture_id, max_rms_residual_ft)
 
 

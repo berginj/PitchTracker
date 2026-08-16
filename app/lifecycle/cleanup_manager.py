@@ -139,7 +139,7 @@ class CleanupManager:
         Returns:
             True if completed before timeout
         """
-        result = {"completed": False, "exception": None}
+        result: dict[str, bool | BaseException | None] = {"completed": False, "exception": None}
 
         def wrapper():
             try:
@@ -153,10 +153,11 @@ class CleanupManager:
         thread.start()
         thread.join(timeout=timeout)
 
-        if result["exception"]:
-            raise result["exception"]
+        exception = result["exception"]
+        if isinstance(exception, BaseException):
+            raise exception
 
-        return result["completed"]
+        return bool(result["completed"])
 
     def verify_cleanup(self) -> dict:
         """Verify cleanup was successful.

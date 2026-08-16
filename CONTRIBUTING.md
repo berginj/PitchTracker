@@ -20,7 +20,7 @@ Report suspected vulnerabilities privately as described in
 ## Branch & merge policy
 
 `main` is protected. **All changes reach `main` through a pull request** that must
-pass the required CI checks (`test (3.11)`, `test (3.12)`, `security`) and be up to
+pass the required CI checks (`test (3.13)`, `test (3.14)`, `security`) and be up to
 date with `main`. The protected branch requires linear history and disallows
 force-pushing or deleting `main`; merged feature branches may be deleted.
 

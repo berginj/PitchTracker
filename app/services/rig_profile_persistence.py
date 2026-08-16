@@ -8,7 +8,7 @@ import os
 import tempfile
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from app.services.rig_profile_models import (
     RigProfile,
@@ -65,7 +65,7 @@ def load_legacy_quality_metrics() -> dict[str, Any]:
     if not report_path.exists():
         return {}
     try:
-        return json.loads(report_path.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], json.loads(report_path.read_text(encoding="utf-8")))
     except Exception:
         return {}
 

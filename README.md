@@ -61,7 +61,7 @@ files, or raw recordings unless sharing has been explicitly authorized.
 
 ## Developer setup
 
-Requirements: Windows 10/11, Python 3.11 or 3.12 for CI parity, and two UVC
+Requirements: Windows 10/11, Python 3.13 or newer, and two UVC
 cameras for physical testing.
 
 ```powershell

@@ -17,10 +17,10 @@ def detect_anomalies(pitches: List[dict]) -> List[Anomaly]:
     if len(pitches) < 5:
         return []  # Need minimum data for statistical analysis
 
-    anomalies = []
+    anomalies: List[Anomaly] = []
 
     # Extract metrics
-    speeds = [p.get("speed_mph", 0) for p in pitches if p.get("speed_mph")]
+    speeds = [float(p.get("speed_mph", 0)) for p in pitches if p.get("speed_mph")]
 
     if len(speeds) < 5:
         return anomalies
@@ -37,7 +37,7 @@ def detect_anomalies(pitches: List[dict]) -> List[Anomaly]:
         if not speed:
             continue
 
-        z_score = abs(speed - speed_mean) / speed_std if speed_std > 0 else 0
+        z_score = abs(float(speed) - float(speed_mean)) / float(speed_std) if speed_std > 0 else 0.0
 
         if z_score > 3.0:
             severity = "high" if z_score > 4.0 else "medium"
@@ -48,7 +48,12 @@ def detect_anomalies(pitches: List[dict]) -> List[Anomaly]:
                     pitch_id=pitch_id,
                     anomaly_type="speed_outlier",
                     severity=severity,
-                    details={"speed_mph": speed, "z_score": z_score, "mean_speed": speed_mean, "std_speed": speed_std},
+                    details={
+                        "speed_mph": float(speed),
+                        "z_score": float(z_score),
+                        "mean_speed": float(speed_mean),
+                        "std_speed": float(speed_std),
+                    },
                     recommendation=f"Unusually {direction} pitch ({speed:.1f} mph vs avg {speed_mean:.1f} mph). "
                     f"Verify radar calibration or pitcher mechanics.",
                 )
@@ -89,9 +94,9 @@ def detect_anomalies(pitches: List[dict]) -> List[Anomaly]:
                     anomaly_type="trajectory_quality",
                     severity=severity,
                     details={
-                        "trajectory_expected_error_ft": trajectory_error,
-                        "trajectory_confidence": trajectory_conf,
-                        "sample_count": sample_count,
+                        "trajectory_expected_error_ft": float(trajectory_error) if trajectory_error is not None else None,
+                        "trajectory_confidence": float(trajectory_conf) if trajectory_conf is not None else None,
+                        "sample_count": int(sample_count),
                     },
                     recommendation=f"Poor trajectory quality: {', '.join(issues)}. "
                     f"Check camera alignment and lighting conditions.",

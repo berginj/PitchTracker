@@ -6,7 +6,7 @@ from collections import Counter, deque
 from pathlib import Path
 import threading
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.events.event_bus import EventBus
 from app.events.event_types import (
@@ -45,8 +45,8 @@ class DetectionServiceImpl(DetectionService):
         self._initializer = PipelineInitializer()
         self._thread_pool: Optional[DetectionThreadPool] = None
         self._processor: Optional[DetectionProcessor] = None
-        self._left_detector = None
-        self._right_detector = None
+        self._left_detector: Any = None
+        self._right_detector: Any = None
         self._running = False
         self._subscribed = False
         self._observation_callbacks: List[ObservationCallback] = []
@@ -182,11 +182,11 @@ class DetectionServiceImpl(DetectionService):
 
     def get_detection_stats(self) -> Dict[str, Optional[float]]:
         """Return detection and stereo utilization rates."""
-        return detection_stats(self)
+        return dict(detection_stats(self))
 
     def get_quality_diagnostics(self) -> dict:
         """Return detection, synchronization, and loss evidence."""
-        return quality_diagnostics(self)
+        return dict(quality_diagnostics(self))
 
     def set_lane_rois(
         self,
@@ -240,16 +240,20 @@ class DetectionServiceImpl(DetectionService):
         self._last_drift_status = None
 
     def _wire_callbacks(self) -> None:
-        self._thread_pool.set_detect_callback(self._detect_frame)
-        self._thread_pool.set_stereo_callback(self._on_stereo_result)
-        self._thread_pool.set_frame_decision_callbacks(
+        thread_pool = self._thread_pool
+        processor = self._processor
+        if thread_pool is None or processor is None:
+            raise RuntimeError("Detection infrastructure is not initialized")
+        thread_pool.set_detect_callback(self._detect_frame)
+        thread_pool.set_stereo_callback(self._on_stereo_result)
+        thread_pool.set_frame_decision_callbacks(
             self._publish_frame_opportunity,
             self._publish_frame_outcome,
         )
-        self._processor.set_stereo_pair_callback(self._on_stereo_pair)
-        self._processor.set_ray_observation_callback(self._on_ray_observations)
-        self._processor.set_pairing_outcome_callback(self._on_pairing_outcome)
-        self._processor.set_association_outcome_callback(self._on_association_outcome)
+        processor.set_stereo_pair_callback(self._on_stereo_pair)
+        processor.set_ray_observation_callback(self._on_ray_observations)
+        processor.set_pairing_outcome_callback(self._on_pairing_outcome)
+        processor.set_association_outcome_callback(self._on_association_outcome)
 
     def _reset_runtime_state(self) -> None:
         self._latest_observations.clear()
@@ -268,7 +272,7 @@ class DetectionServiceImpl(DetectionService):
         self._frame_handler.on_frame_captured(event)
 
     def _detect_frame(self, camera_id: str, frame: Frame) -> List[Detection]:
-        return self._frame_handler.detect_frame(camera_id, frame)
+        return list(self._frame_handler.detect_frame(camera_id, frame))
 
     def _on_stereo_result(self, camera_id: str, frame: Frame, detections: List[Detection]) -> None:
         self._frame_handler.on_stereo_result(camera_id, frame, detections)

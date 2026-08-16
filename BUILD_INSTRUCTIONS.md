@@ -8,7 +8,7 @@ publication and do not prove clean-machine installation or physical accuracy.
 ## Prerequisites
 
 - 64-bit Windows 10 or Windows 11.
-- Python 3.11 or 3.12.
+- Python 3.13 or newer.
 - Repository dependencies from `requirements-dev.txt`.
 - Inno Setup 6 at its standard installation path.
 

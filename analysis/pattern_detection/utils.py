@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Tuple
+from typing import List, Tuple, cast
 
 import numpy as np
 
@@ -48,9 +48,9 @@ def detect_outliers_zscore(values: List[float], threshold: float = 3.0) -> List[
     if std == 0:
         return []
 
-    outliers = []
+    outliers: List[Tuple[int, float, float]] = []
     for i, value in enumerate(values):
-        z_score = (value - mean) / std
+        z_score = float((value - mean) / std)
         if abs(z_score) > threshold:
             outliers.append((i, value, z_score))
 
@@ -70,13 +70,13 @@ def detect_outliers_iqr(values: List[float], iqr_multiplier: float = 1.5) -> Lis
     if not values or len(values) < 3:
         return []
 
-    q1, q3 = np.percentile(values, [25, 75])
+    q1, q3 = (float(v) for v in np.asarray(np.percentile(values, [25, 75]), dtype=float).tolist())
     iqr = q3 - q1
 
     lower_bound = q1 - iqr_multiplier * iqr
     upper_bound = q3 + iqr_multiplier * iqr
 
-    outliers = []
+    outliers: List[Tuple[int, float, float, float]] = []
     for i, value in enumerate(values):
         if value < lower_bound or value > upper_bound:
             outliers.append((i, value, lower_bound, upper_bound))
@@ -97,8 +97,8 @@ def compute_percentiles(values: List[float], percentiles: List[int] = [25, 50, 7
     if not values:
         return {p: 0.0 for p in percentiles}
 
-    result = {}
-    computed = np.percentile(values, percentiles)
+    result: dict[str, float] = {}
+    computed = np.asarray(np.percentile(values, percentiles), dtype=float)
 
     for p, v in zip(percentiles, computed):
         result[f"p{p}"] = float(v)
@@ -156,7 +156,7 @@ def normalize_features(features: np.ndarray) -> np.ndarray:
     # Avoid division by zero
     std[std == 0] = 1.0
 
-    return (features - mean) / std
+    return cast(np.ndarray, (features - mean) / std)
 
 
 def compute_coefficient_of_variation(values: List[float]) -> float:

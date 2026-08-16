@@ -18,7 +18,7 @@ from __future__ import annotations
 import threading
 from collections import deque
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from app.events.event_bus import EventBus
 from app.pipeline.recording.evidence_journal import SessionEvidenceJournal
@@ -88,7 +88,7 @@ class RecordingServiceImpl(
         self._subscribed = False
         self._session_paused = False
         self._frame_worker = BoundedRecordingWorker(
-            self._record_frame_sync, max_queue=240
+            cast(Any, getattr(self, "_record_frame_sync")), max_queue=240
         )
         self._decision_journal: Optional[SessionEvidenceJournal] = None
         self._decision_evidence_incomplete = False
@@ -103,7 +103,10 @@ class RecordingServiceImpl(
         with self._lock:
             if not self._pitch_active:
                 raise RuntimeError("No pitch active")
-            self._pitch_recorder.add_observation(obs)
+            recorder = self._pitch_recorder
+            if recorder is None:
+                raise RuntimeError("No pitch recorder active")
+            recorder.add_observation(obs)
 
     def set_record_directory(self, path: Optional[Path]) -> None:
         """Set base directory for all recordings."""
@@ -134,14 +137,16 @@ class RecordingServiceImpl(
         with self._lock:
             if self._session_recorder is None:
                 return None
-            return self._session_recorder.get_session_dir()
+            recorder = self._session_recorder
+            return recorder.get_session_dir() if recorder is not None else None
 
     def get_pitch_dir(self) -> Optional[Path]:
         """Get directory path for current pitch."""
         with self._lock:
             if self._pitch_recorder is None:
                 return None
-            return self._pitch_recorder.get_pitch_dir()
+            recorder = self._pitch_recorder
+            return recorder.get_pitch_dir() if recorder is not None else None
 
     def is_recording_session(self) -> bool:
         with self._lock:

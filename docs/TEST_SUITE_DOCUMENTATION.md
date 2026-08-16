@@ -24,7 +24,7 @@ and ten skips use an incorrect pytest-qt import guard.
 
 Current interpretation and capability-level confidence are maintained in
 [review/TEST_CONFIDENCE_REVIEW.md](review/TEST_CONFIDENCE_REVIEW.md).
-**Recorded job:** Python 3.11 on GitHub Actions; required matrix also passed on Python 3.12
+**Recorded job:** Python 3.13 on GitHub Actions; required matrix also passed on Python 3.14
 
 Command:
 

@@ -13,7 +13,7 @@ from record.recorder import RecordingBundle
 
 if TYPE_CHECKING:
     from configs.settings import AppConfig
-    from app.services.recording.implementation import RecordingServiceImpl
+    from app.services.recording.state import RecordingServiceState
 
 logger = get_logger(__name__)
 
@@ -21,8 +21,14 @@ logger = get_logger(__name__)
 class SessionLifecycleMixin:
     """Session start/stop/pause/resume and state accessors."""
 
+    _session_name: Optional[str]
+    _mode: Optional[str]
+    _measured_speed_mph: Optional[float]
+    _last_pitch_id: Optional[str]
+    _decision_journal: Optional[SessionEvidenceJournal]
+
     def start_session(
-        self: "RecordingServiceImpl",
+        self: "RecordingServiceState",
         session_name: str,
         config: "AppConfig",
         mode: Optional[str] = None,
@@ -51,7 +57,9 @@ class SessionLifecycleMixin:
 
             try:
                 self._session_recorder = SessionRecorder(config, self._record_dir)
-                session_dir, warning = self._session_recorder.start_session(
+                recorder = self._session_recorder
+                assert recorder is not None
+                session_dir, warning = recorder.start_session(
                     session_name=session_name,
                     pitch_id=f"session_{session_name}",
                 )
@@ -87,9 +95,9 @@ class SessionLifecycleMixin:
             )
 
             logger.info(f"Session started: {session_dir}")
-            return warning
+            return str(warning)
 
-    def stop_session(self: "RecordingServiceImpl") -> RecordingBundle:
+    def stop_session(self: "RecordingServiceState") -> RecordingBundle:
         """Stop current session and finalize recordings."""
         with self._lock:
             if not self._session_active:
@@ -132,7 +140,10 @@ class SessionLifecycleMixin:
                 "message_type": "session_lifecycle",
                 "schema_version": "1.0.0",
             }
-            self._session_recorder.stop_session(
+            recorder = self._session_recorder
+            if recorder is None:
+                raise RuntimeError("Session recorder is not active")
+            recorder.stop_session(
                 config_path=self._config_path,
                 pitch_id=self._last_pitch_id or "unknown",
                 session_name=self._session_name,
@@ -145,7 +156,7 @@ class SessionLifecycleMixin:
                 event_metadata=session_event_metadata,
             )
 
-            session_dir = self._session_recorder.get_session_dir()
+            session_dir = recorder.get_session_dir()
 
             self._session_recorder = None
             self._session_active = False
@@ -178,7 +189,7 @@ class SessionLifecycleMixin:
                 session_dir=session_dir,
             )
 
-    def pause_session(self: "RecordingServiceImpl") -> None:
+    def pause_session(self: "RecordingServiceState") -> None:
         """Pause recording while keeping the session open."""
         with self._lock:
             if not self._session_active:
@@ -199,7 +210,7 @@ class SessionLifecycleMixin:
             self._pre_roll_buffer["right"].clear()
             logger.info("Recording session paused")
 
-    def resume_session(self: "RecordingServiceImpl") -> None:
+    def resume_session(self: "RecordingServiceState") -> None:
         """Resume recording for an existing session."""
         with self._lock:
             if not self._session_active:

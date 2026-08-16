@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Optional
+from typing import Callable, Optional
 
 from capture import CameraDevice
 from configs.settings import AppConfig
@@ -44,12 +44,12 @@ class CameraLifecycleManager:
         self._config: Optional[AppConfig] = None
 
         # References updated on reconnect — set by facade
-        self._left_ref_setter: Optional[callable] = None
-        self._right_ref_setter: Optional[callable] = None
+        self._left_ref_setter: Optional[Callable[[CameraDevice], None]] = None
+        self._right_ref_setter: Optional[Callable[[CameraDevice], None]] = None
         self._left_id: Optional[str] = None
         self._right_id: Optional[str] = None
-        self._build_camera_fn: Optional[callable] = None
-        self._get_camera_fn: Optional[callable] = None
+        self._build_camera_fn: Optional[Callable[[], CameraDevice]] = None
+        self._get_camera_fn: Optional[Callable[[str], Optional[CameraDevice]]] = None
 
     @property
     def reconnection_manager(self) -> Optional[CameraReconnectionManager]:
@@ -61,10 +61,10 @@ class CameraLifecycleManager:
         config: AppConfig,
         left_id: str,
         right_id: str,
-        left_ref_setter: callable,
-        right_ref_setter: callable,
-        build_camera_fn: callable = None,
-        get_camera_fn: callable = None,
+        left_ref_setter: Callable[[CameraDevice], None],
+        right_ref_setter: Callable[[CameraDevice], None],
+        build_camera_fn: Optional[Callable[[], CameraDevice]] = None,
+        get_camera_fn: Optional[Callable[[str], Optional[CameraDevice]]] = None,
     ) -> None:
         """Initialize reconnection after cameras are started.
 
@@ -154,7 +154,10 @@ class CameraLifecycleManager:
 
         new_camera: Optional[CameraDevice] = None
         try:
-            new_camera = self._build_camera_fn()
+            build_camera_fn = self._build_camera_fn
+            if build_camera_fn is None:
+                raise RuntimeError("Camera lifecycle manager is not initialized")
+            new_camera = build_camera_fn()
             label = "left" if is_left else "right"
             self._factory.open_camera(new_camera, serial, label)
             self._factory.configure_camera(new_camera, self._config, is_left)
@@ -163,8 +166,10 @@ class CameraLifecycleManager:
             stop_event.clear()
             with self._camera_lock:
                 if is_left:
+                    assert self._left_ref_setter is not None
                     self._left_ref_setter(new_camera)
                 else:
+                    assert self._right_ref_setter is not None
                     self._right_ref_setter(new_camera)
 
             # Restart capture thread

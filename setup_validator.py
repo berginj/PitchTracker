@@ -54,18 +54,18 @@ class ValidationCheck:
 
 
 def check_python_version() -> ValidationCheck:
-    """Check if Python version is 3.10 or later."""
+    """Check if Python version is 3.13 or later."""
     version = sys.version_info
     version_str = f"{version.major}.{version.minor}.{version.micro}"
 
-    if version.major == 3 and version.minor >= 10:
-        return ValidationCheck("Python Version", True, f"Python {version_str} (meets minimum 3.10 requirement)")
+    if version.major > 3 or (version.major == 3 and version.minor >= 13):
+        return ValidationCheck("Python Version", True, f"Python {version_str} (meets minimum 3.13 requirement)")
     else:
         return ValidationCheck(
             "Python Version",
             False,
-            f"Python {version_str} (minimum 3.10 required)",
-            "Download Python 3.10+ from https://www.python.org/downloads/",
+            f"Python {version_str} (minimum 3.13 required)",
+            "Download Python 3.13+ from https://www.python.org/downloads/",
         )
 
 

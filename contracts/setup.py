@@ -10,7 +10,7 @@ persist a coherent setup profile.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, cast
 
 # Sync-check verdicts (ordered worst -> best is not implied; treat as labels).
 SYNC_VERDICT_GOOD = "GOOD"
@@ -319,11 +319,11 @@ class StereoCalibrationProfile:
     def from_payload(cls, data: Dict[str, object]) -> "StereoCalibrationProfile":
         """Reconstruct from a dict produced by to_payload (tolerant of gaps)."""
         return cls(
-            baseline_in=float(data.get("baseline_in", 0.0) or 0.0),
-            rms_reprojection_px=float(data.get("rms_reprojection_px", 0.0) or 0.0),
-            epipolar_error_px=float(data.get("epipolar_error_px", 0.0) or 0.0),
-            image_width=int(data.get("image_width", 0) or 0),
-            image_height=int(data.get("image_height", 0) or 0),
+            baseline_in=float(cast(float | str, data.get("baseline_in", 0.0) or 0.0)),
+            rms_reprojection_px=float(cast(float | str, data.get("rms_reprojection_px", 0.0) or 0.0)),
+            epipolar_error_px=float(cast(float | str, data.get("epipolar_error_px", 0.0) or 0.0)),
+            image_width=int(cast(int | str, data.get("image_width", 0) or 0)),
+            image_height=int(cast(int | str, data.get("image_height", 0) or 0)),
             source=str(data.get("source", "") or ""),
             production_ready=bool(data.get("production_ready", False)),
             calibration_file=str(data.get("calibration_file", "") or ""),

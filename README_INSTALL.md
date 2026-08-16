@@ -20,7 +20,7 @@ its exact source commit and SHA-256.
 Requirements:
 
 - 64-bit Windows 10 or Windows 11;
-- Python 3.11 or 3.12;
+- Python 3.13 or newer;
 - enough disk space for dependencies and private recordings; and
 - two qualifying global-shutter UVC cameras for physical testing.
 

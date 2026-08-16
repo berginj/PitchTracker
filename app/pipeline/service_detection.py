@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import Any, List, cast
 
 from app.events import ErrorCategory, ErrorSeverity, publish_error
 from app.pipeline.pitch_tracking_v2 import PitchData
@@ -13,7 +13,12 @@ from log_config.logger import get_logger
 logger = get_logger(__name__)
 
 
-class PipelineServiceDetectionMixin:
+class _PipelineServiceState:
+    def __getattr__(self, name: str) -> Any:
+        raise AttributeError(name)
+
+
+class PipelineServiceDetectionMixin(_PipelineServiceState):
     """Detection and pitch-event behavior for InProcessPipelineService."""
 
     def _on_camera_state_changed(self, camera_id: str, state) -> None:
@@ -43,7 +48,7 @@ class PipelineServiceDetectionMixin:
         if detector is None:
             return []
         try:
-            return detector.detect(frame)
+            return cast(list[Detection], detector.detect(frame))
         except Exception as exc:
             logger.error(
                 f"Detection failed for {label} camera: {exc.__class__.__name__}: {exc}",

@@ -71,7 +71,7 @@ class TrajectoryModeApproval:
             software_version=str(payload.get("software_version") or ""),
             dataset_id=str(payload.get("dataset_id") or ""),
             ground_truth_report_sha256=str(payload.get("ground_truth_report_sha256") or ""),
-            claim_ready=payload.get("claim_ready"),
+            claim_ready=bool(payload.get("claim_ready", False)),
             schema_version=str(payload.get("schema_version") or "trajectory_mode_approval.v1"),
         )
 
