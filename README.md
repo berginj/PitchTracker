@@ -110,7 +110,7 @@ pitch-level evidence must all remain eligible.
 python -m pytest -q
 ```
 
-Current checkout collection (Python 3.13) is `1,612 tests collected`. The most
+Current checkout collection (Python 3.13) is `1,614 tests collected`. The most
 recent complete parallel run before the current documentation/launcher changes
 reported `1,577 passed, 28 skipped`; it also exposed a Windows native-thread
 teardown access violation after pytest reported success. Focused regression

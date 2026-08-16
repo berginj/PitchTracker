@@ -1,6 +1,6 @@
 # PitchTracker Test Suite Documentation
 
-**Version:** v2.0.0 / `codex/python313-mypy` at `966c56f`
+**Version:** v2.0.0 / `codex/python313-mypy` at `9062cd9`
 **Date:** 2026-08-16
 **Status:** Current collection recorded; physical tests and native teardown remain separate gates
 
@@ -14,7 +14,7 @@
 
 This document provides exhaustive documentation of the PitchTracker test suite, including all test modules, test counts, coverage areas, and execution details.
 
-**Current collection:** `1,612 tests collected` under Python 3.13.
+**Current collection:** `1,614 tests collected` under Python 3.13.
 **Latest complete parallel run:** `1,577 passed, 28 skipped`; pytest then
 reported a Windows native-thread teardown access violation.
 **Pass rate:** Do not treat the assertion count as a clean release pass until

@@ -25,8 +25,8 @@ approved.
 |---|---|
 | GitHub release | `v2.0.0`, published 2026-06-27 |
 | Release installer asset | Not currently attached to the GitHub release |
-| Current working branch | `codex/python313-mypy`; latest pushed change `966c56f` |
-| Test collection | 1,612 tests collected under Python 3.13 |
+| Current working branch | `codex/python313-mypy`; latest pushed change `9062cd9` |
+| Test collection | 1,614 tests collected under Python 3.13 |
 | Latest complete parallel suite | 1,577 passed, 28 skipped, followed by a Windows native-thread teardown access violation |
 | Static validation | Schema sync, file-length, Flake8, release-version, and focused packaging checks pass; mypy remains advisory and failing |
 | Physical accuracy approval | None; results must remain estimated/degraded/unavailable/rejected as evidence requires |
