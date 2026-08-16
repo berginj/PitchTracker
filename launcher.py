@@ -42,13 +42,9 @@ __all__ = ["LauncherWindow", "clear_python_cache", "main"]
 class LauncherWindow(QtWidgets.QMainWindow):
     """Main launcher window with role selector."""
 
-    def __init__(
-        self,
-        startup_warnings: list[str] | None = None,
-        validation_service: ToolingService | None = None,
-        backend: str = "uvc",
-        config_path: Path | None = None,
-    ):
+    def __init__(self, startup_warnings: list[str] | None = None,
+                 validation_service: ToolingService | None = None,
+                 backend: str = "uvc", config_path: Path | None = None):
         super().__init__()
         self._style_manager = get_style_manager()
         self._startup_warnings = list(startup_warnings or [])

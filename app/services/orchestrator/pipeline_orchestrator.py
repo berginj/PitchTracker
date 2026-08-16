@@ -14,6 +14,7 @@ from app.services.analysis import AnalysisServiceImpl
 from app.services.capture import CaptureServiceImpl
 from app.services.detection import DetectionServiceImpl
 from app.services.orchestrator.event_coordination import EventCoordinator, make_pitch_id
+from app.services.orchestrator.lifecycle import shutdown_pipeline
 from app.services.orchestrator.quality_diagnostics import (
     build_quality_diagnostics,
 )
@@ -150,28 +151,8 @@ class PipelineOrchestrator(PipelineService):
             self._capturing = False
 
     def shutdown(self) -> None:
-        """Stop all active pipeline work and release event subscriptions.
-
-        UI callers use this as the final lifecycle boundary.  Each phase is
-        attempted independently so a recording cleanup failure cannot leave
-        capture workers running during application teardown.
-        """
-        recording_error: Optional[Exception] = None
-        try:
-            if self._recording_active:
-                self.stop_recording()
-        except Exception as exc:  # pragma: no cover - exercised by failure injection
-            recording_error = exc
-            logger.exception("Failed to stop recording during pipeline shutdown")
-        finally:
-            try:
-                self.stop_capture()
-            finally:
-                self._event_coordinator.unsubscribe()
-                self._propagate_session_id(None)
-
-        if recording_error is not None:
-            raise recording_error
+        """Stop all active work before the UI object is destroyed."""
+        shutdown_pipeline(self)
 
     def is_capturing(self) -> bool:
         """Check if capture is currently active."""
