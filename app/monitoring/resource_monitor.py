@@ -41,6 +41,7 @@ class ResourceMonitor:
         self._check_interval = check_interval
         self._monitoring = False
         self._monitor_thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
 
         # Thresholds
         self._memory_warning_mb = 2000  # 2GB
@@ -64,6 +65,7 @@ class ResourceMonitor:
             logger.warning("Resource monitor already running")
             return
 
+        self._stop_event.clear()
         self._monitoring = True
         self._monitor_thread = threading.Thread(target=self._monitor_loop, name="ResourceMonitor", daemon=False)
         self._monitor_thread.start()
@@ -75,8 +77,11 @@ class ResourceMonitor:
             return
 
         self._monitoring = False
+        self._stop_event.set()
         if self._monitor_thread and self._monitor_thread.is_alive():
             self._monitor_thread.join(timeout=2.0)
+        if self._monitor_thread is not None and not self._monitor_thread.is_alive():
+            self._monitor_thread = None
         logger.info("Resource monitor stopped")
 
     def _monitor_loop(self) -> None:
@@ -101,7 +106,7 @@ class ResourceMonitor:
             except Exception as e:
                 logger.error(f"Error in resource monitoring: {e}", exc_info=True)
 
-            time.sleep(self._check_interval)
+            self._stop_event.wait(self._check_interval)
 
     def _collect_metrics(self) -> ResourceMetrics:
         """Collect current resource metrics.
