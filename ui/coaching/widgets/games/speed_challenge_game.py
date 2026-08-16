@@ -11,7 +11,7 @@ from ui.coaching.widgets.games.base_game import BaseGame
 from ui.themes import apply_standard_layout, get_style_manager, show_message_dialog
 
 if TYPE_CHECKING:
-    from app.pipeline_service import PitchSummary
+    from app.contracts import PitchSummary
     from ui.coaching.game_state_manager import GameStateManager
 
 

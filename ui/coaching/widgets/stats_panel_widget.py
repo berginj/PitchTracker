@@ -9,7 +9,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from ui.themes import apply_standard_layout, get_style_manager
 
 if TYPE_CHECKING:
-    from app.pipeline_service import PitchSummary
+    from app.contracts import PitchSummary
 
 
 class StatsPanelWidget(QtWidgets.QWidget):

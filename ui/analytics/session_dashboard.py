@@ -22,7 +22,7 @@ except ImportError:
 from analysis.pattern_detection.pitch_classifier import classify_pitch_heuristic
 
 if TYPE_CHECKING:
-    from app.pipeline_service import PitchSummary
+    from app.contracts import PitchSummary
 
 
 @dataclass

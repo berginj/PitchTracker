@@ -24,7 +24,7 @@ from ui.themes import get_style_manager
 
 if TYPE_CHECKING:
     from contracts import Frame
-    from app.pipeline_service import PitchSummary
+    from app.contracts import PitchSummary
     from ui.coaching.session_history_tracker import SessionHistoryTracker
 
 logger = logging.getLogger(__name__)

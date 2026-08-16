@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, List, Optional, Tuple
 from app.contracts import measurement_is_usable
 
 if TYPE_CHECKING:
-    from app.pipeline_service import PitchSummary
+    from app.contracts import PitchSummary
 
 
 class SessionHistoryTracker:

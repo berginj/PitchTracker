@@ -33,9 +33,9 @@ from app.pipeline.detection.processor import DetectionProcessor
 from app.pipeline.service_contracts import (
     CalibrationProfile,
     PipelineService,
-    PitchSummary,
     SessionSummary,
 )
+from app.contracts import PitchSummary
 from app.pipeline.service_detection import PipelineServiceDetectionMixin
 from app.pipeline.service_recording import PipelineServiceRecordingMixin
 from app.pipeline.service_config import PipelineServiceConfigMixin
