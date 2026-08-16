@@ -495,7 +495,6 @@ class PipelineOrchestrator(PipelineService):
     def unsubscribe_event(self, event_type: Type, handler: Callable) -> bool:
         """Remove a public EventBus subscription."""
         return self._event_bus.unsubscribe(event_type, handler)
-
     def _to_field_coordinates(self, obs: StereoObservation) -> StereoObservation:
         self._event_coordinator.set_rig_profile(self._active_rig_profile)
         return self._event_coordinator._to_field_coordinates(obs)
