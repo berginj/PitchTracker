@@ -97,6 +97,26 @@ def test_evidence_writes_are_serialized_and_keep_prior_generation_readable(tmp_p
     assert list(manifest.parent.glob("*.tmp")) == []
 
 
+def test_atomic_write_retries_transient_windows_replace_error(monkeypatch, tmp_path: Path) -> None:
+    from app.pipeline.recording import evidence_package
+
+    target = tmp_path / "manifest.json"
+    real_replace = evidence_package.os.replace
+    attempts = {"count": 0}
+
+    def replace_with_transient_error(source, destination):
+        attempts["count"] += 1
+        if attempts["count"] < 3:
+            raise PermissionError("sharing violation")
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(evidence_package.os, "replace", replace_with_transient_error)
+    evidence_package._atomic_write_text(target, "{}\n")
+
+    assert target.read_text(encoding="utf-8") == "{}\n"
+    assert attempts["count"] == 3
+
+
 def test_pitch_evidence_distinguishes_raw_and_field_observations(tmp_path: Path) -> None:
     recorder = PitchRecorder(load_config(Path("configs/default.yaml")), tmp_path, "pitch-1")
     raw = StereoObservation(1, (10, 20), (8, 20), 1.0, 2.0, 40.0, 0.9, confidence=0.8)

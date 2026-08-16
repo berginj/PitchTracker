@@ -45,7 +45,10 @@ jobs:
         continue-on-error: true
 
       - name: Run tests
-        run: python -m pytest -n auto --dist loadscope --tb=short -q
+        # Native camera/Qt libraries are not safe to fan out to every CPU on
+        # Windows. Two workers preserve parallel feedback without teardown and
+        # file-replacement races seen with ``-n auto``.
+        run: python -m pytest -n 2 --dist loadscope --tb=short -q
 
   security:
     runs-on: ubuntu-latest
