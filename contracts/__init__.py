@@ -81,6 +81,8 @@ from .setup_snapshot import (
     SetupSystemSnapshot,
     assess_setup_snapshot_payload,
 )
+from .setup_capture import SetupCaptureResult
+from .durable_registry import DURABLE_CONTRACTS, DurableContractSpec, validate_durable_contracts
 
 __all__ = [
     "Detection",
@@ -146,4 +148,8 @@ __all__ = [
     "SetupSnapshotAssessment",
     "SetupSystemSnapshot",
     "assess_setup_snapshot_payload",
+    "SetupCaptureResult",
+    "DURABLE_CONTRACTS",
+    "DurableContractSpec",
+    "validate_durable_contracts",
 ]

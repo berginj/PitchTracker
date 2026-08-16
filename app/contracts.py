@@ -102,7 +102,15 @@ def _filter_dataclass_fields(cls: type, payload: dict[str, Any]) -> dict[str, An
 
 def pitch_summary_from_dict(payload: dict[str, Any]) -> PitchSummary:
     """Parse a pitch summary payload while ignoring envelope metadata."""
-    return PitchSummary(**_filter_dataclass_fields(PitchSummary, payload))
+    fields_payload = _filter_dataclass_fields(PitchSummary, payload)
+    raw_status = fields_payload.get("measurement_status")
+    if raw_status is not None:
+        try:
+            fields_payload["measurement_status"] = MeasurementStatus.coerce(raw_status)
+        except ValueError:
+            # Keep forward-added statuses readable until this client knows them.
+            pass
+    return PitchSummary(**fields_payload)
 
 
 def session_summary_from_dict(payload: dict[str, Any]) -> SessionSummary:
