@@ -1,6 +1,6 @@
 # PitchTracker Installation
 
-**Last reviewed:** 2026-07-22
+**Last reviewed:** 2026-08-16
 
 **Applies to:** v2.0.0 and current `main`
 
@@ -31,10 +31,11 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python setup_validator.py
-python launcher.py
+python launcher.py --backend sim
 ```
 
-Most automated tests and simulator workflows do not require cameras.
+Most automated tests and simulator workflows do not require cameras. Use
+`python launcher.py --backend uvc` for a camera-backed run after setup.
 
 ## Build an installer for controlled testing
 

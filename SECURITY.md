@@ -40,4 +40,4 @@ Do not publish exploit details before coordinated disclosure.
 - Missing validation evidence must fail closed; it must not be converted into an
   assumed pass.
 
-Last reviewed: **2026-07-22**.
+Last reviewed: **2026-08-16**.

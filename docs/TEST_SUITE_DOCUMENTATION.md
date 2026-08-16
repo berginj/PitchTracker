@@ -1,6 +1,6 @@
 # PitchTracker Test Suite Documentation
 
-**Version:** v2.0.0 / `codex/python313-mypy` at `9062cd9`
+**Version:** v2.0.0 / current `codex/python313-mypy` branch head
 **Date:** 2026-08-16
 **Status:** Current collection recorded; physical tests and native teardown remain separate gates
 

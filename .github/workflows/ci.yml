@@ -34,6 +34,9 @@ jobs:
       - name: Verify schema mirror is in sync
         run: python scripts/sync_schema.py --check
 
+      - name: Check public documentation links and terminology
+        run: python scripts/check_public_docs.py
+
       - name: Enforce file-length convention
         run: python scripts/check_file_length.py
 

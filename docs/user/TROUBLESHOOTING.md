@@ -1,6 +1,6 @@
 # PitchTracker - Troubleshooting Guide
 
-**Last Updated:** 2026-07-22
+**Last Updated:** 2026-08-16
 **Version:** 2.0.0
 
 ---

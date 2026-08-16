@@ -1,6 +1,6 @@
 # PitchTracker Frequently Asked Questions
 
-**Last reviewed:** 2026-07-22
+**Last reviewed:** 2026-08-16
 
 **Applies to:** v2.0.0 and current `main`
 

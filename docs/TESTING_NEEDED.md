@@ -16,6 +16,23 @@ driver behavior, installation quality, or physical pitch accuracy.
 You do not need to provide athlete video. Anonymized numeric reports are more
 useful than unsupported success claims.
 
+## Choose a test by what you have
+
+| Test | Cameras | Independent reference | Typical time | What to return |
+|---|---:|---:|---:|---|
+| Installer smoke test | No | No | 30–60 minutes | install, launch, update, uninstall checklist |
+| Camera discovery | Yes | No | 30–60 minutes | models, identities, modes, and pairing behavior |
+| Capture qualification | Yes | No | 1–2 hours | frame/drop counts, achieved FPS, controls, and timing |
+| Setup recovery | Yes | No | 1–2 hours | what happened after one reversible setup problem |
+| Accuracy validation | Yes | Yes | multiple sessions | protocol-bound comparison report |
+
+If you have no cameras, the installer smoke test and simulator workflow are
+still valuable. If you have cameras but no reference device, stop at capture
+qualification or setup recovery; do not call the result an accuracy validation.
+
+The [glossary](GLOSSARY.md) explains terms such as global shutter, setup
+snapshot, pair-skew, shadow dataset, confirmation dataset, and denominator.
+
 ## Choose a test
 
 ### 1. Installer smoke test — no cameras required
@@ -26,6 +43,9 @@ with a candidate whose source commit, filename, and SHA-256 are supplied.
 Verify install, first launch, simulator workflow, logs, update check, uninstall,
 and reinstall on a clean Windows machine. Record Windows version/architecture,
 security prompts, and the exact installer SHA-256.
+
+Do not upload the installer, logs, or screenshots if they contain usernames,
+private paths, tokens, or facility information.
 
 ### 2. Camera discovery and recommendation
 
@@ -55,6 +75,10 @@ Run the setup burst and report both raw counts and rates:
 Repeat once under normal conditions and once with a controlled problem such as
 USB contention or exposure mismatch. Do not risk damaging cameras or mounts.
 
+For every rate, report both the numerator and the opportunity count. For
+example, “146 paired frames out of 151 opportunities” is useful; “96.7%” alone
+is not.
+
 ### 4. Setup recovery
 
 Introduce one reversible configuration problem at a time: swap camera sides,
@@ -69,6 +93,10 @@ collecting confirmation data. Lock thresholds, strata, exclusions, and sample
 counts in advance. Preserve rejected attempts and reference uncertainty. A
 development dataset may guide fixes; only a separate confirmation dataset can
 support approval.
+
+Do not change code, calibration, thresholds, or correction rules after seeing
+confirmation results. If you do, the data becomes development data and a new
+confirmation run is required.
 
 ## Reporting results
 

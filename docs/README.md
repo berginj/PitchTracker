@@ -1,92 +1,88 @@
-# PitchTracker Documentation
+# PitchTracker documentation
 
-This index distinguishes current sources of truth from historical or exploratory
-material. If an active guide conflicts with the status or roadmap, use the
-documents in the first section and open a documentation issue.
+Use the path that matches your task. You do not need to read the architecture
+or validation documents before trying the simulator.
+
+## Start here
+
+- **I want to try the app without cameras:** [Quick Start](QUICK_START.md)
+- **I operate a camera rig:** [Operator runbook](OPERATOR_RUNBOOK.md)
+- **I am testing hardware:** [Testing Help Needed](TESTING_NEEDED.md)
+- **I need to understand a term:** [Glossary](GLOSSARY.md)
+- **I need help with a problem:** [Troubleshooting](user/TROUBLESHOOTING.md)
+- **I want to contribute:** [Contributing](../CONTRIBUTING.md)
+- **I need to report a security issue:** [Security policy](../SECURITY.md)
 
 ## Current sources of truth
 
-- [CURRENT_STATUS.md](CURRENT_STATUS.md) — shipped software, release state, and
-  evidence boundary.
-- [ROADMAP.md](ROADMAP.md) — canonical open work and acceptance criteria.
-- [TESTING_NEEDED.md](TESTING_NEEDED.md) — how external testers can help safely.
-- [SETUP_SNAPSHOT_REQUIREMENTS.md](SETUP_SNAPSHOT_REQUIREMENTS.md) — validated
-  configuration inventory and camera recommendation requirements.
-- [EVIDENCE_FIRST_FIELD_ROBUSTNESS.md](EVIDENCE_FIRST_FIELD_ROBUSTNESS.md) —
-  measurement evidence model.
-- [PHYSICAL_VALIDATION_PROTOCOL_V2.md](PHYSICAL_VALIDATION_PROTOCOL_V2.md) —
-  confirmation protocol and non-claim boundary.
-- [PT_001_015_TRACEABILITY.md](PT_001_015_TRACEABILITY.md) — implementation and
-  automated-test traceability.
-- [ARCHITECTURE_CURRENT_STATE.md](ARCHITECTURE_CURRENT_STATE.md) — current service
-  and agent boundaries.
-- [review/EXECUTIVE_REVIEW.md](review/EXECUTIVE_REVIEW.md) — 2026-08-11 full
-  repository, UI, test, performance, documentation, and platform audit; the
-  remaining review files provide its evidence matrices and remediation plan.
+These documents describe the current product. If an older document conflicts
+with them, use these pages and open a documentation issue.
+
+- [Current Status](CURRENT_STATUS.md) — release, test, and evidence state.
+- [Roadmap](ROADMAP.md) — current open work and acceptance criteria.
+- [Testing Help Needed](TESTING_NEEDED.md) — safe external testing tasks.
+- [Setup Snapshot Requirements](SETUP_SNAPSHOT_REQUIREMENTS.md) — setup evidence
+  and camera recommendation requirements.
+- [Evidence-First Field Robustness](EVIDENCE_FIRST_FIELD_ROBUSTNESS.md) — what
+  the system records and what it may claim.
+- [Physical Validation Protocol v2](PHYSICAL_VALIDATION_PROTOCOL_V2.md) — the
+  procedure for an accuracy claim.
+- [Architecture](ARCHITECTURE_CURRENT_STATE.md) — service and agent boundaries.
+- [PT-001–PT-015 Traceability](PT_001_015_TRACEABILITY.md) — implementation and
+  automated-test evidence.
 
 ## User and operator guides
 
-- [QUICK_START.md](QUICK_START.md)
-- [OPERATOR_RUNBOOK.md](OPERATOR_RUNBOOK.md) — daily-session setup, recording, and shutdown steps
-- [FAQ.md](FAQ.md)
-- [user/TROUBLESHOOTING.md](user/TROUBLESHOOTING.md)
-- [user/CALIBRATION_TIPS.md](user/CALIBRATION_TIPS.md)
-- [SETUP_DOCTOR.md](SETUP_DOCTOR.md)
-- [HARDWARE_PROFILE.md](HARDWARE_PROFILE.md)
-- [CALIBRATION_TROUBLESHOOTING.md](CALIBRATION_TROUBLESHOOTING.md)
-- [CAMERA_RECONNECTION.md](CAMERA_RECONNECTION.md)
-- [PHYSICAL_VALIDATION_EXECUTION_CHECKLIST.md](PHYSICAL_VALIDATION_EXECUTION_CHECKLIST.md) — field evidence record form
+- [Installation](../README_INSTALL.md)
+- [Quick Start](QUICK_START.md)
+- [Operator daily-session runbook](OPERATOR_RUNBOOK.md)
+- [FAQ](FAQ.md)
+- [Troubleshooting](user/TROUBLESHOOTING.md)
+- [Calibration tips](user/CALIBRATION_TIPS.md)
+- [Setup Doctor](SETUP_DOCTOR.md)
+- [Hardware profile](HARDWARE_PROFILE.md)
+- [Camera reconnection](CAMERA_RECONNECTION.md)
+- [Physical validation checklist](PHYSICAL_VALIDATION_EXECUTION_CHECKLIST.md)
 
 ## Developer guides
 
-- [../REQ.md](../REQ.md)
-- [ml/TRAINING.md](ml/TRAINING.md) — current (v2) ML detector training guide
-- [decisions/0001-core-pipeline.md](decisions/0001-core-pipeline.md)
-- [DECISION_REPLAY_ARCHITECTURE.md](DECISION_REPLAY_ARCHITECTURE.md)
-- [evidence_contracts.md](evidence_contracts.md)
-- [TEST_SUITE_DOCUMENTATION.md](TEST_SUITE_DOCUMENTATION.md)
-- [INTEGRATION_TESTS.md](INTEGRATION_TESTS.md)
-- [PERFORMANCE_BENCHMARKS.md](PERFORMANCE_BENCHMARKS.md)
+- [Requirements](../REQ.md)
+- [Contributing](../CONTRIBUTING.md)
+- [Testing and validation](TEST_SUITE_DOCUMENTATION.md)
+- [Integration tests](INTEGRATION_TESTS.md)
+- [Performance benchmarks](PERFORMANCE_BENCHMARKS.md)
+- [Evidence contracts](evidence_contracts.md)
+- [Decision replay architecture](DECISION_REPLAY_ARCHITECTURE.md)
+- [ML training guide](ml/TRAINING.md)
+- [Architecture decisions](decisions/0001-core-pipeline.md)
 
 ## Community and support
 
-- [Contributing](../CONTRIBUTING.md)
 - [Support](../SUPPORT.md)
 - [Security policy](../SECURITY.md)
+- [GitHub feedback intake](GITHUB_FEEDBACK_INTAKE.md)
 
-## Planning and context
+## Planning and historical context
 
-- [PRODUCT_STRATEGY.md](PRODUCT_STRATEGY.md) remains a strategy framework; its
-  dated task tables are not the current backlog.
-- [PILOT_PROGRAM.md](PILOT_PROGRAM.md) remains a pilot-design reference; launch
-  status comes from `CURRENT_STATUS.md`.
-- `core_pipeline_workback_plan.md` and `implementation_plan.md` are superseded by
-  ADR-0001, the PT/AR traceability record, and `ROADMAP.md`.
-- TAG documents are partnership **concept specifications** with no signed
-  agreement, no operational cloud backend, and no shipped Bluetooth or UI
-  integration. Phase 1 implementation is 2–4 weeks of remaining engineering work;
-  Phase 2 (cloud) and Phase 3 (Bluetooth) are unstarted. Do not treat them as
-  current product capability. `TAG_INTEGRATION_TECHNICAL_SPEC.md`,
-  `TAG_DEEP_INTEGRATION_API_SPEC.md`, and `CLOUD_SUBMISSION_GUIDE.md` each carry
-  a speculative-status notice in their headers. The authoritative implementation
-  gap record is `tag_partnership/TAG_IMPLEMENTATION_STATUS.md`.
-
-## Historical material
-
-- [archive/](archive/) and [`../archive/`](../archive/) preserve completed plans,
-  investigations, session reports, and superseded status documents.
-- Historical metrics, version numbers, and readiness claims must not be copied
-  into current release communication without revalidation.
+- [Product strategy](PRODUCT_STRATEGY.md) is a strategy reference, not the
+  current backlog.
+- [Pilot program](PILOT_PROGRAM.md) is a pilot-design reference; launch status
+  comes from [Current Status](CURRENT_STATUS.md).
+- TAG and cloud documents are concept specifications, not shipped capability.
+- [Archive](archive/) and [`../archive/`](../archive/) preserve historical
+  plans, investigations, and point-in-time reports. Do not use their metrics or
+  version numbers as current status.
 
 ## Documentation maintenance
 
-When changing behavior:
+When behavior changes:
 
-1. Update the relevant requirement or contract.
-2. Update `CURRENT_STATUS.md` and `ROADMAP.md` if delivery status changes.
-3. Add automated evidence to `PT_001_015_TRACEABILITY.md` where applicable.
+1. Update the relevant contract or requirement.
+2. Update [Current Status](CURRENT_STATUS.md) and [Roadmap](ROADMAP.md) when
+   delivery status changes.
+3. Add automated evidence to [PT traceability](PT_001_015_TRACEABILITY.md).
 4. Preserve non-claim language for hardware results until physical validation.
-5. Move superseded point-in-time reports to an archive instead of leaving two
+5. Move superseded point-in-time reports to the archive instead of leaving two
    competing status sources.
 
-Last reviewed: **2026-08-11**.
+Last reviewed: **2026-08-16**.

@@ -38,10 +38,14 @@ flake8 .                              # HARD GATE: any error fails CI
 python -m pytest                      # full suite
 python scripts/check_file_length.py   # no file over 500 lines
 python scripts/sync_schema.py --check # schema/ mirrors contracts-shared/
+python scripts/check_public_docs.py   # public links, terms, and freshness
+python scripts/check_mypy_baseline.py # no new whole-tree type errors
 ```
 
-`mypy .` and the `safety` dependency scan run **advisory** (`continue-on-error`)
-and do not block, but please keep them clean where practical.
+The repository still has a recorded whole-tree mypy backlog. The baseline
+ratchet permits existing diagnostics but blocks new ones; refresh it only when a
+change genuinely removes or intentionally documents a diagnostic. The `safety`
+dependency scan remains advisory.
 
 > Note: full-style `flake8` is a **hard** gate (`flake8 . --count --statistics`
 > with no `continue-on-error`). It is *not* limited to `E9,F63,F7,F82`.
@@ -70,4 +74,4 @@ same change that implements the decision.
 - Update requirements, traceability, and roadmap status in the same change when
   behavior or acceptance criteria change.
 
-Last reviewed: **2026-07-22**.
+Last reviewed: **2026-08-16**.

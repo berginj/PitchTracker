@@ -36,4 +36,4 @@ accuracy is not yet validated for public claims.
 Keep athlete media, facility details, raw hardware serials, calibration files,
 secrets, and unreviewed logs private.
 
-Last reviewed: **2026-07-22**.
+Last reviewed: **2026-08-16**.

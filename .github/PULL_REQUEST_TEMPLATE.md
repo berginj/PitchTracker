@@ -16,6 +16,8 @@
 - [ ] `python -m pytest` passes locally
 - [ ] `python scripts/check_file_length.py` passes (no file over 500 lines)
 - [ ] `python scripts/sync_schema.py --check` passes (schema mirror in sync)
+- [ ] `python scripts/check_public_docs.py` passes when public docs or links changed
+- [ ] `python scripts/check_mypy_baseline.py` passes (no new type errors)
 - [ ] New errors raise custom exceptions from `exceptions.py` (no bare `Exception`/`RuntimeError`)
 - [ ] No unrelated files or generated artifacts included
 - [ ] Public behavior/status claims and linked documentation remain accurate
