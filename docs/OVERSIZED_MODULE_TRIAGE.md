@@ -1,7 +1,11 @@
 # Oversized Module Triage
 
 **Reviewed:** 2026-08-13
-**Baseline:** 31 grandfathered Python files above the 500-line limit
+**Historical baseline:** 31 grandfathered Python files above the 500-line limit
+
+The current `scripts/check_file_length.py` gate reports zero files above the
+limit and zero grandfathered entries. This document is retained as extraction
+history, not as an active debt queue.
 
 The file-length gate prevents new oversized modules but intentionally
 grandfathers inherited debt. A passing gate therefore means no new size debt;

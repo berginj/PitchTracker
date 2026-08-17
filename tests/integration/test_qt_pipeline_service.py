@@ -99,6 +99,16 @@ class TestQtPipelineServiceDelegation:
         service.stop_capture()
         assert not service.is_capturing()
 
+    def test_shutdown_is_idempotent_and_stops_capture(self, qapp):
+        """The Qt boundary must release workers before its QObject is destroyed."""
+        service = QtPipelineService(backend="sim")
+        service.start_capture(create_test_config(), left_serial="left", right_serial="right")
+
+        service.shutdown()
+        service.shutdown()
+
+        assert not service.is_capturing()
+
     def test_get_preview_frames(self, qapp):
         """Test get_preview_frames delegation."""
         service = QtPipelineService(backend="sim")

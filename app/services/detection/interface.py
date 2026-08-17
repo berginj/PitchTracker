@@ -148,7 +148,7 @@ class DetectionService(ABC):
         """
 
     @abstractmethod
-    def get_detection_stats(self) -> Dict[str, float]:
+    def get_detection_stats(self) -> Dict[str, Optional[float]]:
         """Get detection performance statistics.
 
         Returns:

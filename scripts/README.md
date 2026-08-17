@@ -4,6 +4,17 @@ This directory contains standalone utility and validation scripts for PitchTrack
 
 ## Validation Scripts
 
+### `check_public_docs.py`
+Check the public documentation entry points before opening a pull request.
+The check verifies required local Markdown links, prevents obsolete PyQt6 and
+Python-version wording in the README, and keeps dated public pages aligned with
+`docs/CURRENT_STATUS.md`.
+
+**Usage:**
+```bash
+python scripts/check_public_docs.py
+```
+
 ### `validate_v2.py`
 Validation script for Pitch Tracking V2 integration.
 

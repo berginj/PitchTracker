@@ -1,68 +1,63 @@
 # PitchTracker
 
-PitchTracker is a Windows desktop application for evidence-first baseball and
-softball pitch tracking with two USB global-shutter cameras. It captures paired
-frames, detects and associates ball candidates, reconstructs a 3D trajectory,
-records replayable evidence, and presents coaching summaries without hiding
-quality or correction information.
+PitchTracker is a Windows desktop app that uses two cameras to track baseball
+and softball pitches. It shows the operator what was captured, what the system
+could measure, and which results are uncertain.
 
-> **Current status (2026-07-22):** the software pipeline, setup snapshot,
-> decision replay, error accounting, and physical-validation contracts are
-> implemented and covered by automated tests. Physical speed and plate-location
-> accuracy are **not yet validated** for public claims. We are actively looking
-> for testers with global-shutter stereo rigs and independent reference
-> equipment. See [Testing help needed](docs/TESTING_NEEDED.md).
+## Current status
 
-## What is ready
+The software is ready for simulator use and controlled engineering tests.
+Physical speed and plate-location accuracy are **not validated for public
+claims**. The current public `v2.0.0` release has no installer asset, so the
+supported public path is running from source.
 
-- Service-oriented capture, detection, tracking, trajectory, recording, and
-  analysis pipeline.
-- Canonical ten-step stereo setup workflow with interruptible supervised capture.
-- Camera recommendation that prefers a connected previously validated pair,
-  then ranks recognized global-shutter pairs by requested-mode capability.
-- Content-addressed setup-system snapshots recording software, host, cameras,
-  controls, capture quality, calibration, ROI, field transform, and policy hashes.
-- Complete candidate/match/triangulation decision evidence, unmatched-frame
-  outcomes, global stereo assignment, session journal, and offline replay.
-- Explicit error budgets, raw-versus-corrected values, drift monitoring, and
-  fail-closed physical accuracy eligibility.
-- PySide6 setup, coaching, recording, review, and export workflows.
+See [Current Status](docs/CURRENT_STATUS.md) for the latest test, release, and
+hardware evidence. See the [glossary](docs/GLOSSARY.md) if terms such as
+“global shutter,” “stereo,” or “setup snapshot” are unfamiliar.
 
-Automated tests demonstrate software behavior with simulated and synthetic
-inputs. They do not establish real-world measurement accuracy.
+## Choose your path
 
-## Help us test
+- **Try the simulator:** follow [Quick Start](docs/QUICK_START.md). No cameras
+  are required.
+- **Run the desktop app:** follow [Installation](README_INSTALL.md) and the
+  [operator runbook](docs/OPERATOR_RUNBOOK.md).
+- **Test cameras or field accuracy:** start with [Testing Help Needed](docs/TESTING_NEEDED.md).
+- **Contribute code or documentation:** read [Contributing](CONTRIBUTING.md).
+- **Report a problem:** use [Support](SUPPORT.md) and choose the appropriate
+  issue form.
 
-The highest-value contributions now require physical hardware:
+## What the app does
 
-1. Global-shutter camera discovery, control readback, synchronization, and
-   capture qualification on Windows.
-2. Repeatability of the ten-step setup workflow across PCs, USB controllers,
-   camera models, lighting, and mounting conditions.
-3. Ground-truth speed and plate-location comparisons using an independent,
-   calibrated reference device and a predeclared protocol.
-4. Clean Windows installer smoke tests.
+1. Helps an operator select and qualify a camera pair.
+2. Captures synchronized views of the pitch lane.
+3. Finds ball candidates and reconstructs a 3D trajectory when the evidence is
+   sufficient.
+4. Records replayable video, observations, decisions, and quality diagnostics.
+5. Presents coaching and review information without hiding missing or rejected
+   measurements.
 
-Start with [docs/TESTING_NEEDED.md](docs/TESTING_NEEDED.md), then submit either a
-[Validation Report](https://github.com/berginj/PitchTracker/issues/new?template=validation_report.yml)
-or [Pilot Feedback](https://github.com/berginj/PitchTracker/issues/new?template=pilot_feedback.yml).
-Do not upload athlete video, names, private facility information, calibration
-files, or raw recordings unless sharing has been explicitly authorized.
+Automated tests use simulated and synthetic inputs. They prove software
+behavior; they do not prove real-world measurement accuracy.
 
-## Release status
+## What is and is not validated
 
-- Latest published release/tag: [`v2.0.0`](https://github.com/berginj/PitchTracker/releases/tag/v2.0.0).
-- Current development branch: `main`.
-- The published `v2.0.0` release currently has no installer asset. Build from
-  source for testing until a refreshed installer is published and independently
-  smoke-tested.
-- Canonical status and open work: [Current Status](docs/CURRENT_STATUS.md) and
-  [Roadmap](docs/ROADMAP.md).
+The project currently has software coverage for setup contracts, capture and
+tracking behavior, evidence recording, replay, and validation gates. It does
+not yet have an independently reviewed physical confirmation dataset for speed
+or plate-location accuracy.
 
-## Developer setup
+Do not describe a camera model, trajectory mode, or measurement error bound as
+validated unless an active physical-validation approval explicitly covers the
+exact rig, software, environment, protocol, and dataset.
 
-Requirements: Windows 10/11, Python 3.11 or 3.12 for CI parity, and two UVC
-cameras for physical testing.
+## Run from source
+
+Requirements:
+
+- Windows 10 or 11;
+- Python 3.13 or newer;
+- no cameras for simulator development;
+- two matching, qualified global-shutter UVC cameras for field testing.
 
 ```powershell
 git clone https://github.com/berginj/PitchTracker.git
@@ -71,25 +66,29 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python setup_validator.py
-python launcher.py
+python launcher.py --backend sim
 ```
 
-Run against UVC cameras:
+For a camera-backed run, use the same launcher after setup, or run:
 
 ```powershell
 .\run.ps1 -Backend uvc
 ```
 
-Simulator-backed development and most automated tests do not require cameras.
+Most automated tests do not require cameras:
+
+```powershell
+python -m pytest -q
+```
 
 ## Setup workflow
 
-The canonical workflow is:
+The guided setup has ten stages:
 
 1. Select cameras.
 2. Verify paired preview.
 3. Qualify synchronization.
-4. Lock and verify focus/exposure controls.
+4. Lock and verify focus and exposure controls.
 5. Validate image overlap.
 6. Compute coarse rectification.
 7. Optionally refine with ChArUco.
@@ -97,95 +96,40 @@ The canonical workflow is:
 9. Persist the rig profile and setup snapshot.
 10. Review the quality report and blockers.
 
-A completed wizard is not automatically a validated measurement system. The
-snapshot, artifact hashes, physical-validation approval, current preflight, and
-pitch-level evidence must all remain eligible.
+Completing the wizard does not establish physical accuracy. The setup snapshot,
+calibration artifacts, physical approval, current preflight, and pitch evidence
+must remain eligible.
 
-## Tests
+## Hardware testing
 
-```powershell
-python -m pytest -q
-```
+Field testing requires a rigid mount, two matching cameras with stable
+identities, a verified target capture mode, and an independent calibrated
+reference device for accuracy claims. Read the [testing guide](docs/TESTING_NEEDED.md)
+before collecting data. It explains what each test needs, what to record, and
+how to keep development data separate from confirmation data.
 
-Latest recorded run on `main` at commit `211d246`:
+## Privacy and safety
 
-- `1267 passed`
-- `32 skipped`
-- `0 failed`
+Frames, recordings, calibration files, logs, athlete information, and facility
+details may be sensitive. Keep them local by default. Public reports should use
+anonymized summaries, hashes, and filenames—not athlete media, raw serials,
+private paths, or secrets.
 
-That count is historical CI evidence, not the current dirty-worktree result.
-The 2026-08-11 audit collected 1,302 tests. A serial Windows ARM64-host/AMD64-
-Python run with Qt offscreen produced 1,235 passed, 34 failed, and 33 skipped;
-all displayed failures shared a recording-codec/offscreen environment condition.
-See [the test confidence review](docs/review/TEST_CONFIDENCE_REVIEW.md) before
-interpreting either result. Skipped tests include optional, environment/hardware,
-and incorrectly guarded UI cases. See
-[Testing Help Needed](docs/TESTING_NEEDED.md) for physical test procedures and
-[Contributing](CONTRIBUTING.md) for required CI gates.
-
-## Build the Windows installer
-
-Install PyInstaller and Inno Setup 6, then run:
-
-```powershell
-.\build_installer.ps1 -Clean
-```
-
-Expected outputs:
-
-- `dist\PitchTracker\PitchTracker.exe`
-- `installer_output\PitchTracker-Setup-v2.0.0-stereo.exe`
-
-See [Build Instructions](BUILD_INSTRUCTIONS.md). Generated build outputs are not
-committed.
-
-## Evidence and validation boundaries
-
-- Default trajectory mode remains `stereo_3d`.
-- Ray modes remain comparison-first until physical evidence supports promotion.
-- Missing evidence is represented as unavailable, degraded, or rejected—not zero
-  and not inferred success.
-- Corrections retain raw values and an audit record.
-- Detailed diagnostics are persisted and available on demand but are not shown
-  by default unless they help setup or recovery.
-- Physical `VALIDATED` status requires a separate confirmation dataset and signed
-  approval bound to the exact rig, software, artifacts, and correction policy.
-
-Relevant specifications:
-
-- [Setup Snapshot Requirements](docs/SETUP_SNAPSHOT_REQUIREMENTS.md)
-- [Evidence-First Field Robustness](docs/EVIDENCE_FIRST_FIELD_ROBUSTNESS.md)
-- [Physical Validation Protocol v2](docs/PHYSICAL_VALIDATION_PROTOCOL_V2.md)
-- [PT-001–PT-015 Traceability](docs/PT_001_015_TRACEABILITY.md)
-- [Architecture](docs/ARCHITECTURE_CURRENT_STATE.md)
-
-## Documentation
+## Documentation map
 
 - [Documentation index](docs/README.md)
-- [Current status](docs/CURRENT_STATUS.md)
+- [Quick Start](docs/QUICK_START.md)
+- [Glossary](docs/GLOSSARY.md)
+- [Current Status](docs/CURRENT_STATUS.md)
 - [Roadmap](docs/ROADMAP.md)
-- [Testing help needed](docs/TESTING_NEEDED.md)
-- [Installation](README_INSTALL.md)
-- [User quick start](docs/QUICK_START.md)
-- [Operator daily-session runbook](docs/OPERATOR_RUNBOOK.md)
-- [Physical validation execution checklist](docs/PHYSICAL_VALIDATION_EXECUTION_CHECKLIST.md)
-- [ML training guide](docs/ml/TRAINING.md)
+- [Testing Help Needed](docs/TESTING_NEEDED.md)
+- [Operator runbook](docs/OPERATOR_RUNBOOK.md)
+- [Physical validation checklist](docs/PHYSICAL_VALIDATION_EXECUTION_CHECKLIST.md)
+- [Architecture](docs/ARCHITECTURE_CURRENT_STATE.md)
 - [Troubleshooting](docs/user/TROUBLESHOOTING.md)
 - [Support](SUPPORT.md)
 - [Security policy](SECURITY.md)
-- [Requirements](REQ.md)
-- [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
 
-Historical plans and point-in-time reports are retained under `archive/` and
-`docs/archive/`; they are not current status sources.
-
-## Privacy
-
-Frames, recordings, manifests, calibration artifacts, athlete information,
-facility details, and logs may be sensitive. Keep them local by default. Public
-issues should contain anonymized summaries and hashes or filenames—not private
-media or secrets.
-
-## License
-
-See [LICENSE](LICENSE).
+Historical and exploratory material is retained under `archive/` and
+`docs/archive/`; it is not current product status.

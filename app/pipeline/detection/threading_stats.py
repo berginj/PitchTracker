@@ -1,7 +1,7 @@
 """Runtime statistics and terminal conservation for detection threading."""
 
 import logging
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from app.events.event_types import FrameProcessingOpportunityEvent, FrameProcessingOutcomeEvent
 from app.pipeline.detection.decision_ids import frame_decision_id
@@ -11,12 +11,17 @@ from contracts import Detection
 logger = logging.getLogger(__name__)
 
 
-class DetectionStatsMixin:
+class _DetectionState:
+    def __getattr__(self, name: str) -> Any:
+        raise AttributeError(name)
+
+
+class DetectionStatsMixin(_DetectionState):
     """Expose counters and conserve every offered frame opportunity."""
 
     def get_error_stats(self) -> Dict[str, int]:
         with self._detection_error_lock:
-            return self._detection_errors.copy()
+            return cast(Dict[str, int], self._detection_errors.copy())
 
     def get_runtime_stats(self) -> dict:
         with self._detection_error_lock:

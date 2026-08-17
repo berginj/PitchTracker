@@ -18,6 +18,9 @@ Or use the repository wrapper:
 .\run.ps1 -Backend uvc
 ```
 
+Both commands open the same role launcher. ``ui.qt_app`` is retained only as a
+compatibility import for older integrations.
+
 The current public v2.0.0 release has no installer asset. See
 [README_INSTALL.md](README_INSTALL.md) before using or distributing a locally
 built package.

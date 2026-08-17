@@ -8,7 +8,10 @@ body:
   - type: markdown
     attributes:
       value: |
-        Use this form for controlled validation runs. Automated or plausible-looking output is not physical validation. Keep raw private media local unless the maintainer explicitly asks for an authorized private transfer.
+        Use this form for controlled validation runs. Automated or plausible-looking
+        output is not physical validation. Keep raw private media local unless the
+        maintainer explicitly asks for an authorized private transfer. Write
+        "not measured" when a value is unavailable.
   - type: dropdown
     id: validation_type
     attributes:
@@ -27,6 +30,7 @@ body:
     id: app_version
     attributes:
       label: PitchTracker version
+      description: Use a release tag or commit SHA, not only a date or branch name.
       placeholder: v2.0.0 or commit SHA
     validations:
       required: true
@@ -49,28 +53,28 @@ body:
     id: setup
     attributes:
       label: Test setup
-      description: Camera models, spacing, mound distance, lighting, ball type, and reference device.
+      description: Camera models, stable identities or anonymized IDs, spacing, distance, lighting, ball type, requested/negotiated mode, and reference device. Omit private facility details.
     validations:
       required: true
   - type: textarea
     id: protocol
     attributes:
       label: Protocol
-      description: Number of pitches, procedure, warmup excluded/included, target grid, or Setup Doctor stages.
+      description: "Explain what you planned before collecting data: number of cases, procedure, warm-up handling, target grid or setup stages, strata, thresholds, and exclusions."
     validations:
       required: true
   - type: textarea
     id: results
     attributes:
       label: Results
-      description: Include MAE, confidence interval, detection rate, alignment quality, pass/warn/critical status, or other measured outputs.
+      description: Include the measured values and units, such as MAE, confidence interval, detection rate, alignment quality, or pass/warn/critical status. Keep raw and corrected values separate.
     validations:
       required: true
   - type: textarea
     id: denominators
     attributes:
       label: Counts and denominators
-      description: Include attempted, accepted, rejected, unmatched, excluded, and reference-missing counts.
+      description: "Include attempted, accepted, rejected, unmatched, excluded, and reference-missing counts. Example: 146 paired frames out of 151 opportunities."
     validations:
       required: true
   - type: textarea
@@ -84,7 +88,7 @@ body:
     id: artifacts
     attributes:
       label: Artifacts
-      description: List privacy-safe filenames, hashes, screenshots, or anonymized summaries. Avoid absolute paths containing usernames.
+      description: List privacy-safe filenames, hashes, screenshots, setup IDs, or anonymized summaries. Avoid absolute paths containing usernames and do not attach raw media, calibration files, or secrets.
     validations:
       required: false
   - type: checkboxes

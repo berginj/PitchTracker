@@ -30,7 +30,7 @@ EXCLUDED_PREFIXES = (
 # Grandfathered files that already exceed MAX_LINES. New entries require a
 # tracked extraction issue; see GitHub issue #12 for the July 2026 baseline.
 # Remove an entry once the file is brought under MAX.
-ALLOWLIST = {
+ALLOWLIST: dict[str, int] = {
 }
 
 ROOT = Path(__file__).resolve().parents[1]

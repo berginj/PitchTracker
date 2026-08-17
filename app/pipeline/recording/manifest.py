@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional, cast
 
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 
@@ -74,7 +74,7 @@ def create_session_manifest(
     )
     if event_metadata:
         manifest["event_metadata"] = event_metadata
-    return _json_safe(manifest)
+    return cast(Dict[str, Any], _json_safe(manifest))
 
 
 def create_pitch_manifest(
@@ -154,7 +154,7 @@ def create_pitch_manifest(
     if event_metadata:
         manifest["event_metadata"] = event_metadata
 
-    return _json_safe(manifest)
+    return cast(Dict[str, Any], _json_safe(manifest))
 
 
 def _json_safe(value: Any) -> Any:

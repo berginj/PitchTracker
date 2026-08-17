@@ -90,14 +90,17 @@ def evaluate_physical_validation(
         for case in accepted
         if case.reference_plate_xy_ft is not None and case.measured_plate_xy_ft is not None
     ]
-    speed_errors = [case.measured_speed_mph - case.reference_speed_mph for case in speed_cases]
-    plate_vectors = [
-        (
-            case.measured_plate_xy_ft[0] - case.reference_plate_xy_ft[0],
-            case.measured_plate_xy_ft[1] - case.reference_plate_xy_ft[1],
-        )
-        for case in plate_cases
+    speed_errors = [
+        float(case.measured_speed_mph) - float(case.reference_speed_mph)
+        for case in speed_cases
+        if case.measured_speed_mph is not None and case.reference_speed_mph is not None
     ]
+    plate_vectors = []
+    for case in plate_cases:
+        measured = case.measured_plate_xy_ft
+        reference = case.reference_plate_xy_ft
+        if measured is not None and reference is not None:
+            plate_vectors.append((measured[0] - reference[0], measured[1] - reference[1]))
     plate_errors = [sqrt(x * x + y * y) for x, y in plate_vectors]
 
     tail_q = protocol.tail_policy.percentile

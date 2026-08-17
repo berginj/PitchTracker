@@ -8,7 +8,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Use this form after a setup, practice session, validation run, or pilot check-in. Avoid uploading athlete video or private data unless explicitly requested.
+        Use this form after a setup, practice session, validation run, or pilot check-in.
+        You can write "not measured" when a field does not apply. Avoid uploading
+        athlete video or private data unless explicitly requested.
   - type: dropdown
     id: reporter_role
     attributes:
@@ -25,14 +27,15 @@ body:
     id: facility_context
     attributes:
       label: Facility or context
-      description: Use a non-sensitive name or shorthand if needed.
+      description: Optional. Use a non-sensitive name or shorthand only; do not include an address, school name, or private facility identifier.
       placeholder: Indoor academy, high-school bullpen, test rig, etc.
     validations:
-      required: true
+      required: false
   - type: input
     id: app_version
     attributes:
       label: PitchTracker version
+      description: Use a release tag or commit SHA so the result can be reproduced.
       placeholder: v2.0.0 or commit SHA
     validations:
       required: true
@@ -91,7 +94,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Hardware, OS, cameras, lighting, mound distance, ball type, and reference device if relevant.
+      description: "Summarize only what affected the result: Windows version, camera models, requested/negotiated mode, USB controller, lighting, distance, ball type, and reference device if relevant."
       placeholder: "Windows 11, global-shutter camera models, USB controller, indoor lighting, 60.5 ft..."
     validations:
       required: false
@@ -99,7 +102,7 @@ body:
     id: artifacts
     attributes:
       label: Logs or artifacts
-      description: Mention privacy-safe filenames, hashes, setup reports, screenshots, or session IDs. Do not attach raw logs, private paths, or video unless explicitly authorized.
+      description: List privacy-safe filenames, hashes, setup reports, screenshots, or session IDs. Do not attach raw logs, private paths, calibration files, or video unless explicitly authorized.
     validations:
       required: false
   - type: checkboxes

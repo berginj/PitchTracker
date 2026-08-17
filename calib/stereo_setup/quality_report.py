@@ -92,11 +92,13 @@ def _collect_warnings(
             all_passed = False
             detail = lock.recommendation or ""
             warnings.append(f"Focus lock failed for {lock.camera_id}." + (f" {detail}" if detail else ""))
-    for lock in exposure_locks:
-        if not lock.passed:
+    for exposure_lock in exposure_locks:
+        if not exposure_lock.passed:
             all_passed = False
-            detail = lock.recommendation or ""
-            warnings.append(f"Exposure lock failed for {lock.camera_id}." + (f" {detail}" if detail else ""))
+            detail = exposure_lock.recommendation or ""
+            warnings.append(
+                f"Exposure lock failed for {exposure_lock.camera_id}." + (f" {detail}" if detail else "")
+            )
 
     return warnings, all_passed
 

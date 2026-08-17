@@ -55,7 +55,7 @@ def validate_python_version() -> tuple[bool, Optional[str]]:
         Tuple of (is_valid, error_message)
     """
     required_major = 3
-    required_minor = 9
+    required_minor = 13
 
     current_major = sys.version_info.major
     current_minor = sys.version_info.minor
@@ -125,7 +125,7 @@ def check_cameras() -> tuple[list[str], list[str]]:
     Returns:
         Tuple of (warnings, info_messages)
     """
-    warnings = []
+    warnings: list[str] = []
     info = []
 
     try:
@@ -219,15 +219,16 @@ def validate_environment() -> tuple[list[str], list[str]]:
         - errors: Critical issues that prevent launching
         - warnings: Non-critical issues that should be addressed
     """
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
 
     logger.info("Validating startup environment...")
 
     # Check Python version (critical)
     is_valid, error_msg = validate_python_version()
     if not is_valid:
-        errors.append(error_msg)
+        if error_msg is not None:
+            errors.append(error_msg)
         return errors, warnings  # Stop here if Python version is wrong
 
     logger.debug("Python version: OK")
@@ -235,7 +236,8 @@ def validate_environment() -> tuple[list[str], list[str]]:
     # Check dependencies (critical)
     is_valid, error_msg = validate_dependencies()
     if not is_valid:
-        errors.append(error_msg)
+        if error_msg is not None:
+            errors.append(error_msg)
         return errors, warnings  # Stop here if dependencies missing
 
     logger.debug("Dependencies: OK")

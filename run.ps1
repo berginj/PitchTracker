@@ -3,4 +3,4 @@ param(
 )
 
 . .\.venv\Scripts\Activate.ps1
-python -m ui.qt_app --backend $Backend
+python launcher.py --backend $Backend

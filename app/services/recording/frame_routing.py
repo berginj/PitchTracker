@@ -8,7 +8,7 @@ from contracts import Frame
 from log_config.logger import get_logger
 
 if TYPE_CHECKING:
-    from app.services.recording.implementation import RecordingServiceImpl
+    from app.services.recording.state import RecordingServiceState
 
 logger = get_logger(__name__)
 
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 class FrameRoutingMixin:
     """Frame recording, worker sync callback, and stats."""
 
-    def record_frame(self: "RecordingServiceImpl", camera_id: str, frame: Frame) -> None:
+    def record_frame(self: "RecordingServiceState", camera_id: str, frame: Frame) -> None:
         """Record a frame to current session.
 
         Frames are queued for bounded asynchronous writing. If the queue is
@@ -34,7 +34,7 @@ class FrameRoutingMixin:
                 frame.frame_index,
             )
 
-    def _record_frame_sync(self: "RecordingServiceImpl", item) -> None:
+    def _record_frame_sync(self: "RecordingServiceState", item) -> None:
         """Perform codec and CSV I/O on the recording worker thread."""
         camera_id, frame = item
         with self._lock:
@@ -55,7 +55,7 @@ class FrameRoutingMixin:
                 if pitch_recorder.should_close() and pitch_recorder is self._pitch_recorder:
                     self._stop_pitch_internal()
 
-    def get_frame_writer_stats(self: "RecordingServiceImpl") -> dict:
+    def get_frame_writer_stats(self: "RecordingServiceState") -> dict:
         """Expose queue, loss, and failure rates for quality diagnostics."""
         stats = self._frame_worker.stats()
         attempted = stats.submitted + stats.dropped

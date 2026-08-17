@@ -6,10 +6,13 @@
   12 logical processors; America/New_York.
 - Python 3.13.14 AMD64 running on the ARM64 host; this is an emulated and
   non-representative platform combination.
-- NumPy 2.2.2, SciPy 1.17.0, OpenCV-contrib-python 4.10.0.84, PySide6 6.10.1,
+- NumPy 2.2.2 and Matplotlib 3.10.1 on Python 3.13; NumPy 2.3.5, Matplotlib
+  3.10.8, and PyYAML 6.0.3 on Python 3.14+; SciPy 1.17.0,
+  OpenCV-contrib-python
+  4.10.0.84, and PySide6 6.10.1,
   pytest 7.4.3, pytest-qt 4.5.0, xdist 3.6.1, timeout 2.3.1, Flake8 6.1.0,
   psutil 7.2.1, scikit-learn 1.8.0, Loguru 0.7.2, jsonschema 4.20.0,
-  PyYAML 6.0.1, and PyInstaller 6.18.0.
+  PyYAML 6.0.1 on Python 3.13, and PyInstaller 6.18.0.
 - OpenCV x64 build: FFmpeg, DirectShow, and MSMF enabled; GStreamer and CUDA
   absent. Writer behavior depends on whether Qt offscreen mode is active.
 - Default config identity: 1280×720 at 60 requested fps, classical detector,

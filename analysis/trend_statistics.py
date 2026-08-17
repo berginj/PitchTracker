@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Sequence, Tuple
+from typing import List, Protocol, Sequence, Tuple
 
 import numpy as np
 
@@ -54,7 +54,14 @@ class BaselineMetrics:
     strike_deviation: float
 
 
-def aggregate_session(pitches: Sequence[object]) -> SessionMetrics:
+class _PitchMeasurement(Protocol):
+    speed_mph: float | None
+    run_in: float | None
+    rise_in: float | None
+    is_strike: bool
+
+
+def aggregate_session(pitches: Sequence[_PitchMeasurement]) -> SessionMetrics:
     """Aggregate available pitch measurements without imputing missing data."""
     velocities = [p.speed_mph for p in pitches if p.speed_mph is not None]
     velocity_stats = compute_statistics(velocities)
@@ -83,9 +90,10 @@ def compute_trend_series(summaries: Sequence[SessionSummary]) -> TrendSeries:
     strike_pcts = [summary.strike_percentage for summary in summaries]
     consistencies = [summary.consistency_score for summary in summaries]
     indices = list(range(len(summaries)))
-    velocity_slope, _ = linear_regression(indices, velocities)
-    strike_slope, _ = linear_regression(indices, strike_pcts)
-    consistency_slope, _ = linear_regression(indices, consistencies)
+    float_indices = [float(index) for index in indices]
+    velocity_slope, _ = linear_regression(float_indices, velocities)
+    strike_slope, _ = linear_regression(float_indices, strike_pcts)
+    consistency_slope, _ = linear_regression(float_indices, consistencies)
     peak_velocity = max(velocities)
     velocity_vs_peak = (velocities[-1] - peak_velocity) / peak_velocity * 100 if peak_velocity > 0 else 0.0
 

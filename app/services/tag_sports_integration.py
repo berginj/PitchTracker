@@ -301,8 +301,8 @@ class TagSportsCloudAPIClient:
         self._tokens: Optional[TagCloudTokens] = None
 
     def authenticate(self, client_id: str, client_secret: str) -> TagCloudTokens:
-        self._require_enabled()
-        self._tokens = self._adapter.authenticate(client_id, client_secret)
+        adapter = self._require_enabled()
+        self._tokens = adapter.authenticate(client_id, client_secret)
         return self._tokens
 
     def upload_session(
@@ -310,25 +310,27 @@ class TagSportsCloudAPIClient:
         athlete: TagSportsAthleteData,
         session: TagSportsSession,
     ) -> TagCloudUploadReceipt:
-        self._require_authenticated()
-        return self._adapter.upload_session(athlete, session)
+        adapter = self._require_authenticated()
+        return adapter.upload_session(athlete, session)
 
     def download_sessions(self, athlete_id: str) -> List[TagSportsSession]:
-        self._require_authenticated()
-        return self._adapter.download_sessions(athlete_id)
+        adapter = self._require_authenticated()
+        return list(adapter.download_sessions(athlete_id))
 
-    def _require_enabled(self) -> None:
+    def _require_enabled(self) -> TagCloudAdapter:
         if not self._feature_flags.cloud_sync_enabled:
             raise TagSportsFeatureDisabledError(
                 "TAG cloud sync is disabled. Enable PITCHTRACKER_TAG_CLOUD_SYNC_ENABLED to use it."
             )
         if self._adapter is None:
             raise TagSportsConfigurationError("TAG cloud sync is enabled, but no cloud adapter is configured.")
+        return self._adapter
 
-    def _require_authenticated(self) -> None:
-        self._require_enabled()
+    def _require_authenticated(self) -> TagCloudAdapter:
+        adapter = self._require_enabled()
         if self._tokens is None:
             raise TagSportsAuthenticationError("Authenticate the TAG cloud client before syncing.")
+        return adapter
 
 
 class TagSportsBluetoothService:
@@ -345,12 +347,12 @@ class TagSportsBluetoothService:
         self._connected_device: Optional[TagBluetoothDevice] = None
 
     def discover_devices(self) -> List[TagBluetoothDevice]:
-        self._require_enabled()
-        return self._adapter.discover_devices()
+        adapter = self._require_enabled()
+        return list(adapter.discover_devices())
 
     def connect(self, device_id: str) -> TagBluetoothDevice:
-        self._require_enabled()
-        self._connected_device = self._adapter.connect(device_id)
+        adapter = self._require_enabled()
+        self._connected_device = adapter.connect(device_id)
         return self._connected_device
 
     def disconnect(self) -> None:
@@ -364,12 +366,12 @@ class TagSportsBluetoothService:
         self._connected_device = None
 
     def read_measurements(self) -> List[TagBluetoothPitchMeasurement]:
-        self._require_enabled()
+        adapter = self._require_enabled()
         if self._connected_device is None:
             raise RuntimeError("Connect to a TAG Bluetooth device before reading measurements.")
-        return self._adapter.read_measurements()
+        return list(adapter.read_measurements())
 
-    def _require_enabled(self) -> None:
+    def _require_enabled(self) -> TagBluetoothAdapter:
         if not self._feature_flags.bluetooth_enabled:
             raise TagSportsFeatureDisabledError(
                 "TAG Bluetooth integration is disabled. Enable PITCHTRACKER_TAG_BLE_ENABLED to use it."
@@ -378,6 +380,7 @@ class TagSportsBluetoothService:
             raise TagSportsConfigurationError(
                 "TAG Bluetooth integration is enabled, but no Bluetooth adapter is configured."
             )
+        return self._adapter
 
 
 __all__ = [

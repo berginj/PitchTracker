@@ -411,10 +411,9 @@ class SessionController:
                     pass
 
         try:
-            if h._service.is_capturing():
-                h._service.stop_capture()
+            h._service.shutdown()
         except Exception:
-            pass
+            logger.exception("Failed to shut down coaching pipeline cleanly")
 
         event.accept()
 

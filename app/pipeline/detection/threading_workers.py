@@ -3,6 +3,7 @@
 import logging
 import queue
 import time
+from typing import Any
 
 from app.events import ErrorCategory, ErrorSeverity, publish_error
 from app.pipeline.detection.threading_items import DetectionResultItem
@@ -10,7 +11,12 @@ from app.pipeline.detection.threading_items import DetectionResultItem
 logger = logging.getLogger(__name__)
 
 
-class DetectionWorkerMixin:
+class _DetectionState:
+    def __getattr__(self, name: str) -> Any:
+        raise AttributeError(name)
+
+
+class DetectionWorkerMixin(_DetectionState):
     """Run per-camera/shared detection workers and result callbacks."""
 
     def _detection_loop_per_camera(self, label: str, source: queue.Queue) -> None:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, cast
 
 from app.contracts import SessionSummary
 from capture.camera_device import CameraStats
@@ -42,7 +42,7 @@ def gate_detections(lane_gate: Optional[LaneGate], detections: Iterable) -> list
     """
     if lane_gate is None:
         return list(detections)
-    return lane_gate.filter_detections(detections)
+    return cast(list, lane_gate.filter_detections(detections))
 
 
 def build_stereo_matches(
@@ -130,7 +130,7 @@ def _select_one_to_one(candidates) -> list[StereoMatch]:
     return selected
 
 
-def build_session_summary(session_id: str, pitches: List) -> Dict:
+def build_session_summary(session_id: str, pitches: List) -> SessionSummary:
     """Build session summary from pitch list.
 
     Aggregates pitch data into session-level statistics including

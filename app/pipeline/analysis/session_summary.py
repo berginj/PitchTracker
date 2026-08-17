@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from typing import List
+from typing import Any, List
 
 from contracts import StereoObservation
 
@@ -25,8 +25,8 @@ class SessionManager:
             session_name: Name of the session
         """
         self._session_name = session_name
-        self._pitches = []
-        self._recent_paths = deque(maxlen=12)
+        self._pitches: list[Any] = []
+        self._recent_paths: deque[list[StereoObservation]] = deque(maxlen=12)
 
     def add_pitch(self, summary, observations: List[StereoObservation]) -> None:
         """Add pitch to session.

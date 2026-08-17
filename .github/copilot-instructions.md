@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-PitchTracker is a Windows desktop application (Python 3.11/3.12 in CI / PySide6)
+PitchTracker is a Windows desktop application (Python 3.13+ in CI / PySide6)
 for evidence-first baseball and softball pitch tracking using dual global-shutter
 UVC cameras. It detects candidates, reconstructs stereo trajectories, and emits
 evidence-labelled metrics without treating simulation as physical validation.

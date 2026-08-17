@@ -1,6 +1,6 @@
 # PitchTracker Quick Start
 
-**Last reviewed:** 2026-07-22
+**Last reviewed:** 2026-08-16
 
 **Applies to:** v2.0.0 and current `main`
 
@@ -13,7 +13,7 @@ public claim.
 ### Current public path: run from source
 
 The published `v2.0.0` release has no installer asset. On Windows with Python
-3.11 or 3.12:
+3.13 or newer:
 
 ```powershell
 git clone https://github.com/berginj/PitchTracker.git
@@ -22,7 +22,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python setup_validator.py
-python launcher.py
+python launcher.py --backend sim
 ```
 
 Do not download the older v1.5 pilot installer as though it were the current v2
@@ -49,11 +49,14 @@ the current release gap and verification checklist.
 Conventional rolling-shutter webcams are not recommended for validation. Review
 the [candidate hardware profile](HARDWARE_PROFILE.md) before purchasing cameras.
 
-Simulator-backed development does not require cameras.
+Simulator-backed development does not require cameras. For a camera-backed
+session, use `python launcher.py --backend uvc` after connecting and qualifying
+the pair.
 
 ## Run the canonical setup
 
-Launch `python launcher.py`, choose **Setup & Calibration**, and complete the
+For a camera-backed run, launch `python launcher.py --backend uvc`, choose
+**Setup & Calibration**, and complete the
 ten-step workflow:
 
 1. Select and verify the camera pair.

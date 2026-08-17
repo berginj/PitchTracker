@@ -5,13 +5,13 @@ from __future__ import annotations
 import json
 import threading
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, cast
 
 from app.pipeline.recording.pitch_recorder import PitchRecorder
 from log_config.logger import get_logger
 
 if TYPE_CHECKING:
-    from app.services.recording.implementation import RecordingServiceImpl
+    from app.services.recording.state import RecordingServiceState
 
 logger = get_logger(__name__)
 
@@ -19,7 +19,10 @@ logger = get_logger(__name__)
 class PitchLifecycleMixin:
     """Pitch start/stop, pre-roll flush, and FIFO control commands."""
 
-    def start_pitch(self: "RecordingServiceImpl", pitch_id: str) -> None:
+    _current_pitch_id: Optional[str]
+    _last_pitch_id: Optional[str]
+
+    def start_pitch(self: "RecordingServiceState", pitch_id: str) -> None:
         """Start recording a pitch within the current session.
 
         The recorder setup is injected into the worker FIFO as a control
@@ -31,7 +34,10 @@ class PitchLifecycleMixin:
                 raise RuntimeError("No session active")
             if self._pitch_active:
                 raise RuntimeError("Pitch already active")
-            session_dir = self._session_recorder.get_session_dir()
+            session_recorder = self._session_recorder
+            if session_recorder is None:
+                raise RuntimeError("Session directory not available")
+            session_dir = session_recorder.get_session_dir()
             if session_dir is None:
                 raise RuntimeError("Session directory not available")
             config = self._config
@@ -83,7 +89,7 @@ class PitchLifecycleMixin:
         )
         logger.info(f"Pitch started: {pitch_id}")
 
-    def stop_pitch(self: "RecordingServiceImpl") -> Optional[Path]:
+    def stop_pitch(self: "RecordingServiceState") -> Optional[Path]:
         """Stop recording current pitch and finalize.
 
         Returns:
@@ -113,16 +119,16 @@ class PitchLifecycleMixin:
             return None
 
         with self._lock:
-            return self._finalize_pitch_locked(*result[0])
+            return cast(Optional[Path], self._finalize_pitch_locked(*result[0]))
 
-    def _stop_pitch_internal(self: "RecordingServiceImpl") -> Optional[Path]:
+    def _stop_pitch_internal(self: "RecordingServiceState") -> Optional[Path]:
         """Internal pitch stop (assumes lock is held)."""
         detached = self._detach_pitch_locked()
         if detached is None:
             return None
-        return self._finalize_pitch_locked(*detached)
+        return cast(Optional[Path], self._finalize_pitch_locked(*detached))
 
-    def _detach_pitch_locked(self: "RecordingServiceImpl"):
+    def _detach_pitch_locked(self: "RecordingServiceState"):
         """Fence new frame submissions from the current pitch."""
         if not self._pitch_active or self._pitch_recorder is None:
             return None
@@ -134,7 +140,7 @@ class PitchLifecycleMixin:
         return recorder, pitch_id
 
     def _finalize_pitch_locked(
-        self: "RecordingServiceImpl",
+        self: "RecordingServiceState",
         recorder: PitchRecorder,
         pitch_id: Optional[str],
     ) -> Optional[Path]:
@@ -149,4 +155,4 @@ class PitchLifecycleMixin:
             "pitch_ended", json.dumps({"pitch_id": pitch_id, "pitch_dir": str(pitch_dir)})
         )
         logger.info(f"Pitch stopped: {pitch_id}")
-        return pitch_dir
+        return Path(pitch_dir)

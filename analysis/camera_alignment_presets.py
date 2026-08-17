@@ -7,7 +7,7 @@ comparing the current alignment against it.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional, cast
 
 from analysis.camera_alignment_types import AlignmentResults
 
@@ -73,7 +73,7 @@ def load_alignment_preset(preset_name: str) -> Optional[dict]:
         return None
 
     try:
-        return json.loads(preset_file.read_text())
+        return cast(dict[Any, Any], json.loads(preset_file.read_text()))
     except Exception:
         return None
 

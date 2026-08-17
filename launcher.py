@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """PitchTracker unified launcher - role selector entry point."""
 
+import argparse
 import os
 import sys
 from pathlib import Path
@@ -41,17 +42,17 @@ __all__ = ["LauncherWindow", "clear_python_cache", "main"]
 class LauncherWindow(QtWidgets.QMainWindow):
     """Main launcher window with role selector."""
 
-    def __init__(
-        self,
-        startup_warnings: list[str] | None = None,
-        validation_service: ToolingService | None = None,
-    ):
+    def __init__(self, startup_warnings: list[str] | None = None,
+                 validation_service: ToolingService | None = None,
+                 backend: str = "uvc", config_path: Path | None = None):
         super().__init__()
         self._style_manager = get_style_manager()
         self._startup_warnings = list(startup_warnings or [])
         self._startup_errors: list[str] = []
         self._validation_state = "pending"
         self._validation_service = validation_service or get_tooling_service()
+        self._backend = backend
+        self._config_path = config_path
         self._validation_thread: StartupValidationThread | None = None
         self._update_controller = LauncherUpdateController(self)
         self.setWindowTitle("PitchTracker")
@@ -96,7 +97,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
 
         # Set window icon if available
         self._set_window_icon()
-        self._set_role_buttons_enabled(False)
+        self._set_role_buttons_enabled(False, review_enabled=True)
 
     def _build_title(self) -> QtWidgets.QWidget:
         """Build title area."""
@@ -316,7 +317,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
         self._validation_state = "completed"
         self._startup_errors = list(errors)
         self._startup_warnings = list(warnings)
-        self._set_role_buttons_enabled(not bool(errors))
+        self._set_role_buttons_enabled(not bool(errors), review_enabled=True)
         self._update_warning_banner()
         self._validation_thread = None
         if thread is not None:
@@ -328,17 +329,17 @@ class LauncherWindow(QtWidgets.QMainWindow):
         self._validation_state = "completed"
         self._startup_errors = [f"Background validation failed: {error_message}"]
         self._startup_warnings = []
-        self._set_role_buttons_enabled(False)
+        self._set_role_buttons_enabled(False, review_enabled=True)
         self._update_warning_banner()
         self._validation_thread = None
         if thread is not None:
             thread.deleteLater()
 
-    def _set_role_buttons_enabled(self, enabled: bool) -> None:
+    def _set_role_buttons_enabled(self, enabled: bool, *, review_enabled: bool | None = None) -> None:
         """Enable or disable launcher entry points."""
         self._setup_button.setEnabled(enabled)
         self._coach_button.setEnabled(enabled)
-        self._review_button.setEnabled(enabled)
+        self._review_button.setEnabled(enabled if review_enabled is None else review_enabled)
 
     def _update_warning_banner(self) -> None:
         """Render the current startup status into the banner."""
@@ -410,7 +411,10 @@ class LauncherWindow(QtWidgets.QMainWindow):
             self.hide()
 
             # Create and show coaching window
-            self.coach_window = CoachWindow(backend="uvc")
+            self.coach_window = CoachWindow(
+                backend=self._backend,
+                config_path=self._config_path,
+            )
             self.coach_window.show()
 
             # When coaching window closes, show launcher again
@@ -458,8 +462,18 @@ class LauncherWindow(QtWidgets.QMainWindow):
         dialog.exec()
 
 
-def main():
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse launcher options while tolerating test-runner arguments."""
+    parser = argparse.ArgumentParser(description="PitchTracker role launcher.")
+    parser.add_argument("--backend", choices=("uvc", "opencv", "sim"), default="uvc")
+    parser.add_argument("--config", type=Path, default=None)
+    args, _unknown = parser.parse_known_args(argv)
+    return args
+
+
+def main(argv: list[str] | None = None):
     """Main entry point."""
+    args = parse_args(argv)
     # Create required directories first
     create_required_directories()
 
@@ -476,7 +490,7 @@ def main():
     app.setOrganizationName("PitchTracker")
 
     # Create and show launcher
-    launcher = LauncherWindow()
+    launcher = LauncherWindow(backend=args.backend, config_path=args.config)
     launcher.show()
 
     sys.exit(app.exec())

@@ -10,7 +10,7 @@ from analysis.fatigue_detector import FatigueDetector, FatigueMetrics
 from ui.themes import get_style_manager, style_progress_bar, style_status_label
 
 if TYPE_CHECKING:
-    from app.pipeline_service import PitchSummary
+    from app.contracts import PitchSummary
 
 
 def _recommendation_tone(recommendation: str) -> str:

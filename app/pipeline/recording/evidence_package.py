@@ -8,6 +8,7 @@ import os
 import re
 import tempfile
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -108,8 +109,18 @@ def _atomic_write_text(path: Path, content: str) -> None:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary_path, path)
-        temporary_path = None
+        replace_path = temporary_path
+        assert replace_path is not None
+        for attempt in range(5):
+            try:
+                os.replace(replace_path, path)
+                temporary_path = None
+                break
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                # Windows scanners/codecs can briefly hold a just-created file.
+                time.sleep(0.02 * (attempt + 1))
     finally:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)

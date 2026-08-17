@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-08-11
+**Last reviewed:** 2026-08-16
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -19,7 +19,8 @@ contract are complete; it does not imply physical measurement accuracy.
 - [x] Validated-pair-first camera recommendation with capability fallback.
 - [x] Compact operator health/actions with detailed diagnostics on demand.
 - [x] Clean Windows application and installer build from commit `40158c1`.
-- [x] Automated regression run: 1,267 passed, 32 skipped, 0 failed at `211d246`.
+- [x] Automated regression coverage for queue saturation, event metadata,
+  setup observations, launcher closure, and camera-step re-entry.
 
 Implementation evidence is mapped in [PT_001_015_TRACEABILITY.md](PT_001_015_TRACEABILITY.md).
 The checked regression count is historical evidence for its named commit, not
@@ -30,12 +31,18 @@ a statement that the current dirty worktree or every guarded workflow is green.
 The dependency-ordered source of audit findings and closure criteria is
 [review/REMEDIATION_PLAN.md](review/REMEDIATION_PLAN.md). Before field hardening:
 
-- [ ] Restore simulator coaching-window construction and unguarded UI smoke coverage.
-- [ ] Correct the pytest-qt import guard and split Qt-offscreen from codec tests.
-- [ ] Replace submitted-frame benchmark accounting with terminal conservation.
-- [ ] Establish responsive minimum-size and accessibility evidence for setup,
+- [x] Restore simulator coaching-window construction and UI smoke coverage.
+- [x] Correct the pytest-qt import guard and split Qt-offscreen from codec tests.
+- [x] Replace submitted-frame benchmark accounting with terminal conservation.
+- [x] Establish responsive minimum-size and accessibility evidence for setup,
   launcher, and review.
-- [ ] Complete required message metadata across durable/asynchronous flows.
+- [x] Complete required message metadata across durable/asynchronous flows.
+
+The historical remediation plan is retained under `docs/review/` for audit
+traceability. Its completed findings are not current open work. A full parallel
+run currently passes its assertions but still exposes a Windows native-thread
+teardown access violation, so lifecycle cleanup remains an active engineering
+item.
 
 ## Now: physical validation and tester feedback
 
@@ -120,13 +127,9 @@ Acceptance evidence:
 
 ## Engineering debt with active owners
 
-- [Extract rig-profile validation responsibilities](https://github.com/berginj/PitchTracker/issues/14)
-  so `app/services/rig_profile.py` can leave the file-length baseline.
-- [Split setup providers by workflow boundary](https://github.com/berginj/PitchTracker/issues/15)
-  so `ui/setup/providers.py` can leave the file-length baseline without moving
-  pipeline or calibration logic into the UI.
-- Use [OVERSIZED_MODULE_TRIAGE.md](OVERSIZED_MODULE_TRIAGE.md) as the
-  churn-ranked ownership queue for the remaining grandfathered modules.
+- Continue reducing typing debt in extracted UI mixins and setup providers.
+- Keep [OVERSIZED_MODULE_TRIAGE.md](OVERSIZED_MODULE_TRIAGE.md) as historical
+  extraction context; the current file-length gate has zero grandfathered files.
 
 ## Later or conditional
 

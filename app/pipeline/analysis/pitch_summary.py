@@ -6,6 +6,7 @@ import logging
 from typing import Dict, List, Optional
 
 from app.contracts import PitchSummary
+from contracts.quality import MeasurementStatus
 from configs.settings import AppConfig
 from contracts import RayObservation, StereoObservation
 from metrics.simple_metrics import compute_plate_from_observations
@@ -301,15 +302,18 @@ class PitchAnalyzer:
             return {}
 
 
-def _measurement_status(observation_stats: dict, trajectory_result: Optional[TrajectoryFitResult]) -> str:
+def _measurement_status(
+    observation_stats: dict,
+    trajectory_result: Optional[TrajectoryFitResult],
+) -> MeasurementStatus:
     status = str(observation_stats.get("observation_quality_status") or "").upper()
     if status == "REJECT":
-        return "REJECTED"
+        return MeasurementStatus.REJECTED
     if trajectory_result is None or trajectory_result.plate_crossing_xyz_ft is None:
-        return "UNAVAILABLE"
+        return MeasurementStatus.UNAVAILABLE
     if status == "WARN":
-        return "DEGRADED"
-    return "ESTIMATED"
+        return MeasurementStatus.DEGRADED
+    return MeasurementStatus.ESTIMATED
 
 
 def _fitted_release_speed_mph(result: Optional[TrajectoryFitResult]) -> Optional[float]:

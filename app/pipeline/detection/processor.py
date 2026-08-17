@@ -16,7 +16,7 @@ from metrics.simple_metrics import (
     compute_plate_from_observations,
     compute_plate_stub,
 )
-from metrics.strike_zone import StrikeResult, build_strike_zone, is_strike
+from metrics.strike_zone import StrikeResult, StrikeZone, build_strike_zone, is_strike
 from stereo import StereoLaneGate, StereoMatcher
 from stereo.association import pair_timing
 from track.trajectory_tracker import TimestampedTrajectoryTracker
@@ -64,7 +64,7 @@ class DetectionProcessor:
 
         # Tracking
         self._tracker = TimestampedTrajectoryTracker()
-        self._plate_observations = deque(maxlen=12)
+        self._plate_observations: deque[StereoObservation] = deque(maxlen=12)
 
         # Pair buffering (thread-safe internally)
         self._pair_buffer = PairBuffer(config)
@@ -92,8 +92,8 @@ class DetectionProcessor:
         ] = None
 
         # Cached strike zone
-        self._cached_strike_zone = None
-        self._cached_strike_zone_config_hash = None
+        self._cached_strike_zone: Optional[StrikeZone] = None
+        self._cached_strike_zone_config_hash: Optional[tuple[float, float, float, float, float, float]] = None
 
     # ------------------------------------------------------------------
     # Callback registration (public API)
@@ -171,7 +171,7 @@ class DetectionProcessor:
             return self._strike_result
 
     def get_sync_stats(self) -> dict:
-        return self._pair_buffer.get_sync_stats()
+        return dict(self._pair_buffer.get_sync_stats())
 
     def update_config(self, config: AppConfig) -> None:
         self._config = config

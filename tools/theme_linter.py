@@ -288,12 +288,12 @@ class ThemeLinter:
         total_violations = len(self.violations)
 
         # Count by severity
-        by_severity = {}
+        by_severity: dict[str, int] = {}
         for v in self.violations:
             by_severity[v.severity] = by_severity.get(v.severity, 0) + 1
 
         # Count by rule
-        by_rule = {}
+        by_rule: dict[str, int] = {}
         for v in self.violations:
             by_rule[v.rule] = by_rule.get(v.rule, 0) + 1
 
@@ -332,7 +332,7 @@ class ThemeLinter:
         report.append("")
 
         # Group by file
-        by_file = {}
+        by_file: dict[Path, list[Violation]] = {}
         for v in self.violations:
             by_file.setdefault(v.file_path, []).append(v)
 

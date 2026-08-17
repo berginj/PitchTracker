@@ -1,6 +1,6 @@
 # PitchTracker Frequently Asked Questions
 
-**Last reviewed:** 2026-07-22
+**Last reviewed:** 2026-08-16
 
 **Applies to:** v2.0.0 and current `main`
 
@@ -17,7 +17,7 @@ artifact provenance recording, and checksum verification.
 
 ### How do I run from source?
 
-Use Windows with Python 3.11 or 3.12:
+Use Windows with Python 3.13 or newer:
 
 ```powershell
 git clone https://github.com/berginj/PitchTracker.git

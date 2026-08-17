@@ -8,6 +8,7 @@ and UI layers can share one vocabulary without sharing mutable state.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from enum import Enum
 from typing import Any, Mapping, Optional
 
 
@@ -26,6 +27,27 @@ QUALITY_STATUSES = frozenset(
         QUALITY_REJECTED,
     }
 )
+
+
+class MeasurementStatus(str, Enum):
+    """Canonical status vocabulary for pitch measurement claims.
+
+    The enum subclasses ``str`` so existing JSON artifacts and UI consumers
+    continue to receive the historical uppercase values during migration.
+    """
+
+    VALIDATED = QUALITY_VALIDATED
+    ESTIMATED = QUALITY_ESTIMATED
+    DEGRADED = QUALITY_DEGRADED
+    UNAVAILABLE = QUALITY_UNAVAILABLE
+    REJECTED = QUALITY_REJECTED
+
+    @classmethod
+    def coerce(cls, value: str | "MeasurementStatus") -> "MeasurementStatus":
+        """Convert a persisted/string value to the canonical enum."""
+        if isinstance(value, cls):
+            return value
+        return cls(str(value).upper())
 
 
 @dataclass(frozen=True)
@@ -128,13 +150,15 @@ class QualityAssessment:
 
 
 def _require_quality_status(status: str) -> None:
-    if status not in QUALITY_STATUSES:
+    status_value = status.value if isinstance(status, MeasurementStatus) else status
+    if status_value not in QUALITY_STATUSES:
         raise ValueError(f"Unknown quality status: {status}")
 
 
 __all__ = [
     "CorrectionRecord",
     "MeasurementEvidence",
+    "MeasurementStatus",
     "QualityAssessment",
     "QUALITY_DEGRADED",
     "QUALITY_ESTIMATED",

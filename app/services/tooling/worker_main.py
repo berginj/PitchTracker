@@ -9,13 +9,13 @@ import sys
 import traceback
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 
 def _json_safe(value: Any) -> Any:
     """Convert values to JSON-safe structures."""
     if is_dataclass(value):
-        return _json_safe(asdict(value))
+        return _json_safe(asdict(cast(Any, value)))
     if isinstance(value, dict):
         return {str(key): _json_safe(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
@@ -53,7 +53,7 @@ def _handle_build_training_report(payload: dict[str, Any]) -> dict[str, Any]:
         report_id=request.report_id,
         created_utc=request.created_utc,
     )
-    return TrainingReportResult(payload=result).to_payload()
+    return cast(dict[str, Any], TrainingReportResult(payload=result).to_payload())
 
 
 def _handle_run_calibration(payload: dict[str, Any]) -> dict[str, Any]:
@@ -87,7 +87,7 @@ def _handle_run_calibration(payload: dict[str, Any]) -> dict[str, Any]:
         _write_config(request.config_path, updates)
         _save_calibration_file(updates)
 
-    return CalibrationResult.from_updates(updates).to_payload()
+    return cast(dict[str, Any], CalibrationResult.from_updates(updates).to_payload())
 
 
 def _handle_analyze_alignment(payload: dict[str, Any]) -> dict[str, Any]:
@@ -109,7 +109,7 @@ def _handle_analyze_alignment(payload: dict[str, Any]) -> dict[str, Any]:
         alignment=_json_safe(asdict(alignment)),
         prediction=_json_safe(prediction),
     )
-    return result.to_payload()
+    return cast(dict[str, Any], result.to_payload())
 
 
 def _handle_validate_physical_dataset(payload: dict[str, Any]) -> dict[str, Any]:
@@ -124,7 +124,7 @@ def _handle_validate_physical_dataset(payload: dict[str, Any]) -> dict[str, Any]
             json.dumps(report, sort_keys=True, indent=2) + "\n",
             encoding="utf-8",
         )
-    return PhysicalValidationResult(report=report, output_path=request.output_path).to_payload()
+    return cast(dict[str, Any], PhysicalValidationResult(report=report, output_path=request.output_path).to_payload())
 
 
 HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {

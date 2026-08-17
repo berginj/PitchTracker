@@ -13,7 +13,12 @@ from app.pipeline.service_contracts import PipelineService
 from app.services.analysis import AnalysisServiceImpl
 from app.services.capture import CaptureServiceImpl
 from app.services.detection import DetectionServiceImpl
-from app.services.orchestrator.event_coordination import EventCoordinator, make_pitch_id
+from app.services.orchestrator.event_coordination import EventCoordinator
+from app.services.orchestrator.lifecycle import (
+    shutdown_pipeline,
+    start_capture_runtime,
+    stop_recording_pipeline,
+)
 from app.services.orchestrator.quality_diagnostics import (
     build_quality_diagnostics,
 )
@@ -122,15 +127,7 @@ class PipelineOrchestrator(PipelineService):
                 on_pitch_end=self._event_coordinator.on_pitch_end,
             )
 
-            # Sync coordinator and subscribe
-            self._event_coordinator.set_pitch_tracker(self._pitch_tracker)
-            self._event_coordinator.set_rig_profile(self._active_rig_profile)
-            self._event_coordinator.set_config(config)
-            self._event_coordinator.subscribe()
-
-            self._capture_service.start_capture(config, left_serial, right_serial)
-            self._capturing = True
-            logger.info("Capture started")
+            start_capture_runtime(self, config, left_serial, right_serial)
 
     def stop_capture(self) -> None:
         """Stop capture on both cameras. Idempotent and thread-safe."""
@@ -148,6 +145,10 @@ class PipelineOrchestrator(PipelineService):
             self._event_coordinator.unsubscribe()
 
             self._capturing = False
+
+    def shutdown(self) -> None:
+        """Stop all active work before the UI object is destroyed."""
+        shutdown_pipeline(self)
 
     def is_capturing(self) -> bool:
         """Check if capture is currently active."""
@@ -239,17 +240,7 @@ class PipelineOrchestrator(PipelineService):
     def stop_recording(self) -> RecordingBundle:
         """Stop recording and return the bundle."""
         with self._lock:
-            if self._recording_service is None:
-                raise RuntimeError("Recording service not initialized")
-
-            if self._analysis_service is not None:
-                self._analysis_service.stop_analysis()
-
-            bundle = self._recording_service.stop_session()
-            self._recording_active = False
-            self._recording_paused = False
-            self._propagate_session_id(None)
-            return bundle
+            return stop_recording_pipeline(self)
 
     def pause_recording(self) -> None:
         """Pause active session recording while keeping capture live."""
@@ -490,10 +481,6 @@ class PipelineOrchestrator(PipelineService):
     def unsubscribe_event(self, event_type: Type, handler: Callable) -> bool:
         """Remove a public EventBus subscription."""
         return self._event_bus.unsubscribe(event_type, handler)
-
-    @staticmethod
-    def _make_pitch_id(pitch_index: int) -> str:
-        return make_pitch_id(pitch_index)
 
     def _to_field_coordinates(self, obs: StereoObservation) -> StereoObservation:
         self._event_coordinator.set_rig_profile(self._active_rig_profile)

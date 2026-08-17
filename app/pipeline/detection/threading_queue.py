@@ -3,6 +3,7 @@
 import logging
 import queue
 import time
+from typing import Any
 
 from app.events import ErrorCategory, ErrorSeverity, publish_error
 from app.pipeline.detection.threading_items import QueuePutResult
@@ -10,7 +11,12 @@ from app.pipeline.detection.threading_items import QueuePutResult
 logger = logging.getLogger(__name__)
 
 
-class DetectionQueueMixin:
+class _DetectionState:
+    def __getattr__(self, name: str) -> Any:
+        raise AttributeError(name)
+
+
+class DetectionQueueMixin(_DetectionState):
     """Own bounded queue reset, drop accounting, and adaptive sizing."""
 
     def _check_adaptive_queue_sizing(self) -> None:
@@ -18,7 +24,9 @@ class DetectionQueueMixin:
             return
 
         current_time = time.monotonic()
-        if current_time - self._last_adaptive_check < self._adaptive_check_interval:
+        last_adaptive_check = float(getattr(self, "_last_adaptive_check", 0.0))
+        queue_size = int(getattr(self, "_queue_size", 0))
+        if current_time - last_adaptive_check < self._adaptive_check_interval:
             return
 
         with self._detection_error_lock:
@@ -28,11 +36,11 @@ class DetectionQueueMixin:
                 total_new_drops += drops_since_last
                 self._frames_dropped_last_check[queue_name] = self._frames_dropped[queue_name]
 
-            old_size = self._queue_size
+            old_size = queue_size
             if total_new_drops > 5:
-                self._queue_size = min(self._queue_size + 2, self._max_queue_size)
-            elif total_new_drops < 1 and self._queue_size > self._min_queue_size:
-                self._queue_size = max(self._queue_size - 1, self._min_queue_size)
+                self._queue_size = min(queue_size + 2, self._max_queue_size)
+            elif total_new_drops < 1 and queue_size > self._min_queue_size:
+                self._queue_size = max(queue_size - 1, self._min_queue_size)
 
             self._last_adaptive_check = current_time
             if self._queue_size != old_size:
@@ -45,9 +53,9 @@ class DetectionQueueMixin:
                 )
 
     def _reset_queues(self) -> None:
-        self._left_detect_queue = queue.Queue(maxsize=self._queue_size)
-        self._right_detect_queue = queue.Queue(maxsize=self._queue_size)
-        self._detect_result_queue = queue.Queue(maxsize=self._queue_size * 4)
+        self._left_detect_queue: queue.Queue[Any] = queue.Queue(maxsize=self._queue_size)
+        self._right_detect_queue: queue.Queue[Any] = queue.Queue(maxsize=self._queue_size)
+        self._detect_result_queue: queue.Queue[Any] = queue.Queue(maxsize=self._queue_size * 4)
 
     def _queue_put_drop_oldest(self, target: queue.Queue, item, queue_name: str = "unknown") -> QueuePutResult:
         with self._detection_error_lock:

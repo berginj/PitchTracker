@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from typing import cast
 
 from configs.settings import AppConfig
 
@@ -63,7 +64,7 @@ class ConfigService:
                 return 1.45  # Default baseball radius
 
             # Get radius for current ball type from config dict
-            return self._config.ball.radius_in.get(self._ball_type, 1.45)
+            return cast(float, self._config.ball.radius_in.get(self._ball_type, 1.45))
 
     def update_batter_height(self, height_in: float) -> None:
         """Update strike zone with new batter height.

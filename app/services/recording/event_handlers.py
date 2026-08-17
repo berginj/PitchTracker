@@ -19,7 +19,7 @@ from app.events.event_types import (
 from log_config.logger import get_logger
 
 if TYPE_CHECKING:
-    from app.services.recording.implementation import RecordingServiceImpl
+    from app.services.recording.state import RecordingServiceState
 
 logger = get_logger(__name__)
 
@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 class EventHandlersMixin:
     """EventBus event handlers and subscription lifecycle."""
 
-    def _on_frame_captured(self: "RecordingServiceImpl", event: FrameCapturedEvent) -> None:
+    def _on_frame_captured(self: "RecordingServiceState", event: FrameCapturedEvent) -> None:
         """Handle FrameCapturedEvent from EventBus."""
         try:
             self.record_frame(event.camera_id, event.frame)
@@ -35,7 +35,7 @@ class EventHandlersMixin:
             logger.error(f"Error recording frame: {e}", exc_info=True)
 
     def _on_observation_detected(
-        self: "RecordingServiceImpl", event: ObservationDetectedEvent
+        self: "RecordingServiceState", event: ObservationDetectedEvent
     ) -> None:
         """Handle ObservationDetectedEvent from EventBus."""
         try:
@@ -45,7 +45,7 @@ class EventHandlersMixin:
             logger.error(f"Error recording observation: {e}", exc_info=True)
 
     def _on_stereo_frame_processed(
-        self: "RecordingServiceImpl", event: StereoFrameProcessedEvent
+        self: "RecordingServiceState", event: StereoFrameProcessedEvent
     ) -> None:
         """Record pair-level timing and rejection evidence for the active pitch."""
         try:
@@ -56,7 +56,7 @@ class EventHandlersMixin:
         except Exception as e:
             logger.error(f"Error recording stereo-pair evidence: {e}", exc_info=True)
 
-    def _on_decision_evidence(self: "RecordingServiceImpl", event) -> None:
+    def _on_decision_evidence(self: "RecordingServiceState", event) -> None:
         """Queue required replay evidence without doing disk I/O on its publisher."""
         with self._lock:
             journal = self._decision_journal
@@ -77,7 +77,7 @@ class EventHandlersMixin:
                 result.sequence,
             )
 
-    def _on_pitch_start(self: "RecordingServiceImpl", event: PitchStartEvent) -> None:
+    def _on_pitch_start(self: "RecordingServiceState", event: PitchStartEvent) -> None:
         """Handle PitchStartEvent from EventBus."""
         try:
             with self._lock:
@@ -88,7 +88,7 @@ class EventHandlersMixin:
         except Exception as e:
             logger.error(f"Error starting pitch recording: {e}", exc_info=True)
 
-    def _on_pitch_end(self: "RecordingServiceImpl", event: PitchEndEvent) -> None:
+    def _on_pitch_end(self: "RecordingServiceState", event: PitchEndEvent) -> None:
         """Handle PitchEndEvent from EventBus."""
         try:
             logger.debug("PitchEndEvent received for %s", event.pitch_id)
@@ -111,7 +111,7 @@ class EventHandlersMixin:
         except Exception as e:
             logger.error(f"Error handling pitch end: {e}", exc_info=True)
 
-    def _on_pitch_analyzed(self: "RecordingServiceImpl", event: PitchAnalyzedEvent) -> None:
+    def _on_pitch_analyzed(self: "RecordingServiceState", event: PitchAnalyzedEvent) -> None:
         """Handle PitchAnalyzedEvent from EventBus."""
         try:
             with self._lock:
@@ -142,7 +142,7 @@ class EventHandlersMixin:
             logger.error(f"Error writing pitch manifest: {e}", exc_info=True)
 
     def _validate_lifecycle_metadata(
-        self: "RecordingServiceImpl", pitch_id: str, lifecycle: Dict[str, dict]
+        self: "RecordingServiceState", pitch_id: str, lifecycle: Dict[str, dict]
     ) -> None:
         """Log warnings if session_id/pitch_id are inconsistent across lifecycle."""
         session_ids = set()
@@ -170,7 +170,7 @@ class EventHandlersMixin:
                 pitch_ids,
             )
 
-    def _subscribe_to_events(self: "RecordingServiceImpl") -> None:
+    def _subscribe_to_events(self: "RecordingServiceState") -> None:
         """Subscribe to EventBus events."""
         if self._subscribed:
             return
@@ -195,7 +195,7 @@ class EventHandlersMixin:
         self._subscribed = True
         logger.info("RecordingService subscribed to EventBus")
 
-    def _unsubscribe_from_events(self: "RecordingServiceImpl") -> None:
+    def _unsubscribe_from_events(self: "RecordingServiceState") -> None:
         """Unsubscribe from EventBus events."""
         if not self._subscribed:
             return

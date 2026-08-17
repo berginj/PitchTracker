@@ -11,7 +11,7 @@ from PySide6.QtCore import QObject
 from ui.themes import get_style_manager
 
 if TYPE_CHECKING:
-    from app.pipeline_service import PitchSummary
+    from app.contracts import PitchSummary
     from ui.coaching.game_state_manager import GameStateManager
 
 

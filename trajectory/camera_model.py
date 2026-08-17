@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, cast
 
 import numpy as np
 
 try:
     import cv2
 except Exception:  # pragma: no cover - optional in headless/unit environments
-    cv2 = None
+    cv2 = None  # type: ignore[assignment]
 
 
 MM_PER_FOOT = 304.8
@@ -37,7 +37,7 @@ class CameraModel:
         u = self.fx * (x / z) + self.cx
         v = self.fy * (y / z) + self.cy
         if self.distortion is None:
-            return np.array([u, v], dtype=float)
+            return cast(np.ndarray, np.array([u, v], dtype=float))
         k1, k2, p1, p2, k3 = self.distortion
         xn = x / z
         yn = y / z
@@ -45,7 +45,7 @@ class CameraModel:
         radial = 1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2
         x_dist = xn * radial + 2 * p1 * xn * yn + p2 * (r2 + 2 * xn * xn)
         y_dist = yn * radial + p1 * (r2 + 2 * yn * yn) + 2 * p2 * xn * yn
-        return np.array([self.fx * x_dist + self.cx, self.fy * y_dist + self.cy], dtype=float)
+        return cast(np.ndarray, np.array([self.fx * x_dist + self.cx, self.fy * y_dist + self.cy], dtype=float))
 
     def pixel_to_world_ray(self, uv: Tuple[float, float]) -> Tuple[np.ndarray, np.ndarray]:
         """Return camera center and unit ray direction in world feet."""
@@ -57,7 +57,7 @@ class CameraModel:
         return self.camera_center_world(), direction_world
 
     def camera_center_world(self) -> np.ndarray:
-        return (-self.R.T @ self.t.reshape(3, 1)).reshape(3)
+        return cast(np.ndarray, (-self.R.T @ self.t.reshape(3, 1)).reshape(3))
 
     def in_transformed_world_frame(self, matrix_4x4: np.ndarray) -> "CameraModel":
         """Return equivalent extrinsics expressed in a new rigid world frame.
@@ -93,9 +93,9 @@ class CameraModel:
     def jacobian_project(self, xyz_ft: np.ndarray) -> np.ndarray:
         eps = 1e-4
         base = self.project(xyz_ft)
-        jac = np.zeros((2, 3), dtype=float)
+        jac: np.ndarray = np.zeros((2, 3), dtype=float)
         for i in range(3):
-            delta = np.zeros(3, dtype=float)
+            delta: np.ndarray = np.zeros(3, dtype=float)
             delta[i] = eps
             perturbed = self.project(xyz_ft + delta)
             jac[:, i] = (perturbed - base) / eps
@@ -182,7 +182,7 @@ def load_stereo_ray_camera_models(path: Path) -> Dict[str, RayCameraModel]:
 
 
 def _distortion_tuple(values: np.ndarray) -> Optional[Tuple[float, float, float, float, float]]:
-    flat = values.reshape(-1).astype(float)
+    flat: np.ndarray = values.reshape(-1).astype(float)
     if flat.size < 5 or np.allclose(flat[:5], 0.0):
         return None
-    return tuple(float(v) for v in flat[:5])
+    return cast(Tuple[float, float, float, float, float], tuple(float(v) for v in flat[:5]))

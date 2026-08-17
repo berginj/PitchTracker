@@ -18,7 +18,7 @@ from ui.themes.layout_helpers import apply_standard_layout
 
 if TYPE_CHECKING:
     from contracts import Frame
-    from app.pipeline_service import PitchSummary
+    from app.contracts import PitchSummary
     from ui.coaching.game_state_manager import GameStateManager
 
 logger = logging.getLogger(__name__)
