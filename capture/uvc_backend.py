@@ -428,8 +428,8 @@ class UvcCamera(CameraDevice):
             )
 
 
-def list_uvc_devices() -> list[dict[str, str]]:
+def list_uvc_devices(cancel_event=None) -> list[dict[str, str]]:
     """Return UVC camera devices with friendly names and serials."""
     from capture.device_discovery import list_uvc_devices as _discover
 
-    return _discover()
+    return _discover(cancel_event=cancel_event)

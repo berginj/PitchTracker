@@ -2,6 +2,7 @@
 """PitchTracker unified launcher - role selector entry point."""
 
 import os
+import multiprocessing
 import sys
 from pathlib import Path
 
@@ -461,6 +462,7 @@ class LauncherWindow(QtWidgets.QMainWindow):
 
 def main():
     """Main entry point."""
+    multiprocessing.freeze_support()
     # Create required directories first
     create_required_directories()
 

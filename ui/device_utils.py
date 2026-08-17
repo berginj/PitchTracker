@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
+import multiprocessing
 import threading
 import time
+from multiprocessing.connection import Connection
+from multiprocessing.process import BaseProcess
 from typing import Optional
 
-import cv2
 from PySide6 import QtWidgets
 
+from capture.opencv_probe_process import probe_camera_index
 from capture.uvc_backend import list_uvc_devices
 
 logger = logging.getLogger(__name__)
@@ -51,7 +54,43 @@ def current_serial(combo: QtWidgets.QComboBox) -> str:
     return combo.currentText().strip()
 
 
-def _probe_single_index(index: int, timeout_seconds: float = 3.0) -> Optional[int]:
+def _start_probe_process(index: int) -> tuple[BaseProcess, Connection]:
+    """Start an isolated DirectShow probe and return its process and result pipe."""
+    context = multiprocessing.get_context("spawn")
+    result_connection, child_connection = context.Pipe(duplex=False)
+    process = context.Process(
+        target=probe_camera_index,
+        args=(index, child_connection),
+        name=f"opencv-probe-{index}",
+        daemon=True,
+    )
+    try:
+        process.start()
+    except Exception:
+        result_connection.close()
+        child_connection.close()
+        raise
+    child_connection.close()
+    return process, result_connection
+
+
+def _terminate_probe_process(process: BaseProcess) -> None:
+    """Terminate and reap a probe process without leaving native camera work alive."""
+    if not process.is_alive():
+        process.join()
+        return
+    process.terminate()
+    process.join(timeout=1.0)
+    if process.is_alive() and hasattr(process, "kill"):
+        process.kill()
+        process.join(timeout=1.0)
+
+
+def _probe_single_index(
+    index: int,
+    timeout_seconds: float = 3.0,
+    cancel_event: Optional[threading.Event] = None,
+) -> Optional[int]:
     """Probe a single camera index with timeout protection.
 
     Args:
@@ -62,39 +101,44 @@ def _probe_single_index(index: int, timeout_seconds: float = 3.0) -> Optional[in
         Index if camera available, None otherwise
 
     Note:
-        - Uses threading timeout to prevent hanging
+        - Uses a child process so hung native DirectShow calls can be terminated
         - 3-second timeout accommodates slower camera initialization (ArduCam, etc.)
         - Fast-fails on timeout or errors
-        - Ensures camera is released even on timeout
+        - Camera creation, inspection, and release stay in one process
     """
-    result: list[Optional[int]] = [None]
-    cap_ref: list[Optional[cv2.VideoCapture]] = [None]
-
-    def _probe():
-        try:
-            cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
-            cap_ref[0] = cap
-            if cap.isOpened():
-                result[0] = index
-            cap.release()
-        except Exception as e:
-            logger.debug(f"Failed to probe camera index {index}: {e}")
-
-    thread = threading.Thread(target=_probe, daemon=True)
-    thread.start()
-    thread.join(timeout=timeout_seconds)
-
-    if thread.is_alive():
-        # Timeout - try to release if we can
-        logger.debug(f"Camera index {index} probe timed out after {timeout_seconds}s")
-        if cap_ref[0] is not None:
-            try:
-                cap_ref[0].release()
-            except Exception:
-                pass
+    if cancel_event is not None and cancel_event.is_set():
         return None
 
-    return result[0]
+    try:
+        process, result_connection = _start_probe_process(index)
+    except (OSError, RuntimeError) as exc:
+        logger.debug(f"Failed to start camera index {index} probe: {exc}")
+        return None
+
+    deadline = time.monotonic() + max(timeout_seconds, 0.0)
+    try:
+        while process.is_alive():
+            if cancel_event is not None and cancel_event.is_set():
+                break
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            process.join(timeout=min(0.05, remaining))
+
+        if process.is_alive():
+            _terminate_probe_process(process)
+            logger.debug(f"Camera index {index} probe cancelled or timed out after {timeout_seconds}s")
+            return None
+
+        process.join()
+        try:
+            if result_connection.poll():
+                return index if result_connection.recv() else None
+        except (BrokenPipeError, EOFError, OSError) as exc:
+            logger.debug(f"Camera index {index} probe exited without a result: {exc}")
+        return None
+    finally:
+        result_connection.close()
 
 
 def is_arducam_device(name: str) -> bool:
@@ -138,6 +182,7 @@ def probe_opencv_indices(
     max_index: int = DEFAULT_OPENCV_MAX_INDEX,
     parallel: bool = False,
     use_cache: bool = True,
+    cancel_event: Optional[threading.Event] = None,
 ) -> list[int]:
     """Probe for available OpenCV camera indices.
 
@@ -145,6 +190,7 @@ def probe_opencv_indices(
         max_index: Maximum index to check (default 16)
         parallel: Use parallel probing for speed (default False for reliability)
         use_cache: Use cached results if available (default True)
+        cancel_event: Optional cooperative cancellation signal
 
     Returns:
         List of available camera indices
@@ -172,7 +218,7 @@ def probe_opencv_indices(
         # Probe all indices in parallel for speed
         indices: list[int] = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_index) as executor:
-            futures = {executor.submit(_probe_single_index, i, 1.0): i for i in range(max_index)}
+            futures = {executor.submit(_probe_single_index, i, 1.0, cancel_event): i for i in range(max_index)}
 
             for future in concurrent.futures.as_completed(futures):
                 try:
@@ -189,7 +235,9 @@ def probe_opencv_indices(
         # Sequential probing - more reliable but slower
         indices = []
         for i in range(max_index):
-            result = _probe_single_index(i, 3.0)
+            if cancel_event is not None and cancel_event.is_set():
+                break
+            result = _probe_single_index(i, 3.0, cancel_event)
             if result is not None:
                 indices.append(result)
                 logger.debug(f"Camera {i}: detected")
@@ -210,11 +258,15 @@ def probe_opencv_indices(
     return indices
 
 
-def probe_uvc_devices(use_cache: bool = True) -> list[dict[str, str]]:
+def probe_uvc_devices(
+    use_cache: bool = True,
+    cancel_event: Optional[threading.Event] = None,
+) -> list[dict[str, str]]:
     """Probe for available UVC devices.
 
     Args:
         use_cache: Use cached results if available (default True)
+        cancel_event: Optional cooperative cancellation signal
 
     Returns:
         List of device info dictionaries with serial and friendly_name
@@ -235,7 +287,7 @@ def probe_uvc_devices(use_cache: bool = True) -> list[dict[str, str]]:
                 return _uvc_cache.copy()
 
     logger.info("Probing UVC devices via PowerShell")
-    devices = list_uvc_devices()
+    devices = list_uvc_devices(cancel_event=cancel_event)
     usable: list[dict[str, str]] = []
 
     for device in devices:

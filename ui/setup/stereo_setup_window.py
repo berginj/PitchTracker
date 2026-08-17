@@ -337,5 +337,7 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
                 event.ignore()
                 QtCore.QTimer.singleShot(50, self.close)
                 return
+        for step in self._steps:
+            step.on_exit()
         self._style_manager.set_mode("production")
         super().closeEvent(event)

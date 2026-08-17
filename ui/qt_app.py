@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import multiprocessing
 import os
 import platform
 from pathlib import Path
@@ -55,6 +56,7 @@ def _select_config_path(config_arg: Optional[Path]) -> Path:
 
 def main() -> None:
     """Main entry point for PitchTracker Qt application."""
+    multiprocessing.freeze_support()
     args = parse_args()
     app = QtWidgets.QApplication([])
     app.setStyle("Fusion")

@@ -31,10 +31,12 @@ requires_pytest_qt = pytest.mark.skipif(
 )
 
 
-def _blocking_probe(_use_cache=False, **_kw):
-    """Fake probe that blocks until released."""
-    # Wait up to 5s for release event (set by test)
-    _blocking_probe.event.wait(timeout=5.0)
+def _blocking_probe(_use_cache=False, cancel_event=None, **_kw):
+    """Fake probe that blocks until the worker requests cancellation."""
+    _blocking_probe.started.set()
+    if cancel_event is not None:
+        cancel_event.wait(timeout=5.0)
+        _blocking_probe.cancelled.set()
     return [{"serial": "FAKE001", "friendly_name": "Fake Camera"}]
 
 
@@ -43,10 +45,11 @@ def test_destroy_camera_step_during_discovery(qtbot: "QtBot") -> None:
     """Destroying CameraStep while discovery runs must not crash."""
     from ui.setup.steps.camera_step import CameraStep
 
-    _blocking_probe.event = threading.Event()
+    _blocking_probe.started = threading.Event()
+    _blocking_probe.cancelled = threading.Event()
 
     with patch(
-        "ui.setup.steps.camera_step.probe_uvc_devices",
+        "ui.setup.camera_discovery_worker.probe_uvc_devices",
         side_effect=_blocking_probe,
     ):
         step = CameraStep(backend="uvc")
@@ -59,20 +62,42 @@ def test_destroy_camera_step_during_discovery(qtbot: "QtBot") -> None:
 
         # Ensure worker is actually scheduled
         QtWidgets.QApplication.processEvents()
+        assert _blocking_probe.started.wait(timeout=1.0)
 
-    # Destroy the widget while worker is still blocked
     step.close()
+    QtWidgets.QApplication.processEvents()
+    assert _blocking_probe.cancelled.wait(timeout=1.0)
+    assert step._discovery_worker is None
+
+    # Destroy the widget after its owned worker has stopped.
     step.deleteLater()
     QtWidgets.QApplication.processEvents()
 
-    # Release the worker — emit will encounter deleted signals object
-    _blocking_probe.event.set()
-
-    # Drain the global thread pool so the worker finishes
-    QtCore.QThreadPool.globalInstance().waitForDone(3000)
-
-    # Process any pending signals — must not crash
+    assert QtCore.QThreadPool.globalInstance().waitForDone(3000)
     QtWidgets.QApplication.processEvents()
+
+
+@requires_pytest_qt
+def test_backend_switch_cancels_active_discovery(qtbot: "QtBot") -> None:
+    """Switching backend cancels and awaits the previous discovery."""
+    from ui.setup.steps.camera_step import CameraStep
+
+    _blocking_probe.started = threading.Event()
+    _blocking_probe.cancelled = threading.Event()
+
+    with patch(
+        "ui.setup.camera_discovery_worker.probe_uvc_devices",
+        side_effect=_blocking_probe,
+    ):
+        step = CameraStep(backend="uvc")
+        qtbot.addWidget(step)
+        step._refresh_devices()
+        assert _blocking_probe.started.wait(timeout=1.0)
+
+        step._switch_backend("opencv")
+
+    assert _blocking_probe.cancelled.wait(timeout=1.0)
+    assert step._discovery_worker is None
 
 
 @requires_pytest_qt

@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from ui.device_utils import (
+    _probe_single_index,
     clear_device_cache,
     probe_all_devices,
     probe_opencv_indices,
@@ -28,6 +29,23 @@ def clear_cache_before_each_test():
 
 class TestUVCDeviceProbing:
     """Test UVC device enumeration."""
+
+    def test_pnp_query_drains_output_while_process_runs(self):
+        """Large PowerShell output cannot block process completion."""
+        from capture.device_discovery import _query_pnp_devices
+
+        process = MagicMock()
+        process.communicate.return_value = (
+            '[{"FriendlyName":"Camera","InstanceId":"USB\\\\CAM","Serial":"CAM1"}]',
+            "",
+        )
+        process.returncode = 0
+
+        with patch("capture.device_discovery.subprocess.Popen", return_value=process):
+            devices = _query_pnp_devices("Camera")
+
+        assert devices[0]["FriendlyName"] == "Camera"
+        process.communicate.assert_called_once()
 
     def test_probe_uvc_devices_filters_virtual_cameras(self):
         """Should filter out virtual/software cameras."""
@@ -106,14 +124,10 @@ class TestOpenCVIndexProbing:
 
     def test_probe_opencv_indices_parallel(self):
         """Parallel probing should check all indices simultaneously."""
-        with patch("cv2.VideoCapture") as mock_cap:
-            def video_capture_side_effect(index, *_args):
-                cap = MagicMock()
-                cap.isOpened.return_value = index in {0, 2}
-                return cap
-
-            mock_cap.side_effect = video_capture_side_effect
-
+        with patch(
+            "ui.device_utils._probe_single_index",
+            side_effect=lambda index, *_args: index if index in {0, 2} else None,
+        ):
             indices = probe_opencv_indices(max_index=4, parallel=True, use_cache=False)
 
             # Should find cameras at 0 and 2
@@ -124,14 +138,10 @@ class TestOpenCVIndexProbing:
 
     def test_probe_opencv_indices_sequential(self):
         """Sequential probing should check indices one by one."""
-        test_thread = threading.current_thread()
-
-        def probe(index, _timeout):
-            if threading.current_thread() is test_thread and index == 1:
-                return index
-            return None
-
-        with patch("ui.device_utils._probe_single_index", side_effect=probe):
+        with patch(
+            "ui.device_utils._probe_single_index",
+            side_effect=lambda index, *_args: index if index == 1 else None,
+        ):
             indices = probe_opencv_indices(max_index=4, parallel=False, use_cache=False)
 
             assert 1 in indices
@@ -139,49 +149,100 @@ class TestOpenCVIndexProbing:
 
     def test_probe_opencv_indices_caching(self):
         """Should cache OpenCV probe results."""
-        with patch("cv2.VideoCapture") as mock_cap:
-            mock_instance = MagicMock()
-            mock_cap.return_value = mock_instance
-            mock_instance.isOpened.return_value = True
-
+        with patch("ui.device_utils._probe_single_index", return_value=0) as mock_probe:
             # First call should probe
             indices1 = probe_opencv_indices(max_index=2, use_cache=True)
-            call_count_1 = mock_cap.call_count
+            call_count_1 = mock_probe.call_count
 
             # Second call should use cache (no new VideoCapture calls)
             indices2 = probe_opencv_indices(max_index=2, use_cache=True)
-            call_count_2 = mock_cap.call_count
+            call_count_2 = mock_probe.call_count
 
             assert call_count_1 == call_count_2  # No additional calls
             assert indices1 == indices2
 
     def test_probe_opencv_default_max_index_covers_four_camera_rigs(self):
         """Default max_index should scan enough indices for four-camera rigs."""
-        test_thread = threading.current_thread()
-        probed_indices = []
+        import inspect
 
-        def record_probe(index, _timeout):
-            if threading.current_thread() is test_thread:
-                probed_indices.append(index)
-            return None
-
-        with patch("ui.device_utils._probe_single_index", side_effect=record_probe):
-            probe_opencv_indices(parallel=False, use_cache=False)
-
-            # Should check indices 0-15 by default.
-            assert probed_indices == list(range(16))
+        signature = inspect.signature(probe_opencv_indices)
+        assert signature.parameters["max_index"].default == 16
 
     def test_probe_opencv_timeout_protection(self):
-        """Should timeout on stuck cameras (tested via integration)."""
-        # This is harder to test directly without actually hanging,
-        # but we can verify the timeout wrapper is applied
-        import inspect
-        from ui.device_utils import _probe_single_index
+        """A timed-out native probe process is terminated and reaped."""
 
-        # Check that function has timeout logic
-        source = inspect.getsource(_probe_single_index)
-        assert "threading.Thread" in source
-        assert "join(timeout" in source
+        class HangingProcess:
+            def __init__(self):
+                self.alive = True
+                self.terminated = False
+                self.joined = False
+
+            def is_alive(self):
+                return self.alive
+
+            def join(self, timeout=None):
+                self.joined = True
+
+            def terminate(self):
+                self.terminated = True
+                self.alive = False
+
+        process = HangingProcess()
+        result_connection = MagicMock()
+        with patch(
+            "ui.device_utils._start_probe_process",
+            return_value=(process, result_connection),
+        ):
+            assert _probe_single_index(3, timeout_seconds=0.0) is None
+
+        assert process.terminated
+        assert process.joined
+        result_connection.close.assert_called_once()
+
+    def test_cancelled_probe_does_not_start_process(self):
+        """Cancellation before a probe avoids starting native camera work."""
+        cancel_event = threading.Event()
+        cancel_event.set()
+
+        with patch("ui.device_utils._start_probe_process") as start_probe:
+            assert _probe_single_index(2, cancel_event=cancel_event) is None
+
+        start_probe.assert_not_called()
+
+    def test_crashed_probe_process_is_treated_as_unavailable(self):
+        """A child that exits without sending cannot abort discovery."""
+        process = MagicMock()
+        process.is_alive.return_value = False
+        result_connection = MagicMock()
+        result_connection.poll.side_effect = EOFError
+
+        with patch(
+            "ui.device_utils._start_probe_process",
+            return_value=(process, result_connection),
+        ):
+            assert _probe_single_index(4) is None
+
+        result_connection.close.assert_called_once()
+
+    def test_probe_worker_releases_capture_on_owner_thread(self):
+        """The child worker opens, inspects, and releases on one thread."""
+        from capture.opencv_probe_process import probe_camera_index
+
+        owner_thread = threading.get_ident()
+        capture = MagicMock()
+        capture.isOpened.side_effect = lambda: threading.get_ident() == owner_thread
+
+        def release_capture():
+            assert threading.get_ident() == owner_thread
+
+        capture.release.side_effect = release_capture
+        result_connection = MagicMock()
+
+        with patch("capture.opencv_probe_process.cv2.VideoCapture", return_value=capture):
+            probe_camera_index(1, result_connection)
+
+        result_connection.send.assert_called_once_with(True)
+        result_connection.close.assert_called_once()
 
 
 class TestUnifiedProbing:
@@ -207,11 +268,7 @@ class TestUnifiedProbing:
         with patch("ui.device_utils.list_uvc_devices") as mock_uvc:
             mock_uvc.return_value = []
 
-            with patch("cv2.VideoCapture") as mock_cv:
-                mock_instance = MagicMock()
-                mock_cv.return_value = mock_instance
-                mock_instance.isOpened.return_value = True
-
+            with patch("ui.device_utils._probe_single_index", side_effect=lambda index, *_args: index) as mock_probe:
                 uvc_devices, opencv_indices = probe_all_devices(use_cache=False)
 
                 # Should return OpenCV indices
@@ -219,7 +276,7 @@ class TestUnifiedProbing:
                 assert len(opencv_indices) > 0
 
                 # Should have called OpenCV probing
-                assert mock_cv.call_count > 0
+                assert mock_probe.call_count > 0
 
     def test_caching_applies_to_unified_probe(self):
         """Caching should work for unified probe."""

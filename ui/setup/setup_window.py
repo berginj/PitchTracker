@@ -394,6 +394,8 @@ class SetupWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         """Handle window close - switch back to production mode."""
+        for step in self._steps:
+            step.on_exit()
         # Reset to production mode for main application
         self._style_manager.set_mode("production")
         super().closeEvent(event)

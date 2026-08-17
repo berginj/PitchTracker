@@ -75,7 +75,6 @@ excludes = [
     'pdb',
     'doctest',
     'difflib',
-    'inspect',
     'profile',
     'cProfile',
     'pstats',

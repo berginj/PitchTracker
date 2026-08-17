@@ -7,10 +7,11 @@ Usage:
     python launch_app.py
 """
 
-import os
-import sys
-import shutil
 import importlib
+import multiprocessing
+import os
+import shutil
+import sys
 from pathlib import Path
 
 
@@ -44,14 +45,18 @@ def _clear_import_caches_before_launcher_import(project_root: Path) -> None:
     importlib.invalidate_caches()
 
 
-# Add project root to Python path and set working directory
-project_root = Path(__file__).parent.resolve()
-_ensure_project_root_on_sys_path(project_root)
-os.chdir(project_root)
-_clear_import_caches_before_launcher_import(project_root)
+def main() -> int:
+    """Prepare the source checkout and launch the application."""
+    multiprocessing.freeze_support()
+    project_root = Path(__file__).parent.resolve()
+    _ensure_project_root_on_sys_path(project_root)
+    os.chdir(project_root)
+    _clear_import_caches_before_launcher_import(project_root)
 
-# Import and run launcher
+    from launcher import main as launcher_main
+
+    return launcher_main()
+
+
 if __name__ == "__main__":
-    from launcher import main
-
     sys.exit(main())

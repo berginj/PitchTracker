@@ -16,6 +16,19 @@ def test_launcher_spec_does_not_bundle_runtime_local_config_state():
     assert "configs/snapdragon.yaml" in spec_text
 
 
+def test_launcher_spec_keeps_pyside_runtime_dependencies():
+    spec_text = (ROOT / "launcher.spec").read_text(encoding="utf-8")
+    excludes_text = spec_text.split("excludes = [", 1)[1].split("]", 1)[0]
+
+    assert "'inspect'" not in excludes_text
+
+
+def test_all_packaged_entry_points_enable_multiprocessing_freeze_support():
+    for entry_point in ("launcher.py", "ui/qt_app.py"):
+        source = (ROOT / entry_point).read_text(encoding="utf-8")
+        assert "multiprocessing.freeze_support()" in source
+
+
 def test_installer_only_adds_checked_in_config_yaml_directly():
     installer_text = (ROOT / "installer.iss").read_text(encoding="utf-8")
 
@@ -36,9 +49,7 @@ def test_proposed_github_actions_are_pinned_to_commit_shas():
 
 
 def test_proposed_release_workflow_builds_checksum_without_publishing():
-    workflow_text = (WORKFLOW_PROPOSALS / "package-installer.yml").read_text(
-        encoding="utf-8"
-    )
+    workflow_text = (WORKFLOW_PROPOSALS / "package-installer.yml").read_text(encoding="utf-8")
 
     assert "workflow_dispatch:" in workflow_text
     assert "build_installer.ps1 -Clean" in workflow_text
