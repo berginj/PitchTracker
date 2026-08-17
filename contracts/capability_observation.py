@@ -58,6 +58,8 @@ class ControlQueryResult:
     backend: str = ""
     reason: str = ""
     timestamp_utc: str = ""
+    query_method: str = ""
+    error_code: str = ""
 
     def to_payload(self) -> Dict[str, Any]:
         return {
@@ -68,6 +70,8 @@ class ControlQueryResult:
             "backend": self.backend,
             "reason": self.reason,
             "timestamp_utc": self.timestamp_utc,
+            "query_method": self.query_method,
+            "error_code": self.error_code,
         }
 
     @classmethod
@@ -80,6 +84,8 @@ class ControlQueryResult:
             backend=str(payload.get("backend", "")),
             reason=str(payload.get("reason", "")),
             timestamp_utc=str(payload.get("timestamp_utc", "")),
+            query_method=str(payload.get("query_method", "")),
+            error_code=str(payload.get("error_code", "")),
         )
 
 
@@ -112,6 +118,11 @@ class CapabilityObservation:
         default_factory=lambda: MappingProxyType({}),
     )
     provenance_note: str = ""
+    supported_modes: Tuple[Mapping[str, Any], ...] = ()
+    probe_version: str = ""
+    device_metadata: Mapping[str, Any] = field(
+        default_factory=lambda: MappingProxyType({}),
+    )
 
     def __post_init__(self) -> None:
         # Freeze mutable dicts passed by callers.
@@ -123,6 +134,14 @@ class CapabilityObservation:
         )
         object.__setattr__(
             self, "negotiated_mode", MappingProxyType(dict(self.negotiated_mode)),
+        )
+        object.__setattr__(
+            self,
+            "supported_modes",
+            tuple(MappingProxyType(dict(mode)) for mode in self.supported_modes),
+        )
+        object.__setattr__(
+            self, "device_metadata", MappingProxyType(dict(self.device_metadata)),
         )
 
     def status_for(self, control: str) -> ControlQueryStatus:
@@ -145,6 +164,9 @@ class CapabilityObservation:
             "requested_mode": dict(self.requested_mode),
             "negotiated_mode": dict(self.negotiated_mode),
             "provenance_note": self.provenance_note,
+            "supported_modes": [dict(mode) for mode in self.supported_modes],
+            "probe_version": self.probe_version,
+            "device_metadata": dict(self.device_metadata),
         }
 
     @classmethod
@@ -160,6 +182,11 @@ class CapabilityObservation:
             requested_mode=dict(payload.get("requested_mode") or {}),
             negotiated_mode=dict(payload.get("negotiated_mode") or {}),
             provenance_note=str(payload.get("provenance_note", "")),
+            supported_modes=tuple(
+                dict(mode) for mode in (payload.get("supported_modes") or ())
+            ),
+            probe_version=str(payload.get("probe_version", "")),
+            device_metadata=dict(payload.get("device_metadata") or {}),
         )
 
 
@@ -207,6 +234,7 @@ def build_simulated_observation(
             backend="simulated",
             reason="Simulated backend; does not represent physical device behavior.",
             timestamp_utc=now,
+            query_method="simulated",
         )
     return CapabilityObservation(
         camera_id=camera_id,
@@ -218,6 +246,43 @@ def build_simulated_observation(
             "Simulated camera observation. All controls are synthetic. "
             "This does not constitute physical validation."
         ),
+        supported_modes=(dict(requested_mode),),
+        probe_version="simulated-v1",
+        device_metadata={"evidence_kind": "synthetic"},
+    )
+
+
+def build_unavailable_observation(
+    camera_id: str,
+    backend: str,
+    reason: str,
+    *,
+    requested_mode: Mapping[str, Any] | None = None,
+    negotiated_mode: Mapping[str, Any] | None = None,
+) -> CapabilityObservation:
+    """Build a complete observation when a backend supplies no probe evidence."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return CapabilityObservation(
+        camera_id=camera_id,
+        backend=backend,
+        results={
+            control: ControlQueryResult(
+                control=control,
+                status=ControlQueryStatus.UNAVAILABLE,
+                backend=backend,
+                reason=reason,
+                timestamp_utc=now,
+                query_method="backend_unavailable",
+            )
+            for control in ALL_CONTROLS
+        },
+        requested_mode=dict(requested_mode or {}),
+        negotiated_mode=dict(negotiated_mode or {}),
+        provenance_note=reason,
+        probe_version="unavailable-v1",
+        device_metadata={"evidence_kind": "unavailable"},
     )
 
 
@@ -234,4 +299,5 @@ __all__ = [
     "ControlQueryResult",
     "ControlQueryStatus",
     "build_simulated_observation",
+    "build_unavailable_observation",
 ]

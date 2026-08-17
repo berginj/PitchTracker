@@ -5,12 +5,13 @@ from __future__ import annotations
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Any, Deque, Optional, Sequence
+from typing import Any, Deque, Mapping, Optional, Sequence
 
 import cv2
 import numpy as np
 
 from contracts import Frame
+from contracts.capability_observation import CapabilityObservation
 from exceptions import (
     CameraConnectionError,
     CameraConfigurationError,
@@ -21,6 +22,12 @@ from log_config.logger import get_logger
 from .camera_device import CameraDevice, CameraStats
 from .timeout_utils import RetryPolicy, retry_on_failure, run_with_timeout
 from .uvc_control_evidence import apply_controls, read_controls
+from .uvc_probe import (
+    OpenCvDirectShowProbe,
+    ProbeEvidence,
+    compose_observation,
+    load_native_probe,
+)
 
 logger = get_logger(__name__)
 
@@ -50,8 +57,14 @@ class UvcCamera(CameraDevice):
         self._vertical_offset_px = 0
         self._discovered_devices: Optional[tuple[dict[str, str], ...]] = None
         self._control_state: dict[str, Any] = {}
+        self._directshow_index = -1
+        self._native_probe_evidence: Optional[ProbeEvidence] = None
+        self._device_metadata: dict[str, Any] = {}
 
-    def set_discovered_devices(self, devices: Sequence[dict[str, str]]) -> None:
+    def set_discovered_devices(
+        self,
+        devices: Sequence[Mapping[str, str]],
+    ) -> None:
         """Reuse one discovery snapshot while opening a stereo pair.
 
         OpenCV's DirectShow backend opens cameras by numeric index, while setup
@@ -87,8 +100,27 @@ class UvcCamera(CameraDevice):
             self._friendly_name = None
             target = self._resolve_device(serial_str)
             self._friendly_name = self._friendly_name or target
+            self._directshow_index = int(target) if target.isdigit() else -1
+            self._native_probe_evidence = None
+            native_probe = load_native_probe()
+            if native_probe is not None and self._directshow_index >= 0:
+                try:
+                    self._native_probe_evidence = native_probe.probe(
+                        camera_id=serial_str,
+                        device_index=self._directshow_index,
+                        friendly_name=self._friendly_name,
+                    )
+                except Exception as exc:  # noqa: BLE001 - optional evidence must not block capture
+                    self._native_probe_evidence = ProbeEvidence(
+                        provider="native_directshow",
+                        device_metadata={
+                            "native_probe_available": False,
+                            "native_probe_error": str(exc),
+                        },
+                        note=f"Optional native DirectShow probe failed: {exc}",
+                    )
 
-            def _open_camera():
+            def _open_camera() -> Any:
                 """Inner function for timeout wrapper."""
                 if target.isdigit():
                     # Validate index before using it
@@ -166,7 +198,8 @@ class UvcCamera(CameraDevice):
 
             fourcc_name = {"YUYV": "YUY2", "YUY2": "YUY2", "MJPG": "MJPG"}.get(pixfmt.upper())
             if fourcc_name:
-                self._capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*fourcc_name))
+                fourcc_value = int.from_bytes(fourcc_name.encode("ascii"), "little")
+                self._capture.set(cv2.CAP_PROP_FOURCC, fourcc_value)
             self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
             self._capture.set(cv2.CAP_PROP_FPS, fps)
@@ -209,7 +242,7 @@ class UvcCamera(CameraDevice):
             wb,
         )
 
-    def get_mode(self):
+    def get_mode(self) -> Optional[dict[str, Any]]:
         if self._capture is None:
             return None
         raw_fourcc = int(self._capture.get(cv2.CAP_PROP_FOURCC))
@@ -221,25 +254,34 @@ class UvcCamera(CameraDevice):
             "pixfmt": fourcc or self._pixfmt,
         }
 
-    def get_controls(self):
+    def get_controls(self) -> Optional[dict[str, Any]]:
         if self._capture is None:
             return None
         return read_controls(self._capture, self._pixfmt, self._control_state)
 
-    def get_capability_observation(self):
-        """Build typed capability observation from current UVC readback."""
+    def get_capability_observation(self) -> Optional[CapabilityObservation]:
+        """Build typed capability observation from native and OpenCV evidence."""
         if self._capture is None:
             return None
-        from capture.uvc_capability_observation import build_uvc_observation
-
-        return build_uvc_observation(
-            serial=self._serial or "",
-            requested_width=self._width,
-            requested_height=self._height,
-            requested_fps=self._fps,
-            requested_pixfmt=self._pixfmt,
-            mode=self.get_mode() or {},
-            controls=self.get_controls() or {},
+        requested_mode = {
+            "width": self._width,
+            "height": self._height,
+            "fps": self._fps,
+            "pixfmt": self._pixfmt,
+        }
+        fallback = OpenCvDirectShowProbe().probe(
+            capture=self._capture,
+            requested_mode=requested_mode,
+            control_state=self._control_state,
+        )
+        return compose_observation(
+            camera_id=self._serial or "",
+            friendly_name=self._friendly_name or "",
+            device_index=self._directshow_index,
+            requested_mode=requested_mode,
+            fallback=fallback,
+            native=self._native_probe_evidence,
+            device_metadata=self._device_metadata,
         )
 
     def read_frame(self, timeout_ms: int) -> Frame:
@@ -290,7 +332,10 @@ class UvcCamera(CameraDevice):
 
         if self._vertical_offset_px:
             h, w = frame.shape[:2]
-            M = np.float32([[1, 0, 0], [0, 1, -self._vertical_offset_px]])
+            M = np.asarray(
+                [[1, 0, 0], [0, 1, -self._vertical_offset_px]],
+                dtype=np.float32,
+            )
             frame = cv2.warpAffine(frame, M, (w, h))
 
         if self._stats.last_frame_ns:
@@ -345,7 +390,7 @@ class UvcCamera(CameraDevice):
 
         try:
 
-            def _release():
+            def _release() -> None:
                 if self._capture is not None:
                     self._capture.release()
 
@@ -395,6 +440,7 @@ class UvcCamera(CameraDevice):
 
             if not matches:
                 if serial.isdigit():
+                    self._device_metadata = {}
                     logger.debug(f"Using numeric index for camera: {serial}")
                     return serial
 
@@ -413,6 +459,7 @@ class UvcCamera(CameraDevice):
                 )
 
             directshow_index, device = matches[0]
+            self._device_metadata = dict(device)
             friendly_name = str(device.get("friendly_name") or serial)
             self._friendly_name = friendly_name
             logger.debug(f"Resolved camera {serial} ({friendly_name}) to DirectShow index {directshow_index}")

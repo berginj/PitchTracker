@@ -1,5 +1,6 @@
 # Development dependencies for PitchTracker
 -r requirements.txt
+-r requirements-uvc-native.txt
 
 # Code quality
 black==26.3.1

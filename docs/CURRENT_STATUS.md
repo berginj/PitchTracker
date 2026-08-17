@@ -3,8 +3,8 @@
 **Last updated:** 2026-08-16
 **Published release:** `v2.0.0` / internal app version `2.0.0`
 **Development status:** production-readiness work is consolidated on `main`;
-physical validation, native-thread teardown, packaging provenance, robust UVC
-probing, and global mypy cleanup remain
+physical validation, native-thread teardown, packaging provenance, and global
+mypy cleanup remain
 
 ## Summary
 
@@ -46,6 +46,8 @@ must use this document and the roadmap below.
   failure paths.
 - Stable camera identity, capability-based recommendation, and previous
   validated-pair preference.
+- Optional native DirectShow capability inventory with conservative OpenCV
+  fallback and durable per-control provenance.
 - Rig-profile validation/persistence and setup providers are split behind
   focused typed boundaries; issues #14 and #15 no longer require structural
   work.

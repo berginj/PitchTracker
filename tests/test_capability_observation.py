@@ -133,6 +133,7 @@ class TestImmutableMappings:
         assert isinstance(obs.results, MappingProxyType)
         assert isinstance(obs.requested_mode, MappingProxyType)
         assert isinstance(obs.negotiated_mode, MappingProxyType)
+        assert isinstance(obs.device_metadata, MappingProxyType)
 
     def test_results_not_mutatable(self):
         obs = CapabilityObservation(results={})

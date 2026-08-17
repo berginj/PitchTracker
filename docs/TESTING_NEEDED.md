@@ -49,6 +49,9 @@ private paths, tokens, or facility information.
 
 ### 2. Camera discovery and recommendation
 
+Read [UVC Capability Evidence](UVC_CAPABILITY_DISCOVERY.md) before this test so
+supported, unavailable, denied, and failed queries are reported consistently.
+
 Connect two or more cameras and record:
 
 - Friendly name and stable hardware ID.
@@ -57,6 +60,8 @@ Connect two or more cameras and record:
 - Which pair and sides are preselected and why.
 - Whether unplug/replug preserves identity.
 - Driver, firmware, and USB-controller information when available.
+- Per-control status, query method, reason/error code, and whether native or
+  OpenCV evidence supplied it.
 
 Do not mark a model validated from discovery alone.
 
