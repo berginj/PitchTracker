@@ -182,9 +182,14 @@ class VideoReader:
             logger.debug("At end of video")
             return None, None
 
+        left_capture = self._left_capture
+        right_capture = self._right_capture
+        if left_capture is None or right_capture is None:
+            return None, None
+
         # Read from both captures
-        left_ok, left_frame = self._left_capture.read()
-        right_ok, right_frame = self._right_capture.read()
+        left_ok, left_frame = left_capture.read()
+        right_ok, right_frame = right_capture.read()
 
         if not left_ok or not right_ok:
             logger.warning(f"Failed to read frame {self._current_frame_index}")
@@ -204,6 +209,10 @@ class VideoReader:
         if not self.is_opened():
             logger.warning("Cannot seek: videos not opened")
             return False
+        left_capture = self._left_capture
+        right_capture = self._right_capture
+        if left_capture is None or right_capture is None:
+            return False
 
         # Clamp to valid range
         frame_index = max(0, min(frame_index, self._total_frames - 1))
@@ -214,8 +223,8 @@ class VideoReader:
         logger.debug(f"Seeking from frame {self._current_frame_index} to {frame_index}")
 
         # Seek both captures
-        left_ok = self._left_capture.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
-        right_ok = self._right_capture.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
+        left_ok = left_capture.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
+        right_ok = right_capture.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
 
         if not left_ok or not right_ok:
             logger.error(f"Failed to seek to frame {frame_index}")

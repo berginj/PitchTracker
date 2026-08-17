@@ -15,7 +15,7 @@ from app.events.event_types import (
     FrameProcessingOutcomeEvent,
     StereoAssociationOutcomeEvent,
 )
-from app.monitoring.rig_drift import RigDriftMonitor
+from app.monitoring.rig_drift import DriftStatus, RigDriftMonitor
 from app.pipeline.detection.processor import DetectionProcessor
 from app.pipeline.detection.threading_pool import DetectionThreadPool
 from app.pipeline.initialization import PipelineInitializer
@@ -65,7 +65,7 @@ class DetectionServiceImpl(DetectionService):
         self._tracklet_updates = 0
         self._tracklet_starts = 0
         self._sync_drift_monitor = self._new_drift_monitor(config)
-        self._last_drift_status = None
+        self._last_drift_status: Optional[DriftStatus] = None
         self._decision_bindings_cache: Optional[DecisionArtifactBindings] = None
         self._session_id: Optional[str] = None
         self._configuration = DetectionConfiguration(self)

@@ -24,7 +24,7 @@ class Anomaly:
     pitch_id: str
     anomaly_type: str  # speed_outlier, movement_anomaly, trajectory_quality, data_quality
     severity: str  # low, medium, high
-    details: Dict[str, float]  # Specific metrics that triggered anomaly
+    details: Dict[str, float | int | None]  # Specific metrics that triggered anomaly
     recommendation: str  # What to do about it
 
 

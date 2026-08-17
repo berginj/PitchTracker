@@ -55,10 +55,17 @@ class BaselineMetrics:
 
 
 class _PitchMeasurement(Protocol):
-    speed_mph: float | None
-    run_in: float | None
-    rise_in: float | None
-    is_strike: bool
+    @property
+    def speed_mph(self) -> float | None: ...
+
+    @property
+    def run_in(self) -> float | None: ...
+
+    @property
+    def rise_in(self) -> float | None: ...
+
+    @property
+    def is_strike(self) -> bool: ...
 
 
 def aggregate_session(pitches: Sequence[_PitchMeasurement]) -> SessionMetrics:

@@ -272,7 +272,7 @@ def _rk4_step(state: np.ndarray, h: float, k: float, wind: np.ndarray) -> np.nda
     k2 = dynamics(state + 0.5 * h * k1)
     k3 = dynamics(state + 0.5 * h * k2)
     k4 = dynamics(state + h * k3)
-    return state + (h / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
+    return np.asarray(state + (h / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4))
 
 
 def _integrate_trajectory(

@@ -182,7 +182,7 @@ def main():
     print()
 
     # Store results across attempts
-    all_results = {
+    all_results: dict[str, list[int]] = {
         'uvc': [],
         'opencv_parallel': [],
         'opencv_sequential': [],

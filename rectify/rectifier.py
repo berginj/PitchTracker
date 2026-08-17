@@ -123,11 +123,11 @@ class StereoRectifier:
 
     def rectify_left(self, image: np.ndarray) -> np.ndarray:
         """Remap a left-camera image into the rectified frame."""
-        return cv2.remap(image, self._map_left[0], self._map_left[1], cv2.INTER_LINEAR)
+        return np.asarray(cv2.remap(image, self._map_left[0], self._map_left[1], cv2.INTER_LINEAR))
 
     def rectify_right(self, image: np.ndarray) -> np.ndarray:
         """Remap a right-camera image into the rectified frame."""
-        return cv2.remap(image, self._map_right[0], self._map_right[1], cv2.INTER_LINEAR)
+        return np.asarray(cv2.remap(image, self._map_right[0], self._map_right[1], cv2.INTER_LINEAR))
 
     def rectify_pair(self, left: np.ndarray, right: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Remap a synchronized left/right pair into the rectified frame."""

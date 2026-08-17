@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -50,7 +50,7 @@ def _collect_corners(
         detector_params = cv2.aruco.DetectorParameters()
         detector = cv2.aruco.ArucoDetector(aruco_dict, detector_params)
     except AttributeError:
-        detector_params = cv2.aruco.DetectorParameters_create()
+        detector_params = getattr(cv2.aruco, "DetectorParameters_create")()
         detector = None
 
     print(f"Processing {len(paths)} images for calibration board detection "
@@ -87,10 +87,10 @@ def _collect_corners(
 
 def _try_charuco_detection(
     image: np.ndarray,
-    board: object,
-    aruco_dict: object,
-    detector_params: object,
-    detector: object | None,
+    board: Any,
+    aruco_dict: Any,
+    detector_params: Any,
+    detector: Any | None,
     index: int,
     path: Path,
     square_mm: float,

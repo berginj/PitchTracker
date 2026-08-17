@@ -183,8 +183,8 @@ def _distance_to_segment(p: Point2D, a: Point2D, b: Point2D) -> float:
     apz = pz - az
     denom = abx * abx + abz * abz
     if denom == 0:
-        return ((px - ax) ** 2 + (pz - az) ** 2) ** 0.5
+        return float(((px - ax) ** 2 + (pz - az) ** 2) ** 0.5)
     t = max(0.0, min(1.0, (apx * abx + apz * abz) / denom))
     cx = ax + t * abx
     cz = az + t * abz
-    return ((px - cx) ** 2 + (pz - cz) ** 2) ** 0.5
+    return float(((px - cx) ** 2 + (pz - cz) ** 2) ** 0.5)

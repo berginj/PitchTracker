@@ -17,7 +17,7 @@
 - [ ] `python scripts/check_file_length.py` passes (no file over 500 lines)
 - [ ] `python scripts/sync_schema.py --check` passes (schema mirror in sync)
 - [ ] `python scripts/check_public_docs.py` passes when public docs or links changed
-- [ ] Typing policy, strict clean zones, and `python scripts/check_mypy_baseline.py` pass
+- [ ] Typing policy and `python -m mypy . --no-incremental --show-error-codes` pass
 - [ ] New errors raise custom exceptions from `exceptions.py` (no bare `Exception`/`RuntimeError`)
 - [ ] No unrelated files or generated artifacts included
 - [ ] Public behavior/status claims and linked documentation remain accurate

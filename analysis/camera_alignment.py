@@ -242,13 +242,13 @@ def analyze_alignment_averaged(
             raise ValueError("Could not capture frames for alignment analysis")
 
     # Average the metrics
-    avg_vertical_mean = np.mean([r.vertical_mean_px for r in results_list])
-    avg_vertical_max = np.mean([r.vertical_max_px for r in results_list])
-    avg_convergence_std = np.mean([r.convergence_std_px for r in results_list])
-    avg_correlation = np.mean([r.correlation for r in results_list])
-    avg_rotation = np.mean([r.rotation_deg for r in results_list])
-    avg_scale_diff = np.mean([r.scale_difference_percent for r in results_list])
-    avg_scale_ratio = np.mean([r.scale_ratio for r in results_list])
+    avg_vertical_mean = float(np.mean([r.vertical_mean_px for r in results_list]))
+    avg_vertical_max = float(np.mean([r.vertical_max_px for r in results_list]))
+    avg_convergence_std = float(np.mean([r.convergence_std_px for r in results_list]))
+    avg_correlation = float(np.mean([r.correlation for r in results_list]))
+    avg_rotation = float(np.mean([r.rotation_deg for r in results_list]))
+    avg_scale_diff = float(np.mean([r.scale_difference_percent for r in results_list]))
+    avg_scale_ratio = float(np.mean([r.scale_ratio for r in results_list]))
     total_matches = sum(r.num_matches for r in results_list) // len(results_list)
 
     # Re-assess quality with averaged metrics
@@ -336,22 +336,22 @@ def check_camera_warmup(camera_device, num_frames: int = 20, variance_threshold:
         Tuple of (is_stable, variance_score)
     """
     try:
-        frame_means = []
+        frame_means: list[float] = []
 
         for _ in range(num_frames):
             frame = camera_device.read_frame(timeout_ms=1000)
             # Calculate mean brightness
-            mean_val = np.mean(frame.image)
+            mean_val = float(np.mean(frame.image))
             frame_means.append(mean_val)
             time.sleep(0.05)  # 50ms between frames
 
         # Calculate variance in mean brightness over time
-        frame_means = np.array(frame_means)
-        mean_brightness = np.mean(frame_means)
+        frame_mean_array = np.asarray(frame_means, dtype=float)
+        mean_brightness = float(np.mean(frame_mean_array))
 
         # Normalize variance by mean (coefficient of variation)
         if mean_brightness > 0:
-            variance_score = np.std(frame_means) / mean_brightness
+            variance_score = float(np.std(frame_mean_array) / mean_brightness)
         else:
             variance_score = 1.0  # High variance if mean is 0
 

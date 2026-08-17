@@ -45,15 +45,14 @@ jobs:
       - name: Lint with flake8
         run: flake8 . --count --statistics
 
-      - name: Type check with mypy baseline ratchet
+        - name: Type check with mypy
         # Mypy is a source-level gate. Run it once on the canonical 3.13
         # environment so newer interpreter-specific third-party stubs do not
         # create a second, non-comparable diagnostic baseline.
         if: matrix.python-version == '3.13'
-        run: |
-          python scripts/check_typing_policy.py
-          python scripts/check_mypy_clean_zones.py
-          python scripts/check_mypy_baseline.py
+          run: |
+            python scripts/check_typing_policy.py
+            python -m mypy . --no-incremental --show-error-codes
 
       - name: Run tests
         # Native camera/Qt libraries are not safe to fan out to every CPU on

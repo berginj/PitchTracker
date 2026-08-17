@@ -56,7 +56,7 @@ def _create_movement_chart(report: PatternAnalysisReport) -> str:
     fig, ax = plt.subplots(figsize=(8, 6))
 
     # Extract movement data by pitch type
-    pitch_types = {}
+    pitch_types: dict[str, dict[str, list[float]]] = {}
     for i, classification in enumerate(report.pitch_classifications):
         pitch_type = classification.heuristic_type
         run_in = classification.features.get("run_in", 0)
@@ -69,7 +69,10 @@ def _create_movement_chart(report: PatternAnalysisReport) -> str:
         pitch_types[pitch_type]["rise"].append(rise_in)
 
     # Plot each pitch type with different color
-    colors = plt.cm.tab10.colors
+    colors = [
+        "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+        "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+    ]
     for idx, (pitch_type, data) in enumerate(pitch_types.items()):
         ax.scatter(data["run"], data["rise"], label=pitch_type, s=100, alpha=0.6, color=colors[idx % len(colors)])
 
@@ -116,7 +119,7 @@ def _create_strike_zone_heatmap(report: PatternAnalysisReport) -> str:
     # Add text annotations
     for i in range(3):
         for j in range(3):
-            ax.text(j, i, int(heatmap_data[i, j]), ha="center", va="center", color="black", fontsize=14)
+            ax.text(j, i, str(int(heatmap_data[i, j])), ha="center", va="center", color="black", fontsize=14)
 
     ax.set_xticks([0, 1, 2])
     ax.set_yticks([0, 1, 2])

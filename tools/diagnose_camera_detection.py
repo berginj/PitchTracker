@@ -170,7 +170,13 @@ def main():
     print()
 
     # Store results across attempts
-    all_results = {"uvc": [], "opencv_parallel": [], "opencv_sequential": [], "direct_open": [], "arducam_mapping": []}
+    all_results: dict[str, list[int]] = {
+        "uvc": [],
+        "opencv_parallel": [],
+        "opencv_sequential": [],
+        "direct_open": [],
+        "arducam_mapping": [],
+    }
 
     for attempt in range(1, num_attempts + 1):
         print(f"\n{'='*80}")

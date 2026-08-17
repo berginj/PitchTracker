@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, List, cast
+from typing import List, cast
 
 from app.events import ErrorCategory, ErrorSeverity, publish_error
 from app.pipeline.pitch_tracking_v2 import PitchData
+from app.pipeline.service_mixin_host import PipelineServiceMixinHost
 from app.pipeline.recording.pitch_recorder import PitchRecorder
 from contracts import Detection, Frame, RayObservation, StereoObservation
 from log_config.logger import get_logger
@@ -13,12 +14,7 @@ from log_config.logger import get_logger
 logger = get_logger(__name__)
 
 
-class _PipelineServiceState:
-    def __getattr__(self, name: str) -> Any:
-        raise AttributeError(name)
-
-
-class PipelineServiceDetectionMixin(_PipelineServiceState):
+class PipelineServiceDetectionMixin(PipelineServiceMixinHost):
     """Detection and pitch-event behavior for InProcessPipelineService."""
 
     def _on_camera_state_changed(self, camera_id: str, state) -> None:

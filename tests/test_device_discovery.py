@@ -5,8 +5,10 @@ Validates that camera enumeration is fast, reliable, and properly cached.
 
 from __future__ import annotations
 
+import inspect
+import subprocess
 import threading
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -106,14 +108,10 @@ class TestOpenCVIndexProbing:
 
     def test_probe_opencv_indices_parallel(self):
         """Parallel probing should check all indices simultaneously."""
-        with patch("cv2.VideoCapture") as mock_cap:
-            def video_capture_side_effect(index, *_args):
-                cap = MagicMock()
-                cap.isOpened.return_value = index in {0, 2}
-                return cap
-
-            mock_cap.side_effect = video_capture_side_effect
-
+        with patch(
+            "ui.device_utils._probe_single_index",
+            side_effect=lambda index, _timeout: index if index in {0, 2} else None,
+        ):
             indices = probe_opencv_indices(max_index=4, parallel=True, use_cache=False)
 
             # Should find cameras at 0 and 2
@@ -139,18 +137,17 @@ class TestOpenCVIndexProbing:
 
     def test_probe_opencv_indices_caching(self):
         """Should cache OpenCV probe results."""
-        with patch("cv2.VideoCapture") as mock_cap:
-            mock_instance = MagicMock()
-            mock_cap.return_value = mock_instance
-            mock_instance.isOpened.return_value = True
+        with patch(
+            "ui.device_utils._probe_single_index", return_value=0
+        ) as mock_probe:
 
             # First call should probe
             indices1 = probe_opencv_indices(max_index=2, use_cache=True)
-            call_count_1 = mock_cap.call_count
+            call_count_1 = mock_probe.call_count
 
             # Second call should use cache (no new VideoCapture calls)
             indices2 = probe_opencv_indices(max_index=2, use_cache=True)
-            call_count_2 = mock_cap.call_count
+            call_count_2 = mock_probe.call_count
 
             assert call_count_1 == call_count_2  # No additional calls
             assert indices1 == indices2
@@ -172,16 +169,28 @@ class TestOpenCVIndexProbing:
             assert probed_indices == list(range(16))
 
     def test_probe_opencv_timeout_protection(self):
-        """Should timeout on stuck cameras (tested via integration)."""
-        # This is harder to test directly without actually hanging,
-        # but we can verify the timeout wrapper is applied
-        import inspect
+        """A stuck native probe is terminated at the process boundary."""
         from ui.device_utils import _probe_single_index
 
-        # Check that function has timeout logic
+        with patch(
+            "ui.device_utils.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="camera-probe", timeout=0.01),
+        ):
+            assert _probe_single_index(3, timeout_seconds=0.01) is None
+
         source = inspect.getsource(_probe_single_index)
-        assert "threading.Thread" in source
-        assert "join(timeout" in source
+        assert "subprocess.run" in source
+        assert "timeout=timeout_seconds" in source
+
+    def test_probe_opencv_reports_successful_child_result(self):
+        """Only a successful isolated probe exposes an OpenCV index."""
+        from ui.device_utils import _probe_single_index
+
+        with patch("ui.device_utils.subprocess.run") as run:
+            run.return_value.returncode = 0
+            assert _probe_single_index(4) == 4
+            run.return_value.returncode = 1
+            assert _probe_single_index(4) is None
 
 
 class TestUnifiedProbing:
@@ -207,10 +216,9 @@ class TestUnifiedProbing:
         with patch("ui.device_utils.list_uvc_devices") as mock_uvc:
             mock_uvc.return_value = []
 
-            with patch("cv2.VideoCapture") as mock_cv:
-                mock_instance = MagicMock()
-                mock_cv.return_value = mock_instance
-                mock_instance.isOpened.return_value = True
+            with patch(
+                "ui.device_utils._probe_single_index", return_value=0
+            ) as mock_probe:
 
                 uvc_devices, opencv_indices = probe_all_devices(use_cache=False)
 
@@ -219,7 +227,7 @@ class TestUnifiedProbing:
                 assert len(opencv_indices) > 0
 
                 # Should have called OpenCV probing
-                assert mock_cv.call_count > 0
+                assert mock_probe.call_count > 0
 
     def test_caching_applies_to_unified_probe(self):
         """Caching should work for unified probe."""

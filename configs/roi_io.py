@@ -74,7 +74,7 @@ def save_rois(
     lane_by_camera: Mapping[str, Polygon] | None = None,
     plate_by_camera: Mapping[str, Polygon] | None = None,
 ) -> None:
-    payload = {
+    payload: dict[str, object] = {
         "shared": True,
         "lane": lane if lane is not None else None,
         "plate": plate if plate is not None else None,

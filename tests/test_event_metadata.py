@@ -70,7 +70,7 @@ class TestEventMetadataContract:
     def test_immutable(self):
         meta = EventMetadata()
         with pytest.raises(AttributeError):
-            meta.message_type = "changed"  # type: ignore[misc]
+            meta.message_type = "changed"
 
     def test_to_dict_roundtrip(self):
         meta = make_event_metadata(

@@ -2,20 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts.check_mypy_baseline import Diagnostic, _diagnostics
-from scripts.check_typing_policy import policy_violations
-
-
-def test_mypy_diagnostics_are_stable_and_retain_error_code() -> None:
-    output = "ui\\window.py:42: error: Widget has no attribute 'ready'  [attr-defined]"
-
-    assert _diagnostics(output) == [
-        Diagnostic(
-            "ui/window.py",
-            "Widget has no attribute 'ready'  [attr-defined]",
-            "attr-defined",
-        )
-    ]
+from scripts.check_typing_policy import TEST_RELAXATIONS, policy_violations
 
 
 def test_typing_policy_rejects_blanket_config_and_unqualified_ignore(tmp_path: Path) -> None:
@@ -35,6 +22,27 @@ def test_typing_policy_rejects_blanket_config_and_unqualified_ignore(tmp_path: P
 def test_typing_policy_accepts_error_code_scoped_ignore(tmp_path: Path) -> None:
     (tmp_path / "good.py").write_text(
         "value = unknown  # type: ignore[name-defined]\n",
+        encoding="utf-8",
+    )
+
+    assert policy_violations(tmp_path) == []
+
+
+def test_typing_policy_rejects_unapproved_disable_error_code(tmp_path: Path) -> None:
+    (tmp_path / "mypy.ini").write_text(
+        "[mypy-app.*]\ndisable_error_code = attr-defined\n",
+        encoding="utf-8",
+    )
+
+    violations = policy_violations(tmp_path)
+
+    assert any("fixed test-only policy" in violation for violation in violations)
+
+
+def test_typing_policy_accepts_fixed_test_relaxations(tmp_path: Path) -> None:
+    codes = ", ".join(sorted(TEST_RELAXATIONS))
+    (tmp_path / "mypy.ini").write_text(
+        f"[mypy-tests.*]\ndisable_error_code = {codes}\n",
         encoding="utf-8",
     )
 

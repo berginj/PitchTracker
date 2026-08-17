@@ -12,7 +12,8 @@ import ssl
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
+from collections.abc import Callable
+from typing import Any, Optional
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -33,18 +34,19 @@ def _default_ssl_context() -> ssl.SSLContext:
 UPDATE_SETTINGS_PATH = Path("configs") / "update_settings.json"
 
 
-def _read_update_settings() -> dict:
+def _read_update_settings() -> dict[str, Any]:
     """Read persisted update settings, returning an empty dict on any error."""
     try:
         if UPDATE_SETTINGS_PATH.exists():
             with open(UPDATE_SETTINGS_PATH) as f:
-                return json.load(f)
+                data: object = json.load(f)
+                return dict(data) if isinstance(data, dict) else {}
     except Exception:
         logger.exception("Failed to read update settings")
     return {}
 
 
-def _write_update_settings(settings: dict) -> None:
+def _write_update_settings(settings: dict[str, Any]) -> None:
     """Persist update settings to disk."""
     try:
         UPDATE_SETTINGS_PATH.parent.mkdir(exist_ok=True)
@@ -101,7 +103,7 @@ def is_newer_version(latest: str, current: str) -> bool:
     return latest_tuple > current_tuple
 
 
-def check_for_updates(timeout: int = 5) -> dict:
+def check_for_updates(timeout: int = 5) -> dict[str, Any]:
     """Check GitHub Releases for newer version.
 
     Args:
@@ -117,7 +119,7 @@ def check_for_updates(timeout: int = 5) -> dict:
             'release_date': str,      # ISO 8601 date
         }
     """
-    result = {
+    result: dict[str, Any] = {
         "available": False,
         "version": None,
         "download_url": None,
@@ -241,7 +243,7 @@ def _verify_sha256(file_path: Path, expected: str) -> bool:
 def download_update(
     url: str,
     dest_path: Optional[Path] = None,
-    progress_callback: Optional[callable] = None,
+    progress_callback: Optional[Callable[[int, int], None]] = None,
     expected_sha256: Optional[str] = None,
     require_checksum: bool = True,
 ) -> Optional[Path]:

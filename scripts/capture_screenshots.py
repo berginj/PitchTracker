@@ -20,7 +20,7 @@ from ui.coaching.dialogs.lane_adjust_dialog import LaneAdjustDialog
 class ScreenshotCapture:
     """Automated screenshot capture manager."""
 
-    def __init__(self, output_dir: Path = None):
+    def __init__(self, output_dir: Path | None = None):
         """Initialize screenshot capture.
 
         Args:
@@ -123,7 +123,18 @@ def capture_coach_window_screenshots(backend: str = "sim"):
     # 3. Try to capture settings dialog
     try:
         print("\nOpening Settings Dialog...")
-        settings_dialog = SettingsDialog(window._config, parent=window)
+        config = window._config
+        settings_dialog = SettingsDialog(
+            current_width=config.camera.width,
+            current_height=config.camera.height,
+            current_fps=config.camera.fps,
+            current_left_camera="0",
+            current_right_camera="1",
+            current_mound_distance=config.metrics.plate_plane_z_ft,
+            current_ball_type=config.ball.type,
+            current_color_mode=config.camera.color_mode,
+            parent=window,
+        )
         settings_dialog.show()
         capturer.wait(1.0)
 
@@ -139,7 +150,7 @@ def capture_coach_window_screenshots(backend: str = "sim"):
     # 4. Try to capture lane adjust dialog
     try:
         print("\nOpening Lane Adjust Dialog...")
-        lane_dialog = LaneAdjustDialog(parent=window)
+        lane_dialog = LaneAdjustDialog(window._service, parent=window)
         lane_dialog.show()
         capturer.wait(1.0)
 

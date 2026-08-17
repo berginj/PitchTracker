@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -24,7 +24,12 @@ class SimulatedCamera(CameraDevice):
         self._vertical_offset_px = 0
         self._frame_index = 0
         self._last_frame_time = time.monotonic()
-        self._controls = {"exposure_us": 0, "gain": 0.0, "wb_mode": None, "wb": None}
+        self._controls: dict[str, Any] = {
+            "exposure_us": 0,
+            "gain": 0.0,
+            "wb_mode": None,
+            "wb": None,
+        }
 
     def open(self, serial: str) -> None:
         self._serial = serial
@@ -100,7 +105,7 @@ class SimulatedCamera(CameraDevice):
         # Generate image based on pixel format
         if self._pixfmt == "GRAY8":
             # Grayscale: 2D array (height, width)
-            image = np.zeros((self._height, self._width), dtype=np.uint8)
+            image: np.ndarray = np.zeros((self._height, self._width), dtype=np.uint8)
         elif self._pixfmt in ("YUYV", "MJPG"):
             # Color formats: 3D array (height, width, 3) in BGR format
             # Generate a simple color pattern for testing (dark blue-gray)
@@ -127,7 +132,9 @@ class SimulatedCamera(CameraDevice):
                 matrix = cv2.getRotationMatrix2D(center, self._rotation_correction, 1.0)
                 image = cv2.warpAffine(image, matrix, (w, h))
             if self._vertical_offset_px:
-                matrix = np.float32([[1, 0, 0], [0, 1, -self._vertical_offset_px]])
+                matrix = np.asarray(
+                    [[1, 0, 0], [0, 1, -self._vertical_offset_px]], dtype=np.float32
+                )
                 image = cv2.warpAffine(image, matrix, (w, h))
 
         return Frame(

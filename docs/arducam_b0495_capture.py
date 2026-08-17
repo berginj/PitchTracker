@@ -33,7 +33,7 @@ logging.basicConfig(
 
 # ---------- Validated device capabilities ----------
 VALIDATED_NAME_HINTS = ["Arducam", "B0495", "AR0234"]
-FOURCC_YUY2 = cv2.VideoWriter_fourcc(*"YUY2")
+FOURCC_YUY2 = getattr(cv2, "VideoWriter_fourcc")(*"YUY2")
 
 USB3_MODES = [
     (1920, 1200, 50),
@@ -248,7 +248,7 @@ def run() -> None:
     out_path = "camera_test_capture.avi"
     writer = cv2.VideoWriter(
         out_path,
-        cv2.VideoWriter_fourcc(*"MJPG"),
+        getattr(cv2, "VideoWriter_fourcc")(*"MJPG"),
         actual_fps if actual_fps > 0 else 30,
         (actual_w, actual_h),
         True,

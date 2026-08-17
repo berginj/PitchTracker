@@ -9,7 +9,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Callable, Dict, Optional, Tuple
 
-from capture.camera_device import CameraStats
 from configs.settings import AppConfig
 from contracts import Frame
 
@@ -91,11 +90,11 @@ class CaptureService(ABC):
         """
 
     @abstractmethod
-    def get_stats(self) -> Dict[str, CameraStats]:
+    def get_stats(self) -> Dict[str, Dict[str, float]]:
         """Get capture statistics for both cameras.
 
         Returns:
-            Dict mapping camera_id to CameraStats
+            Dict mapping camera_id to numeric statistics
 
         Thread-Safe: Returns snapshot of current stats.
         """

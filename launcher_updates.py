@@ -105,7 +105,7 @@ class LauncherUpdateController:
             with open(settings_file) as f:
                 settings = json.load(f)
 
-            return settings.get("skipped_version") == version
+            return bool(settings.get("skipped_version") == version)
 
         except Exception:
             return False

@@ -167,7 +167,10 @@ class OpenCVCamera(CameraDevice):
             # Set FOURCC to MJPG for color, or try to disable monochrome mode
             # Different cameras respond to different settings
             try:
-                self._capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+                self._capture.set(
+                    cv2.CAP_PROP_FOURCC,
+                    getattr(cv2, "VideoWriter_fourcc")(*"MJPG"),
+                )
             except Exception:
                 pass  # Ignore if camera doesn't support this
 
@@ -232,7 +235,9 @@ class OpenCVCamera(CameraDevice):
 
         if self._vertical_offset_px:
             h, w = frame.shape[:2]
-            M = np.float32([[1, 0, 0], [0, 1, -self._vertical_offset_px]])
+            M = np.asarray(
+                [[1, 0, 0], [0, 1, -self._vertical_offset_px]], dtype=np.float32
+            )
             frame = cv2.warpAffine(frame, M, (w, h))
 
         if self._stats.last_frame_ns:

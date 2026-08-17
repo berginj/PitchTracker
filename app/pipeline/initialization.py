@@ -14,6 +14,7 @@ from contracts import Frame
 from detect.classical_detector import ClassicalDetector
 from detect.config import DetectorConfig as CvDetectorConfig
 from detect.config import FilterConfig, Mode
+from detect.detector import Detector
 from detect.lane import LaneGate, LaneRoi
 from detect.ml_detector import MlDetector
 from exceptions import CameraConfigurationError
@@ -104,7 +105,10 @@ class PipelineInitializer:
                 if actual_value != expected_value:
                     failures.append(f"{key} expected {expected_value!r}, read back {actual_value!r}")
             try:
-                actual_fps = float(mode.get("fps"))
+                fps_value = mode.get("fps")
+                if not isinstance(fps_value, (str, bytes, int, float)):
+                    raise TypeError("fps readback is not numeric")
+                actual_fps = float(fps_value)
             except (TypeError, ValueError):
                 actual_fps = 0.0
             fps_tolerance = max(0.5, float(config.camera.fps) * 0.02)
@@ -126,7 +130,10 @@ class PipelineInitializer:
 
         if failures:
             raise CameraConfigurationError("Physical camera configuration verification failed: " + "; ".join(failures))
-        return {"mode": dict(mode), "controls": dict(controls)}
+        return {
+            "mode": dict(mode) if isinstance(mode, Mapping) else {},
+            "controls": dict(controls) if isinstance(controls, Mapping) else {},
+        }
 
     @staticmethod
     def load_rois(
@@ -279,6 +286,14 @@ class PipelineInitializer:
         self._detector_model_class_id = cfg.model_class_id
         self._detector_model_format = cfg.model_format
 
+        detector_cfg = self.cv_detector_config(config)
+        self._detector_config = detector_cfg
+        self._detector_mode = Mode(cfg.mode)
+
+    @staticmethod
+    def cv_detector_config(config: AppConfig) -> CvDetectorConfig:
+        """Translate application settings into the detector's runtime contract."""
+        cfg = config.detector
         filter_cfg = FilterConfig(
             min_area=cfg.filters.min_area,
             max_area=cfg.filters.max_area,
@@ -298,8 +313,7 @@ class PipelineInitializer:
             min_consecutive=cfg.min_consecutive,
             filters=filter_cfg,
         )
-        self._detector_config = detector_cfg
-        self._detector_mode = Mode(cfg.mode)
+        return detector_cfg
 
     def update_detector_config(
         self,
@@ -335,7 +349,7 @@ class PipelineInitializer:
 
     def build_detectors(
         self, left_id: str, right_id: str, lane_polygon: Optional[list[tuple[float, float]]]
-    ) -> Dict[str, object]:
+    ) -> Dict[str, Detector]:
         """Build detectors for both cameras.
 
         Args:
@@ -346,12 +360,12 @@ class PipelineInitializer:
         Returns:
             Dictionary mapping camera labels to detector instances
         """
-        detectors: Dict[str, object] = {}
+        detectors: Dict[str, Detector] = {}
         detectors["left"] = self._build_detector_for_camera(left_id, lane_polygon)
         detectors["right"] = self._build_detector_for_camera(right_id, lane_polygon)
         return detectors
 
-    def _build_detector_for_camera(self, camera_id: str, lane_polygon: Optional[list[tuple[float, float]]]) -> object:
+    def _build_detector_for_camera(self, camera_id: str, lane_polygon: Optional[list[tuple[float, float]]]) -> Detector:
         """Build detector for a single camera.
 
         Args:
@@ -380,7 +394,7 @@ class PipelineInitializer:
             roi_by_camera=roi_by_camera,
         )
 
-    def warmup_detectors(self, detectors: Dict[str, object], config: AppConfig) -> None:
+    def warmup_detectors(self, detectors: Dict[str, Detector], config: AppConfig) -> None:
         """Warm up detectors with dummy frame.
 
         Runs detectors once with a dummy frame to initialize any lazy-loaded

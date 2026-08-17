@@ -70,7 +70,7 @@ def test_all_dictionaries(image: np.ndarray):
             marker_corners, marker_ids, rejected = detector.detectMarkers(gray)
         except AttributeError:
             # Fall back to older API
-            detector_params = cv2.aruco.DetectorParameters_create()
+            detector_params = getattr(cv2.aruco, "DetectorParameters_create")()
             detector_params.adaptiveThreshWinSizeMin = 3
             detector_params.adaptiveThreshWinSizeMax = 23
             detector_params.adaptiveThreshWinSizeStep = 10

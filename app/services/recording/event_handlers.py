@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, TYPE_CHECKING
+from typing import Dict
 
 from app.events.event_types import (
     FrameCapturedEvent,
@@ -17,14 +17,12 @@ from app.events.event_types import (
     StereoFrameProcessedEvent,
 )
 from log_config.logger import get_logger
-
-if TYPE_CHECKING:
-    from app.services.recording.state import RecordingServiceState
+from app.services.recording.state import RecordingServiceState
 
 logger = get_logger(__name__)
 
 
-class EventHandlersMixin:
+class EventHandlersMixin(RecordingServiceState):
     """EventBus event handlers and subscription lifecycle."""
 
     def _on_frame_captured(self: "RecordingServiceState", event: FrameCapturedEvent) -> None:

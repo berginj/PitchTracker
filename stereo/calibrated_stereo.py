@@ -130,7 +130,7 @@ class CalibratedStereoMatcher(StereoMatcher):
     def _triangulate_xyz_ft(self, left_pt: np.ndarray, right_pt: np.ndarray) -> np.ndarray:
         homogeneous = cv2.triangulatePoints(self._p_left, self._p_right, left_pt, right_pt)
         xyz_mm = (homogeneous[:3] / homogeneous[3]).reshape(3)
-        return xyz_mm / MM_PER_FOOT
+        return np.asarray(xyz_mm / MM_PER_FOOT)
 
     def _estimate_depth_sigma_ft(self, left_pt: np.ndarray, right_pt: np.ndarray) -> float:
         pixel_sigma_px = float(getattr(self._geometry, "pixel_sigma_px", 0.0))
@@ -194,4 +194,4 @@ def _fundamental_from_rt(
         ],
         dtype=np.float64,
     )
-    return np.linalg.inv(mtx_right).T @ tx @ rmat @ np.linalg.inv(mtx_left)
+    return np.asarray(np.linalg.inv(mtx_right).T @ tx @ rmat @ np.linalg.inv(mtx_left))

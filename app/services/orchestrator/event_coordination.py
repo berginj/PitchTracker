@@ -228,8 +228,10 @@ class EventCoordinator:
                 ]
                 for row in range(3)
             ]
-            transformed_covariance = tuple(
-                tuple(value for value in row) for row in rotated
+            transformed_covariance = (
+                (rotated[0][0], rotated[0][1], rotated[0][2]),
+                (rotated[1][0], rotated[1][1], rotated[1][2]),
+                (rotated[2][0], rotated[2][1], rotated[2][2]),
             )
         return replace(
             observation,

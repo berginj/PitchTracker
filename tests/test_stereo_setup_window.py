@@ -133,7 +133,7 @@ def test_stereo_setup_window_cancels_busy_step_before_close(qapp):
         step.set_busy(False)
         return True
 
-    step.cancel_pending = cancel_pending  # type: ignore[method-assign]
+    step.cancel_pending = cancel_pending
     step.set_busy(True)
     window.show()
     window.close()

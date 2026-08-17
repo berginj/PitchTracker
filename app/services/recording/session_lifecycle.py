@@ -8,17 +8,17 @@ from typing import Optional, TYPE_CHECKING
 
 from app.pipeline.recording.evidence_journal import SessionEvidenceJournal
 from app.pipeline.recording.session_recorder import SessionRecorder
+from app.services.recording.state import RecordingServiceState
 from log_config.logger import get_logger
 from record.recorder import RecordingBundle
 
 if TYPE_CHECKING:
     from configs.settings import AppConfig
-    from app.services.recording.state import RecordingServiceState
 
 logger = get_logger(__name__)
 
 
-class SessionLifecycleMixin:
+class SessionLifecycleMixin(RecordingServiceState):
     """Session start/stop/pause/resume and state accessors."""
 
     _session_name: Optional[str]
@@ -55,10 +55,10 @@ class SessionLifecycleMixin:
             self._config_path = None if config_path is None else str(config_path)
             self._last_pitch_id = pitch_id
 
+            recorder: Optional[SessionRecorder] = None
             try:
-                self._session_recorder = SessionRecorder(config, self._record_dir)
-                recorder = self._session_recorder
-                assert recorder is not None
+                recorder = SessionRecorder(config, self._record_dir)
+                self._session_recorder = recorder
                 session_dir, warning = recorder.start_session(
                     session_name=session_name,
                     pitch_id=f"session_{session_name}",
@@ -66,7 +66,6 @@ class SessionLifecycleMixin:
                 self._decision_journal = SessionEvidenceJournal(session_dir)
                 self._decision_evidence_incomplete = False
             except Exception:
-                recorder = self._session_recorder
                 self._session_recorder = None
                 self._config = None
                 self._session_name = None

@@ -128,12 +128,12 @@ def test_camera_modes(
         print(f"Testing {len(TEST_MODES)} modes...\n")
         for requested in TEST_MODES:
             observed = _probe_mode(capture, requested)
-            if observed == requested:
+            width, height, fps, can_read = observed
+            if (width, height, fps) == requested and can_read:
                 logger.info("%sx%s@%sfps - SUPPORTED", *requested)
                 print(f"OK: {requested[0]}x{requested[1]}@{requested[2]}fps - SUPPORTED")
                 supported.append(requested)
             else:
-                width, height, fps, can_read = observed
                 print(
                     f"NO: {requested[0]}x{requested[1]}@{requested[2]}fps "
                     f"- NOT SUPPORTED (got {width}x{height}@{fps}fps, "
@@ -152,7 +152,7 @@ def test_camera_modes(
 def _probe_mode(
     capture: cv2.VideoCapture,
     requested: tuple[int, int, int],
-) -> tuple[int, int, int] | tuple[int, int, int, bool]:
+) -> tuple[int, int, int, bool]:
     width, height, fps = requested
     capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
     capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -163,8 +163,6 @@ def _probe_mode(
         int(capture.get(cv2.CAP_PROP_FPS)),
     )
     read_ok, frame = capture.read()
-    if observed == requested and read_ok and frame is not None:
-        return observed
     return (*observed, bool(read_ok and frame is not None))
 
 
@@ -280,9 +278,9 @@ def test_dual_camera(
         print(f"ERROR: {exc}")
         return {"success": False, "error": str(exc)}
     finally:
-        for capture in (left_capture, right_capture):
-            if capture is not None:
-                capture.release()
+        for capture_candidate in (left_capture, right_capture):
+            if capture_candidate is not None:
+                capture_candidate.release()
 
 
 def _set_mode(

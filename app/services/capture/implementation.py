@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, cast
 
 from app.camera import CameraState
 from app.events.event_bus import EventBus
@@ -24,7 +24,6 @@ from app.services.capture.interface import (
     CameraStateCallback,
     FrameCallback,
 )
-from capture.camera_device import CameraStats
 from configs.settings import AppConfig
 from contracts import Frame
 from log_config.logger import get_logger
@@ -154,11 +153,11 @@ class CaptureServiceImpl(CaptureService):
 
         return self._camera_mgr.get_preview_frames()
 
-    def get_stats(self) -> Dict[str, CameraStats]:
+    def get_stats(self) -> Dict[str, Dict[str, float]]:
         """Get capture statistics for both cameras.
 
         Returns:
-            Dict mapping camera_id to CameraStats
+            Dict mapping camera_id to numeric statistics
 
         Thread-Safe: Returns snapshot of current stats.
         """
@@ -166,7 +165,7 @@ class CaptureServiceImpl(CaptureService):
             if not self._capturing:
                 return {}
 
-        return self._camera_mgr.get_stats()
+        return cast(Dict[str, Dict[str, float]], self._camera_mgr.get_stats())
 
     def on_frame_captured(self, callback: FrameCallback) -> None:
         """Register callback for frame capture events.

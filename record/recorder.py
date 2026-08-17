@@ -16,7 +16,7 @@ class RecordingBundle:
     frames: Iterable[Frame]
     detections: Iterable[Detection]
     track: Iterable[TrackSample]
-    metrics: PitchMetrics
+    metrics: Optional[PitchMetrics]
     session_dir: Optional[Path] = None
 
 

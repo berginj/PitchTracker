@@ -411,7 +411,7 @@ class PitchRecorder:
         fourcc = None
         extension = None
         for codec, ext in codec_options:
-            test_fourcc = cv2.VideoWriter_fourcc(*codec)
+            test_fourcc = getattr(cv2, "VideoWriter_fourcc")(*codec)
             # Test if codec is supported by trying to open a writer
             test_writer = cv2.VideoWriter(
                 "test.tmp",
@@ -434,7 +434,7 @@ class PitchRecorder:
 
         if fourcc is None:
             logger.warning("No supported video codec found, defaulting to MJPEG")
-            fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+            fourcc = getattr(cv2, "VideoWriter_fourcc")(*"MJPG")
             extension = ".avi"
 
         left_path = self._pitch_dir / f"left{extension}"

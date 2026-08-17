@@ -55,7 +55,7 @@ def detect_and_match(
         ``match_distances`` holds the per-match Hamming descriptor distance.
         Point arrays are empty when matching is not possible.
     """
-    orb = cv2.ORB_create(nfeatures=max_features)
+    orb = getattr(cv2, "ORB_create")(nfeatures=max_features)
     kp_left, des_left = orb.detectAndCompute(left, None)
     kp_right, des_right = orb.detectAndCompute(right, None)
 
@@ -74,9 +74,9 @@ def detect_and_match(
         return n_left, n_right, empty, empty, np.empty((0,), dtype=np.float32)
 
     matches = sorted(matches, key=lambda m: m.distance)
-    pts_left = np.float32([kp_left[m.queryIdx].pt for m in matches])
-    pts_right = np.float32([kp_right[m.trainIdx].pt for m in matches])
-    distances = np.float32([m.distance for m in matches])
+    pts_left = np.asarray([kp_left[m.queryIdx].pt for m in matches], dtype=np.float32)
+    pts_right = np.asarray([kp_right[m.trainIdx].pt for m in matches], dtype=np.float32)
+    distances = np.asarray([m.distance for m in matches], dtype=np.float32)
     return n_left, n_right, pts_left, pts_right, distances
 
 

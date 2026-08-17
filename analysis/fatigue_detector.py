@@ -10,7 +10,7 @@ Analyzes recent pitch data to detect signs of fatigue including:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 
 from analysis.pattern_detection.utils import (
@@ -163,7 +163,7 @@ class FatigueDetector:
             contributing_factors=factors,
         )
 
-    def _compute_window_stats(self, pitches: List["PitchSummary"]) -> Dict[str, Dict[str, float]]:
+    def _compute_window_stats(self, pitches: List["PitchSummary"]) -> Dict[str, Any]:
         """Compute statistics for a window of pitches.
 
         Args:
@@ -198,8 +198,8 @@ class FatigueDetector:
 
     def _compute_velocity_drop(
         self,
-        baseline_stats: Dict[str, Dict[str, float]],
-        recent_stats: Dict[str, Dict[str, float]],
+        baseline_stats: Dict[str, Any],
+        recent_stats: Dict[str, Any],
     ) -> float:
         """Compute percentage velocity drop from baseline.
 
@@ -217,7 +217,7 @@ class FatigueDetector:
             return 0.0
 
         drop_pct = ((baseline_mean - recent_mean) / baseline_mean) * 100
-        return max(0.0, drop_pct)  # Only positive drops indicate fatigue
+        return float(max(0.0, drop_pct))  # Only positive drops indicate fatigue
 
     def _compute_velocity_trend(self, pitches: List["PitchSummary"]) -> float:
         """Compute velocity trend over session (mph per pitch).
@@ -232,14 +232,14 @@ class FatigueDetector:
         if len(velocities) < 5:
             return 0.0
 
-        pitch_numbers = list(range(len(velocities)))
+        pitch_numbers = [float(index) for index in range(len(velocities))]
         slope, _ = linear_regression(pitch_numbers, velocities)
         return slope
 
     def _compute_movement_variance_change(
         self,
-        baseline_stats: Dict[str, Dict[str, float]],
-        recent_stats: Dict[str, Dict[str, float]],
+        baseline_stats: Dict[str, Any],
+        recent_stats: Dict[str, Any],
     ) -> float:
         """Compute percentage increase in movement variance.
 
@@ -261,12 +261,12 @@ class FatigueDetector:
             return 0.0
 
         variance_increase = ((recent_cv - baseline_cv) / baseline_cv) * 100
-        return max(0.0, variance_increase)  # Only increases indicate fatigue
+        return float(max(0.0, variance_increase))  # Only increases indicate fatigue
 
     def _compute_trajectory_quality_drop(
         self,
-        baseline_stats: Dict[str, Dict[str, float]],
-        recent_stats: Dict[str, Dict[str, float]],
+        baseline_stats: Dict[str, Any],
+        recent_stats: Dict[str, Any],
     ) -> float:
         """Compute drop in trajectory confidence.
 
@@ -283,7 +283,7 @@ class FatigueDetector:
         recent_conf = recent_stats["trajectory_conf"]["mean"]
 
         drop = baseline_conf - recent_conf
-        return max(0.0, drop)  # Only drops indicate concern
+        return float(max(0.0, drop))  # Only drops indicate concern
 
     def _compute_fatigue_score(
         self,
