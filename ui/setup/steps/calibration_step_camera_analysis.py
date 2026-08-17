@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
+from typing import Any, Literal, overload
 
 import cv2
 import numpy as np
@@ -12,10 +14,20 @@ from log_config.logger import get_logger
 logger = get_logger(__name__)
 
 
-class CalibrationStepCameraAnalysisMixin:
+class CalibrationStepCameraAnalysisMixin(CalibrationStepMixinHost):
+    @overload
+    def _get_marker_horizontal_position(
+        self, image: np.ndarray, return_details: Literal[False] = False
+    ) -> float | None: ...
+
+    @overload
+    def _get_marker_horizontal_position(
+        self, image: np.ndarray, return_details: Literal[True]
+    ) -> tuple[float | None, int, Any, Any] | None: ...
+
     def _get_marker_horizontal_position(
         self, image: np.ndarray, return_details: bool = False
-    ) -> Optional[float | tuple]:
+    ) -> float | tuple[float | None, int, Any, Any] | None:
         """Get average horizontal position of ChArUco markers (0.0 = left, 1.0 = right).
 
         Args:
@@ -57,7 +69,7 @@ class CalibrationStepCameraAnalysisMixin:
             marker_corners, marker_ids, _ = detector.detectMarkers(gray)
         except AttributeError:
             # Older OpenCV API
-            detector_params = cv2.aruco.DetectorParameters_create()
+            detector_params = getattr(cv2.aruco, "DetectorParameters_create")()
             marker_corners, marker_ids, _ = cv2.aruco.detectMarkers(gray, aruco_dict, parameters=detector_params)
 
         if marker_ids is None or len(marker_ids) == 0:
@@ -79,7 +91,7 @@ class CalibrationStepCameraAnalysisMixin:
 
         if return_details:
             return (avg_position, len(marker_ids), marker_corners, marker_ids)
-        return avg_position
+        return float(avg_position)
 
     def _draw_marker_position_overlay(self, display_image: np.ndarray, original_image: np.ndarray) -> np.ndarray:
         """Draw visual indicator showing marker horizontal position.
@@ -94,10 +106,11 @@ class CalibrationStepCameraAnalysisMixin:
         # Get marker position details
         result = self._get_marker_horizontal_position(original_image, return_details=True)
 
-        if result[0] is None:  # No markers detected
+        if result is None or result[0] is None:  # No markers detected
             return display_image
 
         avg_position, marker_count, marker_corners, marker_ids = result
+        assert avg_position is not None
 
         # Draw position indicator bar at bottom
         height, width = display_image.shape[:2]

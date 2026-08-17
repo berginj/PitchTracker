@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Optional
 
 from PySide6 import QtCore, QtGui
@@ -70,7 +71,7 @@ def rect_to_polygon(rect: Optional[Rect]) -> list[tuple[int, int]] | None:
     return [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
 
 
-def polygon_to_rect(polygon: Optional[list[tuple[int, int]]]) -> Optional[Rect]:
+def polygon_to_rect(polygon: Optional[Sequence[tuple[float, float]]]) -> Optional[Rect]:
     """Convert polygon to bounding rectangle.
 
     Args:
@@ -83,7 +84,12 @@ def polygon_to_rect(polygon: Optional[list[tuple[int, int]]]) -> Optional[Rect]:
         return None
     xs = [p[0] for p in polygon]
     ys = [p[1] for p in polygon]
-    return (min(xs), min(ys), max(xs), max(ys))
+    return (
+        int(round(min(xs))),
+        int(round(min(ys))),
+        int(round(max(xs))),
+        int(round(max(ys))),
+    )
 
 
 def roi_overlays(

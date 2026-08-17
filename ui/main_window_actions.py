@@ -14,10 +14,11 @@ from detect.config import Mode
 from ui.dialogs import StartupDialog
 from ui.drawing import frame_to_pixmap
 from ui.geometry import Rect, roi_overlays
+from ui.main_window_mixin_host import MainWindowMixinHost
 from ui.themes import show_message_dialog
 
 
-class MainWindowActionsMixin:
+class MainWindowActionsMixin(MainWindowMixinHost):
     def _start_capture(self) -> None:
         if self._capture_controller.start_capture():
             # Persist the confirmed left/right assignment by hardware id so the
@@ -88,7 +89,7 @@ class MainWindowActionsMixin:
     def _run_startup_dialog(self) -> None:
         dialog = StartupDialog(self)
         result = dialog.exec()
-        if result != QtWidgets.QDialog.Accepted:
+        if result != QtWidgets.QDialog.DialogCode.Accepted:
             return
         profile_name, pitcher = dialog.values()
         self._profile_manager.apply_startup_selection(profile_name, pitcher)

@@ -34,8 +34,8 @@ class PlateMapWidget(QtWidgets.QWidget):
         self._crossing_point: Optional[Tuple[float, float]] = None
         self.setMinimumSize(280, 220)
         self.setSizePolicy(
-            QtWidgets.QSizePolicy.MinimumExpanding,
-            QtWidgets.QSizePolicy.MinimumExpanding,
+            QtWidgets.QSizePolicy.Policy.MinimumExpanding,
+            QtWidgets.QSizePolicy.Policy.MinimumExpanding,
         )
         self.setAccessibleName("Strike Zone Plate Map")
         self.setAccessibleDescription(
@@ -78,7 +78,7 @@ class PlateMapWidget(QtWidgets.QWidget):
 
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
         painter = QtGui.QPainter(self)
-        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
         rect = self.rect()
         painter.fillRect(rect, _BG_COLOR)
 
@@ -156,7 +156,7 @@ def _draw_zone(painter: QtGui.QPainter, zone_rect: QtCore.QRectF) -> None:
 
 
 def _draw_grid(painter: QtGui.QPainter, zone_rect: QtCore.QRectF) -> None:
-    pen = QtGui.QPen(_GRID_COLOR, 1, QtCore.Qt.DashLine)
+    pen = QtGui.QPen(_GRID_COLOR, 1, QtCore.Qt.PenStyle.DashLine)
     painter.setPen(pen)
     third_w = zone_rect.width() / 3.0
     third_h = zone_rect.height() / 3.0
@@ -217,7 +217,7 @@ def _draw_tic_tac_toe(
                 cell_w,
                 cell_h,
             )
-            painter.drawText(rect, QtCore.Qt.AlignCenter, value)
+            painter.drawText(rect, QtCore.Qt.AlignmentFlag.AlignCenter, value)
 
 
 def _draw_target_cell(

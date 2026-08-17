@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from PySide6 import QtWidgets
 
-from app.review import ReviewService
+from app.review import PitchScore, ReviewService
 from ui.themes import show_message_dialog
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class ExportController:
         service: ReviewService,
         *,
         parent_widget: QtWidgets.QWidget,
-        get_pitch_scores: callable,
+        get_pitch_scores: Callable[[], Mapping[str, PitchScore]],
     ) -> None:
         self._service = service
         self._parent = parent_widget

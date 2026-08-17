@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
 
 from PySide6 import QtCore
 
@@ -14,7 +16,7 @@ from ui.themes import (
 logger = get_logger(__name__)
 
 
-class CalibrationStepCalibrationRunMixin:
+class CalibrationStepCalibrationRunMixin(CalibrationStepMixinHost):
     def _run_calibration(self) -> None:
         """Run stereo calibration on captured images."""
         if len(self._captures) < self._min_captures:

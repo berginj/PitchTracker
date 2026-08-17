@@ -175,8 +175,14 @@ class DeviceManager:
             return
 
         state = load_state()
-        left_ok = self._select_id(self._left_input, state.get(STATE_KEY_LEFT))
-        right_ok = self._select_id(self._right_input, state.get(STATE_KEY_RIGHT))
+        saved_left = state.get(STATE_KEY_LEFT)
+        saved_right = state.get(STATE_KEY_RIGHT)
+        left_ok = self._select_id(
+            self._left_input, saved_left if isinstance(saved_left, str) else None
+        )
+        right_ok = self._select_id(
+            self._right_input, saved_right if isinstance(saved_right, str) else None
+        )
 
         if not left_ok:
             self._left_input.setCurrentIndex(0)

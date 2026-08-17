@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Tuple
+from typing import Dict, Generic, List, Tuple, TypeVar, cast
 
 from exceptions import PitchTrackerError
 from log_config.logger import get_logger
@@ -52,8 +52,11 @@ class SetupStep(Enum):
     QUALITY_REPORT = "quality_report"
 
 
+StepT = TypeVar("StepT", bound=Enum, default=SetupStep)
+
+
 @dataclass(frozen=True)
-class StepSpec:
+class StepSpec(Generic[StepT]):
     """Static description of a single setup step.
 
     Attributes:
@@ -65,16 +68,16 @@ class StepSpec:
             completed set.
     """
 
-    step: SetupStep
+    step: StepT
     title: str
     optional: bool = False
-    prerequisites: Tuple[SetupStep, ...] = ()
+    prerequisites: Tuple[StepT, ...] = ()
 
 
 # Default evidence-gated stereo-rig setup specification. ChArUco fine-tuning is the only
 # optional step: a usable rig can be produced from the targetless coarse
 # rectification alone (see architecture note, decision round 1).
-DEFAULT_SETUP_SPEC: Tuple[StepSpec, ...] = (
+DEFAULT_SETUP_SPEC: Tuple[StepSpec[SetupStep], ...] = (
     StepSpec(SetupStep.SELECT_CAMERAS, "Select cameras"),
     StepSpec(SetupStep.PAIRED_PREVIEW, "Paired preview", prerequisites=(SetupStep.SELECT_CAMERAS,)),
     StepSpec(SetupStep.SYNC_CHECK, "Sync check", prerequisites=(SetupStep.PAIRED_PREVIEW,)),
@@ -118,7 +121,7 @@ DEFAULT_SETUP_SPEC: Tuple[StepSpec, ...] = (
 
 
 @dataclass
-class SetupStateMachine:
+class SetupStateMachine(Generic[StepT]):
     """Drives ordered, prerequisite-gated traversal of setup steps.
 
     Args:
@@ -129,11 +132,14 @@ class SetupStateMachine:
             references a prerequisite that is not present in ``specs``.
     """
 
-    specs: Tuple[StepSpec, ...] = DEFAULT_SETUP_SPEC
+    specs: Tuple[StepSpec[StepT], ...] = cast(
+        Tuple[StepSpec[StepT], ...],
+        DEFAULT_SETUP_SPEC,
+    )
     _index: int = 0
     _completed: set = field(default_factory=set)
-    _order: List[SetupStep] = field(default_factory=list, init=False)
-    _by_step: Dict[SetupStep, StepSpec] = field(default_factory=dict, init=False)
+    _order: List[StepT] = field(default_factory=list, init=False)
+    _by_step: Dict[StepT, StepSpec[StepT]] = field(default_factory=dict, init=False)
 
     def __post_init__(self) -> None:
         if not self.specs:
@@ -150,12 +156,12 @@ class SetupStateMachine:
     # -- Introspection -------------------------------------------------------
 
     @property
-    def steps(self) -> Tuple[SetupStep, ...]:
+    def steps(self) -> Tuple[StepT, ...]:
         """Ordered tuple of steps."""
         return tuple(self._order)
 
     @property
-    def current(self) -> SetupStep:
+    def current(self) -> StepT:
         """The currently active step."""
         return self._order[self._index]
 
@@ -164,33 +170,33 @@ class SetupStateMachine:
         """Zero-based index of the current step."""
         return self._index
 
-    def spec_for(self, step: SetupStep) -> StepSpec:
+    def spec_for(self, step: StepT) -> StepSpec[StepT]:
         """Return the :class:`StepSpec` for ``step``."""
         return self._by_step[step]
 
-    def title_for(self, step: SetupStep) -> str:
+    def title_for(self, step: StepT) -> str:
         """Return the display title for ``step``."""
         return self._by_step[step].title
 
-    def is_optional(self, step: SetupStep) -> bool:
+    def is_optional(self, step: StepT) -> bool:
         """True if ``step`` may be skipped."""
         return self._by_step[step].optional
 
-    def is_complete(self, step: SetupStep) -> bool:
+    def is_complete(self, step: StepT) -> bool:
         """True if ``step`` is marked complete."""
         return step in self._completed
 
     # -- Prerequisite / transition guards ------------------------------------
 
-    def prerequisites_met(self, step: SetupStep) -> bool:
+    def prerequisites_met(self, step: StepT) -> bool:
         """True if every prerequisite of ``step`` is complete."""
         return all(p in self._completed for p in self._by_step[step].prerequisites)
 
-    def can_enter(self, step: SetupStep) -> bool:
+    def can_enter(self, step: StepT) -> bool:
         """True if ``step`` may be entered now (prerequisites complete)."""
         return self.prerequisites_met(step)
 
-    def mark_complete(self, step: SetupStep, complete: bool = True) -> None:
+    def mark_complete(self, step: StepT, complete: bool = True) -> None:
         """Mark ``step`` complete or incomplete.
 
         Marking a step incomplete also clears the completion of any step that
@@ -203,7 +209,7 @@ class SetupStateMachine:
             self._completed.discard(step)
             self._invalidate_dependents(step)
 
-    def _invalidate_dependents(self, step: SetupStep) -> None:
+    def _invalidate_dependents(self, step: StepT) -> None:
         changed = True
         while changed:
             changed = False
@@ -225,7 +231,7 @@ class SetupStateMachine:
             return False
         return self.can_enter(self._order[self._index + 1])
 
-    def advance(self) -> SetupStep:
+    def advance(self) -> StepT:
         """Advance to the next step.
 
         Raises:
@@ -246,7 +252,7 @@ class SetupStateMachine:
             return False
         return self.is_optional(self.current) and self.can_enter(self._order[self._index + 1])
 
-    def skip(self) -> SetupStep:
+    def skip(self) -> StepT:
         """Skip the current optional step without marking it complete.
 
         Raises:
@@ -262,7 +268,7 @@ class SetupStateMachine:
         """True if there is a previous step."""
         return self._index > 0
 
-    def go_back(self) -> SetupStep:
+    def go_back(self) -> StepT:
         """Return to the previous step.
 
         Raises:
@@ -273,7 +279,7 @@ class SetupStateMachine:
         self._index -= 1
         return self.current
 
-    def go_to(self, step: SetupStep) -> SetupStep:
+    def go_to(self, step: StepT) -> StepT:
         """Jump directly to ``step`` if its prerequisites are met.
 
         Raises:
@@ -290,7 +296,7 @@ class SetupStateMachine:
         """True if every required (non-optional) step is complete."""
         return all(spec.step in self._completed for spec in self.specs if not spec.optional)
 
-    def missing_required(self) -> List[SetupStep]:
+    def missing_required(self) -> List[StepT]:
         """Required steps that are not yet complete (in order)."""
         return [spec.step for spec in self.specs if not spec.optional and spec.step not in self._completed]
 

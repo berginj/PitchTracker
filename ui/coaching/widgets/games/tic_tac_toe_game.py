@@ -27,7 +27,7 @@ class TicTacToeGame(BaseGame):
         """
         super().__init__(game_state_manager, parent)
         self._style_manager = get_style_manager()
-        self._grid = [[None] * 3 for _ in range(3)]  # None, 'X', or 'O'
+        self._grid: list[list[str | None]] = [[None] * 3 for _ in range(3)]
         self._wins = 0
         self._losses = 0
         self._build_ui()

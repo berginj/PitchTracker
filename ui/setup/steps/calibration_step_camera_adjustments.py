@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
 
 from PySide6 import QtCore
 
@@ -14,7 +16,7 @@ from ui.themes import (
 logger = get_logger(__name__)
 
 
-class CalibrationStepCameraAdjustmentsMixin:
+class CalibrationStepCameraAdjustmentsMixin(CalibrationStepMixinHost):
     def _toggle_flip(self, camera: str, checked: bool) -> None:
         """Toggle camera flip and restart cameras.
 

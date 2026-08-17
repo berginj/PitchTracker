@@ -224,7 +224,7 @@ def show_message_dialog(
     tone: str = "info",
     informative_text: str | None = None,
     detailed_text: str | None = None,
-    buttons: QtWidgets.QMessageBox.StandardButtons = QtWidgets.QMessageBox.StandardButton.Ok,
+    buttons: QtWidgets.QMessageBox.StandardButton = QtWidgets.QMessageBox.StandardButton.Ok,
     default_button: QtWidgets.QMessageBox.StandardButton | None = QtWidgets.QMessageBox.StandardButton.Ok,
     primary_buttons: Iterable[QtWidgets.QMessageBox.StandardButton] = (QtWidgets.QMessageBox.StandardButton.Ok,),
     danger_buttons: Iterable[QtWidgets.QMessageBox.StandardButton] = (),
@@ -310,8 +310,8 @@ def show_choice_dialog(
 
     box.exec()
     clicked = box.clickedButton()
-    for key, button in button_map.items():
-        if clicked == button:
+    for key, mapped_button in button_map.items():
+        if clicked == mapped_button:
             return key
     return None
 
@@ -356,6 +356,7 @@ def style_dialog_button_box(
     for button in button_box.buttons():
         sm.style_button(button, "default")
 
+    primary_button: QtWidgets.QAbstractButton | None
     if primary is True:
         primary_button = _resolve_accept_button(button_box)
     elif primary is not None and primary is not False:
@@ -365,7 +366,8 @@ def style_dialog_button_box(
 
     if primary_button is not None:
         sm.style_button(primary_button, "primary")
-        primary_button.setDefault(True)
+        if isinstance(primary_button, QtWidgets.QPushButton):
+            primary_button.setDefault(True)
 
     for standard_button in success:
         button = button_box.button(standard_button)

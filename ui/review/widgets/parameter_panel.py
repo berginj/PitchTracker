@@ -108,14 +108,9 @@ class ParameterPanel(QtWidgets.QWidget):
         self._mode_b_radio.setAccessibleName("Detection Mode B")
         self._mode_b_radio.toggled.connect(lambda: self._set_mode(Mode.MODE_B))
 
-        self._mode_c_radio = QtWidgets.QRadioButton("MODE_C (Aggressive)")
-        self._mode_c_radio.setAccessibleName("Detection Mode C")
-        self._mode_c_radio.toggled.connect(lambda: self._set_mode(Mode.MODE_C))
-
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self._mode_a_radio)
         layout.addWidget(self._mode_b_radio)
-        layout.addWidget(self._mode_c_radio)
 
         group.setLayout(layout)
         return group
@@ -291,8 +286,6 @@ class ParameterPanel(QtWidgets.QWidget):
             self._mode_a_radio.setChecked(True)
         elif mode == Mode.MODE_B:
             self._mode_b_radio.setChecked(True)
-        elif mode == Mode.MODE_C:
-            self._mode_c_radio.setChecked(True)
 
         # Set sliders (block signals to avoid triggering change event)
         self._frame_diff_slider.blockSignals(True)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
 
 import numpy as np
 
@@ -10,7 +12,7 @@ from log_config.logger import get_logger
 logger = get_logger(__name__)
 
 
-class CalibrationStepAlignmentMixin:
+class CalibrationStepAlignmentMixin(CalibrationStepMixinHost):
     def _check_alignment_drift(self, left_img: np.ndarray, right_img: np.ndarray) -> bool:
         """Check if camera alignment has drifted since first capture.
 

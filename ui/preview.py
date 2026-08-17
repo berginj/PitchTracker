@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import cv2
+import numpy as np
 
 from configs.lane_io import load_lane_rois, save_lane_rois
 from detect.lane import LaneRoi
@@ -21,12 +22,15 @@ class PreviewState:
 
 def _draw_polygon(frame, points: List[Point]) -> None:
     if len(points) >= 2:
-        cv2.polylines(frame, [cv2.UMat(points).get()], False, (0, 255, 0), 2)
+        polygon = np.asarray(points, dtype=np.int32).reshape((-1, 1, 2))
+        cv2.polylines(frame, [polygon], False, (0, 255, 0), 2)
     for point in points:
         cv2.circle(frame, point, 4, (0, 255, 0), -1)
 
 
-def _mouse_callback(event, x, y, flags, state: PreviewState) -> None:
+def _mouse_callback(event: int, x: int, y: int, flags: int, state: object) -> None:
+    if not isinstance(state, PreviewState):
+        return
     if event == cv2.EVENT_LBUTTONDOWN:
         state.points.append((x, y))
 

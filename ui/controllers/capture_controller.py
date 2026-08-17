@@ -13,7 +13,7 @@ from typing import Optional, Callable, TYPE_CHECKING
 from PySide6 import QtWidgets
 
 from app.services.rig_profile import CRITICAL, WARN, RigProfileService
-from app.validation import ConfigValidator
+from configs.validator import validate_config_file as validate_yaml_config_file
 from exceptions import ConfigValidationError
 from log_config.logger import get_logger
 from ui.themes import ask_confirmation, show_message_dialog
@@ -33,8 +33,7 @@ def validate_config_file(config_path: str) -> None:
     Raises:
         ConfigValidationError: If validation fails
     """
-    validator = ConfigValidator()
-    validator.validate_file(Path(config_path))
+    validate_yaml_config_file(config_path)
 
 
 class CaptureController:

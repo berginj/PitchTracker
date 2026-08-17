@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
 import time
 from pathlib import Path
 
@@ -16,7 +18,7 @@ from ui.themes import (
 logger = get_logger(__name__)
 
 
-class CalibrationStepLifecycleMixin:
+class CalibrationStepLifecycleMixin(CalibrationStepMixinHost):
     def get_title(self) -> str:
         """Return step title."""
         return "Stereo Calibration"

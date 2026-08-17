@@ -51,7 +51,7 @@ def frame_to_pixmap(
             width,
             height,
             image.strides[0],
-            QtGui.QImage.Format_Grayscale8,
+            QtGui.QImage.Format.Format_Grayscale8,
         )
     else:
         # RGB
@@ -62,7 +62,7 @@ def frame_to_pixmap(
             width,
             height,
             rgb.strides[0],
-            QtGui.QImage.Format_RGB888,
+            QtGui.QImage.Format.Format_RGB888,
         )
 
     pixmap = QtGui.QPixmap.fromImage(qimage)
@@ -231,7 +231,7 @@ def draw_plate_grid(
         )
 
     # Draw 3x3 grid lines
-    painter.setPen(QtGui.QPen(color, 1, QtCore.Qt.DashLine))
+    painter.setPen(QtGui.QPen(color, 1, QtCore.Qt.PenStyle.DashLine))
     for i in range(1, 3):
         x = x1 + int(width * i / 3.0)
         y = y1 + int(height * i / 3.0)

@@ -34,17 +34,21 @@ class _WizardParent(QtWidgets.QMainWindow):
         self._right_input = QtWidgets.QComboBox()
         self._left_input.addItem("Left", "left-serial")
         self._right_input.addItem("Right", "right-serial")
-        self._target_found = False
-        self._fiducial_error = ""
-        self._fiducial_detections = []
-        self._fiducial_ids = {"plate": 1, "rubber": 2}
-        self._lane_rect = None
-        self._lane_rect_right = None
-        self._plate_rect = None
-        self._capture_running = False
+        self._calibration_overlay = SimpleNamespace(
+            target_found=False,
+            fiducial_error="",
+            fiducial_detections=[],
+            fiducial_ids={"plate": 1, "rubber": 2},
+        )
+        self._roi_manager = SimpleNamespace(
+            lane_rect=None,
+            lane_rect_right=None,
+            plate_rect=None,
+        )
         self._status_label = QtWidgets.QLabel()
         self._service = Mock()
         self._service.get_latest_detections.return_value = {}
+        self._service.is_capturing.return_value = False
         self._stop_capture = Mock()
         self._start_capture = Mock()
         self._open_calibration_guide = Mock()
@@ -117,13 +121,16 @@ def test_support_persists_baseline_and_completion_log(config_path: Path) -> None
 def test_support_characterizes_fiducial_and_detector_validation(config_path: Path) -> None:
     parent = _WizardParent(config_path)
     support = CalibrationWizardSupport(parent)
-    parent._fiducial_detections = [SimpleNamespace(tag_id=1), SimpleNamespace(tag_id=2)]
+    parent._calibration_overlay.fiducial_detections = [
+        SimpleNamespace(tag_id=1),
+        SimpleNamespace(tag_id=2),
+    ]
     parent._service.get_latest_detections.return_value = {"left": [object()]}
 
     assert support.validate_fiducials() is True
     assert support.validate_detector_activity() is True
 
-    parent._fiducial_error = "detector unavailable"
+    parent._calibration_overlay.fiducial_error = "detector unavailable"
     parent._service.get_latest_detections.side_effect = RuntimeError("offline")
     assert support.validate_fiducials() is False
     assert support.validate_detector_activity() is False

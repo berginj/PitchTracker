@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
 
 import cv2
 import numpy as np
@@ -12,7 +14,7 @@ from log_config.logger import get_logger
 logger = get_logger(__name__)
 
 
-class CalibrationStepCharucoDetectionMixin:
+class CalibrationStepCharucoDetectionMixin(CalibrationStepMixinHost):
     def _detect_charuco_ids(self, image: np.ndarray) -> tuple[np.ndarray | None, float]:
         """Return interpolated ChArUco corner IDs and blur score for capture validation."""
         if len(image.shape) == 3:

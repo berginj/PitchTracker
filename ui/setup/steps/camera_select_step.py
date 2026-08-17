@@ -164,6 +164,9 @@ class CameraSelectStep(BaseStep):
         if not left_id or not right_id or left_id == right_id:
             style_status_label(self._headline, "error", "Choose two distinct cameras")
             return
+        if self._assignment_callback is None:
+            style_status_label(self._headline, "error", "Camera assignment is unavailable")
+            return
         self._assignment_callback(left_id, right_id)
         self.refresh()
 

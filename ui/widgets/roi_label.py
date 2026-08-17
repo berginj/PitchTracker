@@ -61,7 +61,7 @@ class RoiLabel(QtWidgets.QLabel):
         """
         if self._mode is None or self._image_size is None:
             return
-        if event.button() == QtCore.Qt.LeftButton:
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
             self._start = event.position().toPoint()
 
     def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:
@@ -90,7 +90,7 @@ class RoiLabel(QtWidgets.QLabel):
         if self._start is None or self._image_size is None:
             return
 
-        if event.button() == QtCore.Qt.LeftButton:
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
             end = event.position().toPoint()
             start = self._map_point(self._start)
             end = self._map_point(end)

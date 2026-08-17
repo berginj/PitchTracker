@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
 
 from PySide6 import QtCore, QtWidgets
 
@@ -13,7 +15,7 @@ from ui.themes import (
 logger = get_logger(__name__)
 
 
-class CalibrationStepPanelsMixin:
+class CalibrationStepPanelsMixin(CalibrationStepMixinHost):
     def _build_settings_group(self) -> QtWidgets.QWidget:
         """Build calibration settings groups."""
         container = QtWidgets.QWidget()
@@ -282,7 +284,7 @@ class CalibrationStepPanelsMixin:
         status_scroll.setWidgetResizable(True)
         status_scroll.setMinimumHeight(100)  # Minimum height to show content
         status_scroll.setMaximumHeight(200)  # Increased from 150px to show more issues
-        status_scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        status_scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
         layout.addWidget(status_scroll)
 
         # NEW: Quality gauge (visual score indicator)

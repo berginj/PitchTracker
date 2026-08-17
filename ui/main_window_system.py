@@ -15,12 +15,13 @@ from app.monitoring import get_resource_monitor
 from app.validation import ConfigValidator
 from configs.settings import load_config
 from log_config.logger import get_logger
+from ui.main_window_mixin_host import MainWindowMixinHost
 from ui.themes import ask_confirmation, get_style_manager, show_message_dialog
 
 logger = get_logger(__name__)
 
 
-class MainWindowSystemMixin:
+class MainWindowSystemMixin(MainWindowMixinHost):
     def _apply_modern_styles(self) -> None:
         """Apply the centralized design system to the main app shell."""
         sm = get_style_manager()
@@ -175,10 +176,18 @@ class MainWindowSystemMixin:
         """Initialize error handling system."""
         self._error_bus = get_error_bus()
         self._recovery_manager = get_recovery_manager()
-        self._recovery_manager.register_handler("stop_session", lambda event: self._stop_recording())
-        self._recovery_manager.register_handler("shutdown", lambda event: self.close())
+        self._recovery_manager.register_handler("stop_session", self._recover_stop_session)
+        self._recovery_manager.register_handler("shutdown", self._recover_shutdown)
         self._recovery_manager.start()
         logger.info("Error handling system initialized")
+
+    def _recover_stop_session(self, _event: object) -> bool:
+        self._stop_recording()
+        return True
+
+    def _recover_shutdown(self, _event: object) -> bool:
+        self.close()
+        return True
 
     def _init_resource_monitoring(self) -> None:
         """Start resource monitoring."""
@@ -206,6 +215,10 @@ class MainWindowSystemMixin:
 
     def _register_cleanup_tasks(self) -> None:
         """Register cleanup tasks for graceful shutdown."""
+        def stop_recording() -> None:
+            if hasattr(self, "_service"):
+                self._service.stop_recording()
+
         self._cleanup_manager = get_cleanup_manager()
         self._cleanup_manager.register_cleanup(
             "stop_capture",
@@ -215,7 +228,7 @@ class MainWindowSystemMixin:
         )
         self._cleanup_manager.register_cleanup(
             "stop_recording",
-            lambda: self._service.stop_recording() if hasattr(self, "_service") else None,
+            stop_recording,
             timeout=10.0,
             critical=True,
         )

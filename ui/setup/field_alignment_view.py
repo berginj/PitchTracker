@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,35 +30,41 @@ def load_or_estimate_field_alignment(
     transform_path = calib_dir / "field_transform.json"
     fixture_path = calib_dir / "field_fixture_points.json"
     try:
-        fixture_payload = None
+        fixture_payload: dict[str, object] | None = None
+        camera_points: list[tuple[float, float, float]] = []
+        field_points: list[tuple[float, float, float]] = []
         fixture_source_sha256 = ""
         fixture_point_count = 0
         if fixture_path.exists():
             fixture_bytes = fixture_path.read_bytes()
             fixture_source_sha256 = hashlib.sha256(fixture_bytes).hexdigest()
-            fixture_payload = json.loads(fixture_bytes.decode("utf-8"))
-            camera_points = fixture_payload["camera_points_ft"]
-            field_points = fixture_payload["field_points_ft"]
+            raw_fixture: object = json.loads(fixture_bytes.decode("utf-8"))
+            fixture_payload = _object_mapping(raw_fixture, "field fixture")
+            camera_points = _point_rows(fixture_payload.get("camera_points_ft"), "camera_points_ft")
+            field_points = _point_rows(fixture_payload.get("field_points_ft"), "field_points_ft")
             if len(camera_points) != len(field_points):
                 raise ValueError("camera and field fixture point counts differ")
             fixture_point_count = len(camera_points)
 
-        existing_payload = None
+        existing_payload: dict[str, object] | None = None
         if transform_path.exists():
-            existing_payload = json.loads(transform_path.read_text(encoding="utf-8"))
+            raw_transform: object = json.loads(transform_path.read_text(encoding="utf-8"))
+            existing_payload = _object_mapping(raw_transform, "field transform")
 
         should_estimate = fixture_payload is not None and (
             force_recalculate
             or existing_payload is None
             or existing_payload.get("fixture_source_sha256") != fixture_source_sha256
-            or int(existing_payload.get("fixture_point_count") or 0) != fixture_point_count
+            or int(_number(existing_payload.get("fixture_point_count"), 0.0)) != fixture_point_count
         )
         if should_estimate:
+            if fixture_payload is None:
+                raise ValueError("field fixture is unavailable")
             transform = estimate_field_transform(
-                fixture_payload["camera_points_ft"],
-                fixture_payload["field_points_ft"],
+                camera_points,
+                field_points,
                 fixture_id=str(fixture_payload.get("fixture_id") or fixture_path.stem),
-                max_rms_residual_ft=float(fixture_payload.get("max_rms_residual_ft", 0.1)),
+                max_rms_residual_ft=_number(fixture_payload.get("max_rms_residual_ft"), 0.1),
             )
             existing_payload = {
                 **transform.to_payload(),
@@ -69,7 +76,9 @@ def load_or_estimate_field_alignment(
         elif existing_payload is not None and not force_recalculate:
             transform = _transform_from_payload(existing_payload)
             fixture_source_sha256 = str(existing_payload.get("fixture_source_sha256") or fixture_source_sha256)
-            fixture_point_count = int(existing_payload.get("fixture_point_count") or fixture_point_count)
+            fixture_point_count = int(
+                _number(existing_payload.get("fixture_point_count"), float(fixture_point_count))
+            )
             recommendation = "Field coordinate transform loaded and validated."
         else:
             return FieldAlignmentSnapshot(
@@ -103,12 +112,48 @@ def load_or_estimate_field_alignment(
     )
 
 
-def _transform_from_payload(payload: dict) -> FieldTransform:
+def _object_mapping(value: object, label: str) -> dict[str, object]:
+    if not isinstance(value, Mapping) or not all(isinstance(key, str) for key in value):
+        raise ValueError(f"{label} must be a JSON object")
+    return {str(key): item for key, item in value.items()}
+
+
+def _point_rows(value: object, label: str) -> list[tuple[float, float, float]]:
+    if not isinstance(value, list):
+        raise ValueError(f"{label} must be a list")
+    points: list[tuple[float, float, float]] = []
+    for row in value:
+        if not isinstance(row, list) or len(row) != 3:
+            raise ValueError(f"{label} rows must contain three coordinates")
+        points.append((_number(row[0]), _number(row[1]), _number(row[2])))
+    return points
+
+
+def _matrix_4x4(value: object) -> tuple[tuple[float, float, float, float], ...]:
+    if not isinstance(value, list) or len(value) != 4:
+        raise ValueError("matrix_4x4 must contain four rows")
+    rows: list[tuple[float, float, float, float]] = []
+    for row in value:
+        if not isinstance(row, list) or len(row) != 4:
+            raise ValueError("matrix_4x4 rows must contain four values")
+        rows.append((_number(row[0]), _number(row[1]), _number(row[2]), _number(row[3])))
+    return tuple(rows)
+
+
+def _number(value: object, default: float | None = None) -> float:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    if default is not None and value is None:
+        return default
+    raise ValueError("expected a finite numeric value")
+
+
+def _transform_from_payload(payload: Mapping[str, object]) -> FieldTransform:
     return FieldTransform(
-        tuple(tuple(float(value) for value in row) for row in payload["matrix_4x4"]),
-        float(payload["rms_residual_ft"]),
+        _matrix_4x4(payload["matrix_4x4"]),
+        _number(payload["rms_residual_ft"]),
         str(payload["fixture_id"]),
-        float(payload.get("max_rms_residual_ft", 0.1)),
+        _number(payload.get("max_rms_residual_ft"), 0.1),
     )
 
 

@@ -8,8 +8,10 @@ import cv2
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ui.device_utils import DEFAULT_OPENCV_MAX_INDEX, current_serial, probe_opencv_indices, probe_uvc_devices
+from capture import CameraDevice
+from ui.device_utils import current_serial
 from ui.setup.steps.base_step import BaseStep
+from ui.setup.steps.camera_discovery_worker import CameraDiscoveryWorker
 from ui.themes import (
     apply_standard_layout,
     build_notice,
@@ -17,49 +19,6 @@ from ui.themes import (
     style_preview_surface,
     style_status_label,
 )
-
-
-class CameraDiscoverySignals(QtCore.QObject):
-    """Signals emitted by a camera discovery worker."""
-
-    finished_signal = QtCore.Signal(list)
-    error_signal = QtCore.Signal(str)
-
-
-def _safe_emit_finished(signals: CameraDiscoverySignals, devices: list) -> None:
-    """Emit finished_signal, silently absorbing RuntimeError from deleted C++."""
-    try:
-        signals.finished_signal.emit(devices)
-    except RuntimeError:
-        pass
-
-
-def _safe_emit_error(signals: CameraDiscoverySignals, message: str) -> None:
-    """Emit error_signal, silently absorbing RuntimeError from deleted C++."""
-    try:
-        signals.error_signal.emit(message)
-    except RuntimeError:
-        pass
-
-
-class CameraDiscoveryWorker(QtCore.QRunnable):
-    """Probe USB/UVC devices on the application thread pool."""
-
-    def __init__(self, backend: str):
-        super().__init__()
-        self._backend = backend
-        self.signals = CameraDiscoverySignals()
-
-    def run(self) -> None:
-        try:
-            if self._backend == "opencv":
-                devices = probe_opencv_indices(max_index=DEFAULT_OPENCV_MAX_INDEX, parallel=False, use_cache=False)
-            else:
-                devices = probe_uvc_devices()
-        except Exception as exc:  # noqa: BLE001
-            _safe_emit_error(self.signals, str(exc))
-            return
-        _safe_emit_finished(self.signals, devices or [])
 
 
 class CameraStep(BaseStep):
@@ -71,9 +30,10 @@ class CameraStep(BaseStep):
         self._backend = backend
         self._left_serial: Optional[str] = None
         self._right_serial: Optional[str] = None
-        self._left_camera: Optional[object] = None
-        self._right_camera: Optional[object] = None
+        self._left_camera: Optional[CameraDevice] = None
+        self._right_camera: Optional[CameraDevice] = None
         self._preview_timer: Optional[QtCore.QTimer] = None
+        self._discovery_worker: Optional[CameraDiscoveryWorker] = None
 
         self._build_ui()
         self._setup_preview_timer()
@@ -215,10 +175,13 @@ class CameraStep(BaseStep):
                 "Probing USB devices...", self
             )
             self._loading_bar.setRange(0, 0)
-            self.layout().insertWidget(self.layout().count() - 1, self._loading_frame)
+            layout = self.layout()
+            if not isinstance(layout, QtWidgets.QBoxLayout):
+                raise RuntimeError("Camera step requires a box layout")
+            layout.insertWidget(layout.count() - 1, self._loading_frame)
         self._loading_frame.setVisible(visible)
 
-    def _on_discovery_complete(self, devices: list) -> None:
+    def _on_discovery_complete(self, devices: list[object]) -> None:
         """Handle device discovery results on the main thread."""
         self._show_loading(False)
         self._refresh_button.setEnabled(True)
@@ -236,13 +199,17 @@ class CameraStep(BaseStep):
 
         if self._backend == "opencv":
             for index in devices:
+                if not isinstance(index, int):
+                    continue
                 label = f"Camera {index}"
                 self._left_combo.addItem(label, str(index))
                 self._right_combo.addItem(label, str(index))
         else:
             for device in devices:
-                serial = device.get("serial", "")
-                friendly_name = device.get("friendly_name", "")
+                if not isinstance(device, dict):
+                    continue
+                serial = str(device.get("serial", "") or "")
+                friendly_name = str(device.get("friendly_name", "") or "")
                 label = f"{serial} - {friendly_name}" if serial and friendly_name else (friendly_name or serial)
                 self._left_combo.addItem(label, serial)
                 self._right_combo.addItem(label, serial)
@@ -355,6 +322,7 @@ class CameraStep(BaseStep):
             flip_left = config.camera.flip_left
             rotation_left = getattr(config.camera, "rotation_left", 0.0)
 
+            camera: CameraDevice
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
 
@@ -391,6 +359,7 @@ class CameraStep(BaseStep):
             flip_right = config.camera.flip_right
             rotation_right = getattr(config.camera, "rotation_right", 0.0)
 
+            camera: CameraDevice
             if self._backend == "opencv":
                 from capture.opencv_backend import OpenCVCamera
 
@@ -488,7 +457,7 @@ class CameraStep(BaseStep):
             width,
             height,
             bytes_per_line,
-            QtGui.QImage.Format_RGB888,
+            QtGui.QImage.Format.Format_RGB888,
         )
 
         pixmap = QtGui.QPixmap.fromImage(qimage)

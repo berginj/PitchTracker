@@ -12,6 +12,7 @@ from ui.coaching.game_state_manager import GameStateManager
 from ui.coaching.session_history_tracker import SessionHistoryTracker
 from ui.coaching.strike_zone_mapping import StrikeZoneOverlayConfig
 from ui.coaching.widgets.mode_widgets import (
+    BaseModeWidget,
     BroadcastViewWidget,
     GameModeWidget,
     SessionProgressionWidget,
@@ -79,7 +80,7 @@ def build_mode_content(
     # Load last mode from settings
     state = load_state()
     last_mode = state.get("last_coaching_mode", 0)
-    mode_selector.setCurrentIndex(int(last_mode))
+    mode_selector.setCurrentIndex(int(last_mode) if isinstance(last_mode, (str, int, float)) else 0)
 
     # Add selector to toolbar (after setting index to avoid premature signal)
     mode_toolbar_layout.insertWidget(1, mode_selector)
@@ -112,11 +113,15 @@ def on_mode_changed(
 ) -> None:
     """Handle mode selection change."""
     current_mode = mode_stack.currentWidget()
+    if not isinstance(current_mode, BaseModeWidget):
+        raise RuntimeError("Coaching mode stack contains an unsupported widget")
     camera = current_mode.get_current_camera_selection()
 
     mode_stack.setCurrentIndex(index)
 
     new_mode = mode_stack.currentWidget()
+    if not isinstance(new_mode, BaseModeWidget):
+        raise RuntimeError("Coaching mode stack contains an unsupported widget")
     new_mode.set_camera_selection(camera)
     new_mode.update_pitch_data(pitch_snapshot, new_pitches=[])
 

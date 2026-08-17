@@ -36,7 +36,7 @@ def test_optional_step_is_non_blocking():
 
 def test_machine_drives_full_required_traversal():
     machine = SetupStateMachine(build_wizard_spec())
-    assert machine.current == WizardStep.CAMERAS
+    assert machine.current.value == WizardStep.CAMERAS.value
     assert not machine.can_finish()
 
     for step in WIZARD_STEP_ORDER:
@@ -44,7 +44,7 @@ def test_machine_drives_full_required_traversal():
         if machine.can_advance():
             machine.advance()
 
-    assert machine.current == WizardStep.QUALITY_REPORT
+    assert machine.current.value == WizardStep.QUALITY_REPORT.value
     assert machine.can_finish()
 
 
@@ -62,10 +62,10 @@ def test_optional_step_can_be_skipped_and_still_finish():
     for step in (WizardStep.CAMERAS, WizardStep.CALIBRATION, WizardStep.ROI):
         machine.mark_complete(step, True)
         machine.advance()
-    assert machine.current == WizardStep.DETECTOR
+    assert machine.current.value == WizardStep.DETECTOR.value
     assert machine.can_skip()
     machine.skip()
-    assert machine.current == WizardStep.VALIDATION
+    assert machine.current.value == WizardStep.VALIDATION.value
 
     machine.mark_complete(WizardStep.VALIDATION, True)
     machine.advance()

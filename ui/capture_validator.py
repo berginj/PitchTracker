@@ -162,8 +162,10 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
         from configs.app_state import load_state
 
         state = load_state()
-        self._left_serial = state.get("last_left_camera", "0")
-        self._right_serial = state.get("last_right_camera", "1")
+        saved_left = state.get("last_left_camera", "0")
+        saved_right = state.get("last_right_camera", "1")
+        self._left_serial = saved_left if isinstance(saved_left, str) else "0"
+        self._right_serial = saved_right if isinstance(saved_right, str) else "1"
 
         try:
             self._status_label.setText("Starting cameras...")
@@ -264,7 +266,7 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
                 self._test_dir.mkdir(parents=True, exist_ok=True)
 
                 # Create video writers
-                fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+                fourcc = int.from_bytes(b"MJPG", "little")
 
                 left_path = self._test_dir / "left_camera.avi"
                 self._left_writer = cv2.VideoWriter(
@@ -277,7 +279,7 @@ class CaptureValidatorWindow(QtWidgets.QMainWindow):
 
                 # Fallback to XVID if MJPG fails
                 if not self._left_writer.isOpened():
-                    fourcc = cv2.VideoWriter_fourcc(*"XVID")
+                    fourcc = int.from_bytes(b"XVID", "little")
                     self._left_writer = cv2.VideoWriter(
                         str(left_path),
                         fourcc,

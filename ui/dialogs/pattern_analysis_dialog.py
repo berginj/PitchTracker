@@ -261,6 +261,9 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
 
         velocity = baseline.velocity_vs_baseline
         strike = baseline.strike_percentage_vs_baseline
+        if velocity is None or strike is None:
+            self.baseline_text.setHtml("<p>Baseline comparison is incomplete.</p>")
+            return
         text = f"""
 <h2>Baseline Comparison</h2>
 <h3>Velocity</h3>

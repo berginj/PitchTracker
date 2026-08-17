@@ -58,7 +58,7 @@ WIZARD_STEP_TITLES = {
 }
 
 
-def build_wizard_spec(optional: Iterable[WizardStep] = ()) -> Tuple[StepSpec, ...]:
+def build_wizard_spec(optional: Iterable[WizardStep] = ()) -> Tuple[StepSpec[WizardStep], ...]:
     """Build a linear, prerequisite-gated spec for the live wizard.
 
     Each step depends on the most recent *required* step before it, so an
@@ -73,7 +73,7 @@ def build_wizard_spec(optional: Iterable[WizardStep] = ()) -> Tuple[StepSpec, ..
         Ordered tuple of :class:`StepSpec`, one per :data:`WIZARD_STEP_ORDER`.
     """
     optional_set = set(optional)
-    specs: list[StepSpec] = []
+    specs: list[StepSpec[WizardStep]] = []
     last_required: WizardStep | None = None
     for step in WIZARD_STEP_ORDER:
         prereqs: Tuple[WizardStep, ...] = (last_required,) if last_required is not None else ()

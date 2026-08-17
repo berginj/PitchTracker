@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, cast
 
 from PySide6 import QtCore, QtWidgets
 
@@ -20,13 +20,13 @@ from ui.themes import (
 )
 
 if TYPE_CHECKING:
-    from ui.qt_app import MainWindow
+    from ui.main_window import MainWindow
 
 
 class CalibrationWizardDialog(QtWidgets.QDialog):
     """Multi-step wizard dialog for guided calibration workflow."""
 
-    def __init__(self, parent: "MainWindow") -> None:
+    def __init__(self, parent: QtWidgets.QMainWindow) -> None:
         """Initialize calibration wizard dialog.
 
         Args:
@@ -36,7 +36,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self.setWindowTitle("Calibration & Training Wizard")
         self.resize(900, 700)  # Larger dialog to accommodate camera previews
         self._style_manager = get_style_manager()
-        self._parent = parent
+        self._parent = cast("MainWindow", parent)
         self._index = 0
         self._skipped_steps: list[str] = []
         self._device_left: Optional[QtWidgets.QComboBox] = None
@@ -48,7 +48,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         self._baseline_spin: Optional[QtWidgets.QDoubleSpinBox] = None
         self._baseline_inches_label: Optional[QtWidgets.QLabel] = None
         self._support = CalibrationWizardSupport(parent)
-        self._steps = build_wizard_steps(self, parent)
+        self._steps = build_wizard_steps(self, self._parent)
 
         self._title = QtWidgets.QLabel()
         self._style_manager.style_label(self._title, "pageTitle")
@@ -97,7 +97,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setWidget(scroll_content)
-        scroll_area.setFrameShape(QtWidgets.QFrame.NoFrame)
+        scroll_area.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
 
         button_row = QtWidgets.QHBoxLayout()
         button_row.setSpacing(10)
@@ -354,8 +354,9 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
             Fiducial indicator widget
         """
         widget = QtWidgets.QGroupBox("Fiducial Detection")
-        plate_id = self._parent._fiducial_ids["plate"]
-        rubber_id = self._parent._fiducial_ids["rubber"]
+        fiducial_ids = self._parent._calibration_overlay.fiducial_ids
+        plate_id = fiducial_ids["plate"]
+        rubber_id = fiducial_ids["rubber"]
         self._fiducial_label = QtWidgets.QLabel("Tags detected: 0")
         style_status_label(self._fiducial_label, "warning", "Tags detected: 0")
 
@@ -370,7 +371,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         error_scroll.setWidget(self._fiducial_error_label)
         error_scroll.setWidgetResizable(True)
         error_scroll.setMaximumHeight(100)
-        error_scroll.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        error_scroll.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)
         error_scroll.setVisible(False)  # Hidden by default
         self._fiducial_error_scroll = error_scroll
 
@@ -411,7 +412,7 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
         """Update live status indicators (called by timer)."""
         if self._target_label is None:
             pass
-        found = self._parent._target_found
+        found = self._parent._calibration_overlay.target_found
         if self._target_label is not None:
             style_status_label(
                 self._target_label,
@@ -419,14 +420,14 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
                 "Target detected: yes" if found else "Target detected: no",
             )
         if self._fiducial_label is not None:
-            ids = [det.tag_id for det in self._parent._fiducial_detections]
+            ids = [det.tag_id for det in self._parent._calibration_overlay.fiducial_detections]
             style_status_label(
                 self._fiducial_label,
                 "success" if ids else "warning",
                 f"Tags detected: {len(ids)} ({ids})",
             )
         if self._fiducial_error_label is not None and self._fiducial_error_scroll is not None:
-            error = self._parent._fiducial_error
+            error = self._parent._calibration_overlay.fiducial_error
             if error:
                 style_status_label(self._fiducial_error_label, "error", error)
                 self._fiducial_error_scroll.setVisible(True)

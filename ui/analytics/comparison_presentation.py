@@ -225,7 +225,7 @@ class ComparisonChartPresenter:
 
     def _accuracy_color(self, percent: float) -> str:
         if percent >= 65:
-            return self._theme.chart_green
+            return str(self._theme.chart_green)
         if percent >= 55:
-            return self._theme.chart_orange
-        return self._theme.chart_red
+            return str(self._theme.chart_orange)
+        return str(self._theme.chart_red)

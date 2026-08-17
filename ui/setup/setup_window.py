@@ -65,7 +65,9 @@ class SetupWindow(QtWidgets.QMainWindow):
         # tested, Qt-free SetupStateMachine engine instead of an ad-hoc index.
         self._init_steps()
         optional = tuple(step for step in WIZARD_STEP_ORDER if self._widget_by_step[step].is_optional())
-        self._machine = SetupStateMachine(build_wizard_spec(optional=optional))
+        self._machine: SetupStateMachine[WizardStep] = SetupStateMachine(
+            build_wizard_spec(optional=optional)
+        )
 
         # Build UI
         self._build_ui()

@@ -279,18 +279,18 @@ class ComparisonDashboard(QtWidgets.QWidget):
         except (OSError, csv.Error) as exc:
             logger.error("Failed to export comparison: {}", exc)
             show_message_dialog(
-                parent=self,
-                title="Export Failed",
-                message=f"Failed to export comparison:\n{exc}",
-                level="warning",
+                self,
+                "Export Failed",
+                f"Failed to export comparison:\n{exc}",
+                tone="warning",
             )
             return
         logger.info("Exported comparison to {}", path)
         show_message_dialog(
-            parent=self,
-            title="Export Complete",
-            message=f"Comparison exported to:\n{path}",
-            level="info",
+            self,
+            "Export Complete",
+            f"Comparison exported to:\n{path}",
+            tone="info",
         )
 
 

@@ -19,6 +19,7 @@ from ui.export import upload_session, save_session_export
 from ui.themes import show_message_dialog
 
 if TYPE_CHECKING:
+    from app.contracts import SessionSummary
     from configs.settings import AppConfig
 
 logger = get_logger(__name__)
@@ -48,11 +49,11 @@ class RecordingController:
         get_pitcher_name: Callable[[], Optional[str]],
         get_location_profile: Callable[[], Optional[str]],
         health_check: Callable[[], bool],
-        start_recording_service: Callable[[str, str], None],
-        stop_recording_service: Callable[[], None],
+        start_recording_service: Callable[[str, str], object],
+        stop_recording_service: Callable[[], object],
         set_record_directory: Callable[[Path], None],
         set_manual_speed_mph: Callable[[Optional[float]], None],
-        get_session_summary: Callable[[], object],
+        get_session_summary: Callable[[], "SessionSummary"],
         get_session_dir: Callable[[], Optional[Path]],
     ):
         """Initialize recording controller.

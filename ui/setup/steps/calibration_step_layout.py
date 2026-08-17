@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
 
 from PySide6 import QtCore, QtWidgets
 
@@ -18,7 +20,7 @@ from ui.themes import (
 logger = get_logger(__name__)
 
 
-class CalibrationStepLayoutMixin:
+class CalibrationStepLayoutMixin(CalibrationStepMixinHost):
     def _build_ui(self) -> None:
         """Build simplified calibration step UI."""
         layout = QtWidgets.QVBoxLayout()
@@ -224,7 +226,7 @@ class CalibrationStepLayoutMixin:
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidget(scroll_content)
         scroll_area.setWidgetResizable(True)
-        scroll_area.setFrameShape(QtWidgets.QFrame.NoFrame)
+        scroll_area.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
 
         main_layout = QtWidgets.QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)

@@ -52,6 +52,7 @@ class TrajectoryController:
                 baseline_ft=0.5,
                 cx=640.0,
                 cy=360.0,
+                epipolar_epsilon_px=3.0,
             )
 
             if self._service.session.calibration:
@@ -61,6 +62,7 @@ class TrajectoryController:
                     baseline_ft=cal.get("baseline_ft", 0.5),
                     cx=cal.get("cx", 640.0),
                     cy=cal.get("cy", 360.0),
+                    epipolar_epsilon_px=cal.get("epipolar_epsilon_px", 3.0),
                 )
 
             config = TrajectoryRenderConfig(

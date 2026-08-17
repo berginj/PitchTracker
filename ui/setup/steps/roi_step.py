@@ -171,7 +171,6 @@ class RoiStep(BaseStep):
     def _close_camera(self) -> None:
         if self._left_camera:
             try:
-                self._left_camera.stop()
                 self._left_camera.close()
             except Exception:
                 pass

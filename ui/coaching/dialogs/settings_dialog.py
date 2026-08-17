@@ -55,8 +55,8 @@ class SettingsDialog(QtWidgets.QDialog):
         self._current_ball_type = current_ball_type
         self._current_color_mode = current_color_mode
 
-        self.width = current_width
-        self.height = current_height
+        self.selected_width = current_width
+        self.selected_height = current_height
         self.fps = current_fps
         self.left_camera = current_left_camera
         self.right_camera = current_right_camera
@@ -303,8 +303,8 @@ class SettingsDialog(QtWidgets.QDialog):
             or color_mode != self._current_color_mode
         )
 
-        self.width = width
-        self.height = height
+        self.selected_width = width
+        self.selected_height = height
         self.fps = fps
         self.left_camera = left_camera
         self.right_camera = right_camera

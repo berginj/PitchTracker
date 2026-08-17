@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
 import time
 from typing import Optional
 
@@ -17,7 +19,7 @@ from ui.themes import (
 logger = get_logger(__name__)
 
 
-class CalibrationStepPreviewCaptureMixin:
+class CalibrationStepPreviewCaptureMixin(CalibrationStepMixinHost):
     def _update_preview(self) -> None:
         """Update camera previews and check for ChArUco board."""
         if not self._left_camera or not self._right_camera:
@@ -390,7 +392,7 @@ class CalibrationStepPreviewCaptureMixin:
                 from analysis.camera_alignment import analyze_alignment
 
                 current_alignment = analyze_alignment(left_frame.image, right_frame.image)
-                self._alignment_history.append(current_alignment)
+                self._update_alignment_history(current_alignment)
 
                 if len(self._captures) == 1:
                     self._baseline_alignment = current_alignment

@@ -97,6 +97,8 @@ class SessionController:
             self._on_session_loaded()
 
             session = self._service.session
+            if session is None:
+                raise RuntimeError("Review service did not retain the loaded session")
             self._status_bar.showMessage(
                 f"Loaded session: {session.session_id} "
                 f"({len(session.pitches)} pitches, {self._service.total_frames} frames)"
@@ -133,7 +135,7 @@ class SessionController:
             )
             return
 
-        self._session_list = SessionLoader.get_available_sessions()
+        self._session_list = SessionLoader.get_available_sessions(recordings_dir)
 
         if not self._session_list:
             show_message_dialog(

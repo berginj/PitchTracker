@@ -62,8 +62,9 @@ class FieldAlignmentStep(BaseStep):
         style_status_label(self._headline, view.tone, view.headline)
         while self._details.count():
             item = self._details.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
         for row in view.rows:
             label = QtWidgets.QLabel(f"{row.label}: {row.value}")
             self._details.addWidget(label)

@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 from PySide6 import QtCore, QtWidgets
 
+from analysis.camera_alignment_types import AlignmentResults
+from calib.camera_capabilities import CameraCapabilities
 from capture import CameraDevice
 from log_config.logger import get_logger
-from ui.setup.steps.base_step import BaseStep
 from ui.setup.steps.calibration_step_alignment import CalibrationStepAlignmentMixin
 from ui.setup.steps.calibration_step_alignment_compare import CalibrationStepAlignmentCompareMixin
 from ui.setup.steps.calibration_step_alignment_history import CalibrationStepAlignmentHistoryMixin
@@ -49,7 +50,6 @@ class CalibrationStep(
     CalibrationStepAlignmentReportsMixin,
     CalibrationStepAlignmentPresetsMixin,
     CalibrationStepAlignmentCompareMixin,
-    BaseStep,
 ):
     """Step 2: Stereo calibration with ChArUco board pattern.
 
@@ -91,9 +91,9 @@ class CalibrationStep(
         self._calibration_result: Optional[dict] = None
 
         # Alignment history tracking
-        self._alignment_history: list = []  # Track alignment iterations
-        self._alignment_results: Optional = None  # Current alignment results
-        self._baseline_alignment: Optional = None  # Baseline from first capture (drift detection)
+        self._alignment_history: list[dict[str, Any]] = []
+        self._alignment_results: Optional[AlignmentResults] = None
+        self._baseline_alignment: Optional[AlignmentResults] = None
         self._warmup_attempts: int = 0  # Camera warmup retry counter
 
         # Detection optimization (prevent processing loop)
@@ -111,7 +111,7 @@ class CalibrationStep(
         self._auto_swap_on_startup: bool = True  # Auto-check camera orientation on startup
 
         # Camera capability detection (Phase 3)
-        self._camera_capabilities: Optional = None  # CameraCapabilities from detection
+        self._camera_capabilities: Optional[CameraCapabilities] = None
         self._calibration_mode: str = "FULL"  # "QUICK" or "FULL"
         self._camera_detection_complete: bool = False  # Track if detection ran
         self._focus_warning_state: str = "ok"  # Avoid repeated focus warnings every preview frame

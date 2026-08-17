@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING, Optional
 
 from PySide6 import QtWidgets
-from PySide6.QtCore import QObject
 
 from ui.themes import get_style_manager
 
@@ -15,12 +13,7 @@ if TYPE_CHECKING:
     from ui.coaching.game_state_manager import GameStateManager
 
 
-# Combined metaclass for Qt + ABC
-class QABCMeta(type(QObject), ABCMeta):
-    """Metaclass that combines Qt's metaclass with ABCMeta."""
-
-
-class BaseGame(QtWidgets.QWidget, metaclass=QABCMeta):
+class BaseGame(QtWidgets.QWidget):
     """Abstract base class for all coaching games.
 
     All games must inherit from this class and implement the required methods.
@@ -39,28 +32,28 @@ class BaseGame(QtWidgets.QWidget, metaclass=QABCMeta):
         self._session_score = 0
         self._session_start_time = 0.0
 
-    @abstractmethod
     def process_pitch(self, pitch: "PitchSummary") -> None:
         """Process incoming pitch and update game state.
 
         Args:
             pitch: Pitch summary with zone location and metrics
         """
+        raise NotImplementedError
 
-    @abstractmethod
     def reset_game(self) -> None:
         """Reset game to initial state.
 
         Called when starting a new game or after completion.
         """
+        raise NotImplementedError
 
-    @abstractmethod
     def get_game_name(self) -> str:
         """Return game identifier for leaderboard.
 
         Returns:
             Game name (e.g., "tic_tac_toe", "target_scoring")
         """
+        raise NotImplementedError
 
     def save_score(self, score: int) -> None:
         """Save score to persistent storage.

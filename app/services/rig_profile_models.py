@@ -109,6 +109,16 @@ class RigProfile:
     setup_snapshot_file: str = "setup_snapshot.json"
     setup_snapshot: dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def left_serial(self) -> str:
+        """Compatibility accessor for the canonical left camera assignment."""
+        return self.camera_serials.get("left", "")
+
+    @property
+    def right_serial(self) -> str:
+        """Compatibility accessor for the canonical right camera assignment."""
+        return self.camera_serials.get("right", "")
+
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "RigProfile":
         now = utc_now_iso()

@@ -132,7 +132,7 @@ class CalibrationOverlayController:
         """
         if image.ndim == 2:
             return image
-        return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        return np.asarray(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
 
     def process_target_detection(self, frame_image: np.ndarray) -> Optional[list[tuple[float, float]]]:
         """Process frame for checkerboard detection.

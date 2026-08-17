@@ -68,8 +68,8 @@ class PlatePlaneDialog(QtWidgets.QDialog):
 
         # Buttons
         button_box = QtWidgets.QDialogButtonBox()
-        button_box.addButton("Run Calibration", QtWidgets.QDialogButtonBox.AcceptRole)
-        button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.RejectRole)
+        button_box.addButton("Run Calibration", QtWidgets.QDialogButtonBox.ButtonRole.AcceptRole)
+        button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.ButtonRole.RejectRole)
         style_dialog_button_box(button_box, primary=True)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)

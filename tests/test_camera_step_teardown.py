@@ -46,7 +46,7 @@ def test_destroy_camera_step_during_discovery(qtbot: "QtBot") -> None:
     _blocking_probe.event = threading.Event()
 
     with patch(
-        "ui.setup.steps.camera_step.probe_uvc_devices",
+        "ui.setup.steps.camera_discovery_worker.probe_uvc_devices",
         side_effect=_blocking_probe,
     ):
         step = CameraStep(backend="uvc")
