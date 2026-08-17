@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-08-11
+**Last reviewed:** 2026-08-17
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -127,6 +127,56 @@ Acceptance evidence:
   pipeline or calibration logic into the UI.
 - Use [OVERSIZED_MODULE_TRIAGE.md](OVERSIZED_MODULE_TRIAGE.md) as the
   churn-ranked ownership queue for the remaining grandfathered modules.
+
+## Code review follow-ups
+
+### CR-001 — Guarantee recording lifecycle command admission
+
+Pitch start and stop commands currently share the bounded frame queue in
+`app/services/recording/worker.py`. Under sustained disk or codec backpressure,
+the queue can reject a lifecycle command and omit an entire pitch recording.
+
+Acceptance criteria:
+
+- Lifecycle commands cannot be rejected because frame capacity is exhausted.
+- Backpressure may discard or degrade frame evidence only through an explicit,
+  observable policy.
+- Tests fill the recording queue and prove pitch start/finalization still occur.
+
+### CR-002 — Make launcher validation shutdown cancellable
+
+`launcher.py` can accept a close event while its startup validation `QThread`
+is still running. Destroying that thread can cause a fatal Qt process abort.
+
+Acceptance criteria:
+
+- Closing the launcher requests cancellation of startup validation.
+- The close event is not accepted until the thread reaches a terminal state.
+- Tests cover blocked validation without leaving a running `QThread`.
+
+### CR-003 — Prevent cancelled discovery from poisoning the UVC cache
+
+Cancellation can return an empty UVC result that is cached as a successful
+probe, causing later setup attempts to report no cameras until cache reset or
+application restart.
+
+Acceptance criteria:
+
+- Cancelled discovery never updates the shared device cache.
+- A fresh probe after cancellation invokes device discovery again.
+- Tests distinguish cancellation from a completed empty result.
+
+### CR-004 — Enforce resolved review-config containment
+
+`app/review/session_loader.py` uses a lexical `startswith("configs")` check,
+which can accept paths such as `configs/../other.yaml`.
+
+Acceptance criteria:
+
+- Candidate paths are resolved before authorization.
+- Accepted paths must be contained by the real repository `configs` directory
+  or the explicitly permitted session directory.
+- Traversal and sibling-prefix paths are rejected by tests.
 
 ## Later or conditional
 
