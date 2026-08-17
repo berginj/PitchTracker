@@ -4,11 +4,12 @@ from __future__ import annotations
 import threading
 from dataclasses import replace
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Type
+from typing import cast, Callable, Dict, List, Optional, Tuple, Type
 
 from app.contracts import CalibrationProfile, SessionSummary
 from app.events.event_bus import EventBus
 from app.pipeline.pitch_tracking_v2 import PitchConfig, PitchStateMachineV2
+from app.pipeline.initialization import PipelineInitializer
 from app.pipeline.service_contracts import PipelineService
 from app.services.analysis import AnalysisServiceImpl
 from app.services.capture import CaptureServiceImpl
@@ -176,6 +177,8 @@ class PipelineOrchestrator(PipelineService):
                 raise RuntimeError("Recording already active")
             if self._recording_service is None:
                 raise RuntimeError("Recording service not initialized")
+            if self._config is None:
+                raise RuntimeError("Pipeline configuration not initialized")
 
             session_id = session_name or "session"
             detection_started_here = analysis_started_here = False
@@ -183,7 +186,7 @@ class PipelineOrchestrator(PipelineService):
                 self._propagate_session_id(session_id)
                 if not self._detection_started and self._detection_service is not None:
                     self._detection_service.configure_detectors(
-                        config=self._config.detector,
+                        config=PipelineInitializer.cv_detector_config(self._config),
                         mode=Mode.MODE_A,
                         detector_type="classical",
                     )
@@ -240,7 +243,7 @@ class PipelineOrchestrator(PipelineService):
     def stop_recording(self) -> RecordingBundle:
         """Stop recording and return the bundle."""
         with self._lock:
-            return stop_recording_pipeline(self)
+            return cast(RecordingBundle, stop_recording_pipeline(self))
 
     def pause_recording(self) -> None:
         """Pause active session recording while keeping capture live."""
@@ -376,7 +379,7 @@ class PipelineOrchestrator(PipelineService):
         """Return latest strike determination."""
         with self._lock:
             obs = self._event_coordinator.latest_observation
-            if self._analysis_service is None or obs is None:
+            if self._analysis_service is None or obs is None or self._config is None:
                 return StrikeResult(is_strike=False, sample_count=0, zone_row=None, zone_col=None)
             return self._analysis_service.calculate_strike_result(obs, self._config)
 

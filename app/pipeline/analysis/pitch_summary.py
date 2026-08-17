@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import cast, Dict, List, Optional
+
+import numpy as np
 
 from app.contracts import PitchSummary
 from contracts.quality import MeasurementStatus
@@ -277,8 +279,12 @@ class PitchAnalyzer:
             if profile is None:
                 raise ValueError("no active rig profile proves the calibration-to-field frame")
             payload = profile.field_transform or {}
-            transform = FieldTransform(
+            matrix = cast(
+                tuple[tuple[float, float, float, float], ...],
                 tuple(tuple(float(value) for value in row) for row in payload["matrix_4x4"]),
+            )
+            transform = FieldTransform(
+                matrix,
                 float(payload.get("rms_residual_ft", float("inf"))),
                 str(payload.get("fixture_id") or "unknown"),
                 float(payload.get("max_rms_residual_ft", 0.1)),
@@ -291,7 +297,9 @@ class PitchAnalyzer:
             calibration_path = service.calibration_path(profile)
             camera_models = load_stereo_ray_camera_models(calibration_path)
             return {
-                camera_id: model.in_transformed_world_frame(transform.matrix_4x4)
+                camera_id: model.in_transformed_world_frame(
+                    np.asarray(transform.matrix_4x4, dtype=float)
+                )
                 for camera_id, model in camera_models.items()
             }
         except Exception as exc:
@@ -317,7 +325,7 @@ def _measurement_status(
 
 
 def _fitted_release_speed_mph(result: Optional[TrajectoryFitResult]) -> Optional[float]:
-    if not _result_is_usable(result) or not result.samples:
+    if result is None or not _result_is_usable(result) or not result.samples:
         return None
     sample = result.samples[0]
     speed_ft_s = (sample.Vx**2 + sample.Vy**2 + sample.Vz**2) ** 0.5

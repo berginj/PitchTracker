@@ -3,8 +3,7 @@
 **Last updated:** 2026-08-16
 **Published release:** `v2.0.0` / internal app version `2.0.0`
 **Development status:** production-readiness work is consolidated on `main`;
-physical validation, native-thread teardown, packaging provenance, and global
-mypy cleanup remain
+physical validation, native-thread teardown, and packaging provenance remain
 
 ## Summary
 
@@ -28,7 +27,7 @@ approved.
 | Development baseline | `main`; use the checked-out commit for exact provenance |
 | Test collection | Full Python 3.13 and 3.14 suites run in CI; use current CI output for the exact count |
 | Latest focused validation | Rig-profile and setup-provider acceptance suites pass; the full Windows run remains authoritative for native teardown behavior |
-| Static validation | Schema sync, public docs, file length, Flake8, strict typed clean zones, suppression policy, and a non-increasing mypy baseline are required; the global backlog remains |
+| Static validation | Schema sync, public docs, file length, Flake8, suppression policy, and direct repository-wide mypy are required; no diagnostic baseline remains |
 | Physical accuracy approval | None; results must remain estimated/degraded/unavailable/rejected as evidence requires |
 
 The locally built installer must be smoke-tested on a clean Windows machine
@@ -71,9 +70,7 @@ The canonical open work is [ROADMAP.md](ROADMAP.md):
 2. Resolve native-thread teardown and complete lifecycle failure injection.
 3. Run predeclared physical ground-truth speed and plate-location validation.
 4. Smoke-test a signed installer on clean Windows machines.
-5. Eliminate the global mypy baseline; every reduction must be committed and
-   strict clean zones cannot regress.
-6. Publish a hardware matrix and operating envelope only from collected evidence.
+5. Publish a hardware matrix and operating envelope only from collected evidence.
 
 ## Product boundary
 

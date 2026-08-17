@@ -20,7 +20,7 @@ def open_video_writer(
 ) -> cv2.VideoWriter:
     """Open a video writer using the configured codec fallback order."""
     for codec_name in CODEC_PREFERENCE:
-        fourcc = cv2.VideoWriter_fourcc(*codec_name)
+        fourcc = getattr(cv2, "VideoWriter_fourcc")(*codec_name)
         writer = cv2.VideoWriter(
             str(path), fourcc, float(fps), (width, height), True
         )

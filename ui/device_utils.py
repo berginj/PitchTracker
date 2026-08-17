@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
+import subprocess
+import sys
 import threading
 import time
 from typing import Optional
 
-import cv2
 from PySide6 import QtWidgets
 
 from capture.uvc_backend import list_uvc_devices
@@ -61,40 +62,33 @@ def _probe_single_index(index: int, timeout_seconds: float = 3.0) -> Optional[in
     Returns:
         Index if camera available, None otherwise
 
-    Note:
-        - Uses threading timeout to prevent hanging
-        - 3-second timeout accommodates slower camera initialization (ArduCam, etc.)
-        - Fast-fails on timeout or errors
-        - Ensures camera is released even on timeout
+    Native camera opens run in a child process because a timed-out OpenCV call
+    cannot be safely cancelled from a Python thread. Process isolation prevents
+    an abandoned DirectShow thread from crashing Qt or the interpreter later.
     """
-    result: list[Optional[int]] = [None]
-    cap_ref: list[Optional[cv2.VideoCapture]] = [None]
-
-    def _probe():
-        try:
-            cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
-            cap_ref[0] = cap
-            if cap.isOpened():
-                result[0] = index
-            cap.release()
-        except Exception as e:
-            logger.debug(f"Failed to probe camera index {index}: {e}")
-
-    thread = threading.Thread(target=_probe, daemon=True)
-    thread.start()
-    thread.join(timeout=timeout_seconds)
-
-    if thread.is_alive():
-        # Timeout - try to release if we can
+    script = (
+        "import cv2,sys; "
+        "cap=cv2.VideoCapture(int(sys.argv[1]), cv2.CAP_DSHOW); "
+        "opened=cap.isOpened(); cap.release(); "
+        "raise SystemExit(0 if opened else 1)"
+    )
+    creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    try:
+        completed = subprocess.run(
+            [sys.executable, "-c", script, str(index)],
+            check=False,
+            timeout=timeout_seconds,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=creation_flags,
+        )
+    except subprocess.TimeoutExpired:
         logger.debug(f"Camera index {index} probe timed out after {timeout_seconds}s")
-        if cap_ref[0] is not None:
-            try:
-                cap_ref[0].release()
-            except Exception:
-                pass
         return None
-
-    return result[0]
+    except OSError as exc:
+        logger.debug("Failed to launch camera index %s probe: %s", index, exc)
+        return None
+    return index if completed.returncode == 0 else None
 
 
 def is_arducam_device(name: str) -> bool:

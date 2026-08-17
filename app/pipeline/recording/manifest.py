@@ -24,10 +24,10 @@ def create_base_manifest() -> Dict[str, Any]:
 
 def create_session_manifest(
     pitch_id: str,
-    session_name: str,
-    mode: str,
-    measured_speed_mph: float,
-    config_path: str,
+    session_name: Optional[str],
+    mode: Optional[str],
+    measured_speed_mph: Optional[float],
+    config_path: Optional[str],
     started_utc: Optional[str] = None,
     ended_utc: Optional[str] = None,
     calibration_profile_id: Optional[str] = None,
@@ -79,7 +79,7 @@ def create_session_manifest(
 
 def create_pitch_manifest(
     summary,
-    config_path: str,
+    config_path: Optional[str],
     performance_metrics: Optional[Dict] = None,
     left_video: str = "left.avi",
     right_video: str = "right.avi",

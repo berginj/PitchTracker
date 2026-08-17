@@ -10,6 +10,7 @@ import threading
 import time
 from dataclasses import asdict
 from pathlib import Path
+from collections.abc import Callable
 from typing import Optional, Tuple
 
 import cv2
@@ -64,7 +65,7 @@ class SessionRecorder:
         self._disk_monitor_thread: Optional[threading.Thread] = None
         self._monitoring_disk = False
         self._disk_monitor_stop = threading.Event()
-        self._disk_error_callback: Optional[callable] = None
+        self._disk_error_callback: Optional[Callable[[float, str], None]] = None
         self._critical_disk_gb = 5.0  # Stop recording if below this
         self._warning_disk_gb = 20.0  # Warn user if below this
         self._session_started_utc: Optional[str] = None
@@ -110,7 +111,7 @@ class SessionRecorder:
 
         return True, ""
 
-    def set_disk_error_callback(self, callback: callable) -> None:
+    def set_disk_error_callback(self, callback: Callable[[float, str], None]) -> None:
         """Set callback for disk space emergencies.
 
         Args:

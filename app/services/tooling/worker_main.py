@@ -53,7 +53,7 @@ def _handle_build_training_report(payload: dict[str, Any]) -> dict[str, Any]:
         report_id=request.report_id,
         created_utc=request.created_utc,
     )
-    return cast(dict[str, Any], TrainingReportResult(payload=result).to_payload())
+    return TrainingReportResult(payload=result).to_payload()
 
 
 def _handle_run_calibration(payload: dict[str, Any]) -> dict[str, Any]:
@@ -87,7 +87,7 @@ def _handle_run_calibration(payload: dict[str, Any]) -> dict[str, Any]:
         _write_config(request.config_path, updates)
         _save_calibration_file(updates)
 
-    return cast(dict[str, Any], CalibrationResult.from_updates(updates).to_payload())
+    return CalibrationResult.from_updates(updates).to_payload()
 
 
 def _handle_analyze_alignment(payload: dict[str, Any]) -> dict[str, Any]:
@@ -109,7 +109,7 @@ def _handle_analyze_alignment(payload: dict[str, Any]) -> dict[str, Any]:
         alignment=_json_safe(asdict(alignment)),
         prediction=_json_safe(prediction),
     )
-    return cast(dict[str, Any], result.to_payload())
+    return result.to_payload()
 
 
 def _handle_validate_physical_dataset(payload: dict[str, Any]) -> dict[str, Any]:
@@ -124,7 +124,7 @@ def _handle_validate_physical_dataset(payload: dict[str, Any]) -> dict[str, Any]
             json.dumps(report, sort_keys=True, indent=2) + "\n",
             encoding="utf-8",
         )
-    return cast(dict[str, Any], PhysicalValidationResult(report=report, output_path=request.output_path).to_payload())
+    return PhysicalValidationResult(report=report, output_path=request.output_path).to_payload()
 
 
 HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {

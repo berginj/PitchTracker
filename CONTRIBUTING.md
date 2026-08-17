@@ -40,14 +40,12 @@ python scripts/check_file_length.py   # no file over 500 lines
 python scripts/sync_schema.py --check # schema/ mirrors contracts-shared/
 python scripts/check_public_docs.py   # public links, terms, and freshness
 python scripts/check_typing_policy.py # no blanket or unscoped suppressions
-python scripts/check_mypy_clean_zones.py # strict checks for corrected modules
-python scripts/check_mypy_baseline.py # exact, non-stale whole-tree ratchet
+python -m mypy . --no-incremental --show-error-codes # direct repository gate
 ```
 
-The repository still has a recorded whole-tree mypy backlog. The baseline
-ratchet blocks new diagnostics and also rejects stale resolved entries. Run its
-`--update` mode only after a genuine reduction; it refuses any update that is
-not a strict subset of the checked-in debt. The `safety` dependency scan remains
+The repository has no recorded mypy backlog. Production code is checked without
+diagnostic suppression sections; tests use the fixed relaxation policy described
+in `docs/engineering/type-checking.md`. The `safety` dependency scan remains
 advisory.
 
 > Note: full-style `flake8` is a **hard** gate (`flake8 . --count --statistics`

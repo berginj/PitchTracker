@@ -2,26 +2,20 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from app.pipeline.analysis.pitch_summary import PitchAnalyzer
 from app.pipeline.analysis.session_summary import SessionManager
 from app.pipeline.pitch_tracking_v2 import PitchConfig, PitchStateMachineV2
 from app.pipeline.recording.calibration_export import export_calibration_metadata
 from app.pipeline.recording.session_recorder import SessionRecorder
 from app.pipeline.recording.pitch_recorder import PitchRecorder
+from app.pipeline.service_mixin_host import PipelineServiceMixinHost
 from contracts import Frame
 from log_config.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-class _PipelineServiceState:
-    def __getattr__(self, name: str) -> Any:
-        raise AttributeError(name)
-
-
-class PipelineServiceRecordingMixin(_PipelineServiceState):
+class PipelineServiceRecordingMixin(PipelineServiceMixinHost):
     """Recording IO helpers for InProcessPipelineService."""
 
     def _start_recording_io(self) -> str:

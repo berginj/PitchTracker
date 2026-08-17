@@ -55,7 +55,12 @@ def qualify_capture(
     achieved_fps_right = _fps(right)
     jitter_left = _jitter(left)
     jitter_right = _jitter(right)
-    requested_fps = float(requested_mode.get("fps") or 0.0)
+    requested_fps_raw = requested_mode.get("fps")
+    requested_fps = (
+        float(requested_fps_raw)
+        if isinstance(requested_fps_raw, (str, bytes, int, float))
+        else 0.0
+    )
     metrics = {
         "pair_skew_p95_ms": _percentile(skew_ms, 95),
         "pair_skew_p99_ms": _percentile(skew_ms, 99),

@@ -190,6 +190,10 @@ def _runtime_error_budget(profile: Optional[RigProfile]) -> ErrorBudget:
 def _rate_evidence(numerator: object, denominator: object) -> dict:
     """Return an auditable rate, preserving zero opportunity as unavailable."""
     try:
+        if not isinstance(numerator, (str, bytes, int, float)):
+            raise TypeError("numerator is not numeric")
+        if not isinstance(denominator, (str, bytes, int, float)):
+            raise TypeError("denominator is not numeric")
         numerator_value = int(numerator)
         denominator_value = int(denominator)
     except (TypeError, ValueError):

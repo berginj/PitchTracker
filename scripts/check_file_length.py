@@ -44,7 +44,11 @@ def _tracked_py_files() -> list[str]:
         text=True,
         check=True,
     ).stdout
-    files = [line.strip() for line in out.splitlines() if line.strip()]
+    files = [
+        line.strip()
+        for line in out.splitlines()
+        if line.strip() and (ROOT / line.strip()).exists()
+    ]
     return [f for f in files if not f.startswith(EXCLUDED_PREFIXES)]
 
 

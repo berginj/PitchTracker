@@ -6,12 +6,16 @@ import json
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import Dict, List, Optional, Protocol, Sequence
 
 from analysis.pattern_detection.utils import compute_statistics
 
-if TYPE_CHECKING:
-    from app.pipeline_service import PitchSummary
+
+class PitchMeasurement(Protocol):
+    speed_mph: float | None
+    run_in: float | None
+    rise_in: float | None
+    is_strike: bool
 
 
 @dataclass
@@ -147,7 +151,7 @@ class PitcherProfileManager:
             raise
 
     def create_or_update_profile(
-        self, pitcher_id: str, pitches: List["PitchSummary"], num_sessions: int = 1
+        self, pitcher_id: str, pitches: Sequence[PitchMeasurement], num_sessions: int = 1
     ) -> PitcherProfile:
         """Create new profile or update existing with new pitches.
 
@@ -187,7 +191,7 @@ class PitcherProfileManager:
 
         return profile
 
-    def compare_to_baseline(self, pitcher_id: str, current_pitches: List["PitchSummary"]) -> Dict:
+    def compare_to_baseline(self, pitcher_id: str, current_pitches: Sequence[PitchMeasurement]) -> Dict:
         """Compare current session pitches to baseline profile.
 
         Args:
@@ -238,7 +242,7 @@ class PitcherProfileManager:
             "vertical_movement_vs_baseline": v_movement_comparison,
         }
 
-    def _compute_baseline_metrics(self, pitches: List["PitchSummary"]) -> ProfileMetrics:
+    def _compute_baseline_metrics(self, pitches: Sequence[PitchMeasurement]) -> ProfileMetrics:
         """Compute baseline metrics from pitches.
 
         Args:

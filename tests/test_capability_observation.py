@@ -138,7 +138,7 @@ class TestImmutableMappings:
     def test_results_not_mutatable(self):
         obs = CapabilityObservation(results={})
         try:
-            obs.results["new"] = "bad"  # type: ignore[index]
+            obs.results["new"] = "bad"
             assert False, "Should have raised TypeError"
         except TypeError:
             pass
@@ -146,7 +146,7 @@ class TestImmutableMappings:
     def test_requested_mode_not_mutatable(self):
         obs = CapabilityObservation(requested_mode={"fps": 60})
         try:
-            obs.requested_mode["fps"] = 120  # type: ignore[index]
+            obs.requested_mode["fps"] = 120
             assert False, "Should have raised TypeError"
         except TypeError:
             pass

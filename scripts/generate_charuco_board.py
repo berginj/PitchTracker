@@ -50,7 +50,9 @@ def generate_charuco_board(
         board = cv2.aruco.CharucoBoard((squares_x, squares_y), square_length, marker_length, aruco_dict)
     except (AttributeError, TypeError):
         # Fall back to older API
-        board = cv2.aruco.CharucoBoard_create(squares_x, squares_y, square_length, marker_length, aruco_dict)
+        board = getattr(cv2.aruco, "CharucoBoard_create")(
+            squares_x, squares_y, square_length, marker_length, aruco_dict
+        )
 
     # Calculate board dimensions in pixels
     board_width_mm = squares_x * square_length

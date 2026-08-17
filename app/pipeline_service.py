@@ -5,11 +5,12 @@ from __future__ import annotations
 import threading
 import time
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import cast, Dict, Optional, Tuple
 
 from configs.settings import AppConfig
 from contracts import Frame, PitchMetrics
 from detect.lane import LaneGate
+from detect.detector import Detector
 from exceptions import (
     CameraConfigurationError,
     CameraConnectionError,
@@ -24,7 +25,7 @@ from log_config.logger import get_logger
 from metrics.simple_metrics import PlateMetricsStub
 from record.recorder import RecordingBundle
 from stereo import StereoLaneGate
-from stereo.simple_stereo import SimpleStereoMatcher
+from stereo.association import StereoMatcher
 from app.pipeline.config_service import ConfigService
 from app.pipeline.initialization import PipelineInitializer
 from app.pipeline.camera_management import CameraManager
@@ -66,9 +67,9 @@ class InProcessPipelineService(
         self._plate_gate: Optional[LaneGate] = None
         self._stereo_gate: Optional[StereoLaneGate] = None
         self._plate_stereo_gate: Optional[StereoLaneGate] = None
-        self._detectors_by_camera: Dict[str, object] = {}
+        self._detectors_by_camera: Dict[str, Detector] = {}
         self._lane_polygon: Optional[list[tuple[float, float]]] = None
-        self._stereo: Optional[SimpleStereoMatcher] = None
+        self._stereo: Optional[StereoMatcher] = None
         self._recording = False
         self._recorded_frames: list[Frame] = []
         self._pitch_id = "pitch-unknown"
@@ -167,6 +168,11 @@ class InProcessPipelineService(
 
             # Get camera IDs from camera manager
             left_id, right_id = self._camera_mgr.get_camera_ids()
+            if left_id is None or right_id is None:
+                self._camera_mgr.stop_capture()
+                raise CameraConfigurationError(
+                    "Camera capture started without both resolved camera identifiers"
+                )
 
             # Load ROIs
             try:
@@ -451,7 +457,7 @@ class InProcessPipelineService(
         return CalibrationProfile(profile_id=profile_id, created_utc=created_utc, schema_version="1.0.0")
 
     def get_stats(self) -> Dict[str, Dict[str, float]]:
-        return self._camera_mgr.get_stats()
+        return cast(Dict[str, Dict[str, float]], self._camera_mgr.get_stats())
 
     def get_plate_metrics(self) -> PlateMetricsStub:
         if self._detection_processor:

@@ -8,16 +8,19 @@ file under 500 lines.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING, Tuple
 
 from configs.roi_io import load_runtime_roi_maps
 from log_config.logger import get_logger
 
 logger = get_logger(__name__)
 
+if TYPE_CHECKING:
+    from app.services.detection import DetectionServiceImpl
+
 
 def apply_runtime_rois(
-    detection_service: object,
+    detection_service: DetectionServiceImpl,
     runtime_roi_path: Optional[Path],
     left_serial: str,
     right_serial: str,
@@ -56,7 +59,7 @@ def apply_runtime_rois(
 
 
 def _serial_roi_map_to_camera_ids(
-    roi_map: Dict[str, List[Tuple[float, float]]],
+    roi_map: Mapping[str, Sequence[Tuple[int | float, int | float]]],
     left_serial: str,
     right_serial: str,
 ) -> Dict[str, List[Tuple[float, float]]]:
@@ -65,7 +68,7 @@ def _serial_roi_map_to_camera_ids(
     right = roi_map.get("right") or roi_map.get(right_serial)
     output: Dict[str, List[Tuple[float, float]]] = {}
     if left is not None:
-        output[left_serial] = list(left)
+        output[left_serial] = [(float(x), float(y)) for x, y in left]
     if right is not None:
-        output[right_serial] = list(right)
+        output[right_serial] = [(float(x), float(y)) for x, y in right]
     return output

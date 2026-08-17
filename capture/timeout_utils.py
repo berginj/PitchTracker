@@ -81,7 +81,7 @@ def exponential_backoff(attempt: int, base_delay: float = 0.5, max_delay: float 
         Delay in seconds
     """
     delay = base_delay * (2**attempt)
-    return min(delay, max_delay)
+    return float(min(delay, max_delay))
 
 
 class RetryPolicy:

@@ -28,7 +28,7 @@ def _find_feature_matches(img1: np.ndarray, img2: np.ndarray, max_features: int)
         gray2 = img2
 
     # Use ORB (fast, patent-free)
-    orb = cv2.ORB_create(nfeatures=max_features)
+    orb = getattr(cv2, "ORB_create")(nfeatures=max_features)
 
     # Detect keypoints and compute descriptors
     kp1, des1 = orb.detectAndCompute(gray1, None)
@@ -50,8 +50,8 @@ def _find_feature_matches(img1: np.ndarray, img2: np.ndarray, max_features: int)
     good_matches = matches[:num_good]
 
     # Extract coordinates
-    pts1 = np.float32([kp1[m.queryIdx].pt for m in good_matches])
-    pts2 = np.float32([kp2[m.trainIdx].pt for m in good_matches])
+    pts1 = np.asarray([kp1[m.queryIdx].pt for m in good_matches], dtype=np.float32)
+    pts2 = np.asarray([kp2[m.trainIdx].pt for m in good_matches], dtype=np.float32)
 
     # Geometrically verify with RANSAC so outlier matches do not pollute the
     # downstream vertical/horizontal/rotation/scale alignment estimates.

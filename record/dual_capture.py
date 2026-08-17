@@ -36,7 +36,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def _open_writer(path: Path, width: int, height: int, fps: int, codec: str) -> cv2.VideoWriter:
-    fourcc = cv2.VideoWriter_fourcc(*codec)
+    fourcc = getattr(cv2, "VideoWriter_fourcc")(*codec)
     writer = cv2.VideoWriter(str(path), fourcc, fps, (width, height), True)
     if not writer.isOpened():
         raise RuntimeError(f"Failed to open VideoWriter for {path}.")

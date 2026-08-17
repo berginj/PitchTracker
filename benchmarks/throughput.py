@@ -204,6 +204,7 @@ if __name__ == "__main__":
     parser.add_argument("--all-resolutions", action="store_true")
     args = parser.parse_args()
 
+    out: object
     if args.all_resolutions:
         out = benchmark_multiple_resolutions(num_frames=args.frames)
     else:

@@ -15,7 +15,7 @@ class Component:
 
 def to_grayscale(frame: np.ndarray) -> np.ndarray:
     if frame.ndim == 3:
-        return frame.mean(axis=2, dtype=np.float32)
+        return np.asarray(frame.mean(axis=2, dtype=np.float32))
     return frame.astype(np.float32, copy=False)
 
 
@@ -112,7 +112,7 @@ def sobel_edges(gray: np.ndarray) -> np.ndarray:
     # Compute gradient magnitude
     magnitude = cv2.magnitude(grad_x, grad_y)
 
-    return magnitude
+    return np.asarray(magnitude)
 
 
 def point_in_polygon(point: tuple[float, float], polygon: list[tuple[float, float]]) -> bool:

@@ -63,7 +63,7 @@ def test_concurrent_process_detection_result_matches_every_pair():
         with processed_lock:
             processed.append((left_frame.t_capture_monotonic_ns, right_frame.t_capture_monotonic_ns))
 
-    processor._process_stereo_pair = _record_pair  # type: ignore[assignment]
+    processor._process_stereo_pair = _record_pair
 
     n = 500
     period_ns = 16_000_000
@@ -99,7 +99,7 @@ def test_concurrent_process_detection_result_matches_every_pair():
 def test_serial_pairing_is_one_to_one():
     processor = _build_processor()
     processed = []
-    processor._process_stereo_pair = lambda lf, rf, ld, rd: processed.append(  # type: ignore[assignment]
+    processor._process_stereo_pair = lambda lf, rf, ld, rd: processed.append(
         (lf.frame_index, rf.frame_index)
     )
 
@@ -124,7 +124,7 @@ def test_timestamp_pairing_applies_right_clock_offset_but_preserves_raw_frames()
         get_ball_radius_fn=lambda: 1.0,
     )
     processed = []
-    processor._process_stereo_pair = lambda lf, rf, ld, rd: processed.append((lf, rf))  # type: ignore[assignment]
+    processor._process_stereo_pair = lambda lf, rf, ld, rd: processed.append((lf, rf))
     left = _make_frame("left", 1, 100_000_000)
     right = _make_frame("right", 1, 109_000_000)
 

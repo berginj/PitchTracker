@@ -20,6 +20,7 @@ from app.events.event_types import PitchAnalyzedEvent, PitchEndEvent
 from app.pipeline.analysis.pitch_summary import PitchAnalyzer
 from app.services.analysis.refinement import RefinementAccumulator
 from app.services.analysis.session_aggregation import SessionAggregator
+from contracts.quality import MeasurementStatus
 from log_config.logger import get_logger
 
 logger = get_logger(__name__)
@@ -125,7 +126,7 @@ class PitchTerminalHandler:
             sample_count=len(event.observations),
             observation_quality_status="UNAVAILABLE",
             observation_rejection_reasons=[reason_code],
-            measurement_status="UNAVAILABLE",
+            measurement_status=MeasurementStatus.UNAVAILABLE,
             speed_source=None,
             correction_records=[],
             quality_diagnostics=diagnostics,

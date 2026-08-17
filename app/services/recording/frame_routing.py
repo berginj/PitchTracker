@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from contracts import Frame
 from log_config.logger import get_logger
-
-if TYPE_CHECKING:
-    from app.services.recording.state import RecordingServiceState
+from app.services.recording.state import RecordingServiceState
 
 logger = get_logger(__name__)
 
 
-class FrameRoutingMixin:
+class FrameRoutingMixin(RecordingServiceState):
     """Frame recording, worker sync callback, and stats."""
 
     def record_frame(self: "RecordingServiceState", camera_id: str, frame: Frame) -> None:

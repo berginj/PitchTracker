@@ -32,7 +32,7 @@ from detect.config import DetectorConfig, FilterConfig
 def _get_rss_mb() -> float:
     if not PSUTIL_AVAILABLE:
         return 0.0
-    return psutil.Process().memory_info().rss / (1024 * 1024)
+    return float(psutil.Process().memory_info().rss / (1024 * 1024))
 
 
 def create_test_frame(

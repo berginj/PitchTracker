@@ -55,7 +55,8 @@ def make_charuco_board(
         return cv2.aruco.CharucoBoard((cols, rows), square_size, marker_size, dictionary)
     except (AttributeError, TypeError):
         # Legacy factory API.
-        return cv2.aruco.CharucoBoard_create(cols, rows, square_size, marker_size, dictionary)
+        factory = getattr(cv2.aruco, "CharucoBoard_create")
+        return factory(cols, rows, square_size, marker_size, dictionary)
 
 
 def charuco_detector_params(aggressive: bool = False):
@@ -73,7 +74,7 @@ def charuco_detector_params(aggressive: bool = False):
     try:
         params = cv2.aruco.DetectorParameters()
     except AttributeError:
-        params = cv2.aruco.DetectorParameters_create()
+        params = getattr(cv2.aruco, "DetectorParameters_create")()
 
     params.adaptiveThreshWinSizeMin = 3
     params.adaptiveThreshWinSizeMax = 23

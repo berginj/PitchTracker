@@ -137,7 +137,7 @@ def triangulate_ray_pair(
         return None
     p_left = left_origin + params[0] * left_dir
     p_right = right_origin + params[1] * right_dir
-    return (p_left + p_right) * 0.5
+    return np.asarray((p_left + p_right) * 0.5)
 
 
 def pixel_residual_vector(

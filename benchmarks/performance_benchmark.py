@@ -256,7 +256,7 @@ def run_benchmark(
 
         # Run for specified duration
         print(f"Running benchmark for {duration_seconds} seconds...")
-        elapsed = 0
+        elapsed = 0.0
         last_report = 0
 
         while elapsed < duration_seconds:

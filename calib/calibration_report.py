@@ -106,19 +106,23 @@ def build_calibration_report(
 
     rms = _npz_float(data, "rms_error_px")
     metrics["rms_error_px"] = rms
-    rms_valid = rms is not None and np.isfinite(rms) and rms >= 0
+    rms_valid = False
+    if rms is not None:
+        rms_valid = bool(np.isfinite(rms)) and rms >= 0
     checks["rms_present_and_finite"] = rms_valid
-    checks["rms_within_threshold"] = rms_valid and rms <= max_rms_px
+    checks["rms_within_threshold"] = (
+        rms is not None and rms_valid and rms <= max_rms_px
+    )
     checks["max_rms_px"] = float(max_rms_px)
     if not rms_valid:
         errors.append("RMS reprojection error is missing, non-finite, or negative.")
-    elif rms > max_rms_px:
+    elif rms is not None and rms > max_rms_px:
         errors.append(f"RMS reprojection error {rms:.3f}px exceeds threshold {max_rms_px:.3f}px.")
 
     per_image_stats = _per_image_error_stats(data)
     metrics["per_image_error_stats"] = per_image_stats
     declared_sample_count = _npz_positive_int(data, "num_images_used") or _npz_positive_int(data, "num_images")
-    evidence_sample_count = declared_sample_count or int(per_image_stats["count"])
+    evidence_sample_count = declared_sample_count or int(per_image_stats.get("count") or 0)
     metrics["declared_sample_count"] = declared_sample_count
     metrics["evidence_sample_count"] = evidence_sample_count
     checks["calibration_sample_evidence_present"] = evidence_sample_count > 0

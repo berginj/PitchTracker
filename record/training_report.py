@@ -47,7 +47,10 @@ def _percentile(values: List[float], pct: float) -> float:
 
 
 def _load_json(path: Path) -> Dict[str, Any]:
-    return json.loads(path.read_text())
+    data: object = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected JSON object in {path}")
+    return dict(data)
 
 
 def _collect_pitch_dirs(session_dir: Path) -> List[Path]:

@@ -70,7 +70,8 @@ def detect_outliers_iqr(values: List[float], iqr_multiplier: float = 1.5) -> Lis
     if not values or len(values) < 3:
         return []
 
-    q1, q3 = (float(v) for v in np.asarray(np.percentile(values, [25, 75]), dtype=float).tolist())
+    quartiles = np.asarray(np.percentile(values, [25, 75]), dtype=float).reshape(-1)
+    q1, q3 = float(quartiles[0]), float(quartiles[1])
     iqr = q3 - q1
 
     lower_bound = q1 - iqr_multiplier * iqr

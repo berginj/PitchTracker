@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from trajectory.physics import PhysicsDragFitter
 from trajectory.ray_fit import RayGraphFitter, RayReprojectionFitter
+from trajectory.base import TrajectoryFitterBase
 
 
 TRAJECTORY_MODES = ("stereo_3d", "ray_reprojection", "ray_graph")
@@ -12,13 +13,13 @@ TRAJECTORY_MODES = ("stereo_3d", "ray_reprojection", "ray_graph")
 
 class TrajectoryFitterRegistry:
     def __init__(self) -> None:
-        self._fitters = {
+        self._fitters: dict[str, type[TrajectoryFitterBase]] = {
             "stereo_3d": PhysicsDragFitter,
             "ray_reprojection": RayReprojectionFitter,
             "ray_graph": RayGraphFitter,
         }
 
-    def create(self, mode: str):
+    def create(self, mode: str) -> TrajectoryFitterBase:
         if mode not in self._fitters:
             raise ValueError(f"Unknown trajectory mode: {mode}")
         return self._fitters[mode]()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
-from typing import Any, Optional, Protocol
+from typing import Any, Optional
 
 from app.pipeline.recording.evidence_journal import SessionEvidenceJournal
 from app.pipeline.recording.pitch_recorder import PitchRecorder
@@ -13,11 +13,11 @@ from app.services.recording.worker import BoundedRecordingWorker
 from configs.settings import AppConfig
 
 
-class RecordingServiceState(Protocol):
+class RecordingServiceState:
     """State owned by ``RecordingServiceImpl`` and consumed by mixins.
 
     The mixins intentionally remain small modules, but their methods operate
-    on one concrete service instance. This protocol makes that shared state
+    on one concrete service instance. This base makes that shared state
     explicit without pretending each mixin owns a separate copy of it.
     """
 
@@ -45,10 +45,14 @@ class RecordingServiceState(Protocol):
     _decision_evidence_incomplete: bool
     _subscribed: bool
 
-    def _invoke_callback(self, name: str, payload: str) -> None: ...
+    def _invoke_callback(self, name: str, payload: str) -> None:
+        raise NotImplementedError
 
-    def _detach_pitch_locked(self) -> tuple[PitchRecorder, Optional[str]] | None: ...
+    def _detach_pitch_locked(self) -> tuple[PitchRecorder, Optional[str]] | None:
+        raise NotImplementedError
 
-    def _finalize_pitch_locked(self, recorder: PitchRecorder, pitch_id: Optional[str]) -> Optional[Path]: ...
+    def _finalize_pitch_locked(self, recorder: PitchRecorder, pitch_id: Optional[str]) -> Optional[Path]:
+        raise NotImplementedError
 
-    def __getattr__(self, name: str) -> Any: ...
+    def __getattr__(self, name: str) -> Any:
+        raise AttributeError(name)

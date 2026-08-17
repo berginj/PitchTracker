@@ -25,6 +25,11 @@ class TrajectoryFitterBase(ABC):
         self._buffer.extend(observations)
 
     @abstractmethod
+    def fit_trajectory(self, request: TrajectoryFitRequest) -> TrajectoryFitResult:
+        """Fit a complete request without requiring incremental calls."""
+        raise NotImplementedError
+
+    @abstractmethod
     def maybe_fit(self) -> Optional[TrajectoryFitResult]:
         raise NotImplementedError
 

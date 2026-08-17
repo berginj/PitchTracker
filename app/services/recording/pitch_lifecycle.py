@@ -5,18 +5,16 @@ from __future__ import annotations
 import json
 import threading
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING, cast
+from typing import Optional
 
 from app.pipeline.recording.pitch_recorder import PitchRecorder
+from app.services.recording.state import RecordingServiceState
 from log_config.logger import get_logger
-
-if TYPE_CHECKING:
-    from app.services.recording.state import RecordingServiceState
 
 logger = get_logger(__name__)
 
 
-class PitchLifecycleMixin:
+class PitchLifecycleMixin(RecordingServiceState):
     """Pitch start/stop, pre-roll flush, and FIFO control commands."""
 
     _current_pitch_id: Optional[str]
@@ -41,6 +39,8 @@ class PitchLifecycleMixin:
             if session_dir is None:
                 raise RuntimeError("Session directory not available")
             config = self._config
+            if config is None:
+                raise RuntimeError("Recording configuration is unavailable")
 
         ready = threading.Event()
         error_box: list[Exception] = []
@@ -119,14 +119,14 @@ class PitchLifecycleMixin:
             return None
 
         with self._lock:
-            return cast(Optional[Path], self._finalize_pitch_locked(*result[0]))
+            return self._finalize_pitch_locked(*result[0])
 
     def _stop_pitch_internal(self: "RecordingServiceState") -> Optional[Path]:
         """Internal pitch stop (assumes lock is held)."""
         detached = self._detach_pitch_locked()
         if detached is None:
             return None
-        return cast(Optional[Path], self._finalize_pitch_locked(*detached))
+        return self._finalize_pitch_locked(*detached)
 
     def _detach_pitch_locked(self: "RecordingServiceState"):
         """Fence new frame submissions from the current pitch."""

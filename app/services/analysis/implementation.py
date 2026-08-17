@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import threading
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, cast
 
 from app.contracts import PitchSummary, SessionSummary, session_summary_from_dict
 from app.events.event_bus import EventBus
@@ -176,7 +176,7 @@ class AnalysisServiceImpl(AnalysisService):
             ray_observations=pitch_data.ray_observations,
         )
 
-        return summary
+        return cast(PitchSummary, summary)
 
     def analyze_session(self, session_path: Path) -> SessionSummary:
         """Analyze a recorded session and generate summary.

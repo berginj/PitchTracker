@@ -3,24 +3,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, cast
+from typing import Dict, Optional, Tuple, cast
 
 from contracts import Detection, StereoObservation
 from detect.config import DetectorConfig as CvDetectorConfig, Mode
 from log_config.logger import get_logger
 from metrics.strike_zone import StrikeResult
+from app.pipeline.service_mixin_host import PipelineServiceMixinHost
 
 logger = get_logger(__name__)
 
 
-class _PipelineServiceState:
-    """Shared state supplied by InProcessPipelineService's other mixins."""
-
-    def __getattr__(self, name: str) -> Any:
-        raise AttributeError(name)
-
-
-class PipelineServiceConfigMixin(_PipelineServiceState):
+class PipelineServiceConfigMixin(PipelineServiceMixinHost):
     """Configuration and query methods extracted from InProcessPipelineService."""
 
     def set_detector_config(
@@ -108,5 +102,5 @@ class PipelineServiceConfigMixin(_PipelineServiceState):
 
     def get_session_dir(self) -> Optional[Path]:
         if self._session_recorder:
-            return cast(Optional[Path], self._session_recorder.get_session_dir())
+            return self._session_recorder.get_session_dir()
         return None

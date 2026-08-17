@@ -71,6 +71,7 @@ def create_icon():
         )
 
     # Draw "PT" text at bottom
+    font = ImageFont.load_default()
     try:
         # Try to use a nice font
         font_size = 60

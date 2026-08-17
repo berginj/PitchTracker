@@ -133,9 +133,8 @@ and the pre-field hardware matrix.
 
 ## Engineering debt with active owners
 
-- Eliminate the whole-tree mypy backlog while expanding strict clean zones;
-  baseline updates may only remove diagnostics and scoped suppressions are
-  mechanically enforced.
+- Keep the direct repository-wide mypy gate clean and keep test-only typing
+  relaxations fixed through the suppression policy check.
 - Keep [OVERSIZED_MODULE_TRIAGE.md](OVERSIZED_MODULE_TRIAGE.md) as historical
   extraction context; the current file-length gate has zero grandfathered files.
 

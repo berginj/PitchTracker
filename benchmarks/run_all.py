@@ -99,7 +99,8 @@ def run_all_benchmarks(
 def _extract_results(benchmark: Any) -> Dict[str, Any]:
     """Safely extract the results dict from an envelope or raw dict."""
     if isinstance(benchmark, dict):
-        return benchmark.get("results", benchmark)
+        result = benchmark.get("results", benchmark)
+        return dict(result) if isinstance(result, dict) else {}
     return {}
 
 
