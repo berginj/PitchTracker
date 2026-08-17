@@ -44,6 +44,10 @@ jobs:
         run: flake8 . --count --statistics
 
       - name: Type check with mypy baseline ratchet
+        # Mypy is a source-level gate. Run it once on the canonical 3.13
+        # environment so newer interpreter-specific third-party stubs do not
+        # create a second, non-comparable diagnostic baseline.
+        if: matrix.python-version == '3.13'
         run: python scripts/check_mypy_baseline.py
 
       - name: Run tests
