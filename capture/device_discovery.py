@@ -37,13 +37,15 @@ def _list_camera_devices() -> list[dict[str, str]]:
         serial = (device.get("Serial") or "").strip()
         manufacturer = (device.get("Manufacturer") or "").strip()
         description = (device.get("Description") or "").strip()
+        driver_version = (device.get("DriverVersion") or "").strip()
+        driver_provider = (device.get("DriverProvider") or "").strip()
+        location_path = (device.get("LocationPath") or "").strip()
+        parent_instance_id = (device.get("ParentInstanceId") or "").strip()
         hwids = device.get("HardwareIds") or ""
 
         if not friendly:
             continue
 
-        if isinstance(hwids, list):
-            hwids = " ".join(hwids)
         hwids = str(hwids).lower()
 
         # Filter out printers and scanners by hardware IDs
@@ -86,6 +88,14 @@ def _list_camera_devices() -> list[dict[str, str]]:
 
         if description and description != friendly:
             device_info["description"] = description
+        if driver_version:
+            device_info["driver_version"] = driver_version
+        if driver_provider:
+            device_info["driver_provider"] = driver_provider
+        if location_path:
+            device_info["location_path"] = location_path
+        if parent_instance_id:
+            device_info["parent_instance_id"] = parent_instance_id
 
         output.append(device_info)
 
@@ -112,6 +122,10 @@ def _query_pnp_devices(device_class: str) -> List[dict[str, str]]:
         + "$mfg = ($props | Where-Object { $_.KeyName -eq 'DEVPKEY_Device_Manufacturer' } | Select-Object -First 1).Data; "
         + "$desc = ($props | Where-Object { $_.KeyName -eq 'DEVPKEY_Device_DeviceDesc' } | Select-Object -First 1).Data; "
         + "$hwids = ($props | Where-Object { $_.KeyName -eq 'DEVPKEY_Device_HardwareIds' } | Select-Object -First 1).Data; "
+        + "$driverVersion = ($props | Where-Object { $_.KeyName -eq 'DEVPKEY_Device_DriverVersion' } | Select-Object -First 1).Data; "
+        + "$driverProvider = ($props | Where-Object { $_.KeyName -eq 'DEVPKEY_Device_DriverProvider' } | Select-Object -First 1).Data; "
+        + "$locationPath = ($props | Where-Object { $_.KeyName -eq 'DEVPKEY_Device_LocationPaths' } | Select-Object -First 1).Data; "
+        + "$parent = ($props | Where-Object { $_.KeyName -eq 'DEVPKEY_Device_Parent' } | Select-Object -First 1).Data; "
         + "[pscustomobject]@{"
         + "FriendlyName=$dev.FriendlyName;"
         + "InstanceId=$dev.InstanceId;"
@@ -119,6 +133,10 @@ def _query_pnp_devices(device_class: str) -> List[dict[str, str]]:
         + "Manufacturer=$mfg;"
         + "Description=$desc;"
         + "HardwareIds=($hwids -join ' ');"
+        + "DriverVersion=$driverVersion;"
+        + "DriverProvider=$driverProvider;"
+        + "LocationPath=(($locationPath -join ' ') -as [string]);"
+        + "ParentInstanceId=$parent;"
         + "Status=$dev.Status;"
         + "Present=$dev.Present"
         + "} "

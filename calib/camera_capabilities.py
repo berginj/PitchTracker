@@ -13,6 +13,7 @@ from typing import Optional
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 
 from capture.camera_device import CameraDevice
 from contracts.capability_observation import (
@@ -39,6 +40,7 @@ class CameraCapabilities:
     focal_drift_percent: float  # Percentage focal length drift over test period
     recommendations: list[str]  # User-facing guidance
     capability_observation: Optional[CapabilityObservation] = None
+    classification_basis: str = "behavioral_observation"
 
     def __str__(self) -> str:
         """Human-readable summary."""
@@ -54,7 +56,7 @@ class CameraCapabilities:
 class CameraCapabilityDetector:
     """Detect camera type and autofocus capability."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize detector."""
         self.logger = logging.getLogger(__name__)
 
@@ -110,9 +112,9 @@ class CameraCapabilityDetector:
             logger.error("Insufficient focus score samples, cannot detect camera type")
             return self._create_unknown_capabilities("Insufficient frame data for detection")
 
-        focus_mean = np.mean(focus_scores)
-        focus_std = np.std(focus_scores)
-        focus_cv = focus_std / focus_mean if focus_mean > 0 else 1.0  # Coefficient of variation
+        focus_mean = float(np.mean(focus_scores))
+        focus_std = float(np.std(focus_scores))
+        focus_cv = float(focus_std / focus_mean) if focus_mean > 0 else 1.0
 
         logger.info(f"Focus: mean={focus_mean:.1f}, std={focus_std:.1f}, CV={focus_cv:.3f}")
 
@@ -154,6 +156,11 @@ class CameraCapabilityDetector:
             focal_drift_percent=focal_drift,
             recommendations=recommendations,
             capability_observation=observation,
+            classification_basis=(
+                "verified_uvc_control_query"
+                if uvc_autofocus is not None
+                else "behavioral_observation"
+            ),
         )
 
         logger.info(f"Detection complete:\n{capabilities}")
@@ -273,8 +280,11 @@ class CameraCapabilityDetector:
             return 0.0
 
     def _find_feature_matches(
-        self, img1: np.ndarray, img2: np.ndarray, max_features: int = 500
-    ) -> tuple[np.ndarray, np.ndarray]:
+        self,
+        img1: npt.NDArray[np.generic],
+        img2: npt.NDArray[np.generic],
+        max_features: int = 500,
+    ) -> tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]:
         """Find matching features between two images using ORB.
 
         Args:
@@ -287,14 +297,15 @@ class CameraCapabilityDetector:
         """
         try:
             # Use ORB (fast, free alternative to SIFT)
-            orb = cv2.ORB_create(nfeatures=max_features)
+            orb = getattr(cv2, "ORB_create")(nfeatures=max_features)
 
             # Detect keypoints and compute descriptors
             kp1, des1 = orb.detectAndCompute(img1, None)
             kp2, des2 = orb.detectAndCompute(img2, None)
 
             if des1 is None or des2 is None or len(kp1) < 10 or len(kp2) < 10:
-                return np.array([]), np.array([])
+                empty = np.empty((0, 2), dtype=np.float32)
+                return empty, empty.copy()
 
             # Match descriptors using BFMatcher with Hamming distance (for ORB)
             bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -304,14 +315,15 @@ class CameraCapabilityDetector:
             matches = sorted(matches, key=lambda x: x.distance)
 
             # Extract matched point coordinates
-            pts1 = np.float32([kp1[m.queryIdx].pt for m in matches])
-            pts2 = np.float32([kp2[m.trainIdx].pt for m in matches])
+            pts1 = np.asarray([kp1[m.queryIdx].pt for m in matches], dtype=np.float32)
+            pts2 = np.asarray([kp2[m.trainIdx].pt for m in matches], dtype=np.float32)
 
             return pts1, pts2
 
         except Exception as e:
             logger.error(f"Error in feature matching: {e}")
-            return np.array([]), np.array([])
+            empty = np.empty((0, 2), dtype=np.float32)
+            return empty, empty.copy()
 
     def _query_uvc_autofocus(self, camera: CameraDevice) -> Optional[bool]:
         """Determine whether the camera has autofocus hardware from observations.
@@ -357,15 +369,16 @@ class CameraCapabilityDetector:
         elif uvc_autofocus is False:
             return "industrial", False
 
-        # Classification based on measured stability
+        # Behavioral classification may guide setup, but it cannot prove that
+        # autofocus hardware exists or is absent.
         if focal_drift > 5.0 or focus_cv > 0.15:
-            # High drift or high focus variation = autofocus webcam
+            # High drift/focus variation resembles consumer-camera behavior.
             camera_type = "webcam"
-            has_autofocus = True
+            has_autofocus = None
         elif focal_drift < 1.0 and focus_cv < 0.05:
-            # Very stable = industrial/manual focus camera
+            # Stable behavior is suitable for calibration but not hardware proof.
             camera_type = "industrial"
-            has_autofocus = False
+            has_autofocus = None
         else:
             # Ambiguous - could be either
             camera_type = "unknown"
@@ -417,15 +430,24 @@ class CameraCapabilityDetector:
         """
         recommendations = []
 
-        if camera_type == "webcam" or has_autofocus is True:
+        if has_autofocus is True:
             recommendations.append("⚠️ Autofocus camera detected")
             recommendations.append("Disable autofocus in camera settings for best accuracy")
             recommendations.append("Use manual focus or consider upgrading to industrial cameras")
             recommendations.append("Quick calibration mode recommended (less sensitive to drift)")
-        elif camera_type == "industrial":
-            recommendations.append("✓ Fixed focal length camera detected")
+        elif camera_type == "webcam":
+            recommendations.append("⚠️ Variable focus behavior observed")
+            recommendations.append("Autofocus hardware could not be verified through UVC")
+            recommendations.append("Lock focus manually and repeat the stability check")
+            recommendations.append("Quick calibration mode recommended until focus is verified")
+        elif camera_type == "industrial" and has_autofocus is False:
+            recommendations.append("✓ Focus control verified absent or fixed")
             recommendations.append("Excellent conditions for high-accuracy calibration")
             recommendations.append("Full calibration mode recommended for maximum precision")
+        elif camera_type == "industrial":
+            recommendations.append("✓ Stable focus behavior observed")
+            recommendations.append("Focus hardware capability remains unverified")
+            recommendations.append("Full calibration is appropriate after control verification")
         else:
             recommendations.append("⚠️ Unable to determine camera type")
             recommendations.append("Point cameras at textured scene (poster, books) for detection")

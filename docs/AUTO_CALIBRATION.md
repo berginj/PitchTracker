@@ -11,18 +11,23 @@ The PitchTracker now includes a comprehensive auto-calibration system that simpl
 
 ### 1. Camera Capability Detection
 
-Automatically detects camera type (webcam vs industrial) and provides tailored recommendations.
+Observes camera stability and, where the backend can verify it, queries focus
+and other UVC controls. Behavioral classification guides setup but does not
+prove that autofocus hardware exists or is absent.
 
 **Detection Methods:**
 - **Warmup Stability**: Monitors brightness variance over 20 frames
 - **Focus Stability**: Tracks Laplacian variance over 30 frames
 - **Focal Drift**: Uses ORB feature matching to detect scale changes over 5 seconds
-- **UVC Query**: Future support for querying camera capabilities directly
+- **UVC Query**: Optional native DirectShow query with validated OpenCV fallback
 
 **Classification:**
-- **Industrial (Fixed Focus)**: Focus CV < 0.05, Focal drift < 1%
-- **Webcam (Autofocus)**: Focus CV > 0.15, Focal drift > 5%
+- **Stable behavior**: Focus CV < 0.05, focal drift < 1%
+- **Variable behavior**: Focus CV > 0.15, focal drift > 5%
 - **Unknown**: Between thresholds
+
+Only an explicit UVC `supported` or `unsupported` result determines the
+hardware focus capability. See [UVC Capability Evidence](UVC_CAPABILITY_DISCOVERY.md).
 
 ### 2. Quick Calibration Mode
 
@@ -314,11 +319,10 @@ Expected: **51 tests passing**
 
 ## Future Enhancements
 
-1. **UVC Camera Query**: Direct autofocus capability detection
-2. **Time Sync Residual**: Extract from trajectory fitting for better refinement
-3. **Automatic Recalibration**: Trigger when health degrades significantly
-4. **Multi-Camera Support**: Extend to more than 2 cameras
-5. **Web UI**: Browser-based calibration interface
+1. **Time Sync Residual**: Extract from trajectory fitting for better refinement
+2. **Automatic Recalibration**: Trigger when health degrades significantly
+3. **Multi-Camera Support**: Extend to more than 2 cameras
+4. **Web UI**: Browser-based calibration interface
 
 ## References
 

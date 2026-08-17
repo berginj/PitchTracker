@@ -178,7 +178,7 @@ def test_classify_camera_industrial():
     )
 
     assert camera_type == "industrial"
-    assert has_autofocus is False
+    assert has_autofocus is None
 
 
 def test_classify_camera_webcam():
@@ -190,7 +190,7 @@ def test_classify_camera_webcam():
     )
 
     assert camera_type == "webcam"
-    assert has_autofocus is True
+    assert has_autofocus is None
 
 
 def test_classify_camera_unknown():
@@ -227,7 +227,7 @@ def test_generate_recommendations_industrial():
     )
 
     # Should recommend full calibration
-    assert any("Fixed focal length" in r for r in recommendations)
+    assert any("Focus control verified absent" in r for r in recommendations)
     assert any("Full calibration" in r for r in recommendations)
     assert any("Excellent" in r for r in recommendations)
 

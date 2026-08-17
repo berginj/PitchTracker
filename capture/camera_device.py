@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Mapping, Optional, Sequence
 
 from contracts import Frame
 from contracts.capability_observation import CapabilityObservation
@@ -21,6 +21,12 @@ class CameraStats:
 
 
 class CameraDevice(ABC):
+    def set_discovered_devices(
+        self,
+        devices: Sequence[Mapping[str, str]],
+    ) -> None:
+        """Provide a stable discovery snapshot when a backend can use one."""
+
     @abstractmethod
     def open(self, serial: str) -> None:
         """Open a camera by serial number."""

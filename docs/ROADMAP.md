@@ -105,9 +105,10 @@ Acceptance evidence:
 
 ### [R-005 — UVC capability inventory](https://github.com/berginj/PitchTracker/issues/16)
 
-Replace best-effort control discovery with verified UVC control queries where
-the backend supports them. The remaining implementation marker is
-`calib/camera_capabilities.py`.
+**Software status:** complete. Optional native DirectShow queries and
+conservative OpenCV fallback now preserve explicit status, provenance,
+requested/negotiated modes, advertised modes, and device metadata. Physical
+camera qualification remains part of R-001.
 
 Acceptance evidence:
 
@@ -115,6 +116,9 @@ Acceptance evidence:
   unavailable.
 - Tests cover device and query failures.
 - Setup snapshots persist observed results without inventing defaults.
+
+See [UVC Capability Evidence](UVC_CAPABILITY_DISCOVERY.md) for status semantics
+and the pre-field hardware matrix.
 
 ## Next: field hardening after evidence arrives
 

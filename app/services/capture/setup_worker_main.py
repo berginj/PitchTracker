@@ -21,6 +21,7 @@ from typing import Any
 
 import numpy as np
 
+from capture.camera_device import CameraDevice
 from contracts.setup_capture import (
     SetupCaptureFailureCode,
     SetupCapturePurpose,
@@ -28,10 +29,11 @@ from contracts.setup_capture import (
     SetupCaptureResult,
     SetupFrameRecord,
 )
+from contracts.types import Frame
 
 
 class SetupCaptureWorkerError(RuntimeError):
-    def __init__(self, code: SetupCaptureFailureCode, message: str):
+    def __init__(self, code: SetupCaptureFailureCode, message: str) -> None:
         super().__init__(message)
         self.code = code
 
@@ -59,7 +61,7 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _camera_factory(backend: str):
+def _camera_factory(backend: str) -> type[CameraDevice]:
     if backend == "sim":
         from capture.simulated_camera import SimulatedCamera
 
@@ -73,7 +75,7 @@ def _camera_factory(backend: str):
     return UvcCamera
 
 
-def _record(frame, image_path: Path | None = None) -> SetupFrameRecord:
+def _record(frame: Frame, image_path: Path | None = None) -> SetupFrameRecord:
     return SetupFrameRecord(
         camera_id=str(frame.camera_id),
         frame_index=int(frame.frame_index),
@@ -120,8 +122,8 @@ def _capture(request: SetupCaptureRequest) -> SetupCaptureResult:
         discovered_devices = list_uvc_devices()
         left.set_discovered_devices(discovered_devices)
         right.set_discovered_devices(discovered_devices)
-    left_frames: list[Any] = []
-    right_frames: list[Any] = []
+    left_frames: list[Frame] = []
+    right_frames: list[Frame] = []
     errors_by_side = {"left": 0, "right": 0}
     modes: dict[str, dict[str, Any]] = {}
     controls: dict[str, dict[str, Any]] = {}
@@ -151,8 +153,8 @@ def _capture(request: SetupCaptureRequest) -> SetupCaptureResult:
             "right": _json_safe(right.get_mode() or {}),
         }
 
-        def _burst(camera, side: str) -> list[Any]:
-            captured: list[Any] = []
+        def _burst(camera: CameraDevice, side: str) -> list[Frame]:
+            captured: list[Frame] = []
             for _ in range(request.requested_frames_per_camera):
                 try:
                     # This is an advisory backend timeout.  The parent process
@@ -179,8 +181,25 @@ def _capture(request: SetupCaptureRequest) -> SetupCaptureResult:
         }
         for side, camera in (("left", left), ("right", right)):
             observation = camera.get_capability_observation()
-            if observation is not None:
-                capability_observations[side] = _json_safe(observation.to_payload())
+            if observation is None:
+                from contracts.capability_observation import build_unavailable_observation
+
+                camera_id = (
+                    request.left_camera_id if side == "left" else request.right_camera_id
+                )
+                observation = build_unavailable_observation(
+                    camera_id,
+                    request.backend,
+                    "Capture backend did not expose capability evidence.",
+                    requested_mode={
+                        "width": config.camera.width,
+                        "height": config.camera.height,
+                        "fps": config.camera.fps,
+                        "pixfmt": config.camera.pixfmt,
+                    },
+                    negotiated_mode=modes.get(side, {}),
+                )
+            capability_observations[side] = _json_safe(observation.to_payload())
     finally:
         # Normal completion uses backend cleanup.  A driver-level stall here is
         # still bounded because the parent owns the process deadline.

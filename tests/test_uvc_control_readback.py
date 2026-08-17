@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
 import cv2
 import pytest
 
@@ -13,6 +15,7 @@ from contracts.capability_observation import (
 
 class _FakeCapture:
     def __init__(self) -> None:
+        self.released = False
         self.values = {
             cv2.CAP_PROP_AUTO_EXPOSURE: 0.25,
             cv2.CAP_PROP_AUTO_WB: 0.0,
@@ -27,18 +30,32 @@ class _FakeCapture:
     def get(self, prop):
         return self.values.get(prop, 0.0)
 
+    def release(self) -> None:
+        self.released = True
+
+
+def _attach_capture(camera: UvcCamera, capture: _FakeCapture) -> None:
+    camera._capture = cast(cv2.VideoCapture, capture)
+
+
+def _read_controls(camera: UvcCamera) -> dict[str, Any]:
+    controls = camera.get_controls()
+    assert controls is not None
+    return controls
+
 
 def test_directshow_controls_are_converted_and_verified_from_readback() -> None:
     camera = UvcCamera()
-    camera._capture = _FakeCapture()
+    capture = _FakeCapture()
+    _attach_capture(camera, capture)
     camera.set_controls(2000, 2.0, None, None)
 
-    controls = camera.get_controls()
+    controls = _read_controls(camera)
 
     assert controls["exposure_backend_raw"] == pytest.approx(-8.965784, rel=1e-5)
     assert controls["exposure_readback_us"] == pytest.approx(2000.0)
     assert controls["autofocus_disabled"] is True
-    assert camera._capture.values[cv2.CAP_PROP_AUTOFOCUS] == 0
+    assert capture.values[cv2.CAP_PROP_AUTOFOCUS] == 0
     assert controls["actual_exposure_us"] == pytest.approx(2000.0)
     assert controls["actual_gain"] == pytest.approx(2.0)
     assert controls["readback_verified"] is True
@@ -46,11 +63,11 @@ def test_directshow_controls_are_converted_and_verified_from_readback() -> None:
 
 def test_color_controls_fail_when_auto_white_balance_sample_is_zero() -> None:
     camera = UvcCamera()
-    camera._capture = _FakeCapture()
+    _attach_capture(camera, _FakeCapture())
     camera._pixfmt = "YUYV"
 
     camera.set_controls(2000, 2.0, None, None)
-    controls = camera.get_controls()
+    controls = _read_controls(camera)
 
     assert controls["actual_wb"] is None
     assert controls["resolved_wb"] is None
@@ -64,11 +81,11 @@ def test_color_controls_auto_sample_then_lock_white_balance() -> None:
     capture = _FakeCapture()
     capture.values[cv2.CAP_PROP_AUTO_WB] = 1.0
     capture.values[cv2.CAP_PROP_WB_TEMPERATURE] = 4750.0
-    camera._capture = capture
+    _attach_capture(camera, capture)
     camera._pixfmt = "YUYV"
 
     camera.set_controls(2000, 2.0, None, None)
-    controls = camera.get_controls()
+    controls = _read_controls(camera)
 
     assert capture.values[cv2.CAP_PROP_AUTO_WB] == 0
     assert capture.values[cv2.CAP_PROP_WB_TEMPERATURE] == pytest.approx(4750.0)
@@ -81,11 +98,11 @@ def test_color_controls_auto_sample_then_lock_white_balance() -> None:
 
 def test_color_controls_verify_explicit_white_balance() -> None:
     camera = UvcCamera()
-    camera._capture = _FakeCapture()
+    _attach_capture(camera, _FakeCapture())
     camera._pixfmt = "YUYV"
 
     camera.set_controls(2000, 2.0, None, 4600)
-    controls = camera.get_controls()
+    controls = _read_controls(camera)
 
     assert controls["actual_wb"] == pytest.approx(4600.0)
     assert controls["color_white_balance_verified"] is True
@@ -118,10 +135,10 @@ def test_capability_observation_keeps_requested_and_negotiated_modes() -> None:
             cv2.CAP_PROP_FRAME_WIDTH: 1280,
             cv2.CAP_PROP_FRAME_HEIGHT: 720,
             cv2.CAP_PROP_FPS: 60,
-            cv2.CAP_PROP_FOURCC: cv2.VideoWriter_fourcc(*"MJPG"),
+            cv2.CAP_PROP_FOURCC: int.from_bytes(b"MJPG", "little"),
         }
     )
-    camera._capture = capture
+    _attach_capture(camera, capture)
     camera._serial = "private-camera-id"
     camera._width = 1920
     camera._height = 1080
@@ -139,15 +156,14 @@ def test_capability_observation_keeps_requested_and_negotiated_modes() -> None:
     assert observation.results[CONTROL_RESOLUTION].requested_value == "1920x1080"
     assert observation.results[CONTROL_FPS].observed_value == 60
     assert observation.results[CONTROL_FPS].status == ControlQueryStatus.SUPPORTED
-    assert observation.provenance_note == "DirectShow UVC backend readback."
+    assert "OpenCV DirectShow properties" in observation.provenance_note
+    assert "native DirectShow probe" in observation.provenance_note
 
 
 def test_close_releases_capture_and_remains_idempotent(monkeypatch) -> None:
     camera = UvcCamera()
     capture = _FakeCapture()
-    capture.released = False
-    capture.release = lambda: setattr(capture, "released", True)
-    camera._capture = capture
+    _attach_capture(camera, capture)
     monkeypatch.setattr("capture.uvc_backend.time.sleep", lambda _seconds: None)
 
     camera.close()
