@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping, Optional, cast
 
 import numpy as np
 
@@ -330,7 +330,10 @@ def _validate_field_transform(
         return
     try:
         transform = FieldTransform(
-            tuple(tuple(float(value) for value in row) for row in matrix),
+            cast(
+                tuple[tuple[float, float, float, float], ...],
+                tuple(tuple(float(value) for value in row) for row in matrix),
+            ),
             float(profile.field_transform.get("rms_residual_ft", float("inf"))),
             str(profile.field_transform.get("fixture_id") or "unknown"),
             float(profile.field_transform.get("max_rms_residual_ft", 0.1)),

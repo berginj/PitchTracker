@@ -11,10 +11,13 @@ from typing import TYPE_CHECKING
 from contracts.quality import QUALITY_DEGRADED
 
 if TYPE_CHECKING:
+    from contracts.setup import CalibrationQualityReport, StereoCalibrationProfile
     from ui.setup.providers.context import LiveSetupContext
 
 
-def build_quality_report_for_context(ctx: "LiveSetupContext"):
+def build_quality_report_for_context(
+    ctx: "LiveSetupContext",
+) -> "CalibrationQualityReport":
     """Assemble a quality report from current setup evidence."""
     from calib.stereo_setup.quality_report import build_quality_report
     from ui.setup.persist_profile_view import build_stereo_profile_from_report
@@ -61,7 +64,10 @@ def build_quality_report_for_context(ctx: "LiveSetupContext"):
     return report
 
 
-def persist_profile_for_context(ctx: "LiveSetupContext", stereo_profile) -> str:
+def persist_profile_for_context(
+    ctx: "LiveSetupContext",
+    stereo_profile: "StereoCalibrationProfile",
+) -> str:
     """Persist a validated rig profile and activate it."""
     from app.services.rig_profile import RigProfileService
     from app.services.rig_profile_models import PASS, WARN, RigProfile
@@ -69,7 +75,7 @@ def persist_profile_for_context(ctx: "LiveSetupContext", stereo_profile) -> str:
     from configs.settings import load_config
     from ui.setup.field_alignment_view import load_or_estimate_field_alignment
 
-    from ui.setup.providers.context import _new_profile_id, _setup_payload
+    from ui.setup.providers.support import _new_profile_id, _setup_payload
 
     field_alignment = load_or_estimate_field_alignment(Path("calibration"))
     if not field_alignment.passed or field_alignment.transform is None:
@@ -87,7 +93,7 @@ def persist_profile_for_context(ctx: "LiveSetupContext", stereo_profile) -> str:
             value = controls.get("resolved_wb")
             source = controls.get("wb_source")
             try:
-                numeric_value = float(value)
+                numeric_value = float(str(value))
             except (TypeError, ValueError):
                 numeric_value = 0.0
             if (

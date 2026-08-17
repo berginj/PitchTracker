@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 import hashlib
 from pathlib import Path
 import uuid
@@ -15,69 +14,45 @@ from capture.device_discovery import list_uvc_devices
 from capture.uvc_backend import UvcCamera
 from contracts.capability_observation import CapabilityObservation
 from contracts.catalog import SIDE_UNASSIGNED, SIDE_LEFT, SIDE_RIGHT
+from contracts.setup import CoarseRectificationResult, StereoOverlapResult, SyncCheckResult
 from contracts.setup_capture import SetupCapturePurpose, SetupCaptureRequest, SetupCaptureResult, SetupFrameRecord
 from contracts.types import Frame
 from exceptions import CameraError
 from ui.setup.paired_preview_view import PairedPreviewSnapshot, empty_preview_snapshot
 
 from ui.setup.providers.discovery import DeviceLister, discover_camera_selection
+from ui.setup.providers.support import (
+    CameraCatalog,
+    _effective_pixfmt,
+    _normalize_mode,
+)
 
 if TYPE_CHECKING:
+    from calib.capture_qualification import CaptureQualification
     from ui.setup.camera_select_view import CameraSelectionSnapshot
-
-
-def _new_profile_id() -> str:
-    return (
-        "rig_"
-        + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-        + "_"
-        + uuid.uuid4().hex[:12]
-    )
-
-
-def _effective_pixfmt(config) -> str:
-    pixfmt = config.camera.pixfmt
-    return "YUYV" if config.camera.color_mode and pixfmt == "GRAY8" else pixfmt
-
-
-def _normalize_mode(mode: Optional[dict]) -> dict:
-    normalized = dict(mode or {})
-    if str(normalized.get("pixfmt") or "").upper() == "YUY2":
-        normalized["pixfmt"] = "YUYV"
-    if "fps" in normalized:
-        normalized["fps"] = float(normalized["fps"])
-    return normalized
-
-
-def _setup_payload(value: Any) -> Any:
-    if value is None:
-        return None
-    if hasattr(value, "to_payload") and callable(value.to_payload):
-        return value.to_payload()
-    if hasattr(value, "__dict__"):
-        return dict(value.__dict__)
-    return value
+    from ui.setup.focus_lock_view import FocusExposureSnapshot
+    from contracts.setup import CalibrationQualityReport, StereoCalibrationProfile
 
 
 @dataclass
 class LiveSetupContext:
     """Shared hardware context carried through the canonical setup workflow."""
 
-    catalog: Optional[object]
+    catalog: Optional[CameraCatalog]
     list_devices: DeviceLister = list_uvc_devices
     camera_factory: Callable[[], CameraDevice] = UvcCamera
     config_path: Path = Path("configs/default.yaml")
     last_left_frames: list[Frame] = field(default_factory=list)
     last_right_frames: list[Frame] = field(default_factory=list)
-    last_controls: dict[str, dict] = field(default_factory=dict)
-    last_modes: dict[str, dict] = field(default_factory=dict)
+    last_controls: dict[str, dict[str, Any]] = field(default_factory=dict)
+    last_modes: dict[str, dict[str, Any]] = field(default_factory=dict)
     last_capability_observations: dict[str, CapabilityObservation] = field(default_factory=dict)
-    last_qualification: object = None
-    last_sync: object = None
-    last_focus: object = None
-    last_overlap: object = None
-    last_rectification: object = None
-    last_capture_diagnostics: dict = field(default_factory=dict)
+    last_qualification: Optional["CaptureQualification"] = None
+    last_sync: Optional[SyncCheckResult] = None
+    last_focus: Optional["FocusExposureSnapshot"] = None
+    last_overlap: Optional[StereoOverlapResult] = None
+    last_rectification: Optional[CoarseRectificationResult] = None
+    last_capture_diagnostics: dict[str, Any] = field(default_factory=dict)
     setup_capture_backend: str = "uvc"
     assignment_generation: int = 0
     rig_profile_dir: Path = Path("calibration/rigs")
@@ -205,7 +180,7 @@ class LiveSetupContext:
             pixfmt=record.pixfmt,
         )
 
-    def apply_capture_result(self, result: SetupCaptureResult):
+    def apply_capture_result(self, result: SetupCaptureResult) -> object:
         """Validate and reduce a worker result on the UI-owning thread."""
         if result.assignment_generation != self.assignment_generation:
             raise RuntimeError("stale setup capture result for an earlier camera assignment")
@@ -217,7 +192,7 @@ class LiveSetupContext:
         right_frames = [self._frame_from_record(record) for record in result.right_frames]
         if not left_frames or not right_frames:
             raise RuntimeError("setup capture did not return both camera streams")
-        capability_observations = {}
+        capability_observations: dict[str, CapabilityObservation] = {}
         for side, records in (("left", result.left_frames), ("right", result.right_frames)):
             if side not in result.capability_observations:
                 continue
@@ -364,11 +339,11 @@ class LiveSetupContext:
             max(len(left), len(right)),
         )
 
-    def sync(self):
+    def sync(self) -> SyncCheckResult:
         left, right = self.capture(frames=60)
         return self._sync_from_frames(left, right)
 
-    def _sync_from_frames(self, left: list[Frame], right: list[Frame]):
+    def _sync_from_frames(self, left: list[Frame], right: list[Frame]) -> SyncCheckResult:
         from calib.sync_check import check_sync
         from calib.capture_qualification import qualify_capture
         from app.monitoring.error_budget import ErrorBudget, MetricLimit
@@ -428,29 +403,34 @@ class LiveSetupContext:
         )
         return self.last_sync
 
-    def focus(self):
+    def focus(self) -> "FocusExposureSnapshot":
         left, right = self.capture(frames=3)
         return self._focus_from_frames(left, right)
 
-    def _focus_from_frames(self, left: list[Frame], right: list[Frame]):
+    def _focus_from_frames(
+        self,
+        left: list[Frame],
+        right: list[Frame],
+    ) -> "FocusExposureSnapshot":
         from calib.stereo_setup.focus_lock import ExposureLockInput, ExposureValues, evaluate_exposure_lock, evaluate_focus_lock
         from configs.settings import load_config
         from ui.setup.focus_lock_view import FocusExposureSnapshot
 
         config = load_config(self.config_path)
         applied = ExposureValues(config.camera.exposure_us, config.camera.gain, float(config.camera.wb or 0))
-        results = {}
+        focus_results = []
+        exposure_results = []
         for side, frame in (("left", left[-1]), ("right", right[-1])):
             if frame.image is None:
                 raise RuntimeError(f"{side} focus capture is missing its image artifact")
             control = self.last_controls.get(side, {})
-            results[f"focus_{side}"] = evaluate_focus_lock(
+            focus_results.append(evaluate_focus_lock(
                 side,
                 frame.image,
                 bool(control.get("autofocus_disabled", False)),
-            )
+            ))
             readback = applied if control.get("readback_verified") else None
-            results[f"exposure_{side}"] = evaluate_exposure_lock(
+            exposure_results.append(evaluate_exposure_lock(
                 side,
                 ExposureLockInput(
                     applied,
@@ -458,15 +438,24 @@ class LiveSetupContext:
                     bool(control.get("auto_exposure_disabled")),
                     bool(control.get("auto_white_balance_disabled")),
                 ),
-            )
-        self.last_focus = FocusExposureSnapshot(**results)
+            ))
+        self.last_focus = FocusExposureSnapshot(
+            focus_left=focus_results[0],
+            focus_right=focus_results[1],
+            exposure_left=exposure_results[0],
+            exposure_right=exposure_results[1],
+        )
         return self.last_focus
 
-    def overlap(self):
+    def overlap(self) -> StereoOverlapResult:
         left, right = self.capture(frames=1)
         return self._overlap_from_frames(left, right)
 
-    def _overlap_from_frames(self, left: list[Frame], right: list[Frame]):
+    def _overlap_from_frames(
+        self,
+        left: list[Frame],
+        right: list[Frame],
+    ) -> StereoOverlapResult:
         from calib.stereo_setup.overlap import validate_overlap
 
         if left[-1].image is None or right[-1].image is None:
@@ -474,11 +463,15 @@ class LiveSetupContext:
         self.last_overlap = validate_overlap(left[-1].image, right[-1].image)
         return self.last_overlap
 
-    def rectify(self):
+    def rectify(self) -> CoarseRectificationResult:
         left, right = self.capture(frames=1)
         return self._rectify_from_frames(left, right)
 
-    def _rectify_from_frames(self, left: list[Frame], right: list[Frame]):
+    def _rectify_from_frames(
+        self,
+        left: list[Frame],
+        right: list[Frame],
+    ) -> CoarseRectificationResult:
         from calib.stereo_setup.rectify import coarse_rectify
 
         if left[-1].image is None or right[-1].image is None:
@@ -486,10 +479,10 @@ class LiveSetupContext:
         self.last_rectification = coarse_rectify(left[-1].image, right[-1].image)
         return self.last_rectification
 
-    def quality_report(self):
+    def quality_report(self) -> "CalibrationQualityReport":
         from ui.setup.providers.profile import build_quality_report_for_context
         return build_quality_report_for_context(self)
 
-    def persist_profile(self, stereo_profile) -> str:
+    def persist_profile(self, stereo_profile: "StereoCalibrationProfile") -> str:
         from ui.setup.providers.profile import persist_profile_for_context
         return persist_profile_for_context(self, stereo_profile)

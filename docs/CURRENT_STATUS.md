@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-08-16
 **Published release:** `v2.0.0` / internal app version `2.0.0`
-**Development status:** broad automated implementation on `codex/python313-mypy`;
-physical validation, native-thread teardown, packaging provenance, and global
-mypy cleanup remain
+**Development status:** production-readiness work is consolidated on `main`;
+physical validation, native-thread teardown, packaging provenance, robust UVC
+probing, and global mypy cleanup remain
 
 ## Summary
 
@@ -25,10 +25,10 @@ approved.
 |---|---|
 | GitHub release | `v2.0.0`, published 2026-06-27 |
 | Release installer asset | Not currently attached to the GitHub release |
-| Current working branch | `codex/python313-mypy`; see the branch head for the exact commit |
-| Test collection | 1,614 tests collected under Python 3.13 |
-| Latest focused validation | Changed-area suites pass; the full Windows xdist run still has a native-thread teardown hang |
-| Static validation | Schema sync, file-length, Flake8, release-version, focused packaging checks, and the mypy baseline ratchet pass; the global mypy backlog remains |
+| Development baseline | `main`; use the checked-out commit for exact provenance |
+| Test collection | Full Python 3.13 and 3.14 suites run in CI; use current CI output for the exact count |
+| Latest focused validation | Rig-profile and setup-provider acceptance suites pass; the full Windows run remains authoritative for native teardown behavior |
+| Static validation | Schema sync, public docs, file length, Flake8, strict typed clean zones, suppression policy, and a non-increasing mypy baseline are required; the global backlog remains |
 | Physical accuracy approval | None; results must remain estimated/degraded/unavailable/rejected as evidence requires |
 
 The locally built installer must be smoke-tested on a clean Windows machine
@@ -46,6 +46,9 @@ must use this document and the roadmap below.
   failure paths.
 - Stable camera identity, capability-based recommendation, and previous
   validated-pair preference.
+- Rig-profile validation/persistence and setup providers are split behind
+  focused typed boundaries; issues #14 and #15 no longer require structural
+  work.
 - Setup snapshot containing host/software/camera/control/capture/calibration/ROI/
   field-transform/tracking/correction evidence and artifact hashes.
 - Per-frame and per-candidate decision lineage, unmatched outcomes, terminal
@@ -66,7 +69,8 @@ The canonical open work is [ROADMAP.md](ROADMAP.md):
 2. Resolve native-thread teardown and complete lifecycle failure injection.
 3. Run predeclared physical ground-truth speed and plate-location validation.
 4. Smoke-test a signed installer on clean Windows machines.
-5. Reduce the global mypy baseline without adding new errors.
+5. Eliminate the global mypy baseline; every reduction must be committed and
+   strict clean zones cannot regress.
 6. Publish a hardware matrix and operating envelope only from collected evidence.
 
 ## Product boundary

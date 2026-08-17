@@ -23,8 +23,8 @@ from ui.setup.providers.preview import (  # noqa: F401
     make_camera_preview_provider,
     simulated_paired_preview,
 )
-from ui.setup.providers.context import (  # noqa: F401
-    LiveSetupContext,
+from ui.setup.providers.context import LiveSetupContext  # noqa: F401
+from ui.setup.providers.support import (  # noqa: F401
     _new_profile_id,
     _effective_pixfmt,
     _normalize_mode,

@@ -1,0 +1,12 @@
+{
+  "targets": [
+    "contracts/capability_observation.py",
+    "contracts/setup_capture.py",
+    "app/services/rig_profile.py",
+    "app/services/rig_profile_models.py",
+    "app/services/rig_profile_persistence.py",
+    "app/services/rig_profile_approval.py",
+    "app/services/rig_profile_validation.py",
+    "ui/setup/providers"
+  ]
+}

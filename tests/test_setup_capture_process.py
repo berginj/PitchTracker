@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import sys
 import time
+from typing import cast
 from pathlib import Path
 
 import pytest
@@ -171,8 +172,10 @@ def test_parent_deadline_reaps_forever_blocked_worker(tmp_path: Path) -> None:
 
 
 def test_context_rejects_stale_assignment_without_mutating_evidence() -> None:
+    from contracts.setup import SyncCheckResult
+
     context = LiveSetupContext(catalog=None)
-    sentinel = object()
+    sentinel = cast(SyncCheckResult, object())
     context.last_sync = sentinel
     config_path = context.config_path.resolve()
     record = SetupFrameRecord("left", 1, 1, 10, 10, "GRAY8")
