@@ -1,6 +1,10 @@
 ## Supported runtimes: Python 3.13 and newer.
 opencv-contrib-python==4.10.0.84
-numpy==2.2.2
+# NumPy 2.2 does not ship a CPython 3.14 Windows wheel and can crash during
+# import. Keep the 3.13 pin stable while selecting the first 3.14-compatible
+# wheel for newer interpreters.
+numpy==2.2.2; python_version < "3.14"
+numpy==2.3.5; python_version >= "3.14"
 scipy==1.17.0
 PyYAML==6.0.1
 PySide6==6.10.1
