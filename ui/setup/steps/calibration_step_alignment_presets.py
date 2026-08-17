@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
 
 from PySide6 import QtWidgets
 
@@ -13,7 +15,7 @@ from ui.themes import (
 logger = get_logger(__name__)
 
 
-class CalibrationStepAlignmentPresetsMixin:
+class CalibrationStepAlignmentPresetsMixin(CalibrationStepMixinHost):
     def _save_alignment_preset(self) -> None:
         """Save current alignment as a preset."""
         if not hasattr(self, "_alignment_results") or self._alignment_results is None:
@@ -44,8 +46,8 @@ class CalibrationStepAlignmentPresetsMixin:
                 save_alignment_preset(
                     self._alignment_results,
                     preset_name,
-                    self._left_serial or "Unknown",
-                    self._right_serial or "Unknown",
+                    str(self._left_serial or "Unknown"),
+                    str(self._right_serial or "Unknown"),
                 )
 
                 show_message_dialog(

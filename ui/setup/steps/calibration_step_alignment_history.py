@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
 from pathlib import Path
+from typing import Any
 
 
 from log_config.logger import get_logger
@@ -10,7 +13,7 @@ from log_config.logger import get_logger
 logger = get_logger(__name__)
 
 
-class CalibrationStepAlignmentHistoryMixin:
+class CalibrationStepAlignmentHistoryMixin(CalibrationStepMixinHost):
     def _update_alignment_history(self, results) -> None:
         """Add current results to history and update display.
 
@@ -65,7 +68,7 @@ class CalibrationStepAlignmentHistoryMixin:
                 existing_data = {"sessions": []}
 
             # Create current session entry
-            session_entry = {
+            session_entry: dict[str, Any] = {
                 "session_date": datetime.now().isoformat(),
                 "camera_serials": {"left": self._left_serial, "right": self._right_serial},
                 "iterations": [],

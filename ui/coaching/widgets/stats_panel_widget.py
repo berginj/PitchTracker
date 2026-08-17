@@ -142,7 +142,7 @@ class StatsPanelWidget(QtWidgets.QWidget):
             pitch_num = len(recent_pitches) - i
             speed_str = f"{pitch.speed_mph:.1f}" if pitch.speed_mph else "--"
             if pitch.measurement_status in {"REJECTED", "UNAVAILABLE"}:
-                result_str = pitch.measurement_status
+                result_str = str(pitch.measurement_status)
             else:
                 result_str = "STRIKE" if pitch.is_strike else "BALL"
 

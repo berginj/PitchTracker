@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, cast
 
 from PySide6 import QtWidgets
 
 from app.contracts import measurement_is_usable
+from ui.coaching.widgets.games.base_game import BaseGame
 from ui.coaching.widgets.games.around_world_game import AroundWorldGame
 from ui.coaching.widgets.games.speed_challenge_game import SpeedChallengeGame
 from ui.coaching.widgets.games.target_scoring_game import TargetScoringGame
@@ -116,13 +117,15 @@ class GameModeWidget(BaseModeWidget):
         # historical pitch.
         pitches_to_process = new_pitches if new_pitches is not None else recent_pitches[-1:]
         current_game = self._game_stack.currentWidget()
-        if current_game:
-            for pitch in pitches_to_process:
-                if not measurement_is_usable(pitch):
-                    continue
-                if current_game.get_game_name() == "speed_challenge" and pitch.speed_mph is None:
-                    continue
-                current_game.process_pitch(pitch)
+        if current_game is None:
+            return
+        game = cast(BaseGame, current_game)
+        for pitch in pitches_to_process:
+            if not measurement_is_usable(pitch):
+                continue
+            if game.get_game_name() == "speed_challenge" and pitch.speed_mph is None:
+                continue
+            game.process_pitch(pitch)
 
     def update_camera_frames(self, left_frame: Optional["Frame"], right_frame: Optional["Frame"]) -> None:
         """Update camera preview frames.

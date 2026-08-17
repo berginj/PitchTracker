@@ -78,7 +78,9 @@ class SetupDoctorDialog(QtWidgets.QDialog):
         self._stage_table.setHorizontalHeaderLabels(["Stage", "State", "Notes"])
         self._stage_table.horizontalHeader().setStretchLastSection(True)
         self._stage_table.verticalHeader().setVisible(False)
-        self._stage_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self._stage_table.setSelectionBehavior(
+            QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
+        )
         self._stage_table.cellClicked.connect(self._select_stage)
 
         self._previous_button = QtWidgets.QPushButton("Previous")

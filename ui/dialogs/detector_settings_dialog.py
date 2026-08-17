@@ -125,7 +125,7 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
         self._workers.setValue(max(1, int(worker_count)))
 
         # Configure spin boxes
-        for field in (
+        for double_field in (
             self._frame_diff,
             self._bg_diff,
             self._bg_alpha,
@@ -133,8 +133,8 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
             self._blob_thresh,
             self._min_circ,
         ):
-            field.setDecimals(2)
-            field.setMaximum(10_000.0)
+            double_field.setDecimals(2)
+            double_field.setMaximum(10_000.0)
 
         self._bg_alpha.setMaximum(1.0)
         self._bg_alpha.setSingleStep(0.01)
@@ -216,7 +216,7 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
 
         # Separator
         separator = QtWidgets.QFrame()
-        separator.setFrameShape(QtWidgets.QFrame.HLine)
+        separator.setFrameShape(QtWidgets.QFrame.Shape.HLine)
         layout.addWidget(separator)
 
         form.addRow("Detection mode:", self._mode)
@@ -230,7 +230,7 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
 
         # Separator
         separator2 = QtWidgets.QFrame()
-        separator2.setFrameShape(QtWidgets.QFrame.HLine)
+        separator2.setFrameShape(QtWidgets.QFrame.Shape.HLine)
         layout.addWidget(separator2)
 
         form.addRow("Detection threading:", self._threading)
@@ -240,8 +240,8 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
 
         # Buttons
         button_box = QtWidgets.QDialogButtonBox()
-        button_box.addButton("Apply", QtWidgets.QDialogButtonBox.AcceptRole)
-        button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.RejectRole)
+        button_box.addButton("Apply", QtWidgets.QDialogButtonBox.ButtonRole.AcceptRole)
+        button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.ButtonRole.RejectRole)
         style_dialog_button_box(button_box, primary=True)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)

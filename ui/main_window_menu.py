@@ -11,10 +11,11 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 from ui.dialogs import ChecklistDialog, DetectorSettingsDialog, RecordingSettingsDialog, StrikeZoneSettingsDialog
+from ui.main_window_mixin_host import MainWindowMixinHost
 from ui.themes import GlassButton, get_style_manager, show_message_dialog
 
 
-class MainWindowMenuMixin:
+class MainWindowMenuMixin(MainWindowMixinHost):
     def _build_menu(self) -> None:
         menu_bar = self.menuBar()
         capture_menu = menu_bar.addMenu("Capture")
@@ -230,7 +231,7 @@ class MainWindowMenuMixin:
             output_dir=self._output_dir.text(),
             speed_mph=self._manual_speed.value(),
         )
-        if dialog.exec() == QtWidgets.QDialog.Accepted:
+        if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
             session, output_dir, speed = dialog.values()
             self._session_name.setText(session)
             self._set_output_dir(output_dir)
@@ -246,7 +247,7 @@ class MainWindowMenuMixin:
             top_ratio=values["top_ratio"],
             bottom_ratio=values["bottom_ratio"],
         )
-        if dialog.exec() == QtWidgets.QDialog.Accepted:
+        if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
             ball_type, height, top_ratio, bottom_ratio = dialog.values()
             self._settings_manager.update_strike_settings(ball_type, height, top_ratio, bottom_ratio)
             self._save_strike_zone()
@@ -272,7 +273,7 @@ class MainWindowMenuMixin:
             model_class_id=values["model_class_id"],
             model_format=values["model_format"],
         )
-        if dialog.exec() == QtWidgets.QDialog.Accepted:
+        if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
             values = dialog.values()
             self._settings_manager.update_detector_settings(values)
             self._apply_detector_config()
@@ -341,10 +342,9 @@ class MainWindowMenuMixin:
                 tone="info",
             )
             return
-        with self._latest_lock:
-            left_frame = self._left_latest
-            right_frame = self._right_latest
-        if left_frame is None or right_frame is None:
+        try:
+            left_frame, right_frame = self._service.get_preview_frames()
+        except Exception:
             show_message_dialog(
                 self,
                 "Propose Right Lane",
@@ -368,8 +368,8 @@ class MainWindowMenuMixin:
             detections = self._service.get_latest_detections()
             left_id = self._device_manager.get_left_serial()
             right_id = self._device_manager.get_right_serial()
-            left_dets = detections.get(left_id, [])
-            right_dets = detections.get(right_id, [])
+            left_dets = detections.get(left_id, []) if left_id is not None else []
+            right_dets = detections.get(right_id, []) if right_id is not None else []
             if left_dets and right_dets:
                 left_mean = sum(det.u for det in left_dets) / len(left_dets)
                 right_mean = sum(det.u for det in right_dets) / len(right_dets)

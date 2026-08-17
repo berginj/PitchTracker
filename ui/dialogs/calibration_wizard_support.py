@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 from PySide6 import QtCore
@@ -14,7 +14,7 @@ from configs.settings import load_config
 from exceptions import CalibrationPersistenceError
 
 if TYPE_CHECKING:
-    from ui.qt_app import MainWindow
+    from ui.main_window import MainWindow
 
 
 def build_wizard_steps(dialog: Any, parent: "MainWindow") -> list[dict[str, Any]]:
@@ -95,26 +95,29 @@ def build_wizard_steps(dialog: Any, parent: "MainWindow") -> list[dict[str, Any]
 class CalibrationWizardSupport:
     """Own validation and persistence that does not require widget layout."""
 
-    def __init__(self, parent: "MainWindow") -> None:
-        self._parent = parent
+    def __init__(self, parent: QtCore.QObject) -> None:
+        self._parent = cast("MainWindow", parent)
 
     def validate_health(self) -> bool:
-        return self._parent._health_ok()
+        return bool(self._parent._health_ok())
 
     def validate_target_detected(self) -> bool:
-        return bool(self._parent._target_found)
+        return self._parent._calibration_overlay.target_found
 
     def validate_fiducials(self) -> bool:
-        if self._parent._fiducial_error:
+        if self._parent._calibration_overlay.fiducial_error:
             return False
-        ids = {det.tag_id for det in self._parent._fiducial_detections}
-        return set(self._parent._fiducial_ids.values()).issubset(ids)
+        ids = {det.tag_id for det in self._parent._calibration_overlay.fiducial_detections}
+        return set(self._parent._calibration_overlay.fiducial_ids.values()).issubset(ids)
 
     def validate_lane_roi(self) -> bool:
-        return self._parent._lane_rect is not None and self._parent._lane_rect_right is not None
+        return (
+            self._parent._roi_manager.lane_rect is not None
+            and self._parent._roi_manager.lane_rect_right is not None
+        )
 
     def validate_plate_roi(self) -> bool:
-        return self._parent._plate_rect is not None
+        return self._parent._roi_manager.plate_rect is not None
 
     def validate_quick_calibrate(self) -> bool:
         config = load_config(self._parent._config_path())
@@ -156,7 +159,7 @@ class CalibrationWizardSupport:
         data["camera"][f"flip_{camera}"] = checked
         self._write_config(config_path, data)
         self._parent._config = load_config(config_path)
-        if self._parent._capture_running:
+        if self._parent._service.is_capturing():
             self._parent._stop_capture()
             QtCore.QTimer.singleShot(200, self._parent._start_capture)
         orientation = "flipped 180°" if checked else "normal"
@@ -180,7 +183,7 @@ class CalibrationWizardSupport:
             "completed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "skipped_steps": skipped_steps,
         }
-        payload = {"runs": []}
+        payload: dict[str, Any] = {"runs": []}
         try:
             if log_path.exists():
                 payload = json.loads(log_path.read_text())

@@ -159,7 +159,7 @@ class SyncVideoPlayer(QtWidgets.QWidget):
             self._video_reader.close()
             self._video_reader = None
 
-    def close(self) -> None:
+    def release_resources(self) -> None:
         """Release video resources and reset presentation state."""
         self._release_reader()
         self._clip = None

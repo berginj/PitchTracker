@@ -83,9 +83,9 @@ class RecordingSettingsDialog(QtWidgets.QDialog):
 
         # Buttons
         button_box = QtWidgets.QDialogButtonBox()
-        apply_btn = button_box.addButton("Apply", QtWidgets.QDialogButtonBox.AcceptRole)
+        apply_btn = button_box.addButton("Apply", QtWidgets.QDialogButtonBox.ButtonRole.AcceptRole)
         apply_btn.setAccessibleName("Apply recording settings")
-        cancel_btn = button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.RejectRole)
+        cancel_btn = button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.ButtonRole.RejectRole)
         cancel_btn.setAccessibleName("Cancel recording settings")
         style_dialog_button_box(button_box, primary=True)
         button_box.accepted.connect(self.accept)

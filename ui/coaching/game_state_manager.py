@@ -6,7 +6,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, List, cast
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,16 @@ class GameStateManager:
         self._scores_file = scores_file
         self._scores = self._load_scores()
 
-    def _load_scores(self) -> Dict:
+    @staticmethod
+    def _default_scores() -> dict[str, dict[str, Any]]:
+        return {
+            "tic_tac_toe": {"high_score_wins": 0, "total_games": 0, "history": []},
+            "target_scoring": {"high_score": 0, "total_games": 0, "history": []},
+            "around_world": {"best_pitches": 999, "total_games": 0, "history": []},
+            "speed_challenge": {"high_score_targets": 0, "total_games": 0, "history": []},
+        }
+
+    def _load_scores(self) -> dict[str, dict[str, Any]]:
         """Load scores from disk.
 
         Returns:
@@ -35,18 +44,16 @@ class GameStateManager:
         """
         if not self._scores_file.exists():
             # Create default structure
-            return {
-                "tic_tac_toe": {"high_score_wins": 0, "total_games": 0, "history": []},
-                "target_scoring": {"high_score": 0, "total_games": 0, "history": []},
-                "around_world": {"best_pitches": 999, "total_games": 0, "history": []},  # Lower is better
-                "speed_challenge": {"high_score_targets": 0, "total_games": 0, "history": []},
-            }
+            return self._default_scores()
 
         try:
-            return json.loads(self._scores_file.read_text())
+            payload = json.loads(self._scores_file.read_text())
+            if not isinstance(payload, dict):
+                return self._default_scores()
+            return cast(dict[str, dict[str, Any]], payload)
         except Exception as e:
             logger.error(f"Failed to load game scores: {e}")
-            return self._load_scores()  # Return defaults
+            return self._default_scores()
 
     def _save_scores(self) -> None:
         """Save scores to disk."""
@@ -63,7 +70,7 @@ class GameStateManager:
         except Exception as e:
             logger.error(f"Failed to save game scores: {e}")
 
-    def save_game_score(self, game_name: str, score: int, timestamp: float = None) -> None:
+    def save_game_score(self, game_name: str, score: int, timestamp: float | None = None) -> None:
         """Save score for a game.
 
         Args:
@@ -125,11 +132,11 @@ class GameStateManager:
         game_data = self._scores[game_name]
 
         if game_name == "tic_tac_toe":
-            return game_data.get("high_score_wins", 0)
+            return int(game_data.get("high_score_wins", 0))
         elif game_name == "around_world":
-            return game_data.get("best_pitches", 999)
+            return int(game_data.get("best_pitches", 999))
         else:
-            return game_data.get("high_score", 0)
+            return int(game_data.get("high_score", 0))
 
     def get_session_scores(self, game_name: str, session_start: float) -> List[int]:
         """Get scores from current session.
@@ -145,7 +152,7 @@ class GameStateManager:
             return []
 
         history = self._scores[game_name].get("history", [])
-        return [s["score"] for s in history if s["timestamp"] >= session_start]
+        return [int(s["score"]) for s in history if float(s["timestamp"]) >= session_start]
 
     def get_total_games(self, game_name: str) -> int:
         """Get total games played.
@@ -158,7 +165,7 @@ class GameStateManager:
         """
         if game_name not in self._scores:
             return 0
-        return self._scores[game_name].get("total_games", 0)
+        return int(self._scores[game_name].get("total_games", 0))
 
 
 __all__ = ["GameStateManager"]

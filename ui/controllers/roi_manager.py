@@ -85,6 +85,11 @@ class RoiManager:
         """Get right lane ROI rectangle."""
         return self._lane_rect_right
 
+    @lane_rect_right.setter
+    def lane_rect_right(self, value: Optional[Rect]) -> None:
+        """Set right lane ROI rectangle."""
+        self._lane_rect_right = value
+
     @property
     def plate_rect(self) -> Optional[Rect]:
         """Get plate ROI rectangle."""
@@ -94,11 +99,6 @@ class RoiManager:
     def active_rect(self) -> Optional[Rect]:
         """Get currently drawing rectangle (not finalized)."""
         return self._active_rect
-
-    @lane_rect_right.setter
-    def lane_rect_right(self, value: Optional[Rect]) -> None:
-        """Set right lane ROI rectangle."""
-        self._lane_rect_right = value
 
     def set_roi_mode(self, mode: str) -> None:
         """Set the ROI drawing mode.
@@ -125,20 +125,20 @@ class RoiManager:
             rect: Rectangle coordinates (x1, y1, x2, y2)
             final: True if drawing is complete, False if still dragging
         """
-        rect = normalize_rect(rect, self._left_view.image_size())
-        if rect is None:
+        normalized = normalize_rect(rect, self._left_view.image_size())
+        if normalized is None:
             return
 
         if final:
             if self._roi_mode == "lane":
-                self._lane_rect = rect
-                logger.debug(f"Lane ROI set: {rect}")
+                self._lane_rect = normalized
+                logger.debug(f"Lane ROI set: {normalized}")
             elif self._roi_mode == "plate":
-                self._plate_rect = rect
-                logger.debug(f"Plate ROI set: {rect}")
+                self._plate_rect = normalized
+                logger.debug(f"Plate ROI set: {normalized}")
             self._active_rect = None
         else:
-            self._active_rect = rect
+            self._active_rect = normalized
 
     def on_right_rect_update(self, rect: Rect, final: bool) -> None:
         """Handle rectangle update from right view.
@@ -147,17 +147,17 @@ class RoiManager:
             rect: Rectangle coordinates (x1, y1, x2, y2)
             final: True if drawing is complete, False if still dragging
         """
-        rect = normalize_rect(rect, self._right_view.image_size())
-        if rect is None:
+        normalized = normalize_rect(rect, self._right_view.image_size())
+        if normalized is None:
             return
 
         if final:
             if self._roi_mode == "lane_right":
-                self._lane_rect_right = rect
-                logger.debug(f"Right lane ROI set: {rect}")
+                self._lane_rect_right = normalized
+                logger.debug(f"Right lane ROI set: {normalized}")
             self._active_rect = None
         else:
-            self._active_rect = rect
+            self._active_rect = normalized
 
     def clear_lane(self) -> None:
         """Clear lane ROI for both views."""
@@ -238,9 +238,9 @@ class RoiManager:
             if right_lane:
                 self._lane_rect_right = polygon_to_rect(right_lane.polygon)
         else:
-            right_lane = lane_rois_runtime.get(right_id) or lane_rois_runtime.get("right")
-            if right_lane:
-                self._lane_rect_right = polygon_to_rect(right_lane)
+            right_polygon = lane_rois_runtime.get(right_id) or lane_rois_runtime.get("right")
+            if right_polygon:
+                self._lane_rect_right = polygon_to_rect(right_polygon)
 
         if self._lane_rect or self._plate_rect:
             self._status_label.setText("ROIs loaded.")

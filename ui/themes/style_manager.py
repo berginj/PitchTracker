@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 from weakref import WeakValueDictionary
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from .glass_theme import GlassTheme
 
 if TYPE_CHECKING:
-    from PySide6.QtWidgets import QApplication, QPushButton, QWidget
+    from PySide6.QtWidgets import QApplication, QWidget
 
 
 class StyleManager:
@@ -89,7 +89,12 @@ class StyleManager:
         if track:
             self._track_widget(widget, "panel", intensity)
 
-    def style_button(self, button: QPushButton, variant: str = "default", track: bool = True) -> None:
+    def style_button(
+        self,
+        button: QtWidgets.QAbstractButton,
+        variant: str = "default",
+        track: bool = True,
+    ) -> None:
         button.setProperty("variant", variant)
         button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self.polish(button)
@@ -149,6 +154,17 @@ class StyleManager:
     def get_accent_primary(self) -> str:
         return self.theme.accent_primary
 
+    def get_font(
+        self,
+        size: int | str | None = None,
+        bold: bool = False,
+        weight: str | None = None,
+    ) -> QtGui.QFont:
+        return self.theme.get_font(size=size, bold=bold, weight=weight)
+
+    def get_theme(self) -> GlassTheme:
+        return self.theme
+
     def _track_widget(self, widget: QWidget, method: str, variant: str) -> None:
         widget_id = id(widget)
         self._styled_widgets[widget_id] = widget
@@ -167,13 +183,13 @@ class StyleManager:
             try:
                 if method == "panel":
                     self.style_panel(widget, variant, track=False)
-                elif method == "button":
+                elif method == "button" and isinstance(widget, QtWidgets.QAbstractButton):
                     self.style_button(widget, variant, track=False)
                 elif method == "input":
                     self.style_input(widget, track=False)
-                elif method == "label":
+                elif method == "label" and isinstance(widget, QtWidgets.QLabel):
                     self.style_label(widget, variant, track=False)
-                elif method == "status":
+                elif method == "status" and isinstance(widget, QtWidgets.QLabel):
                     self.style_status_indicator(widget, variant, track=False)
             except RuntimeError:
                 pass

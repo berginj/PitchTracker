@@ -48,7 +48,7 @@ def test_setup_window_wires_state_machine(qapp):
         window._machine.mark_complete(WIZARD_STEP_ORDER[-1], True)
         window._show_current()
 
-        assert window._machine.current == WizardStep.QUALITY_REPORT
+        assert window._machine.current.value == WizardStep.QUALITY_REPORT.value
         assert window._machine.can_finish()
         # Last step: Finish shown, Next hidden, Back enabled.
         assert not window._finish_button.isHidden()

@@ -29,7 +29,7 @@ class SpeedChallengeGame(BaseGame):
         super().__init__(game_state_manager, parent)
         self._style_manager = get_style_manager()
         self._difficulty = "Easy"
-        self._current_target = None
+        self._current_target: dict[str, int] | None = None
         self._completed_targets = 0
         self._build_ui()
         self._generate_target()

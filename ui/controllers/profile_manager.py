@@ -152,7 +152,7 @@ class ProfileManager:
         # Restore last selected pitcher from state
         state = load_state()
         last = state.get("last_pitcher")
-        if last:
+        if isinstance(last, str) and last:
             self._pitcher_combo.setCurrentText(last)
             logger.debug(f"Restored last pitcher from state: '{last}'")
 

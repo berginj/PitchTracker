@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
 import time
 
 from PySide6 import QtCore
@@ -14,8 +16,8 @@ from ui.themes import (
 logger = get_logger(__name__)
 
 
-class CalibrationStepCameraRuntimeMixin:
-    def _load_camera_history(self) -> dict:
+class CalibrationStepCameraRuntimeMixin(CalibrationStepMixinHost):
+    def _load_camera_history(self) -> dict[str, str]:
         """Load historical camera position assignments.
 
         Returns:
@@ -28,11 +30,18 @@ class CalibrationStepCameraRuntimeMixin:
 
         try:
             with open(self._camera_history_file, "r") as f:
-                return json.load(f)
+                payload = json.load(f)
+            if not isinstance(payload, dict):
+                return {}
+            return {
+                str(key): str(value)
+                for key, value in payload.items()
+                if isinstance(key, str) and isinstance(value, str)
+            }
         except Exception:
             return {}
 
-    def _save_camera_history(self):
+    def _save_camera_history(self) -> None:
         """Save current camera assignments to history."""
         import json
 
@@ -40,9 +49,9 @@ class CalibrationStepCameraRuntimeMixin:
 
         # Update with current assignments
         if self._left_serial:
-            history[self._left_serial] = "left"
+            history[str(self._left_serial)] = "left"
         if self._right_serial:
-            history[self._right_serial] = "right"
+            history[str(self._right_serial)] = "right"
 
         # Save
         try:
@@ -69,8 +78,8 @@ class CalibrationStepCameraRuntimeMixin:
             return False
 
         # Check if serials are in history
-        left_history = history.get(self._left_serial)
-        right_history = history.get(self._right_serial)
+        left_history = history.get(str(self._left_serial))
+        right_history = history.get(str(self._right_serial))
 
         # If both cameras have history, check if they're swapped
         if left_history and right_history:
@@ -389,7 +398,6 @@ class CalibrationStepCameraRuntimeMixin:
         """Close camera devices."""
         if self._left_camera:
             try:
-                self._left_camera.stop()
                 self._left_camera.close()
             except Exception:
                 pass
@@ -398,7 +406,6 @@ class CalibrationStepCameraRuntimeMixin:
 
         if self._right_camera:
             try:
-                self._right_camera.stop()
                 self._right_camera.close()
             except Exception:
                 pass

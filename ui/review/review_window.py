@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from collections.abc import Callable
 from typing import Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -99,17 +100,13 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._update_ui_state()
         logger.info("ReviewWindow initialized")
 
-    # ------------------------------------------------------------------
     # Timeline helper (needed before _build_ui runs)
-    # ------------------------------------------------------------------
 
     def _timeline_set_frame(self, frame_index: int) -> None:
         """Proxy for timeline widget frame update."""
         self._timeline.set_current_frame(frame_index)
 
-    # ------------------------------------------------------------------
     # UI Construction
-    # ------------------------------------------------------------------
 
     def _build_ui(self) -> None:
         """Build the main UI layout."""
@@ -119,7 +116,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
     def _create_menu_bar(self) -> None:
         """Create menu bar with File, Playback, Tools, Export menus."""
-        handlers = {
+        handlers: dict[str, Callable[..., object]] = {
             "open_session": self._session_ctrl.open_session_dialog,
             "review_all": self._session_ctrl.review_all_sessions,
             "prev_session": self._session_ctrl.previous_session,
@@ -137,13 +134,12 @@ class ReviewWindow(QtWidgets.QMainWindow):
             "export_config": lambda: self._export_ctrl.export_config(),
             "export_annotations": lambda: self._export_ctrl.export_annotations(),
         }
-        build_menu_bar(self, handlers)
-        actions = handlers["_actions"]
-        self._prev_session_action = actions["prev_session"]
-        self._next_session_action = actions["next_session"]
-        self._delete_session_action = actions["delete_session"]
-        self._annotation_action = actions["annotation"]
-        self._trajectory_action = actions["trajectory"]
+        actions = build_menu_bar(self, handlers)
+        self._prev_session_action = actions.prev_session
+        self._next_session_action = actions.next_session
+        self._delete_session_action = actions.delete_session
+        self._annotation_action = actions.annotation
+        self._trajectory_action = actions.trajectory
 
     def _build_content_area(self) -> QtWidgets.QWidget:
         """Build main content area with video displays and controls."""
@@ -254,13 +250,13 @@ class ReviewWindow(QtWidgets.QMainWindow):
         container.setLayout(layout)
         return container
 
-    # ------------------------------------------------------------------
     # Session lifecycle callbacks
-    # ------------------------------------------------------------------
 
     def _on_session_loaded(self) -> None:
         """Called by SessionController after successful load."""
         session = self._service.session
+        if session is None:
+            return
         self.setWindowTitle(f"PitchTracker - Review Mode - {session.session_id}")
 
         self._timeline.set_total_frames(self._service.total_frames)
@@ -306,9 +302,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("PitchTracker - Review Mode")
         self._update_ui_state()
 
-    # ------------------------------------------------------------------
     # Pitch navigation
-    # ------------------------------------------------------------------
 
     def _prev_pitch(self) -> None:
         """Navigate to previous pitch in session."""
@@ -324,12 +318,15 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
     def _navigate_to_pitch(self, pitch_index: int) -> None:
         """Seek to pitch and update trajectory/diagnostics."""
+        session = self._service.session
+        if session is None:
+            return
         self._trajectory_ctrl.load_trajectory_for_pitch(pitch_index)
         self._trajectory_diagnostics_panel.load_pitch(
-            self._service.session.pitches[pitch_index]
+            session.pitches[pitch_index]
         )
         self._playback_ctrl.seek_to_pitch(pitch_index)
-        pitches = self._service.session.pitches
+        pitches = session.pitches
         self._status_bar.showMessage(
             f"Jumped to pitch {pitch_index + 1}/{len(pitches)}"
         )
@@ -340,20 +337,22 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
     def _on_pitch_selected(self, pitch_index: int) -> None:
         """Handle pitch selection from list."""
-        if not self._service.session:
+        session = self._service.session
+        if session is None:
             return
         self._trajectory_ctrl.load_trajectory_for_pitch(pitch_index)
         self._show_trajectory_diagnostics(pitch_index)
         self._playback_ctrl.seek_to_pitch(pitch_index)
-        pitch = self._service.session.pitches[pitch_index]
+        pitch = session.pitches[pitch_index]
         self._status_bar.showMessage(f"Navigated to pitch: {pitch.pitch_id}")
 
     def _show_trajectory_diagnostics(self, pitch_index: int) -> None:
         """Load diagnostics panel for a pitch index."""
-        if not self._service.session:
+        session = self._service.session
+        if session is None:
             self._trajectory_diagnostics_panel.clear()
             return
-        pitches = self._service.session.pitches
+        pitches = session.pitches
         if pitch_index < 0 or pitch_index >= len(pitches):
             self._trajectory_diagnostics_panel.clear()
             return
@@ -365,9 +364,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._status_bar.showMessage(f"Scored {pitch_id}: {score.value}")
         logger.info(f"Pitch scored: {pitch_id} = {score.value}")
 
-    # ------------------------------------------------------------------
     # Detection parameters
-    # ------------------------------------------------------------------
 
     def _on_parameters_changed(self) -> None:
         """Handle parameter changes - update detector and refresh."""
@@ -384,9 +381,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._update_video_displays()
         self._status_bar.showMessage("Detection parameters updated")
 
-    # ------------------------------------------------------------------
     # Video display
-    # ------------------------------------------------------------------
 
     def _update_video_displays(self) -> None:
         """Update video displays with current frames and detections."""
@@ -413,9 +408,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
             self._left_display.set_frame(left_frame)
             self._right_display.set_frame(right_frame)
 
-    # ------------------------------------------------------------------
     # Annotations & tools
-    # ------------------------------------------------------------------
 
     def _toggle_annotation_mode(self, checked: bool) -> None:
         """Toggle annotation mode on/off."""
@@ -450,9 +443,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         )
         logger.info(f"Annotation added: {camera} ({x:.1f}, {y:.1f}) at frame {frame_index}")
 
-    # ------------------------------------------------------------------
     # UI state
-    # ------------------------------------------------------------------
 
     def _update_ui_state(self) -> None:
         """Update navigation action enabled states."""
@@ -470,9 +461,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
             else:
                 self._status_bar.showMessage(f"Ready | {nav_state}")
 
-    # ------------------------------------------------------------------
     # Compatibility shims for existing tests
-    # ------------------------------------------------------------------
 
     def _load_session(self, session_dir: Path) -> None:
         """Compatibility: delegates to session controller."""
@@ -486,9 +475,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
         """Compatibility: delegates to _show_trajectory_diagnostics."""
         self._show_trajectory_diagnostics(pitch_index)
 
-    # ------------------------------------------------------------------
     # Lifecycle
-    # ------------------------------------------------------------------
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         """Handle window close event."""

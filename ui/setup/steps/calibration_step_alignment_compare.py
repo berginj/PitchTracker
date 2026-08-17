@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
 
 from PySide6 import QtCore, QtWidgets
 
@@ -13,7 +15,7 @@ from ui.themes import (
 logger = get_logger(__name__)
 
 
-class CalibrationStepAlignmentCompareMixin:
+class CalibrationStepAlignmentCompareMixin(CalibrationStepMixinHost):
     def _compare_with_preset(self) -> None:
         """Compare current alignment with a saved preset (side-by-side)."""
         if not hasattr(self, "_alignment_results") or self._alignment_results is None:

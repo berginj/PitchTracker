@@ -88,7 +88,9 @@ class ComparisonView(QtWidgets.QWidget):
 
     def _apply_style(self) -> None:
         theme = self._style_manager.theme
-        self._style_manager.style_panel(self.findChild(QtWidgets.QWidget, "comparison_controls"), "normal")
+        controls = self.findChild(QtWidgets.QWidget, "comparison_controls")
+        if controls is not None:
+            self._style_manager.style_panel(controls, "normal")
         self._style_manager.style_slider(self._timeline)
         self.setStyleSheet(f"""
             ComparisonView {{ background-color: {theme.background_dark}; }}
@@ -176,10 +178,10 @@ class ComparisonView(QtWidgets.QWidget):
             self._player_b.seek_to_end()
         self._timeline.setValue(self._timeline.maximum())
 
-    def close(self) -> None:
+    def release_resources(self) -> None:
         """Release both clip readers."""
-        self._player_a.close()
-        self._player_b.close()
+        self._player_a.release_resources()
+        self._player_b.release_resources()
 
 
 class ComparisonDialog(QtWidgets.QDialog):
@@ -204,7 +206,7 @@ class ComparisonDialog(QtWidgets.QDialog):
         return self._comparison_view.load_pitches(pitch_a, pitch_b)
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
-        self._comparison_view.close()
+        self._comparison_view.release_resources()
         super().closeEvent(event)
 
 

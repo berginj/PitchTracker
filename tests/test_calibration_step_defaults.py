@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 
 import cv2
 import numpy as np
@@ -84,8 +83,8 @@ def test_alignment_drift_check_does_not_block_fixed_camera_calibration(qtbot, tm
 
     step = CalibrationStep(backend="opencv")
     qtbot.addWidget(step)
-    step._baseline_alignment = SimpleNamespace()
-    step._alignment_history.append(SimpleNamespace())
+    step._baseline_alignment = None
+    step._alignment_history.append({})
 
     abort_capture = step._check_alignment_drift(np.zeros((20, 20), dtype=np.uint8), np.zeros((20, 20), dtype=np.uint8))
 

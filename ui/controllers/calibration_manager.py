@@ -167,7 +167,7 @@ class CalibrationManager:
         logger.info("Opening plate plane calibration dialog")
         dialog = PlatePlaneDialog(self._parent, self._config_path)
 
-        if dialog.exec() != QtWidgets.QDialog.Accepted:
+        if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
             logger.debug("Plate plane calibration cancelled")
             return
 

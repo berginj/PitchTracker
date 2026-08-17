@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
 from pathlib import Path
 
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -15,7 +17,7 @@ from ui.themes import (
 logger = get_logger(__name__)
 
 
-class CalibrationStepAlignmentReportsMixin:
+class CalibrationStepAlignmentReportsMixin(CalibrationStepMixinHost):
     def _show_feature_overlay(self) -> None:
         """Show visual overlay of matched features on camera previews."""
         if not self._left_camera or not self._right_camera:
@@ -174,7 +176,9 @@ class CalibrationStepAlignmentReportsMixin:
 
             # Generate HTML report
             html = generate_html_report(
-                self._alignment_results, self._left_serial or "Unknown", self._right_serial or "Unknown"
+                self._alignment_results,
+                str(self._left_serial or "Unknown"),
+                str(self._right_serial or "Unknown"),
             )
 
             # Prompt user for save location

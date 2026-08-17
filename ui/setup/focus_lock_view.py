@@ -14,7 +14,7 @@ verdict is testable with synthetic lock results and without camera hardware.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, Protocol
 
 from contracts.setup import (
     LOCK_VERDICT_LOCKED,
@@ -33,6 +33,14 @@ _LOCK_TONE = {
 }
 
 
+class _LockResult(Protocol):
+    @property
+    def passed(self) -> bool: ...
+
+    @property
+    def verdict(self) -> str: ...
+
+
 @dataclass(frozen=True)
 class FocusExposureSnapshot:
     """A stereo snapshot of fixed-focus and exposure-lock results."""
@@ -45,7 +53,7 @@ class FocusExposureSnapshot:
 
 def present_focus_lock(snapshot: FocusExposureSnapshot) -> ReportView:
     """Format a focus/exposure snapshot into a headline, rows, and warnings."""
-    results = [
+    results: list[_LockResult] = [
         snapshot.focus_left,
         snapshot.focus_right,
         snapshot.exposure_left,

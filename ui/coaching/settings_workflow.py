@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from PySide6 import QtWidgets
 
 from app.services.rig_profile import RigProfileService
 from configs.app_state import load_state
+from ui.coaching.widgets.mode_widgets import BaseModeWidget
 from ui.themes import show_message_dialog
 
 if TYPE_CHECKING:
@@ -50,6 +51,13 @@ class SettingsWorkflow:
         current_mound_distance = state.get(
             "mound_distance_ft", h._config.metrics.release_plane_z_ft
         )
+        current_left = current_left if isinstance(current_left, str) else "0"
+        current_right = current_right if isinstance(current_right, str) else "1"
+        current_mound_distance = (
+            float(current_mound_distance)
+            if isinstance(current_mound_distance, (int, float))
+            else float(h._config.metrics.release_plane_z_ft)
+        )
         dialog = SettingsDialog(
             current_width=h._camera_width,
             current_height=h._camera_height,
@@ -68,8 +76,8 @@ class SettingsWorkflow:
 
     def _apply_changes(self, dialog, active_profile, current_mound_distance) -> None:
         h = self._host
-        h._camera_width = dialog.width
-        h._camera_height = dialog.height
+        h._camera_width = dialog.selected_width
+        h._camera_height = dialog.selected_height
         h._camera_fps = dialog.fps
         h._camera_color_mode = dialog.color_mode
         if active_profile is not None:
@@ -101,8 +109,8 @@ class SettingsWorkflow:
         h._camera_fps = rig_config.camera.fps
         h._camera_color_mode = rig_config.camera.color_mode
         settings_differ = (
-            dialog.width != h._camera_width
-            or dialog.height != h._camera_height
+            dialog.selected_width != h._camera_width
+            or dialog.selected_height != h._camera_height
             or dialog.fps != h._camera_fps
             or dialog.left_camera != active_profile.left_serial
             or dialog.right_camera != active_profile.right_serial
@@ -123,7 +131,10 @@ class SettingsWorkflow:
         QtWidgets.QApplication.processEvents()
         try:
             h._service.stop_capture()
-            h._mode_stack.currentWidget().clear()
+            current_mode = h._mode_stack.currentWidget()
+            if current_mode is None:
+                raise RuntimeError("Coaching mode stack contains an unsupported widget")
+            cast(BaseModeWidget, current_mode).clear()
             QtWidgets.QApplication.processEvents()
             coaching_config = replace(
                 h._config,

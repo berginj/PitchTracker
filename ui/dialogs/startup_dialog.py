@@ -42,7 +42,7 @@ class StartupDialog(QtWidgets.QDialog):
         # Restore last pitcher from app state
         state = load_state()
         last_pitcher = state.get("last_pitcher")
-        if last_pitcher:
+        if isinstance(last_pitcher, str) and last_pitcher:
             self._pitcher.setCurrentText(last_pitcher)
 
         self._build_ui()
@@ -65,9 +65,9 @@ class StartupDialog(QtWidgets.QDialog):
 
         # Buttons
         button_box = QtWidgets.QDialogButtonBox()
-        continue_btn = button_box.addButton("Continue", QtWidgets.QDialogButtonBox.AcceptRole)
+        continue_btn = button_box.addButton("Continue", QtWidgets.QDialogButtonBox.ButtonRole.AcceptRole)
         continue_btn.setAccessibleName("Continue to session")
-        cancel_btn = button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.RejectRole)
+        cancel_btn = button_box.addButton("Cancel", QtWidgets.QDialogButtonBox.ButtonRole.RejectRole)
         cancel_btn.setAccessibleName("Cancel session setup")
         style_dialog_button_box(button_box, primary=True)
         button_box.accepted.connect(self.accept)

@@ -41,6 +41,15 @@ class DashboardStats:
     avg_v_movement: float
 
 
+class StatCard(QtWidgets.QFrame):
+    """Metric card with explicit label ownership."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.value_label = QtWidgets.QLabel()
+        self.unit_label = QtWidgets.QLabel()
+
+
 class SessionDashboard(QtWidgets.QWidget):
     """Comprehensive session analytics dashboard."""
 
@@ -112,23 +121,22 @@ class SessionDashboard(QtWidgets.QWidget):
             layout.addWidget(card)
         return layout
 
-    def _create_stat_card(self, label: str, value: str, unit: str) -> QtWidgets.QFrame:
+    def _create_stat_card(self, label: str, value: str, unit: str) -> StatCard:
         """Create a stats card widget."""
-        card = QtWidgets.QFrame()
+        card = StatCard()
         self._style_manager.style_panel(card, "normal")
         card.setMinimumWidth(150)
 
         label_widget = QtWidgets.QLabel(label)
         self._style_manager.style_label(label_widget, "eyebrow")
 
-        value_widget = QtWidgets.QLabel(value)
+        value_widget = card.value_label
+        value_widget.setText(value)
         self._style_manager.style_label(value_widget, "metricAccent")
 
-        unit_widget = QtWidgets.QLabel(unit)
+        unit_widget = card.unit_label
+        unit_widget.setText(unit)
         self._style_manager.style_label(unit_widget, "muted")
-
-        card.value_label = value_widget
-        card.unit_label = unit_widget
 
         layout = QtWidgets.QVBoxLayout(card)
         layout.setContentsMargins(14, 12, 14, 12)
@@ -238,12 +246,12 @@ class SessionDashboard(QtWidgets.QWidget):
             strikes=strikes,
             balls=balls,
             strike_pct=strike_pct,
-            avg_velocity=np.mean(velocities) if velocities else None,
+            avg_velocity=float(np.mean(velocities)) if velocities else None,
             max_velocity=max(velocities) if velocities else None,
             min_velocity=min(velocities) if velocities else None,
-            velocity_std=np.std(velocities) if len(velocities) > 1 else None,
-            avg_h_movement=np.mean(h_movements) if h_movements else 0.0,
-            avg_v_movement=np.mean(v_movements) if v_movements else 0.0,
+            velocity_std=float(np.std(velocities)) if len(velocities) > 1 else None,
+            avg_h_movement=float(np.mean(h_movements)) if h_movements else 0.0,
+            avg_v_movement=float(np.mean(v_movements)) if v_movements else 0.0,
         )
 
     def _update_stats_cards(self, stats: DashboardStats) -> None:
@@ -336,8 +344,9 @@ class SessionDashboard(QtWidgets.QWidget):
         """Update pitch breakdown rows."""
         while self._pitch_type_layout.count():
             item = self._pitch_type_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
 
         if not pitches:
             empty_label = QtWidgets.QLabel("No pitch data available.")

@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from collections.abc import Mapping, Sequence
+from typing import Optional, Protocol
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.review import PitchScore
 from ui.themes import get_style_manager
 from ui.themes.layout_helpers import apply_standard_layout
+
+
+class PitchListEntry(Protocol):
+    """Minimal review artifact contract required by the pitch list."""
+
+    pitch_id: str
+    manifest: dict
 
 
 class PitchListWidget(QtWidgets.QWidget):
@@ -40,8 +48,8 @@ class PitchListWidget(QtWidgets.QWidget):
         """
         super().__init__(parent)
         self._style_manager = get_style_manager()
-        self._pitches = []
-        self._pitch_scores = {}
+        self._pitches: list[PitchListEntry] = []
+        self._pitch_scores: dict[str, PitchScore] = {}
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -146,15 +154,19 @@ class PitchListWidget(QtWidgets.QWidget):
         group.setLayout(layout)
         return group
 
-    def load_pitches(self, pitches: list, pitch_scores: dict) -> None:
+    def load_pitches(
+        self,
+        pitches: Sequence[PitchListEntry],
+        pitch_scores: Mapping[str, PitchScore],
+    ) -> None:
         """Load pitches into list.
 
         Args:
             pitches: List of LoadedPitch objects
             pitch_scores: Dictionary of pitch_id -> PitchScore
         """
-        self._pitches = pitches
-        self._pitch_scores = pitch_scores
+        self._pitches = list(pitches)
+        self._pitch_scores = dict(pitch_scores)
 
         # Clear list
         self._pitch_list.clear()

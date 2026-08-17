@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from PySide6 import QtWidgets
+
+from ui.coaching.widgets.mode_widgets import BaseModeWidget
 
 if TYPE_CHECKING:
     from ui.coaching.coach_window import CoachWindow
@@ -33,7 +35,10 @@ class PitchDisplay:
         try:
             left_frame, right_frame = h._service.get_preview_frames()
             current_mode = h._mode_stack.currentWidget()
-            current_mode.update_camera_frames(left_frame, right_frame)
+            if current_mode is None:
+                raise RuntimeError("Coaching mode stack contains an unsupported widget")
+            mode = cast(BaseModeWidget, current_mode)
+            mode.update_camera_frames(left_frame, right_frame)
         except Exception as e:
             logger.error(f"Preview update failed: {e}", exc_info=True)
 
@@ -77,7 +82,10 @@ class PitchDisplay:
                     h._processed_pitch_ids.add(pitch.pitch_id)
 
                 current_mode = h._mode_stack.currentWidget()
-                current_mode.update_pitch_data(session_pitches, new_pitches=new_pitches)
+                if current_mode is None:
+                    raise RuntimeError("Coaching mode stack contains an unsupported widget")
+                mode = cast(BaseModeWidget, current_mode)
+                mode.update_pitch_data(session_pitches, new_pitches=new_pitches)
                 h._fatigue_indicator.update_pitches(session_pitches)
 
         except Exception as e:

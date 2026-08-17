@@ -181,7 +181,11 @@ class ReplayController:
         roi_by_camera = None
         lane_rect = self._get_lane_rect()
         if lane_rect:
-            roi_by_camera = {"replay_left": rect_to_polygon(lane_rect)}
+            lane_polygon = rect_to_polygon(lane_rect)
+            if lane_polygon is not None:
+                roi_by_camera = {
+                    "replay_left": [(float(x), float(y)) for x, y in lane_polygon]
+                }
 
         self._replay_detector = ClassicalDetector(
             config=detector_cfg,

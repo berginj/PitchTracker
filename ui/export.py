@@ -164,7 +164,7 @@ def save_session_export(
     if export_type in ("training_report", "manifests_zip"):
         progress = QtWidgets.QProgressDialog(
             f"Exporting {export_type.replace('_', ' ')}...",
-            None,  # No cancel button for now
+            "Cancel",
             0,
             0,  # Indeterminate
             parent,

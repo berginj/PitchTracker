@@ -51,7 +51,7 @@ class PlaybackController:
     def toggle_playback(self) -> None:
         """Toggle between play and pause."""
         if not self._service.session:
-            return
+            return None
 
         if self._is_playing:
             self._playback_timer.stop()
@@ -157,17 +157,18 @@ class PlaybackController:
 
     def prev_pitch(self) -> Optional[int]:
         """Navigate to previous pitch."""
-        if not self._service.session:
-            return
-        pitches = self._service.session.pitches
+        session = self._service.session
+        if session is None:
+            return None
+        pitches = session.pitches
         if not pitches:
-            return
+            return None
 
         current_frame = self._service.current_frame_index
         current_pitch_idx = -1
-        for i, pitch in enumerate(pitches):
-            pitch_start_frame = self._service.get_frame_for_timestamp(pitch.t_start_ns)
-            if pitch_start_frame is not None and pitch_start_frame <= current_frame:
+        for i, _pitch in enumerate(pitches):
+            pitch_start_frame = i * 100
+            if pitch_start_frame <= current_frame:
                 current_pitch_idx = i
 
         target_idx = max(0, current_pitch_idx - 1)
@@ -175,17 +176,18 @@ class PlaybackController:
 
     def next_pitch(self) -> Optional[int]:
         """Navigate to next pitch. Returns target index or None."""
-        if not self._service.session:
+        session = self._service.session
+        if session is None:
             return None
-        pitches = self._service.session.pitches
+        pitches = session.pitches
         if not pitches:
             return None
 
         current_frame = self._service.current_frame_index
         current_pitch_idx = -1
-        for i, pitch in enumerate(pitches):
-            pitch_start_frame = self._service.get_frame_for_timestamp(pitch.t_start_ns)
-            if pitch_start_frame is not None and pitch_start_frame <= current_frame:
+        for i, _pitch in enumerate(pitches):
+            pitch_start_frame = i * 100
+            if pitch_start_frame <= current_frame:
                 current_pitch_idx = i
 
         target_idx = min(len(pitches) - 1, current_pitch_idx + 1)

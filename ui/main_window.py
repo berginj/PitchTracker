@@ -41,7 +41,6 @@ class MainWindow(
     MainWindowActionsMixin,
     MainWindowMenuMixin,
     MainWindowSystemMixin,
-    QtWidgets.QMainWindow,
 ):
     def __init__(self, backend: str, config_path: Path) -> None:
         super().__init__()
@@ -87,8 +86,8 @@ class MainWindow(
         self._right_input = QtWidgets.QComboBox()
         self._left_input.setEditable(True)
         self._right_input.setEditable(True)
-        self._left_input.setInsertPolicy(QtWidgets.QComboBox.NoInsert)
-        self._right_input.setInsertPolicy(QtWidgets.QComboBox.NoInsert)
+        self._left_input.setInsertPolicy(QtWidgets.QComboBox.InsertPolicy.NoInsert)
+        self._right_input.setInsertPolicy(QtWidgets.QComboBox.InsertPolicy.NoInsert)
 
         self._start_button = QtWidgets.QPushButton("Start Capture")
         self._stop_button = QtWidgets.QPushButton("Stop Capture")
@@ -170,8 +169,8 @@ class MainWindow(
         self._right_view = RoiLabel(self._on_right_rect_update)
         self._left_view.setMinimumSize(320, 180)
         self._right_view.setMinimumSize(320, 180)
-        self._left_view.setAlignment(QtCore.Qt.AlignCenter)
-        self._right_view.setAlignment(QtCore.Qt.AlignCenter)
+        self._left_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._right_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._left_view.setScaledContents(True)
         self._right_view.setScaledContents(True)
         self._right_view.setVisible(False)

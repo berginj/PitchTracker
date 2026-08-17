@@ -2,10 +2,25 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+
 from PySide6 import QtGui, QtWidgets
 
 
-def build_menu_bar(window: QtWidgets.QMainWindow, handlers: dict) -> None:
+@dataclass(frozen=True)
+class ReviewMenuActions:
+    prev_session: QtGui.QAction
+    next_session: QtGui.QAction
+    delete_session: QtGui.QAction
+    annotation: QtGui.QAction
+    trajectory: QtGui.QAction
+
+
+def build_menu_bar(
+    window: QtWidgets.QMainWindow,
+    handlers: Mapping[str, Callable[..., object]],
+) -> ReviewMenuActions:
     """Build menu bar with File, Playback, Tools, Export menus.
 
     Args:
@@ -64,17 +79,21 @@ def build_menu_bar(window: QtWidgets.QMainWindow, handlers: dict) -> None:
     _add(export_menu, "Export &Config...", None, handlers["export_config"])
     _add(export_menu, "Export &Annotations...", None, handlers["export_annotations"])
 
-    # Return action references needed by window state updates
-    handlers["_actions"] = {
-        "prev_session": prev_action,
-        "next_session": next_action,
-        "delete_session": delete_action,
-        "annotation": annotation_action,
-        "trajectory": trajectory_action,
-    }
+    return ReviewMenuActions(
+        prev_session=prev_action,
+        next_session=next_action,
+        delete_session=delete_action,
+        annotation=annotation_action,
+        trajectory=trajectory_action,
+    )
 
 
-def _add(menu, text: str, shortcut, handler) -> QtGui.QAction:
+def _add(
+    menu: QtWidgets.QMenu,
+    text: str,
+    shortcut: str | None,
+    handler: Callable[..., object],
+) -> QtGui.QAction:
     """Add a simple action to a menu."""
     action = QtGui.QAction(text, menu.parent())
     if shortcut:

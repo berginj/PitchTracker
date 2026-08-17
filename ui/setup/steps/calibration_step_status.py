@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ui.setup.steps.calibration_step_mixin_host import CalibrationStepMixinHost
+
 
 from PySide6 import QtCore, QtWidgets
 
@@ -15,7 +17,7 @@ from ui.themes import (
 logger = get_logger(__name__)
 
 
-class CalibrationStepStatusMixin:
+class CalibrationStepStatusMixin(CalibrationStepMixinHost):
     def _set_capture_progress_state(self, count: int, *, ready: bool) -> None:
         """Update capture progress label styling."""
         text = f"Progress: {count}/{self._min_captures} poses captured"
