@@ -180,7 +180,9 @@ def retry_on_failure(
 
             # All attempts exhausted
             logger.error(f"{func.__name__} failed after {policy.max_attempts} attempts")
-            raise last_exception  # type: ignore
+            if last_exception is None:
+                raise RuntimeError("retry loop exhausted without recording an exception")
+            raise last_exception
 
         return wrapper
 

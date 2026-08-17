@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -22,20 +23,38 @@ BASELINE = ROOT / "mypy-baseline.txt"
 ERROR_RE = re.compile(
     r"^(?P<path>.+?):\d+: error: (?P<message>.+)$",
 )
+CODE_RE = re.compile(r"\[(?P<code>[a-z0-9-]+)\]$")
 
 
-def _diagnostics(output: str) -> list[str]:
-    diagnostics: list[str] = []
+@dataclass(frozen=True, order=True)
+class Diagnostic:
+    """Stable mypy diagnostic identity with line-number churn removed."""
+
+    path: str
+    message: str
+    code: str
+
+    @property
+    def baseline_line(self) -> str:
+        return f"{self.path}: error: {self.message}"
+
+
+def _diagnostics(output: str) -> list[Diagnostic]:
+    diagnostics: list[Diagnostic] = []
     for line in output.splitlines():
         match = ERROR_RE.match(line.strip())
         if match is None:
             continue
         path = match.group("path").replace("\\", "/")
-        diagnostics.append(f"{path}: error: {match.group('message')}")
+        message = match.group("message")
+        code_match = CODE_RE.search(message)
+        diagnostics.append(
+            Diagnostic(path, message, code_match.group("code") if code_match else "unknown")
+        )
     return diagnostics
 
 
-def _run_mypy() -> tuple[int, list[str]]:
+def _run_mypy() -> tuple[int, list[Diagnostic]]:
     result = subprocess.run(
         [
             sys.executable,
@@ -54,10 +73,28 @@ def _run_mypy() -> tuple[int, list[str]]:
     return result.returncode, _diagnostics(output)
 
 
-def _read_baseline() -> list[str]:
+def _read_baseline() -> list[Diagnostic]:
     if not BASELINE.exists():
         return []
-    return [line for line in BASELINE.read_text(encoding="utf-8").splitlines() if line]
+    diagnostics: list[Diagnostic] = []
+    for line in BASELINE.read_text(encoding="utf-8").splitlines():
+        if not line:
+            continue
+        path, marker, message = line.partition(": error: ")
+        if not marker:
+            raise ValueError(f"Malformed mypy baseline entry: {line}")
+        code_match = CODE_RE.search(message)
+        diagnostics.append(
+            Diagnostic(path, message, code_match.group("code") if code_match else "unknown")
+        )
+    return diagnostics
+
+
+def _print_summary(current: list[Diagnostic]) -> None:
+    by_area = Counter(item.path.split("/", 1)[0] for item in current)
+    by_code = Counter(item.code for item in current)
+    print("Diagnostics by area: " + ", ".join(f"{key}={value}" for key, value in by_area.most_common()))
+    print("Diagnostics by code: " + ", ".join(f"{key}={value}" for key, value in by_code.most_common()))
 
 
 def main() -> int:
@@ -75,18 +112,34 @@ def main() -> int:
         return mypy_exit
 
     current = sorted(current)
-    if args.update:
-        BASELINE.write_text("\n".join(current) + "\n", encoding="utf-8")
-        print(f"Updated {BASELINE.relative_to(ROOT)} with {len(current)} diagnostics.")
-        return 0
-
     baseline = _read_baseline()
     new = list((Counter(current) - Counter(baseline)).elements())
     resolved = list((Counter(baseline) - Counter(current)).elements())
+    _print_summary(current)
+    if args.update:
+        if new:
+            print("Refusing to update the baseline because mypy added diagnostics:", file=sys.stderr)
+            print("\n".join(item.baseline_line for item in sorted(new)), file=sys.stderr)
+            return 1
+        BASELINE.write_text(
+            "\n".join(item.baseline_line for item in current) + ("\n" if current else ""),
+            encoding="utf-8",
+        )
+        print(f"Updated {BASELINE.relative_to(ROOT)} with {len(current)} diagnostics.")
+        return 0
+
     print(f"mypy baseline: {len(current)} diagnostics ({len(resolved)} resolved)")
     if new:
         print("New mypy diagnostics:", file=sys.stderr)
-        print("\n".join(new), file=sys.stderr)
+        print("\n".join(item.baseline_line for item in sorted(new)), file=sys.stderr)
+        return 1
+    if resolved:
+        print(
+            "Resolved mypy diagnostics remain in the baseline; run "
+            "'python scripts/check_mypy_baseline.py --update' and commit the reduction:",
+            file=sys.stderr,
+        )
+        print("\n".join(item.baseline_line for item in sorted(resolved)), file=sys.stderr)
         return 1
     return 0
 

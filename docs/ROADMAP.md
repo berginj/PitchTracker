@@ -21,6 +21,8 @@ contract are complete; it does not imply physical measurement accuracy.
 - [x] Clean Windows application and installer build from commit `40158c1`.
 - [x] Automated regression coverage for queue saturation, event metadata,
   setup observations, launcher closure, and camera-step re-entry.
+- [x] Rig-profile validation/persistence extraction ([#14](https://github.com/berginj/PitchTracker/issues/14)).
+- [x] Setup-provider workflow extraction ([#15](https://github.com/berginj/PitchTracker/issues/15)).
 
 Implementation evidence is mapped in [PT_001_015_TRACEABILITY.md](PT_001_015_TRACEABILITY.md).
 The checked regression count is historical evidence for its named commit, not
@@ -127,7 +129,9 @@ Acceptance evidence:
 
 ## Engineering debt with active owners
 
-- Continue reducing typing debt in extracted UI mixins and setup providers.
+- Eliminate the whole-tree mypy backlog while expanding strict clean zones;
+  baseline updates may only remove diagnostics and scoped suppressions are
+  mechanically enforced.
 - Keep [OVERSIZED_MODULE_TRIAGE.md](OVERSIZED_MODULE_TRIAGE.md) as historical
   extraction context; the current file-length gate has zero grandfathered files.
 

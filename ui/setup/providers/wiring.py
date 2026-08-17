@@ -6,13 +6,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, Optional
 
 from capture.device_discovery import list_uvc_devices
-from contracts.setup_capture import SetupCapturePurpose
+from contracts.setup_capture import SetupCapturePurpose, SetupCaptureRequest
 from ui.setup.paired_preview_view import PairedPreviewSnapshot
 
 from ui.setup.providers.context import LiveSetupContext
 from ui.setup.providers.discovery import DeviceLister
 
 if TYPE_CHECKING:
+    from app.services.capture.setup_capture import SupervisedSetupCaptureService
+    from ui.setup.providers.support import CameraCatalog
     from ui.setup.state_machine import SetupStep
     from ui.setup.steps.base_step import BaseStep
 
@@ -21,10 +23,10 @@ PreviewProvider = Callable[[], PairedPreviewSnapshot]
 
 def build_live_stereo_step_widgets(
     *,
-    catalog: Optional[object] = None,
+    catalog: Optional["CameraCatalog"] = None,
     list_devices: DeviceLister = list_uvc_devices,
     preview_provider: Optional[PreviewProvider] = None,
-    setup_capture_service=None,
+    setup_capture_service: Optional["SupervisedSetupCaptureService"] = None,
     setup_capture_backend: str = "uvc",
 ) -> "Dict[SetupStep, BaseStep]":
     """Build the canonical registry with a shared live hardware context.
@@ -59,9 +61,12 @@ def build_live_stereo_step_widgets(
     capture_service = setup_capture_service or SupervisedSetupCaptureService()
 
     def _operation(purpose: SetupCapturePurpose) -> SetupCaptureOperation:
+        def _request() -> SetupCaptureRequest:
+            return context.build_capture_request(purpose)
+
         return SetupCaptureOperation(
             capture_service,
-            lambda purpose=purpose: context.build_capture_request(purpose),
+            _request,
             context.apply_capture_result,
         )
 

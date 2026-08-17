@@ -5,6 +5,7 @@ import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
 
@@ -34,6 +35,13 @@ class _FakeCatalog:
 
     def match_model(self, friendly_name):
         return SimpleNamespace(global_shutter=True) if friendly_name in self._recognized else None
+
+    def remember_device(self, hardware_id, friendly_name="", model=None, side=None):
+        self._sides[hardware_id] = side or self._sides.get(hardware_id, SIDE_UNASSIGNED)
+        return _FakeKnownDevice(hardware_id, self._sides[hardware_id])
+
+    def save(self):
+        return None
 
 
 def _devices():
@@ -93,7 +101,10 @@ def test_live_context_persists_assignment_and_reuses_it_for_capture(tmp_path):
 
 
 def test_reassignment_is_exclusive_and_resets_downstream_evidence(tmp_path):
+    from calib.capture_qualification import CaptureQualification
     from app.services.catalog import CameraCatalogService
+    from contracts.setup import CoarseRectificationResult, StereoOverlapResult, SyncCheckResult
+    from ui.setup.focus_lock_view import FocusExposureSnapshot
 
     devices = [
         *_devices(),
@@ -109,11 +120,11 @@ def test_reassignment_is_exclusive_and_resets_downstream_evidence(tmp_path):
     context.last_controls = {"left": {"readback_verified": True}}
     context.last_modes = {"left": {"fps": 60}}
     context.last_capability_observations = {"left": object()}
-    context.last_qualification = object()
-    context.last_sync = object()
-    context.last_focus = object()
-    context.last_overlap = object()
-    context.last_rectification = object()
+    context.last_qualification = cast(CaptureQualification, object())
+    context.last_sync = cast(SyncCheckResult, object())
+    context.last_focus = cast(FocusExposureSnapshot, object())
+    context.last_overlap = cast(StereoOverlapResult, object())
+    context.last_rectification = cast(CoarseRectificationResult, object())
 
     context.assign("NEWLEFT", "RIGHTSER")
 
@@ -137,6 +148,7 @@ def test_reassignment_is_exclusive_and_resets_downstream_evidence(tmp_path):
 
 
 def test_degraded_capture_qualification_fails_final_report(monkeypatch):
+    from calib.capture_qualification import CaptureQualification
     from contracts import QUALITY_DEGRADED, QualityAssessment
     from contracts.setup import (
         CalibrationQualityReport,
@@ -167,13 +179,16 @@ def test_degraded_capture_qualification_fails_final_report(monkeypatch):
     monkeypatch.setattr(persist_profile_module, "build_stereo_profile_from_report", lambda _path: stereo)
     monkeypatch.setattr(quality_report_module, "build_quality_report", lambda **_kwargs: passing)
     context = LiveSetupContext(catalog=None)
-    context.last_qualification = SimpleNamespace(
-        assessment=QualityAssessment(
-            assessment_id="setup-current",
-            scope="capture_qualification",
-            status=QUALITY_DEGRADED,
-            reason_codes=["FPS_SHORTFALL_RATIO_LEFT_EXCEEDS_WARN_LIMIT"],
-        )
+    context.last_qualification = cast(
+        CaptureQualification,
+        SimpleNamespace(
+            assessment=QualityAssessment(
+                assessment_id="setup-current",
+                scope="capture_qualification",
+                status=QUALITY_DEGRADED,
+                reason_codes=["FPS_SHORTFALL_RATIO_LEFT_EXCEEDS_WARN_LIMIT"],
+            )
+        ),
     )
 
     report = context.quality_report()

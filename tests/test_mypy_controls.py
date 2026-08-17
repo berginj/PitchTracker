@@ -1,0 +1,41 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from scripts.check_mypy_baseline import Diagnostic, _diagnostics
+from scripts.check_typing_policy import policy_violations
+
+
+def test_mypy_diagnostics_are_stable_and_retain_error_code() -> None:
+    output = "ui\\window.py:42: error: Widget has no attribute 'ready'  [attr-defined]"
+
+    assert _diagnostics(output) == [
+        Diagnostic(
+            "ui/window.py",
+            "Widget has no attribute 'ready'  [attr-defined]",
+            "attr-defined",
+        )
+    ]
+
+
+def test_typing_policy_rejects_blanket_config_and_unqualified_ignore(tmp_path: Path) -> None:
+    (tmp_path / "mypy.ini").write_text("[mypy-old.*]\nignore_errors = true\n", encoding="utf-8")
+    unqualified_ignore = "# type:" + " ignore"
+    (tmp_path / "bad.py").write_text(
+        f"value = unknown  {unqualified_ignore}\n",
+        encoding="utf-8",
+    )
+
+    violations = policy_violations(tmp_path)
+
+    assert any("blanket ignore_errors" in violation for violation in violations)
+    assert any("require one or more error codes" in violation for violation in violations)
+
+
+def test_typing_policy_accepts_error_code_scoped_ignore(tmp_path: Path) -> None:
+    (tmp_path / "good.py").write_text(
+        "value = unknown  # type: ignore[name-defined]\n",
+        encoding="utf-8",
+    )
+
+    assert policy_violations(tmp_path) == []
