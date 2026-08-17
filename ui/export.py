@@ -462,7 +462,7 @@ def _resolve_api_key(config: AppConfig) -> str:
 
         stored = keyring.get_password("PitchTracker", "upload_api_key")
         if stored:
-            return stored
+            return str(stored)
     except Exception:
         pass
     return config.upload.api_key
