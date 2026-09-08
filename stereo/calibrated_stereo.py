@@ -11,8 +11,7 @@ import numpy as np
 
 from contracts import StereoObservation
 from stereo.association import StereoMatch, StereoMatcher, pair_timing
-from stereo.uncertainty import depth_only_covariance, quality_from_depth_sigma
-
+from stereo.uncertainty import quality_from_depth_sigma
 
 MM_PER_FOOT = 304.8
 
@@ -88,7 +87,11 @@ class CalibratedStereoMatcher(StereoMatcher):
         self._time_sync_offset_ns = int(getattr(geometry, "time_sync_offset_ns", 0))
 
     def match(self, left, right) -> Optional[StereoMatch]:
-        error = self._symmetric_epipolar_error(left.u, left.v, right.u, right.v)
+        if left.pixel_coordinate_space != "raw" or right.pixel_coordinate_space != "raw":
+            raise ValueError("Calibrated stereo requires raw detector pixels; do not undistort twice")
+        left_ideal = self._ideal_pixel(np.array([[left.u], [left.v]]), left=True)
+        right_ideal = self._ideal_pixel(np.array([[right.u], [right.v]]), left=False)
+        error = self._symmetric_epipolar_error(*left_ideal.ravel(), *right_ideal.ravel())
         if error > self._geometry.epipolar_epsilon_px:
             return None
         return StereoMatch(
@@ -101,10 +104,11 @@ class CalibratedStereoMatcher(StereoMatcher):
     def triangulate(self, match: StereoMatch) -> StereoObservation:
         left_pt = np.array([[match.left.u], [match.left.v]], dtype=np.float64)
         right_pt = np.array([[match.right.u], [match.right.v]], dtype=np.float64)
-        xyz_ft = self._triangulate_xyz_ft(left_pt, right_pt)
+        xyz_ft = self._triangulate_raw_xyz_ft(left_pt, right_pt)
         z_ft = float(xyz_ft[2])
         in_range = self._geometry.z_min_ft <= z_ft <= self._geometry.z_max_ft
-        depth_sigma_ft = self._estimate_depth_sigma_ft(left_pt, right_pt)
+        covariance = self._estimate_covariance_ft2(left_pt, right_pt)
+        depth_sigma_ft = float(np.sqrt(covariance[2, 2]))
         quality = (
             quality_from_depth_sigma(depth_sigma_ft, self._geometry.max_full_confidence_depth_sigma_ft)
             if in_range
@@ -123,21 +127,53 @@ class CalibratedStereoMatcher(StereoMatcher):
             Y=float(xyz_ft[1]),
             Z=z_ft,
             quality=quality,
-            covariance=depth_only_covariance(depth_sigma_ft),
+            covariance=(
+                (float(covariance[0, 0]), float(covariance[0, 1]), float(covariance[0, 2])),
+                (float(covariance[1, 0]), float(covariance[1, 1]), float(covariance[1, 2])),
+                (float(covariance[2, 0]), float(covariance[2, 1]), float(covariance[2, 2])),
+            ),
             confidence=confidence,
         )
 
     def _triangulate_xyz_ft(self, left_pt: np.ndarray, right_pt: np.ndarray) -> np.ndarray:
+        """Triangulate ideal pixels using the matching K[I|0], K[R|T] matrices."""
         homogeneous = cv2.triangulatePoints(self._p_left, self._p_right, left_pt, right_pt)
         xyz_mm = (homogeneous[:3] / homogeneous[3]).reshape(3)
         return np.asarray(xyz_mm / MM_PER_FOOT)
 
+    def _ideal_pixel(self, point: np.ndarray, *, left: bool) -> np.ndarray:
+        geometry = self._geometry
+        matrix = geometry.mtx_left if left else geometry.mtx_right
+        distortion = geometry.dist_left if left else geometry.dist_right
+        return np.asarray(
+            cv2.undistortPoints(
+                np.asarray(point, dtype=np.float64).reshape(1, 1, 2),
+                matrix,
+                distortion,
+                P=matrix,
+            )
+        ).reshape(2, 1)
+
+    def _triangulate_raw_xyz_ft(self, left_pt: np.ndarray, right_pt: np.ndarray) -> np.ndarray:
+        return self._triangulate_xyz_ft(
+            self._ideal_pixel(left_pt, left=True),
+            self._ideal_pixel(right_pt, left=False),
+        )
+
     def _estimate_depth_sigma_ft(self, left_pt: np.ndarray, right_pt: np.ndarray) -> float:
+        return float(np.sqrt(self._estimate_covariance_ft2(left_pt, right_pt)[2, 2]))
+
+    def _estimate_covariance_ft2(self, left_pt: np.ndarray, right_pt: np.ndarray) -> np.ndarray:
+        """Propagate raw pixel noise through undistortion and triangulation.
+
+        This conditional covariance excludes calibration and acquisition timing
+        uncertainty and must not be presented as physical prediction uncertainty.
+        """
         pixel_sigma_px = float(getattr(self._geometry, "pixel_sigma_px", 0.0))
         if pixel_sigma_px <= 0.0:
-            return 0.0
+            return np.zeros((3, 3))
         eps = 1.0
-        variance = 0.0
+        covariance = np.zeros((3, 3))
         for point_index, coord_index in ((0, 0), (0, 1), (1, 0), (1, 1)):
             plus_left = left_pt.copy()
             minus_left = left_pt.copy()
@@ -149,11 +185,11 @@ class CalibratedStereoMatcher(StereoMatcher):
             else:
                 plus_right[coord_index, 0] += eps
                 minus_right[coord_index, 0] -= eps
-            z_plus = self._triangulate_xyz_ft(plus_left, plus_right)[2]
-            z_minus = self._triangulate_xyz_ft(minus_left, minus_right)[2]
-            dz_dpixel = (z_plus - z_minus) / (2.0 * eps)
-            variance += float(dz_dpixel * pixel_sigma_px) ** 2
-        return float(variance**0.5)
+            xyz_plus = self._triangulate_raw_xyz_ft(plus_left, plus_right)
+            xyz_minus = self._triangulate_raw_xyz_ft(minus_left, minus_right)
+            derivative = (xyz_plus - xyz_minus) / (2.0 * eps)
+            covariance += np.outer(derivative, derivative) * pixel_sigma_px**2
+        return covariance
 
     def pair_timestamp(self, left_ns: int, right_ns: int) -> Tuple[int, bool]:
         """Apply configured time sync offset (added to right timestamp) before averaging.

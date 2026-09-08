@@ -12,6 +12,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Mapping
 
+from contracts.timing import TimestampEvidence
 
 SETUP_CAPTURE_SCHEMA_VERSION = "setup_capture.v1"
 
@@ -125,6 +126,8 @@ class SetupFrameRecord:
     height: int
     pixfmt: str
     image_path: Path | None = None
+    timing: TimestampEvidence = field(default_factory=TimestampEvidence)
+    capture_epoch: str = ""
 
     def to_payload(self) -> dict[str, Any]:
         return {
@@ -135,6 +138,8 @@ class SetupFrameRecord:
             "height": self.height,
             "pixfmt": self.pixfmt,
             "image_path": None if self.image_path is None else str(self.image_path),
+            "timing": self.timing.to_payload(),
+            "capture_epoch": self.capture_epoch,
         }
 
     @classmethod
@@ -148,6 +153,8 @@ class SetupFrameRecord:
             height=int(payload["height"]),
             pixfmt=str(payload["pixfmt"]),
             image_path=None if image_path is None else Path(str(image_path)),
+            timing=TimestampEvidence.from_payload(payload.get("timing")),
+            capture_epoch=str(payload.get("capture_epoch", "")),
         )
 
 
@@ -199,9 +206,7 @@ class SetupCaptureResult:
             "right_frames": [frame.to_payload() for frame in self.right_frames],
             "modes": {side: dict(values) for side, values in self.modes.items()},
             "controls": {side: dict(values) for side, values in self.controls.items()},
-            "capability_observations": {
-                side: dict(values) for side, values in self.capability_observations.items()
-            },
+            "capability_observations": {side: dict(values) for side, values in self.capability_observations.items()},
             "errors_by_side": dict(self.errors_by_side),
             "config_sha256": self.config_sha256,
             "artifact_dir": None if self.artifact_dir is None else str(self.artifact_dir),
@@ -223,8 +228,7 @@ class SetupCaptureResult:
             modes={str(side): dict(values) for side, values in dict(payload.get("modes", {})).items()},
             controls={str(side): dict(values) for side, values in dict(payload.get("controls", {})).items()},
             capability_observations={
-                str(side): dict(values)
-                for side, values in dict(payload.get("capability_observations", {})).items()
+                str(side): dict(values) for side, values in dict(payload.get("capability_observations", {})).items()
             },
             errors_by_side={str(side): int(value) for side, value in dict(payload.get("errors_by_side", {})).items()},
             config_sha256=str(payload.get("config_sha256", "")),

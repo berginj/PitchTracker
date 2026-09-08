@@ -30,6 +30,7 @@ def _sync(passed: bool = True) -> SyncCheckResult:
         verdict="GOOD" if passed else "POOR",
         passed=passed,
         recommendation="" if passed else "Reduce camera jitter.",
+        exposure_sync_verified=passed,
     )
 
 

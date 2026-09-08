@@ -17,7 +17,6 @@ from contracts.physical_validation import (
     payload_sha256,
 )
 
-
 REQUIRED_THRESHOLDS = frozenset(
     {
         "max_rejected_rate",
@@ -81,14 +80,20 @@ def evaluate_physical_validation(
         blockers.append("NO_REFERENCE_VALID_OPPORTUNITIES")
 
     speed_cases = [
-        case
-        for case in accepted
-        if case.reference_speed_mph is not None and case.measured_speed_mph is not None
+        case for case in accepted if case.reference_speed_mph is not None and case.measured_speed_mph is not None
     ]
+    if "speed" in protocol.claim_scope:
+        for case in speed_cases:
+            if case.measured_speed_source != "vision_fit" or case.speed_estimator != "vision_only":
+                blockers.append(f"SPEED_NOT_INDEPENDENT_VISION:{case.case_id}")
+            if (
+                case.measured_speed_reference_z_ft is None
+                or case.reference_speed_reference_z_ft is None
+                or abs(case.measured_speed_reference_z_ft - case.reference_speed_reference_z_ft) > 1e-6
+            ):
+                blockers.append(f"SPEED_REFERENCE_LOCATION_MISMATCH:{case.case_id}")
     plate_cases = [
-        case
-        for case in accepted
-        if case.reference_plate_xy_ft is not None and case.measured_plate_xy_ft is not None
+        case for case in accepted if case.reference_plate_xy_ft is not None and case.measured_plate_xy_ft is not None
     ]
     speed_errors = [
         float(case.measured_speed_mph) - float(case.reference_speed_mph)

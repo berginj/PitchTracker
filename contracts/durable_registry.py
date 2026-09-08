@@ -25,6 +25,16 @@ class DurableContractSpec:
 
 
 DURABLE_CONTRACTS: Mapping[str, DurableContractSpec] = {
+    "timestamp_evidence": DurableContractSpec(
+        artifact="timestamp_evidence",
+        schema_version="timestamp_evidence.v1",
+        owner="contracts.timing.TimestampEvidence",
+    ),
+    "speed_measurement": DurableContractSpec(
+        artifact="speed_measurement",
+        schema_version="speed_measurement.v1",
+        owner="contracts.measurements.SpeedMeasurement",
+    ),
     "session_summary": DurableContractSpec(
         artifact="session_summary",
         schema_version="session_summary.v1",

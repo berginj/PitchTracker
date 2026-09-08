@@ -6,6 +6,7 @@ from dataclasses import dataclass, fields
 from typing import Any, Optional
 
 from contracts.quality import MeasurementStatus
+from contracts.measurements import SpeedMeasurement
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,10 @@ class PitchSummary:
     speed_source: Optional[str] = None
     correction_records: list[dict[str, Any]] | None = None
     quality_diagnostics: dict[str, Any] | None = None
+    vision_speed: SpeedMeasurement | None = None
+    external_speed: SpeedMeasurement | None = None
+    strike_call_available: bool = True  # Legacy summaries retain their recorded call.
+    strike_call_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -103,6 +108,10 @@ def _filter_dataclass_fields(cls: type, payload: dict[str, Any]) -> dict[str, An
 def pitch_summary_from_dict(payload: dict[str, Any]) -> PitchSummary:
     """Parse a pitch summary payload while ignoring envelope metadata."""
     fields_payload = _filter_dataclass_fields(PitchSummary, payload)
+    for key in ("vision_speed", "external_speed"):
+        value = fields_payload.get(key)
+        if isinstance(value, dict):
+            fields_payload[key] = SpeedMeasurement(**value)
     raw_status = fields_payload.get("measurement_status")
     if raw_status is not None:
         try:

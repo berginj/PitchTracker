@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.services.analysis.worker import BoundedAnalysisWorker
 import threading
+import time
 
 
 def test_analysis_worker_processes_and_reports_items() -> None:
@@ -44,3 +45,31 @@ def test_analysis_worker_rejects_submission_outside_live_generation() -> None:
     assert worker.start() is True
     assert worker.stop() is True
     assert worker.submit("after-stop") is False
+
+
+def test_analysis_worker_reports_queue_age_and_service_latency() -> None:
+    entered, release = threading.Event(), threading.Event()
+
+    def handler(_item):
+        entered.set()
+        assert release.wait(2.0)
+
+    worker = BoundedAnalysisWorker(handler, max_queue=2)
+    assert worker.start()
+    try:
+        assert worker.submit("first")
+        assert entered.wait(1.0)
+        assert worker.submit("second")
+        time.sleep(0.02)
+        stats = worker.stats()
+        assert stats.queue_depth == 1
+        assert stats.oldest_queued_age_ms >= 10.0
+    finally:
+        release.set()
+        assert worker.stop(timeout=2.0)
+    stats = worker.stats()
+    assert stats.queue_depth == 0
+    assert stats.oldest_queued_age_ms == 0.0
+    assert stats.latency_sample_count == 2
+    assert stats.service_latency_p95_ms >= 10.0
+    assert stats.last_queue_wait_ms >= 10.0

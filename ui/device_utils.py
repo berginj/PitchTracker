@@ -5,7 +5,6 @@ from __future__ import annotations
 import concurrent.futures
 import logging
 import subprocess
-import sys
 import threading
 import time
 from typing import Optional
@@ -13,6 +12,7 @@ from typing import Optional
 from PySide6 import QtWidgets
 
 from capture.uvc_backend import list_uvc_devices
+from app.worker_process import worker_command
 
 logger = logging.getLogger(__name__)
 
@@ -66,16 +66,10 @@ def _probe_single_index(index: int, timeout_seconds: float = 3.0) -> Optional[in
     cannot be safely cancelled from a Python thread. Process isolation prevents
     an abandoned DirectShow thread from crashing Qt or the interpreter later.
     """
-    script = (
-        "import cv2,sys; "
-        "cap=cv2.VideoCapture(int(sys.argv[1]), cv2.CAP_DSHOW); "
-        "opened=cap.isOpened(); cap.release(); "
-        "raise SystemExit(0 if opened else 1)"
-    )
     creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
         completed = subprocess.run(
-            [sys.executable, "-c", script, str(index)],
+            [*worker_command("camera_probe"), str(index)],
             check=False,
             timeout=timeout_seconds,
             stdout=subprocess.DEVNULL,

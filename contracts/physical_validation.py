@@ -12,8 +12,8 @@ from datetime import datetime, timezone
 import hashlib
 import hmac
 import json
+from math import isfinite
 from typing import Any, Mapping, Optional
-
 
 PROTOCOL_SCHEMA = "physical_validation_protocol.v2"
 DATASET_SCHEMA = "physical_validation_dataset.v2"
@@ -131,7 +131,9 @@ class PhysicalValidationProtocolV2:
             raise ValueError(f"unsupported physical validation protocol schema: {self.schema_version!r}")
         if not self.claim_scope or any(scope not in CLAIM_SCOPES for scope in self.claim_scope):
             raise ValueError("claim_scope contains no supported physical claim")
-        if not self.planned_strata or any(not name.strip() or count <= 0 for name, count in self.planned_strata.items()):
+        if not self.planned_strata or any(
+            not name.strip() or count <= 0 for name, count in self.planned_strata.items()
+        ):
             raise ValueError("planned_strata must contain positive predeclared counts")
         _require_digest("correction_policy_sha256", self.correction_policy_sha256)
 
@@ -172,6 +174,10 @@ class PhysicalValidationCaseV2:
     corrected_measurements: dict[str, Any] = field(default_factory=dict)
     reason_codes: tuple[str, ...] = ()
     used_for_tuning: bool = False
+    measured_speed_source: str = "unknown"
+    speed_estimator: str = "unknown"
+    measured_speed_reference_z_ft: Optional[float] = None
+    reference_speed_reference_z_ft: Optional[float] = None
 
     def __post_init__(self) -> None:
         for label in ("case_id", "stratum", "mode", "reference_channel_id"):
@@ -185,13 +191,30 @@ class PhysicalValidationCaseV2:
             raise ValueError(f"invalid reference_status: {self.reference_status!r}")
         if self.system_outcome not in SYSTEM_OUTCOMES:
             raise ValueError(f"invalid system_outcome: {self.system_outcome!r}")
+        for label in (
+            "reference_speed_mph",
+            "measured_speed_mph",
+            "reference_speed_uncertainty_mph",
+            "reference_plate_uncertainty_ft",
+            "measured_speed_reference_z_ft",
+            "reference_speed_reference_z_ft",
+        ):
+            value = getattr(self, label)
+            if value is not None and not isfinite(value):
+                raise ValueError(f"{label} must be finite")
+        for label in ("reference_plate_xy_ft", "measured_plate_xy_ft"):
+            point = getattr(self, label)
+            if point is not None and (len(point) != 2 or not all(isfinite(value) for value in point)):
+                raise ValueError(f"{label} must contain two finite coordinates")
         for label in ("reference_speed_uncertainty_mph", "reference_plate_uncertainty_ft"):
             value = getattr(self, label)
             if value is not None and value < 0:
                 raise ValueError(f"{label} must be non-negative")
         if self.reference_status == "VALID" and self.reference_speed_mph is None and self.reference_plate_xy_ft is None:
             raise ValueError("a valid reference case must contain speed or plate truth")
-        if self.system_outcome != "ACCEPTED" and (self.measured_speed_mph is not None or self.measured_plate_xy_ft is not None):
+        if self.system_outcome != "ACCEPTED" and (
+            self.measured_speed_mph is not None or self.measured_plate_xy_ft is not None
+        ):
             raise ValueError("rejected/unavailable cases must not invent accepted measurements")
 
     @classmethod
@@ -230,8 +253,12 @@ class PhysicalValidationDatasetV2:
         if self.phase not in VALIDATION_PHASES:
             raise ValueError(f"invalid validation phase: {self.phase!r}")
         for label in (
-            "protocol_sha256", "pipeline_fingerprint", "hardware_fingerprint_sha256",
-            "config_sha256", "calibration_sha256", "field_transform_sha256",
+            "protocol_sha256",
+            "pipeline_fingerprint",
+            "hardware_fingerprint_sha256",
+            "config_sha256",
+            "calibration_sha256",
+            "field_transform_sha256",
         ):
             _require_digest(label, getattr(self, label))
         if self.rig_profile_revision <= 0:
@@ -318,8 +345,14 @@ class TrajectoryModeApprovalV2:
 
     def __post_init__(self) -> None:
         for label in (
-            "approval_id", "mode", "rig_profile_id", "software_version", "dataset_id",
-            "protocol_file", "dataset_manifest_file", "ground_truth_report_file",
+            "approval_id",
+            "mode",
+            "rig_profile_id",
+            "software_version",
+            "dataset_id",
+            "protocol_file",
+            "dataset_manifest_file",
+            "ground_truth_report_file",
         ):
             _require_text(label, getattr(self, label))
         if not self.claim_scope or any(scope not in CLAIM_SCOPES for scope in self.claim_scope):
@@ -327,9 +360,15 @@ class TrajectoryModeApprovalV2:
         if self.rig_profile_revision <= 0:
             raise ValueError("approval rig_profile_revision must be positive")
         for label in (
-            "pipeline_fingerprint", "hardware_fingerprint_sha256", "config_sha256", "calibration_sha256",
-            "field_transform_sha256", "correction_policy_sha256", "protocol_sha256",
-            "dataset_manifest_sha256", "ground_truth_report_sha256",
+            "pipeline_fingerprint",
+            "hardware_fingerprint_sha256",
+            "config_sha256",
+            "calibration_sha256",
+            "field_transform_sha256",
+            "correction_policy_sha256",
+            "protocol_sha256",
+            "dataset_manifest_sha256",
+            "ground_truth_report_sha256",
         ):
             _require_digest(label, getattr(self, label))
         if self.schema_version != APPROVAL_SCHEMA:
@@ -392,9 +431,19 @@ def verify_approval_signatures(
 
 
 __all__ = [
-    "APPROVAL_SCHEMA", "DATASET_SCHEMA", "PROTOCOL_SCHEMA", "REPORT_SCHEMA",
-    "ApprovalSignatureV2", "PhysicalValidationCaseV2", "PhysicalValidationDatasetV2",
-    "PhysicalValidationProtocolV2", "ReferenceChannelV2", "TailErrorPolicyV2",
-    "TrajectoryModeApprovalV2", "approval_signature_hex", "canonical_json_bytes",
-    "payload_sha256", "verify_approval_signatures",
+    "APPROVAL_SCHEMA",
+    "DATASET_SCHEMA",
+    "PROTOCOL_SCHEMA",
+    "REPORT_SCHEMA",
+    "ApprovalSignatureV2",
+    "PhysicalValidationCaseV2",
+    "PhysicalValidationDatasetV2",
+    "PhysicalValidationProtocolV2",
+    "ReferenceChannelV2",
+    "TailErrorPolicyV2",
+    "TrajectoryModeApprovalV2",
+    "approval_signature_hex",
+    "canonical_json_bytes",
+    "payload_sha256",
+    "verify_approval_signatures",
 ]

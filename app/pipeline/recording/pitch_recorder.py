@@ -16,6 +16,7 @@ from configs.settings import AppConfig
 from contracts import Frame, Detection, StereoObservation
 
 from app.pipeline.recording.manifest import create_pitch_manifest
+from app.pipeline.recording.frame_timestamps import TIMESTAMP_COLUMNS, timestamp_row
 from app.pipeline.recording.pitch_artifact_export import (
     export_detections,
     export_observations,
@@ -149,12 +150,12 @@ class PitchRecorder:
             if label == "left" and self._left_writer is not None:
                 self._left_writer.write(image)
                 if self._left_csv is not None:
-                    self._left_csv[1].writerow([frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns])
+                    self._left_csv[1].writerow(timestamp_row(frame))
                 self._latest_ns["left"] = frame.t_capture_monotonic_ns
             elif label == "right" and self._right_writer is not None:
                 self._right_writer.write(image)
                 if self._right_csv is not None:
-                    self._right_csv[1].writerow([frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns])
+                    self._right_csv[1].writerow(timestamp_row(frame))
                 self._latest_ns["right"] = frame.t_capture_monotonic_ns
 
     def write_frame_with_detections(
@@ -213,16 +214,16 @@ class PitchRecorder:
             obs: Stereo observation to store
         """
         payload = {
-                    "coordinate_frame": "camera",
-                    "timestamp_ns": obs.t_ns,
-                    "left_px": [float(obs.left[0]), float(obs.left[1])],
-                    "right_px": [float(obs.right[0]), float(obs.right[1])],
-                    "X_ft": float(obs.X),
-                    "Y_ft": float(obs.Y),
-                    "Z_ft": float(obs.Z),
-                    "quality": float(obs.quality),
-                    "confidence": float(obs.confidence),
-                }
+            "coordinate_frame": "camera",
+            "timestamp_ns": obs.t_ns,
+            "left_px": [float(obs.left[0]), float(obs.left[1])],
+            "right_px": [float(obs.right[0]), float(obs.right[1])],
+            "X_ft": float(obs.X),
+            "Y_ft": float(obs.Y),
+            "Z_ft": float(obs.Z),
+            "quality": float(obs.quality),
+            "confidence": float(obs.confidence),
+        }
         self._evidence.add("observations_3d", payload)
         if self._save_observations:
             self._observations.append(payload)
@@ -464,8 +465,8 @@ class PitchRecorder:
         self._right_csv = (right_csv, csv.writer(right_csv))
 
         # Write CSV headers
-        self._left_csv[1].writerow(["camera_id", "frame_index", "t_capture_monotonic_ns"])
-        self._right_csv[1].writerow(["camera_id", "frame_index", "t_capture_monotonic_ns"])
+        self._left_csv[1].writerow(TIMESTAMP_COLUMNS)
+        self._right_csv[1].writerow(TIMESTAMP_COLUMNS)
 
         # Reset tracking
         self._post_roll_end_ns = None

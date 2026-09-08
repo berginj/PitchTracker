@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 
 from contracts import Frame
+from contracts.timing import HOST_RECEIPT_TIMING
 from exceptions import CameraConnectionError
 
 from .camera_device import CameraDevice, CameraStats
@@ -235,9 +236,7 @@ class OpenCVCamera(CameraDevice):
 
         if self._vertical_offset_px:
             h, w = frame.shape[:2]
-            M = np.asarray(
-                [[1, 0, 0], [0, 1, -self._vertical_offset_px]], dtype=np.float32
-            )
+            M = np.asarray([[1, 0, 0], [0, 1, -self._vertical_offset_px]], dtype=np.float32)
             frame = cv2.warpAffine(frame, M, (w, h))
 
         if self._stats.last_frame_ns:
@@ -253,6 +252,7 @@ class OpenCVCamera(CameraDevice):
             camera_id=self._serial or "0",
             frame_index=self._stats.frames,
             t_capture_monotonic_ns=now_ns,
+            timing=HOST_RECEIPT_TIMING,
             image=frame,
             width=frame.shape[1],
             height=frame.shape[0],

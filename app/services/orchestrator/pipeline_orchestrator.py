@@ -1,4 +1,5 @@
 """PipelineOrchestrator - Coordinates all services via EventBus."""
+
 from __future__ import annotations
 
 import threading
@@ -312,7 +313,8 @@ class PipelineOrchestrator(PipelineService):
             ana_svc = self._analysis_service
             profile = self._active_rig_profile
             cal_report = dict(self._runtime_calibration_report or {})
-        return build_quality_diagnostics(
+            tracker = self._pitch_tracker
+        result = build_quality_diagnostics(
             capture_stats=capture,
             detection_diagnostics=det_svc.get_quality_diagnostics() if det_svc else {},
             recording_stats=dict(rec_svc.get_frame_writer_stats()) if rec_svc else {},
@@ -320,6 +322,8 @@ class PipelineOrchestrator(PipelineService):
             profile=profile,
             calibration_report=cal_report,
         )
+        result["pre_roll"] = tracker.get_buffer_stats() if tracker else {}
+        return result
 
     def get_plate_metrics(self) -> PlateMetricsStub:
         """Return latest plate-gated metrics (stubbed if unavailable)."""
@@ -458,13 +462,17 @@ class PipelineOrchestrator(PipelineService):
             right_serial = self._right_serial or "right"
             if self._active_rig_profile is None and self._config is not None:
                 self._active_rig_profile = self._rig_profile_service.load_active_or_legacy(
-                    self._config, backend=self._backend,
-                    left_serial=left_serial, right_serial=right_serial,
+                    self._config,
+                    backend=self._backend,
+                    left_serial=left_serial,
+                    right_serial=right_serial,
                 )
                 self._runtime_roi_path = self._rig_profile_service.roi_path(self._active_rig_profile)
             apply_runtime_rois(
-                self._detection_service, self._runtime_roi_path,
-                left_serial, right_serial,
+                self._detection_service,
+                self._runtime_roi_path,
+                left_serial,
+                right_serial,
             )
 
     def update_mound_distance(self, distance_ft: float) -> None:
@@ -472,8 +480,7 @@ class PipelineOrchestrator(PipelineService):
         with self._lock:
             if self._config is None:
                 return
-            self._config = replace(
-                self._config, metrics=replace(self._config.metrics, release_plane_z_ft=distance_ft))
+            self._config = replace(self._config, metrics=replace(self._config.metrics, release_plane_z_ft=distance_ft))
             if self._analysis_service is not None:
                 self._analysis_service.update_config(self._config)
 

@@ -1,6 +1,6 @@
 # PitchTracker Current Status
 
-**Last updated:** 2026-08-16
+**Last updated:** 2026-09-08
 **Published release:** `v2.0.0` / internal app version `2.0.0`
 **Development status:** production-readiness work is consolidated on `main`;
 physical validation, native-thread teardown, and packaging provenance remain
@@ -26,7 +26,7 @@ approved.
 | Release installer asset | Not currently attached to the GitHub release |
 | Development baseline | `main`; use the checked-out commit for exact provenance |
 | Test collection | Full Python 3.13 and 3.14 suites run in CI; use current CI output for the exact count |
-| Latest focused validation | Rig-profile and setup-provider acceptance suites pass; the full Windows run remains authoritative for native teardown behavior |
+| Latest local validation | Python 3.13: 1,722 passed, 32 skipped; four frozen-worker smoke tests passed; see the dated validation record below |
 | Static validation | Schema sync, public docs, file length, Flake8, suppression policy, and direct repository-wide mypy are required; no diagnostic baseline remains |
 | Physical accuracy approval | None; results must remain estimated/degraded/unavailable/rejected as evidence requires |
 
@@ -38,6 +38,16 @@ results. They are evidence archives, not current status. Current release work
 must use this document and the roadmap below.
 
 ## Delivered software
+
+The controlled-pilot working-tree changes address distorted-pixel geometry,
+continuous strike-volume intersection, explicit timing and speed provenance,
+weighted stereo fitting/eligibility, and dedicated deadline-bounded workers.
+They also add analysis queue/latency and pre-roll diagnostics. These are not a
+published release or independently confirmed physical performance. See the
+[implementation plan](../DEVELOPMENT_PLAN.md) and
+[pilot checklist](CONTROLLED_PILOT_CHECKLIST.md).
+The [dated software validation record](review/PILOT_SOFTWARE_VALIDATION_2026_09_08.md)
+records test scope, bundle hashes, warnings, and remaining manual gates.
 
 - Typed agent/service boundaries for capture, detection, pitch state,
   trajectory, recording, analysis, tooling, and UI.

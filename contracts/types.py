@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
 
+from contracts.timing import TimestampEvidence
+
 
 @dataclass(frozen=True)
 class Frame:
@@ -17,6 +19,7 @@ class Frame:
     pixfmt: str
     capture_epoch: str = ""
     correlation_id: str = ""
+    timing: TimestampEvidence = field(default_factory=TimestampEvidence)
 
 
 @dataclass(frozen=True)
@@ -33,6 +36,7 @@ class Detection:
     tracklet_action: Optional[str] = None
     association_eligible: bool = True
     rejection_reasons: Tuple[str, ...] = ()
+    pixel_coordinate_space: str = "raw"
 
 
 @dataclass(frozen=True)
@@ -55,9 +59,9 @@ class StereoObservation:
     Y: float
     Z: float
     quality: float
-    covariance: Optional[
-        Tuple[Tuple[float, float, float], Tuple[float, float, float], Tuple[float, float, float]]
-    ] = None
+    covariance: Optional[Tuple[Tuple[float, float, float], Tuple[float, float, float], Tuple[float, float, float]]] = (
+        None
+    )
     confidence: float = 0.0
     observation_id: Optional[str] = None
     match_id: Optional[str] = None

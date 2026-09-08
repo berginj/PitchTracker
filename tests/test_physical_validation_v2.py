@@ -16,7 +16,6 @@ from contracts.physical_validation import (
 from contracts.tooling import PhysicalValidationRequest
 from app.services.tooling import SubprocessToolingService
 
-
 DIGEST_A = "a" * 64
 DIGEST_B = "b" * 64
 
@@ -74,6 +73,10 @@ def _case(**changes) -> PhysicalValidationCaseV2:
         "system_outcome": "ACCEPTED",
         "reference_speed_mph": 90.0,
         "measured_speed_mph": 90.5,
+        "measured_speed_source": "vision_fit",
+        "speed_estimator": "vision_only",
+        "measured_speed_reference_z_ft": 0.0,
+        "reference_speed_reference_z_ft": 0.0,
         "reference_speed_uncertainty_mph": 0.1,
         "reference_plate_xy_ft": (0.0, 2.5),
         "measured_plate_xy_ft": (0.02, 2.51),
@@ -120,6 +123,30 @@ def test_shadow_and_tuning_cases_are_never_claim_ready() -> None:
     assert "CONFIRMATION_CASE_USED_FOR_TUNING" in tuned["claim_blockers"]
 
 
+@pytest.mark.parametrize(
+    "changes,blocker",
+    [
+        ({"measured_speed_source": "manual"}, "SPEED_NOT_INDEPENDENT_VISION"),
+        ({"speed_estimator": "radar_assisted"}, "SPEED_NOT_INDEPENDENT_VISION"),
+        ({"measured_speed_reference_z_ft": None}, "SPEED_REFERENCE_LOCATION_MISMATCH"),
+        ({"reference_speed_reference_z_ft": 50.0}, "SPEED_REFERENCE_LOCATION_MISMATCH"),
+    ],
+)
+def test_speed_claim_requires_independent_vision_at_matching_location(changes, blocker):
+    protocol = _protocol()
+    report = evaluate_physical_validation(protocol, _dataset(protocol, cases=(_case(**changes),)))
+    assert not report["claim_ready"]
+    assert f"{blocker}:case-1" in report["claim_blockers"]
+
+
+@pytest.mark.parametrize(
+    "field", ["measured_speed_mph", "reference_speed_uncertainty_mph", "measured_speed_reference_z_ft"]
+)
+def test_nonfinite_validation_measurements_are_rejected(field):
+    with pytest.raises(ValueError, match="finite"):
+        _case(**{field: float("nan")})
+
+
 def test_reference_and_system_evidence_cannot_be_same_artifact() -> None:
     with pytest.raises(ValueError, match="cannot be the same"):
         _case(evidence_package_sha256="c" * 64)
@@ -151,9 +178,7 @@ def test_physical_validation_runs_through_tooling_worker(tmp_path: Path) -> None
     dataset_path.write_text(json.dumps(dataset.to_payload()), encoding="utf-8")
 
     service = SubprocessToolingService(project_root=Path(__file__).resolve().parents[1])
-    result = service.validate_physical_dataset(
-        PhysicalValidationRequest(protocol_path, dataset_path, output_path)
-    )
+    result = service.validate_physical_dataset(PhysicalValidationRequest(protocol_path, dataset_path, output_path))
 
     assert result.report["claim_ready"] is True
     assert output_path.exists()

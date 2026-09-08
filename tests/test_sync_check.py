@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from calib.sync_check import check_sync, pair_timestamps
+from contracts.timing import TimestampEvidence
 from contracts.setup import (
     SYNC_VERDICT_GOOD,
     SYNC_VERDICT_POOR,
@@ -46,7 +47,9 @@ def test_check_sync_good_when_aligned():
     left = _stream(1_000, 60, 16_000_000)
     right = [t + 1_000_000 for t in left]  # 1ms skew
     result = check_sync(left, right, tolerance_ms=8.0, max_speed_mph=60.0)
-    assert result.verdict == SYNC_VERDICT_GOOD
+    assert result.verdict == SYNC_VERDICT_UNKNOWN
+    assert result.pairing_verdict == SYNC_VERDICT_GOOD
+    assert result.exposure_sync_verified is False
     assert result.passed is True
     assert result.sample_count == 60
     assert result.unpaired_count == 0
@@ -90,3 +93,37 @@ def test_check_sync_payload_round_trips():
         "max_speed_mph",
         "passed",
     }
+
+
+def test_verified_exposure_timing_includes_uncertainty_and_clock_domain():
+    from dataclasses import replace
+
+    times = _stream(0, 60, 16_000_000)
+    evidence = TimestampEvidence("device_exposure", "shared_clock", "exposure_midpoint", 100_000, "optical-test")
+    result = check_sync(times, times, 8, left_evidence=evidence, right_evidence=evidence)
+    assert result.verdict == SYNC_VERDICT_GOOD
+    assert result.exposure_sync_verified
+    delayed = replace(evidence, acquisition_uncertainty_ns=20_000_000)
+    assert not check_sync(times, times, 8, left_evidence=delayed, right_evidence=evidence).exposure_sync_verified
+    other_clock = replace(evidence, clock_domain="unmapped_camera_clock")
+    assert (
+        check_sync(times, times, 8, left_evidence=other_clock, right_evidence=evidence).verdict == SYNC_VERDICT_UNKNOWN
+    )
+
+
+def test_reconnect_epochs_and_old_records_cannot_prove_exposure_timing():
+    from dataclasses import replace
+    from calib.sync_check import check_frame_sync
+    from contracts import Frame
+    from contracts.setup_capture import SetupFrameRecord
+
+    evidence = TimestampEvidence("device_exposure", "shared_clock", "exposure_midpoint", 0, "optical-test")
+    first = Frame("left", 1, 0, None, 640, 480, "GRAY8", capture_epoch="one", timing=evidence)
+    second = replace(first, frame_index=2, t_capture_monotonic_ns=16_000_000, capture_epoch="two")
+    result = check_frame_sync([first, second], [replace(first, camera_id="right")], 8)
+    assert not result.exposure_sync_verified
+    record = SetupFrameRecord("left", 1, 0, 640, 480, "GRAY8", timing=evidence)
+    assert SetupFrameRecord.from_payload(record.to_payload()).timing == evidence
+    legacy = record.to_payload()
+    legacy.pop("timing")
+    assert SetupFrameRecord.from_payload(legacy).timing.source == "unknown"

@@ -33,10 +33,15 @@ _SYNC_TONE = {
 
 def present_sync_check(result: SyncCheckResult) -> ReportView:
     """Format a synchronization result into a headline, labelled rows, and warnings."""
-    tone = _SYNC_TONE.get(result.verdict, "info")
-    headline = f"Synchronization: {result.verdict}"
+    verdict = (
+        result.verdict if result.exposure_sync_verified or result.verdict == SYNC_VERDICT_POOR else SYNC_VERDICT_UNKNOWN
+    )
+    tone = _SYNC_TONE.get(verdict, "info")
+    headline = f"Synchronization: {verdict}"
 
     rows = [
+        ReportRow("Timestamp pairing", result.pairing_verdict),
+        ReportRow("Exposure timing", "Verified" if result.exposure_sync_verified else "Unknown"),
         ReportRow("Paired frames", str(result.sample_count)),
         ReportRow("Unpaired frames", str(result.unpaired_count)),
         ReportRow("Mean skew", f"{result.mean_delta_ms:.2f} ms"),
@@ -46,8 +51,8 @@ def present_sync_check(result: SyncCheckResult) -> ReportView:
         ReportRow(f"Ball motion @ {result.max_speed_mph:.0f} mph", f"{result.max_motion_in:.1f} in"),
         ReportRow(
             "Result",
-            "PASS" if result.passed else "FAIL",
-            tone="success" if result.passed else "error",
+            ("PASS" if result.exposure_sync_verified else "Estimated operation only") if result.passed else "FAIL",
+            tone=("success" if result.exposure_sync_verified else "warning") if result.passed else "error",
         ),
     ]
     warnings = [result.recommendation] if result.recommendation else []

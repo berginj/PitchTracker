@@ -75,7 +75,6 @@ excludes = [
     'pdb',
     'doctest',
     'difflib',
-    'inspect',
     'profile',
     'cProfile',
     'pstats',
@@ -120,7 +119,7 @@ exe = EXE(
     name='PitchTracker',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,           # Strip debug symbols (Linux/Mac)
+    strip=False,          # Windows ships native binaries without external strip.
     upx=True,             # Compress with UPX
     console=False,        # No console window
     disable_windowed_traceback=False,
@@ -131,12 +130,36 @@ exe = EXE(
 )
 
 # Collection
+worker_analysis = Analysis(
+    ['worker_launcher.py'],
+    pathex=[],
+    binaries=[],
+    datas=datas,
+    hiddenimports=hiddenimports + [
+        'app.camera_probe_worker',
+        'app.services.capture.setup_worker_main',
+        'app.services.tooling.worker_main',
+        'app.trajectory_worker',
+    ],
+    # Tooling imports plotting/report dependencies; they must remain available
+    # even when the GUI does not use them directly.
+    excludes=['pytest', '_pytest', 'IPython', 'notebook', 'jupyterlab'],
+    noarchive=False,
+)
+worker_pyz = PYZ(worker_analysis.pure)
+worker_exe = EXE(
+    worker_pyz, worker_analysis.scripts, [], exclude_binaries=True,
+    name='PitchTrackerWorker', console=True, upx=False,
+)
 coll = COLLECT(
     exe,
+    worker_exe,
+    worker_analysis.binaries,
+    worker_analysis.datas,
     a.binaries,
     a.zipfiles,
     a.datas,
-    strip=True,
+    strip=False,
     upx=True,
     upx_exclude=[],
     name='PitchTracker'

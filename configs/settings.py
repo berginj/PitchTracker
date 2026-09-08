@@ -75,6 +75,7 @@ class MetricsConfig:
     # Online calibration refinement (from hybrid calibration plan - optional)
     online_refinement_enabled: bool = False
     last_refinement_date: Optional[str] = None
+    drag_k0_default: float = 0.002  # inverse feet; initialization only by default
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,12 @@ class TrajectoryConfig:
     compare_modes: Tuple[str, ...] = ()
     fallback_to_stereo: bool = True
     ray: RayTrajectoryConfig = field(default_factory=RayTrajectoryConfig)
+    drag_prior_enabled: bool = False
+    drag_sigma: float = 0.002
+    observation_sigma_ft: float = 0.02
+    max_speed_std_mph: float = 2.0
+    stereo_deadline_seconds: float = 15.0
+    ray_deadline_seconds: float = 10.0
 
 
 @dataclass(frozen=True)
@@ -258,6 +265,7 @@ def load_config(path: Path) -> AppConfig:
             hb_bounds_in=tuple(data["metrics"]["hb_bounds_in"]),
             ivb_bounds_in=tuple(data["metrics"]["ivb_bounds_in"]),
             release_height_bounds_ft=tuple(data["metrics"]["release_height_bounds_ft"]),
+            drag_k0_default=float(data["metrics"].get("drag_k0_default", 0.002)),
         )
         trajectory_data = data.get("trajectory", {})
         ray_data = trajectory_data.get("ray", {})
@@ -265,6 +273,12 @@ def load_config(path: Path) -> AppConfig:
             primary_mode=trajectory_data.get("primary_mode", "stereo_3d"),
             compare_modes=tuple(trajectory_data.get("compare_modes", [])),
             fallback_to_stereo=bool(trajectory_data.get("fallback_to_stereo", True)),
+            drag_prior_enabled=bool(trajectory_data.get("drag_prior_enabled", False)),
+            drag_sigma=float(trajectory_data.get("drag_sigma", 0.002)),
+            observation_sigma_ft=float(trajectory_data.get("observation_sigma_ft", 0.02)),
+            max_speed_std_mph=float(trajectory_data.get("max_speed_std_mph", 2.0)),
+            stereo_deadline_seconds=float(trajectory_data.get("stereo_deadline_seconds", 15.0)),
+            ray_deadline_seconds=float(trajectory_data.get("ray_deadline_seconds", 10.0)),
             ray=RayTrajectoryConfig(
                 max_time_offset_ms=float(ray_data.get("max_time_offset_ms", 20.0)),
                 time_offset_prior_ms=float(ray_data.get("time_offset_prior_ms", 0.0)),

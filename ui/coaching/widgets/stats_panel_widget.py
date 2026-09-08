@@ -94,8 +94,15 @@ class StatsPanelWidget(QtWidgets.QWidget):
         # Speed
         if pitch.speed_mph is not None:
             self._speed_label.setText(f"Speed: {pitch.speed_mph:.1f} mph")
+            measurement = pitch.external_speed or pitch.vision_speed
+            self._speed_label.setToolTip(
+                f"{measurement.source}: {measurement.reference.replace('_', ' ')}"
+                if measurement
+                else "Measurement source/location unavailable in this legacy result"
+            )
         else:
             self._speed_label.setText("Speed: -- mph")
+            self._speed_label.setToolTip("")
 
         # The legacy run/rise fields are raw endpoint displacement today, not
         # validated induced break. Keep them in diagnostics but do not present
@@ -160,6 +167,7 @@ class StatsPanelWidget(QtWidgets.QWidget):
     def clear(self) -> None:
         """Clear all displays."""
         self._speed_label.setText("Speed: -- mph")
+        self._speed_label.setToolTip("")
         self._h_break_label.setText("H-Break: -- in")
         self._v_break_label.setText("V-Break: -- in")
         self._h_break_label.setToolTip("")

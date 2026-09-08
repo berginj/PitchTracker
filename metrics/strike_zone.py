@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 from typing import Iterable, List, Tuple
 
 from contracts import StereoObservation
@@ -25,6 +26,8 @@ class StrikeResult:
     sample_count: int
     zone_row: int | None = None
     zone_col: int | None = None
+    available: bool = True
+    reason: str | None = None
 
 
 def build_strike_zone(
@@ -35,9 +38,9 @@ def build_strike_zone(
     top_ratio: float,
     bottom_ratio: float,
 ) -> StrikeZone:
-    half_width = plate_width_in / 2.0
+    half_width = plate_width_in / 24.0
     back_width = half_width / 2.0
-    depth = plate_length_in
+    depth = plate_length_in / 12.0
     # Plate polygon in X-Z with front edge at plate_z_ft (toward catcher).
     polygon_xz = [
         (-half_width, plate_z_ft),
@@ -49,7 +52,7 @@ def build_strike_zone(
     y_top_ft = (batter_height_in * top_ratio) / 12.0
     y_bottom_ft = (batter_height_in * bottom_ratio) / 12.0
     return StrikeZone(
-        polygon_xz=[(x / 12.0, z / 12.0) for x, z in polygon_xz],
+        polygon_xz=polygon_xz,
         y_bottom_ft=y_bottom_ft,
         y_top_ft=y_top_ft,
         plate_z_ft=plate_z_ft,
@@ -60,10 +63,19 @@ def is_strike(
     observations: Iterable[StereoObservation],
     strike_zone: StrikeZone,
     ball_radius_in: float,
+    *,
+    max_gap_ms: float = 50.0,
 ) -> StrikeResult:
-    obs_list = list(observations)
+    """Intersect a piecewise-linear swept sphere with the full zone volume.
+
+    The 50 ms interpolation limit matches the observation-health gap warning;
+    this is an estimated geometry call, not a physical uncertainty guarantee.
+    """
+    obs_list = sorted(observations, key=lambda obs: obs.t_ns)
     if not obs_list:
-        return StrikeResult(is_strike=False, sample_count=0)
+        return StrikeResult(is_strike=False, sample_count=0, available=False, reason="NO_OBSERVATIONS")
+    if not all(isfinite(value) for obs in obs_list for value in (obs.X, obs.Y, obs.Z)):
+        return StrikeResult(False, len(obs_list), available=False, reason="INVALID_COORDINATES")
     radius_ft = ball_radius_in / 12.0
     zone_row = None
     zone_col = None
@@ -75,20 +87,25 @@ def is_strike(
             strike_zone.y_top_ft,
             strike_zone.polygon_xz,
         )
-    for obs in obs_list:
-        if _sphere_intersects_zone(obs, strike_zone, radius_ft):
-            return StrikeResult(
-                is_strike=True,
-                sample_count=len(obs_list),
-                zone_row=zone_row,
-                zone_col=zone_col,
-            )
-    return StrikeResult(
-        is_strike=False,
-        sample_count=len(obs_list),
-        zone_row=zone_row,
-        zone_col=zone_col,
-    )
+    hit = any(_sphere_intersects_zone(obs, strike_zone, radius_ft) for obs in obs_list)
+    uncertain_gap = False
+    for a, b in zip(obs_list, obs_list[1:]):
+        gap_ms = (b.t_ns - a.t_ns) / 1e6
+        if not 0 < gap_ms <= max_gap_ms:
+            uncertain_gap = True
+            continue
+        hit = hit or _segment_distance_squared(a, b, strike_zone) <= radius_ft**2 + 1e-12
+    if hit:
+        return StrikeResult(True, len(obs_list), zone_row, zone_col)
+    if uncertain_gap:
+        return StrikeResult(False, len(obs_list), available=False, reason="UNSUPPORTED_TIMING_GAP")
+    if crossing is None:
+        return StrikeResult(False, len(obs_list), available=False, reason="NO_OBSERVED_CROSSING")
+    # A complete traversal is needed to exclude intersection deeper in the
+    # volume. Retain the single-point API for an observation on the front plane.
+    if len(obs_list) > 1 and min(obs.Z for obs in obs_list) > min(z for _, z in strike_zone.polygon_xz) - radius_ft:
+        return StrikeResult(False, len(obs_list), available=False, reason="INCOMPLETE_ZONE_COVERAGE")
+    return StrikeResult(False, len(obs_list), zone_row, zone_col)
 
 
 def _sphere_intersects_zone(
@@ -96,15 +113,39 @@ def _sphere_intersects_zone(
     zone: StrikeZone,
     radius_ft: float,
 ) -> bool:
-    if obs.Y + radius_ft < zone.y_bottom_ft:
-        return False
-    if obs.Y - radius_ft > zone.y_top_ft:
-        return False
-    point = (obs.X, obs.Z)
-    if point_in_polygon(point, zone.polygon_xz):
-        return True
-    distance = _distance_to_polygon(point, zone.polygon_xz)
-    return distance <= radius_ft
+    return _point_distance_squared(obs.X, obs.Y, obs.Z, zone) <= radius_ft**2 + 1e-12
+
+
+def _point_distance_squared(x: float, y: float, z: float, zone: StrikeZone) -> float:
+    vertical = max(zone.y_bottom_ft - y, y - zone.y_top_ft, 0.0)
+    horizontal = 0.0 if point_in_polygon((x, z), zone.polygon_xz) else _distance_to_polygon((x, z), zone.polygon_xz)
+    return vertical**2 + horizontal**2
+
+
+def _segment_distance_squared(a: StereoObservation, b: StereoObservation, zone: StrikeZone) -> float:
+    """Minimize convex squared distance from a segment to a convex prism.
+
+    Golden-section minimization avoids expanding polygon half-spaces, which
+    would incorrectly count square corners as spherical ball contact.
+    """
+
+    def distance(t: float) -> float:
+        return _point_distance_squared(a.X + t * (b.X - a.X), a.Y + t * (b.Y - a.Y), a.Z + t * (b.Z - a.Z), zone)
+
+    lo, hi = 0.0, 1.0
+    ratio = (5.0**0.5 - 1.0) / 2.0
+    left, right = hi - ratio, lo + ratio
+    f_left, f_right = distance(left), distance(right)
+    for _ in range(60):
+        if f_left <= f_right:
+            hi, right, f_right = right, left, f_left
+            left = hi - ratio * (hi - lo)
+            f_left = distance(left)
+        else:
+            lo, left, f_left = left, right, f_right
+            right = lo + ratio * (hi - lo)
+            f_right = distance(right)
+    return min(distance(0.0), distance(1.0), f_left, f_right)
 
 
 def _find_plate_crossing(
@@ -113,6 +154,9 @@ def _find_plate_crossing(
 ) -> Tuple[float, float, float] | None:
     if not observations:
         return None
+    for obs in observations:
+        if obs.Z == plate_z_ft:
+            return (obs.X, obs.Y, obs.Z)
     for i in range(len(observations) - 1):
         a = observations[i]
         b = observations[i + 1]
@@ -126,8 +170,7 @@ def _find_plate_crossing(
             y = a.Y + t * (b.Y - a.Y)
             z = a.Z + t * (b.Z - a.Z)
             return (x, y, z)
-    closest = min(observations, key=lambda obs: abs(obs.Z - plate_z_ft))
-    return (closest.X, closest.Y, closest.Z)
+    return None
 
 
 def _zone_cell(

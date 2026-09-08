@@ -110,6 +110,12 @@ def create_pitch_manifest(
             "rotation_rpm": summary.rotation_rpm,
             "measurement_status": summary.measurement_status,
             "speed_source": summary.speed_source,
+            "vision_speed": (summary.vision_speed.to_payload() if getattr(summary, "vision_speed", None) else None),
+            "external_speed": (
+                summary.external_speed.to_payload() if getattr(summary, "external_speed", None) else None
+            ),
+            "strike_call_available": getattr(summary, "strike_call_available", True),
+            "strike_call_reason": getattr(summary, "strike_call_reason", None),
             "corrections": summary.correction_records or [],
             "quality_diagnostics": summary.quality_diagnostics or {},
             "evidence_manifest": "evidence/manifest.json",
@@ -124,6 +130,8 @@ def create_pitch_manifest(
                 "mode": summary.trajectory_mode,
                 "expected_error_ft": summary.trajectory_expected_error_ft,
                 "confidence": summary.trajectory_confidence,
+                "confidence_basis": "heuristic_fit_quality_not_probability",
+                "prediction_uncertainty_basis": "unavailable",
                 "comparison": summary.trajectory_comparison,
                 "ray_rmse_px": summary.ray_rmse_px,
                 "estimated_camera_time_offset_ms": summary.estimated_camera_time_offset_ms,

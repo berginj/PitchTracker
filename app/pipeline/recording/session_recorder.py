@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+from app.pipeline.recording.frame_timestamps import TIMESTAMP_COLUMNS, timestamp_row
 import json
 import logging
 import shutil
@@ -328,7 +329,7 @@ class SessionRecorder:
 
                 # Write CSV timestamp regardless
                 if self._left_csv is not None:
-                    self._left_csv[1].writerow([frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns])
+                    self._left_csv[1].writerow(timestamp_row(frame))
 
             elif label == "right" and self._right_writer is not None:
                 # Write frame and check for failure
@@ -359,7 +360,7 @@ class SessionRecorder:
 
                 # Write CSV timestamp regardless
                 if self._right_csv is not None:
-                    self._right_csv[1].writerow([frame.camera_id, frame.frame_index, frame.t_capture_monotonic_ns])
+                    self._right_csv[1].writerow(timestamp_row(frame))
 
     def write_session_summary(self, summary) -> None:
         """Write session summary to JSON and CSV files.
@@ -451,8 +452,8 @@ class SessionRecorder:
         self._right_csv = (right_csv, csv.writer(right_csv))
 
         # Write CSV headers
-        self._left_csv[1].writerow(["camera_id", "frame_index", "t_capture_monotonic_ns"])
-        self._right_csv[1].writerow(["camera_id", "frame_index", "t_capture_monotonic_ns"])
+        self._left_csv[1].writerow(TIMESTAMP_COLUMNS)
+        self._right_csv[1].writerow(TIMESTAMP_COLUMNS)
 
     def _close_writers(self) -> None:
         """Close video writers and CSV files."""
@@ -479,6 +480,4 @@ class SessionRecorder:
         if self._session_dir is None:
             return
 
-        write_session_summary_csv(
-            self._session_dir / "session_summary.csv", summary
-        )
+        write_session_summary_csv(self._session_dir / "session_summary.csv", summary)

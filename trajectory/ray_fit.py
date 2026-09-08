@@ -20,7 +20,6 @@ from trajectory.physics import _condition_number, _find_plate_crossing, _is_mono
 from trajectory.ray_fit_helpers import (
     build_ray_residual_reports,
     build_samples,
-    expected_plate_error_from_px,
     failure_result,
     inlier_ratio,
     least_squares_multistart,
@@ -146,21 +145,26 @@ class RayReprojectionFitter(TrajectoryFitterBase):
             rmse_px=rmse_px,
             inlier_ratio=inlier_ratio(residuals),
             condition_number=_condition_number(result.jac),
-            drag_param=float(params[6]),
-            drag_param_ok=bool(params[6] >= 0.0),
+            drag_param=None,  # Ray propagation currently uses ballistic gravity, not drag.
+            drag_param_ok=None,
             radar_residual_mph=radar_residual_mph(params, request),
             estimated_camera_time_offset_ms=float(params[7] * 1000.0),
             failure_codes=failure_codes,
-            notes=list(diagnostics.notes),
+            notes=[*diagnostics.notes, "Ballistic gravity model; drag and spin-induced lift are not modeled."],
+            fit_quality_score=self._scorer.fit_quality(
+                rmse_px / request.max_reprojection_px if rmse_px is not None else None,
+                failure_codes,
+            ),
+            observation_noise_basis="pixel_residual_heuristic",
+            estimator="radar_assisted" if request.radar_speed_mph is not None else "vision_only",
         )
-        expected_error = expected_plate_error_from_px(rmse_px, plate_crossing)
         return TrajectoryFitResult(
             model_name=model_name,
             samples=samples,
             plate_crossing_xyz_ft=plate_crossing[0] if plate_crossing else None,
             plate_crossing_t_ns=plate_crossing[1] if plate_crossing else None,
-            expected_plate_error_ft=expected_error,
-            confidence=self._scorer.confidence_from_error(expected_error),
+            expected_plate_error_ft=None,
+            confidence=diagnostics.fit_quality_score or 0.0,
             diagnostics=diagnostics,
             residuals=residuals,
         )

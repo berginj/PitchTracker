@@ -24,14 +24,14 @@ def _result(verdict: str, passed: bool, recommendation: str = "") -> SyncCheckRe
     )
 
 
-def test_present_sync_check_good_result_shows_success_and_pass() -> None:
+def test_legacy_good_receipt_result_cannot_claim_verified_sync() -> None:
     view = present_sync_check(_result(SYNC_VERDICT_GOOD, True))
 
-    assert view.headline == "Synchronization: GOOD"
-    assert view.tone == "success"
+    assert view.headline == "Synchronization: UNKNOWN"
+    assert view.tone == "info"
     assert view.rows[-1].label == "Result"
-    assert view.rows[-1].value == "PASS"
-    assert view.rows[-1].tone == "success"
+    assert view.rows[-1].value == "Estimated operation only"
+    assert view.rows[-1].tone == "warning"
 
 
 def test_present_sync_check_poor_result_shows_error_fail_and_warning() -> None:

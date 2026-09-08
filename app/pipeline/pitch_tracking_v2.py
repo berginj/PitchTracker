@@ -68,7 +68,7 @@ class PitchStateMachineV2:
 
         # Pre-roll buffers (per camera)
         self._pre_roll_frames: dict[str, deque] = {
-            "left": deque(maxlen=100),  # ~3 seconds at 30fps
+            "left": deque(maxlen=100),  # Safety cap; timestamp window below controls retention.
             "right": deque(maxlen=100),
         }
 
@@ -115,6 +115,23 @@ class PitchStateMachineV2:
             cutoff_ns = frame.t_capture_monotonic_ns - self._config.pre_roll_ns
             while buffer and buffer[0].t_capture_monotonic_ns < cutoff_ns:
                 buffer.popleft()
+
+    def get_buffer_stats(self) -> dict:
+        """Report retained pre-roll evidence without exposing mutable frames."""
+        with self._lock:
+            result = {}
+            for label, frames in self._pre_roll_frames.items():
+                images = {id(frame.image): frame.image for frame in frames}
+                result[label] = {
+                    "frame_count": len(frames),
+                    "span_ms": (
+                        (frames[-1].t_capture_monotonic_ns - frames[0].t_capture_monotonic_ns) / 1e6 if frames else 0.0
+                    ),
+                    "image_bytes": sum(image.nbytes for image in images.values()),
+                    "configured_window_ms": self._config.pre_roll_ns / 1e6,
+                    "frame_cap": frames.maxlen,
+                }
+            return result
 
     def add_observation(self, obs: StereoObservation) -> None:
         """Add observation to current pitch.

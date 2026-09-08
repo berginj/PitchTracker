@@ -26,6 +26,7 @@ from exceptions import (
 )
 
 from .interface import ToolingService
+from app.worker_process import worker_command
 
 
 class SubprocessToolingService(ToolingService):
@@ -81,11 +82,7 @@ class SubprocessToolingService(ToolingService):
         payload: dict[str, Any],
         timeout_seconds: int = 60,
     ) -> dict[str, Any]:
-        command = [
-            self._python_executable,
-            "-m",
-            "app.services.tooling.worker_main",
-        ]
+        command = worker_command("tooling", python_executable=self._python_executable)
         request_envelope = {"task": task, "payload": payload}
 
         try:
@@ -98,6 +95,7 @@ class SubprocessToolingService(ToolingService):
                 cwd=str(self._project_root),
                 timeout=timeout_seconds,
                 check=False,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except subprocess.TimeoutExpired as exc:
             self._raise_task_error(

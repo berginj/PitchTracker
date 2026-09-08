@@ -84,6 +84,8 @@ def _record(frame: Frame, image_path: Path | None = None) -> SetupFrameRecord:
         height=int(frame.height),
         pixfmt=str(frame.pixfmt),
         image_path=image_path,
+        timing=frame.timing,
+        capture_epoch=frame.capture_epoch,
     )
 
 
@@ -184,9 +186,7 @@ def _capture(request: SetupCaptureRequest) -> SetupCaptureResult:
             if observation is None:
                 from contracts.capability_observation import build_unavailable_observation
 
-                camera_id = (
-                    request.left_camera_id if side == "left" else request.right_camera_id
-                )
+                camera_id = request.left_camera_id if side == "left" else request.right_camera_id
                 observation = build_unavailable_observation(
                     camera_id,
                     request.backend,

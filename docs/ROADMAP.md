@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-08-16
+**Last reviewed:** 2026-09-08
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -41,12 +41,27 @@ The dependency-ordered source of audit findings and closure criteria is
 - [x] Complete required message metadata across durable/asynchronous flows.
 
 The historical remediation plan is retained under `docs/review/` for audit
-traceability. Its completed findings are not current open work. A full parallel
-run currently passes its assertions but still exposes a Windows native-thread
-teardown access violation, so lifecycle cleanup remains an active engineering
-item.
+traceability. Its completed findings are not current open work. Earlier full
+parallel runs exposed a Windows native-thread teardown access violation. The
+September 8 local rerun exited cleanly; target-rig failure injection and
+clean-machine lifecycle qualification remain necessary.
 
-## Now: physical validation and tester feedback
+## Now: correctness gates and controlled pilot
+
+The September review identified timestamp provenance (#34), distorted-pixel
+geometry (#35), drag-prior bias (#36), sampled strike misses (#37), misleading
+uncertainty/fit eligibility (#38), speed-reference conflation (#39), and omitted
+transverse physics (#40). Working-tree remediation is described in
+[the implementation plan](../DEVELOPMENT_PLAN.md). No issue is closed merely
+by this document. Model limitations remain explicit; no spin or movement
+accuracy claim is added.
+
+Complete software/build gates, then execute the
+[controlled pilot checklist](CONTROLLED_PILOT_CHECKLIST.md). Preserve production
+queue capacity and time-based pre-roll pending telemetry. The configurable
+stereo process limit is 15 seconds, not a response-time promise.
+
+## Physical validation and tester feedback
 
 ### [R-001 — Global-shutter camera qualification](https://github.com/berginj/PitchTracker/issues/9)
 

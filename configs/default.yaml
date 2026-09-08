@@ -49,11 +49,17 @@ metrics:
   # Online refinement state
   online_refinement_enabled: false  # Shadow proposals only; never auto-mutate an approved measurement build
   last_refinement_date: null  # ISO timestamp
-  drag_k0_default: 0.1  # Default drag coefficient (refined online)
+  drag_k0_default: 0.002  # Optimizer seed in inverse feet; not dimensionless Cd
 trajectory:
   primary_mode: stereo_3d        # stereo_3d | ray_reprojection | ray_graph
   compare_modes: []              # e.g. [stereo_3d, ray_reprojection, ray_graph]
   fallback_to_stereo: true
+  drag_prior_enabled: false     # Estimate drag from observations; do not let a prior determine speed
+  drag_sigma: 0.002             # Inverse feet, used only by the opt-in prior
+  observation_sigma_ft: 0.02    # Assumed noise if covariance is missing, not physical uncertainty
+  max_speed_std_mph: 2.0        # Model-conditional identifiability gate
+  stereo_deadline_seconds: 15.0
+  ray_deadline_seconds: 10.0
   ray:
     max_time_offset_ms: 20
     time_offset_prior_ms: 0

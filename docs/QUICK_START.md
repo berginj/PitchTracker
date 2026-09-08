@@ -1,6 +1,6 @@
 # PitchTracker Quick Start
 
-**Last reviewed:** 2026-08-16
+**Last reviewed:** 2026-09-08
 
 **Applies to:** v2.0.0 and current `main`
 
@@ -96,6 +96,9 @@ Treat both locations as private.
 - `run_in` and `rise_in` are currently raw first-to-last observation
   displacement, not validated induced break.
 - Ray trajectory modes remain comparison-first.
+- Receipt timestamp pairing does not verify exposure synchronization.
+- Vision speed is measured at the first fitted observed point, not release;
+  external readings retain separate provenance and may have unknown location.
 - Corrections retain raw values and an audit record.
 
 ## Get help or contribute evidence

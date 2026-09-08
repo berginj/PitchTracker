@@ -172,6 +172,8 @@ class LiveSetupContext:
             image = np.load(record.image_path, allow_pickle=False)
         return Frame(
             camera_id=record.camera_id,
+            timing=record.timing,
+            capture_epoch=record.capture_epoch,
             frame_index=record.frame_index,
             t_capture_monotonic_ns=record.t_capture_monotonic_ns,
             image=image,
@@ -196,9 +198,7 @@ class LiveSetupContext:
         for side, records in (("left", result.left_frames), ("right", result.right_frames)):
             if side not in result.capability_observations:
                 continue
-            observation = CapabilityObservation.from_payload(
-                dict(result.capability_observations[side])
-            )
+            observation = CapabilityObservation.from_payload(dict(result.capability_observations[side]))
             if observation.camera_id and observation.camera_id != records[0].camera_id:
                 raise RuntimeError(f"{side} capability observation camera ID mismatch")
             capability_observations[side] = observation
@@ -234,8 +234,7 @@ class LiveSetupContext:
             },
             "read_error_count": dict(result.errors_by_side),
             "read_error_rate": {
-                side: float(result.errors_by_side.get(side, 0)) / requested
-                for side in ("left", "right")
+                side: float(result.errors_by_side.get(side, 0)) / requested for side in ("left", "right")
             },
             "config_sha256": result.config_sha256,
             "assignment_generation": result.assignment_generation,
@@ -273,6 +272,7 @@ class LiveSetupContext:
 
         config = load_config(self.config_path)
         from app.pipeline.initialization import PipelineInitializer
+
         left_id, right_id = self.assigned_ids()
         left = self.camera_factory()
         right = self.camera_factory()
@@ -344,15 +344,15 @@ class LiveSetupContext:
         return self._sync_from_frames(left, right)
 
     def _sync_from_frames(self, left: list[Frame], right: list[Frame]) -> SyncCheckResult:
-        from calib.sync_check import check_sync
+        from calib.sync_check import check_frame_sync
         from calib.capture_qualification import qualify_capture
         from app.monitoring.error_budget import ErrorBudget, MetricLimit
         from configs.settings import load_config
 
         config = load_config(self.config_path)
-        self.last_sync = check_sync(
-            [frame.t_capture_monotonic_ns for frame in left],
-            [frame.t_capture_monotonic_ns for frame in right],
+        self.last_sync = check_frame_sync(
+            left,
+            right,
             config.stereo.pairing_tolerance_ms,
             max_speed_mph=float(config.metrics.velo_bounds_mph[1]),
         )
@@ -383,10 +383,7 @@ class LiveSetupContext:
                 "jitter_p95_ms_right": MetricLimit(1.0, 3.0, "ms"),
             },
         )
-        pair_skews = [
-            abs(a.t_capture_monotonic_ns - b.t_capture_monotonic_ns)
-            for a, b in zip(left, right)
-        ]
+        pair_skews = [abs(a.t_capture_monotonic_ns - b.t_capture_monotonic_ns) for a, b in zip(left, right)]
         controls_verified = modes_agree and all(
             bool(self.last_controls.get(side, {}).get("readback_verified")) for side in ("left", "right")
         )
@@ -412,7 +409,12 @@ class LiveSetupContext:
         left: list[Frame],
         right: list[Frame],
     ) -> "FocusExposureSnapshot":
-        from calib.stereo_setup.focus_lock import ExposureLockInput, ExposureValues, evaluate_exposure_lock, evaluate_focus_lock
+        from calib.stereo_setup.focus_lock import (
+            ExposureLockInput,
+            ExposureValues,
+            evaluate_exposure_lock,
+            evaluate_focus_lock,
+        )
         from configs.settings import load_config
         from ui.setup.focus_lock_view import FocusExposureSnapshot
 
@@ -424,21 +426,25 @@ class LiveSetupContext:
             if frame.image is None:
                 raise RuntimeError(f"{side} focus capture is missing its image artifact")
             control = self.last_controls.get(side, {})
-            focus_results.append(evaluate_focus_lock(
-                side,
-                frame.image,
-                bool(control.get("autofocus_disabled", False)),
-            ))
+            focus_results.append(
+                evaluate_focus_lock(
+                    side,
+                    frame.image,
+                    bool(control.get("autofocus_disabled", False)),
+                )
+            )
             readback = applied if control.get("readback_verified") else None
-            exposure_results.append(evaluate_exposure_lock(
-                side,
-                ExposureLockInput(
-                    applied,
-                    readback,
-                    bool(control.get("auto_exposure_disabled")),
-                    bool(control.get("auto_white_balance_disabled")),
-                ),
-            ))
+            exposure_results.append(
+                evaluate_exposure_lock(
+                    side,
+                    ExposureLockInput(
+                        applied,
+                        readback,
+                        bool(control.get("auto_exposure_disabled")),
+                        bool(control.get("auto_white_balance_disabled")),
+                    ),
+                )
+            )
         self.last_focus = FocusExposureSnapshot(
             focus_left=focus_results[0],
             focus_right=focus_results[1],
@@ -481,8 +487,10 @@ class LiveSetupContext:
 
     def quality_report(self) -> "CalibrationQualityReport":
         from ui.setup.providers.profile import build_quality_report_for_context
+
         return build_quality_report_for_context(self)
 
     def persist_profile(self, stereo_profile: "StereoCalibrationProfile") -> str:
         from ui.setup.providers.profile import persist_profile_for_context
+
         return persist_profile_for_context(self, stereo_profile)

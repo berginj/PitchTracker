@@ -1,6 +1,7 @@
 """Supervised process service for interruptible setup capture."""
 
 from __future__ import annotations
+from app.worker_process import worker_command
 
 import json
 import shutil
@@ -18,7 +19,6 @@ from contracts.setup_capture import (
     SetupCaptureState,
     SetupCaptureTerminal,
 )
-
 
 JobDoneCallback = Callable[["SetupCaptureJob"], None]
 
@@ -350,11 +350,14 @@ class SupervisedSetupCaptureService:
                 shutil.rmtree(resolved)
             resolved.mkdir(parents=False)
             assigned_request = request.with_artifact_dir(resolved)
-            command = list(self._worker_command) if self._worker_command is not None else [
-                self._python_executable,
-                "-m",
-                "app.services.capture.setup_worker_main",
-            ]
+            command = (
+                list(self._worker_command)
+                if self._worker_command is not None
+                else worker_command(
+                    "setup_capture",
+                    python_executable=self._python_executable,
+                )
+            )
             process = subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,

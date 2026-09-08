@@ -24,8 +24,8 @@ class SyncCheckResult:
     """Result of the setup-time left/right timestamp synchronization check.
 
     Produced from two streams of per-camera frame capture timestamps (host
-    monotonic nanoseconds). It reports the measured pairing skew and whether it
-    is small enough to trust stereo geometry at the target pitch speed.
+    monotonic nanoseconds). Receipt pairing alone cannot establish exposure
+    synchronization. Proven acquisition evidence is required for that claim.
 
     Attributes:
         sample_count: Number of left/right frames that were paired.
@@ -38,7 +38,7 @@ class SyncCheckResult:
         tolerance_ms: Pairing tolerance used for the check, milliseconds.
         max_speed_mph: Pitch speed used to convert timing skew to ball motion.
         verdict: One of SYNC_VERDICT_{GOOD,WARN,POOR,UNKNOWN}.
-        passed: True when the verdict is acceptable to proceed (GOOD or WARN).
+        passed: Operational permission to proceed, possibly estimated-only.
         recommendation: Human-readable guidance for the operator.
     """
 
@@ -54,6 +54,9 @@ class SyncCheckResult:
     verdict: str
     passed: bool
     recommendation: str = ""
+    pairing_verdict: str = SYNC_VERDICT_UNKNOWN
+    exposure_sync_verified: bool = False
+    timestamp_evidence: dict = field(default_factory=dict)
 
     def to_payload(self) -> Dict[str, object]:
         """Return a JSON-serializable dict for manifests/reports."""
@@ -70,6 +73,9 @@ class SyncCheckResult:
             "verdict": self.verdict,
             "passed": self.passed,
             "recommendation": self.recommendation,
+            "pairing_verdict": self.pairing_verdict,
+            "exposure_sync_verified": self.exposure_sync_verified,
+            "timestamp_evidence": self.timestamp_evidence,
         }
 
 

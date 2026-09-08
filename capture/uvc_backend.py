@@ -11,6 +11,7 @@ import cv2
 import numpy as np
 
 from contracts import Frame
+from contracts.timing import HOST_RECEIPT_TIMING
 from contracts.capability_observation import CapabilityObservation
 from exceptions import (
     CameraConnectionError,
@@ -306,8 +307,8 @@ class UvcCamera(CameraDevice):
         # Stamp capture time immediately after read() returns, BEFORE any image
         # post-processing (color convert, rotation, warp). This is host receive
         # time, NOT hardware acquisition time — DirectShow/MSMF buffering means
-        # it can lag actual integration by up to a frame period. Stereo pairing
-        # tolerance must account for this (see StereoConfig.pairing_tolerance_ms).
+        # transport latency is unverified. Increasing pairing tolerance cannot
+        # establish exposure synchronization.
         now_ns = time.monotonic_ns()
         if not ok:
             self._stats.dropped += 1
@@ -353,6 +354,7 @@ class UvcCamera(CameraDevice):
             camera_id=self._serial or "uvc",
             frame_index=self._stats.frames,
             t_capture_monotonic_ns=now_ns,
+            timing=HOST_RECEIPT_TIMING,
             image=frame,
             width=frame.shape[1],
             height=frame.shape[0],

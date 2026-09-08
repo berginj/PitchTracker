@@ -84,6 +84,8 @@ def _collect_warnings(
             warnings.append(f"{label} did not pass." + (f" {detail}" if detail else ""))
 
     _note(sync, "Sync check")
+    if sync is not None and not sync.exposure_sync_verified:
+        warnings.append("Exposure synchronization is unverified; pairing health cannot establish physical accuracy.")
     _note(overlap, "Overlap validation")
     _note(rectification, "Coarse rectification")
 
@@ -96,9 +98,7 @@ def _collect_warnings(
         if not exposure_lock.passed:
             all_passed = False
             detail = exposure_lock.recommendation or ""
-            warnings.append(
-                f"Exposure lock failed for {exposure_lock.camera_id}." + (f" {detail}" if detail else "")
-            )
+            warnings.append(f"Exposure lock failed for {exposure_lock.camera_id}." + (f" {detail}" if detail else ""))
 
     return warnings, all_passed
 

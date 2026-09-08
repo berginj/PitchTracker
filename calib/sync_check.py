@@ -7,8 +7,8 @@ measured timing skew is small enough to trust stereo geometry at the target
 pitch speed.
 
 The cameras in the target rig are two independent USB UVC global-shutter
-cameras (no hardware trigger), so timestamps are host receive times. This check
-surfaces the *actual* skew rather than assuming it is negligible.
+cameras (no hardware trigger), so timestamps are host receive times. Receipt
+differences describe pairing health, not actual exposure synchronization.
 """
 
 from __future__ import annotations
@@ -16,6 +16,9 @@ from __future__ import annotations
 from typing import List, Sequence, Tuple
 
 import numpy as np
+
+from contracts import Frame
+from contracts.timing import TimestampEvidence
 
 from contracts.setup import (
     SYNC_VERDICT_GOOD,
@@ -115,6 +118,9 @@ def check_sync(
     right_ts_ns: Sequence[int],
     tolerance_ms: float,
     max_speed_mph: float = 60.0,
+    *,
+    left_evidence: TimestampEvidence | None = None,
+    right_evidence: TimestampEvidence | None = None,
 ) -> SyncCheckResult:
     """Measure left/right timestamp skew and produce a :class:`SyncCheckResult`.
 
@@ -155,12 +161,36 @@ def check_sync(
     max_delta = float(np.max(deltas_ms))
     jitter = float(np.std(deltas_ms))
 
-    total = len(deltas_ns) + unpaired
+    total = 2 * len(deltas_ns) + unpaired
     unpaired_fraction = unpaired / max(total, 1)
 
     p95_motion = _motion_inches(p95_delta, max_speed_mph)
     max_motion = _motion_inches(max_delta, max_speed_mph)
-    verdict, passed, recommendation = _classify(p95_motion, max_motion, unpaired_fraction)
+    pairing_verdict, passed, recommendation = _classify(p95_motion, max_motion, unpaired_fraction)
+    left_evidence = left_evidence or TimestampEvidence()
+    right_evidence = right_evidence or TimestampEvidence()
+    verified = (
+        left_evidence.acquisition_verified
+        and right_evidence.acquisition_verified
+        and left_evidence.clock_domain == right_evidence.clock_domain
+        and left_evidence.semantics == right_evidence.semantics
+    )
+    verdict = pairing_verdict if pairing_verdict == SYNC_VERDICT_POOR else SYNC_VERDICT_UNKNOWN
+    if verified:
+        uncertainty_ms = (
+            (left_evidence.acquisition_uncertainty_ns or 0) + (right_evidence.acquisition_uncertainty_ns or 0)
+        ) / 1e6
+        verdict, passed, recommendation = _classify(
+            _motion_inches(p95_delta + uncertainty_ms, max_speed_mph),
+            _motion_inches(max_delta + uncertainty_ms, max_speed_mph),
+            unpaired_fraction,
+        )
+    else:
+        recommendation = (
+            "Exposure synchronization is unknown. Pairing health describes timestamp differences only. "
+            "Use independent optical timing evidence before making a measurement accuracy claim. "
+            + (recommendation if not passed else "Estimated setup may continue.")
+        )
 
     return SyncCheckResult(
         sample_count=len(deltas_ns),
@@ -175,4 +205,29 @@ def check_sync(
         verdict=verdict,
         passed=passed,
         recommendation=recommendation,
+        pairing_verdict=pairing_verdict,
+        exposure_sync_verified=verified and passed,
+        timestamp_evidence={"left": left_evidence.to_payload(), "right": right_evidence.to_payload()},
+    )
+
+
+def check_frame_sync(
+    left: Sequence[Frame],
+    right: Sequence[Frame],
+    tolerance_ms: float,
+    max_speed_mph: float = 60.0,
+) -> SyncCheckResult:
+    def evidence(frames: Sequence[Frame]) -> TimestampEvidence:
+        if not frames or len({frame.capture_epoch for frame in frames}) != 1:
+            return TimestampEvidence()
+        first = frames[0].timing
+        return first if all(frame.timing == first for frame in frames) else TimestampEvidence()
+
+    return check_sync(
+        [frame.t_capture_monotonic_ns for frame in left],
+        [frame.t_capture_monotonic_ns for frame in right],
+        tolerance_ms,
+        max_speed_mph,
+        left_evidence=evidence(left),
+        right_evidence=evidence(right),
     )

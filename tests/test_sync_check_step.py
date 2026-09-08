@@ -38,7 +38,7 @@ def test_sync_check_step_renders_good_result_and_validates(qapp: QtWidgets.QAppl
 
     widget.on_enter()
 
-    assert widget._metrics_form.rowCount() == 8
+    assert widget._metrics_form.rowCount() == 10
     assert widget.validate() == (True, "")
     assert widget.get_title() == "Synchronization"
 
@@ -57,8 +57,8 @@ def test_sync_check_step_failed_result_validates_false_and_refresh_replaces_rows
 
     assert valid is False
     assert message
-    assert widget._metrics_form.rowCount() == 8
+    assert widget._metrics_form.rowCount() == 10
 
     widget.refresh()
 
-    assert widget._metrics_form.rowCount() == 8
+    assert widget._metrics_form.rowCount() == 10

@@ -66,6 +66,7 @@ CONFIG_SCHEMA = {
                 "coordinate_system": {"type": "string"},
                 "plate_plane_z_ft": {"type": "number"},
                 "release_plane_z_ft": {"type": "number"},
+                "drag_k0_default": {"type": "number", "minimum": 0, "maximum": 0.3},
                 "approach_window_ft": {"type": "number", "minimum": 1, "maximum": 20},
                 "velo_bounds_mph": {
                     "type": "array",
@@ -109,6 +110,12 @@ CONFIG_SCHEMA = {
                     "uniqueItems": True,
                 },
                 "fallback_to_stereo": {"type": "boolean"},
+                "drag_prior_enabled": {"type": "boolean"},
+                "drag_sigma": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.3},
+                "observation_sigma_ft": {"type": "number", "exclusiveMinimum": 0},
+                "max_speed_std_mph": {"type": "number", "exclusiveMinimum": 0},
+                "stereo_deadline_seconds": {"type": "number", "minimum": 0.1, "maximum": 30},
+                "ray_deadline_seconds": {"type": "number", "minimum": 0.1, "maximum": 30},
                 "ray": {
                     "type": "object",
                     "properties": {

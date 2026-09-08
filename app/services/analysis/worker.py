@@ -7,6 +7,7 @@ import logging
 import threading
 import time
 from collections.abc import Callable
+from collections import deque
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -20,6 +21,10 @@ class WorkerStats:
     dropped: int
     failed: int
     queue_depth: int
+    oldest_queued_age_ms: float = 0.0
+    last_queue_wait_ms: float = 0.0
+    service_latency_p95_ms: float = 0.0
+    latency_sample_count: int = 0
 
 
 class BoundedAnalysisWorker:
@@ -34,6 +39,8 @@ class BoundedAnalysisWorker:
         self._accepting = False
         self._stats_lock = threading.Lock()
         self._submitted = self._completed = self._dropped = self._failed = 0
+        self._service_latencies: deque[float] = deque(maxlen=256)
+        self._last_queue_wait_ms = 0.0
 
     def start(self) -> bool:
         """Start a fresh accepting generation, or report a stale live generation."""
@@ -44,6 +51,8 @@ class BoundedAnalysisWorker:
                 return False
             with self._stats_lock:
                 self._submitted = self._completed = self._dropped = self._failed = 0
+                self._service_latencies.clear()
+                self._last_queue_wait_ms = 0.0
             self._stop.clear()
             self._accepting = True
             self._thread = threading.Thread(target=self._run, name="pitch-analysis-worker", daemon=True)
@@ -57,7 +66,7 @@ class BoundedAnalysisWorker:
                     self._dropped += 1
                 return False
             try:
-                self._queue.put_nowait(item)
+                self._queue.put_nowait((time.monotonic(), item))
                 with self._stats_lock:
                     self._submitted += 1
                 return True
@@ -84,8 +93,23 @@ class BoundedAnalysisWorker:
         return drained and stopped
 
     def stats(self) -> WorkerStats:
+        with self._queue.mutex:
+            depth = len(self._queue.queue)
+            oldest = self._queue.queue[0][0] if depth else None
         with self._stats_lock:
-            return WorkerStats(self._submitted, self._completed, self._dropped, self._failed, self._queue.qsize())
+            latencies = sorted(self._service_latencies)
+            p95 = latencies[max(0, (95 * len(latencies) + 99) // 100 - 1)] if latencies else 0.0
+            return WorkerStats(
+                self._submitted,
+                self._completed,
+                self._dropped,
+                self._failed,
+                depth,
+                max(0.0, (time.monotonic() - oldest) * 1000) if oldest is not None else 0.0,
+                self._last_queue_wait_ms,
+                p95,
+                len(latencies),
+            )
 
     def wait_idle(self, timeout: float = 5.0) -> bool:
         deadline = time.monotonic() + timeout
@@ -99,9 +123,12 @@ class BoundedAnalysisWorker:
     def _run(self) -> None:
         while not self._stop.is_set() or not self._queue.empty():
             try:
-                item = self._queue.get(timeout=0.05)
+                queued_at, item = self._queue.get(timeout=0.05)
             except queue.Empty:
                 continue
+            started = time.monotonic()
+            with self._stats_lock:
+                self._last_queue_wait_ms = (started - queued_at) * 1000
             try:
                 self._handler(item)
                 with self._stats_lock:
@@ -111,6 +138,8 @@ class BoundedAnalysisWorker:
                     self._failed += 1
                 logger.exception("Analysis worker item failed")
             finally:
+                with self._stats_lock:
+                    self._service_latencies.append((time.monotonic() - started) * 1000)
                 self._queue.task_done()
 
 

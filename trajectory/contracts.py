@@ -22,6 +22,10 @@ class FailureCode(str, Enum):
     CAMERA_MODEL_MISSING = "CAMERA_MODEL_MISSING"
     REPROJECTION_FAILED = "REPROJECTION_FAILED"
     UNKNOWN_TRAJECTORY_MODE = "UNKNOWN_TRAJECTORY_MODE"
+    DEADLINE_EXCEEDED = "DEADLINE_EXCEEDED"
+    INVALID_INPUT = "INVALID_INPUT"
+    SPEED_UNIDENTIFIABLE = "SPEED_UNIDENTIFIABLE"
+    MODEL_MISMATCH = "MODEL_MISMATCH"
 
 
 @dataclass(frozen=True)
@@ -47,6 +51,11 @@ class TrajectoryDiagnostics:
     estimated_camera_time_offset_ms: Optional[float] = None
     failure_codes: List[FailureCode] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
+    speed_std_assuming_model_mph: Optional[float] = None
+    observation_noise_basis: str = "unknown"
+    fit_quality_score: Optional[float] = None
+    uncertainty_basis: str = "unavailable"
+    estimator: str = "vision_only"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -62,6 +71,11 @@ class TrajectoryDiagnostics:
             "estimated_camera_time_offset_ms": self.estimated_camera_time_offset_ms,
             "failure_codes": [code.value for code in self.failure_codes],
             "notes": list(self.notes),
+            "speed_std_assuming_model_mph": self.speed_std_assuming_model_mph,
+            "observation_noise_basis": self.observation_noise_basis,
+            "fit_quality_score": self.fit_quality_score,
+            "uncertainty_basis": self.uncertainty_basis,
+            "estimator": self.estimator,
         }
 
 
@@ -77,8 +91,8 @@ class TrajectoryFitRequest:
     radar_speed_ref: Optional[str] = None
     fiducial_time_offset_ns: Optional[int] = None
     time_offset_bounds_ms: float = 5.0
-    drag_k0: float = 0.02
-    drag_sigma: float = 0.02
+    drag_k0: float = 0.002  # inverse feet; optimizer seed unless prior explicitly enabled
+    drag_sigma: float = 0.002  # inverse feet, used only by opt-in prior
     time_offset_sigma_ms: float = 1.0
     max_iter: int = 50
     camera_left: Optional[CameraModel] = None
@@ -90,6 +104,30 @@ class TrajectoryFitRequest:
     max_candidates_per_frame: int = 2
     max_reprojection_px: float = 8.0
     robust_loss: str = "huber"
+    drag_prior_enabled: bool = False
+    observation_sigma_ft: float = 0.02  # assumed noise when covariance is absent
+    max_speed_std_mph: float = 2.0  # conditional identifiability gate, not a physical accuracy claim
+    deadline_seconds: float = 15.0
+    correlation_id: str = ""
+
+    def __post_init__(self) -> None:
+        import math
+
+        for value in (
+            self.drag_k0,
+            self.drag_sigma,
+            self.observation_sigma_ft,
+            self.max_speed_std_mph,
+            self.deadline_seconds,
+            self.plate_plane_z_ft,
+        ):
+            if not math.isfinite(value):
+                raise ValueError("trajectory numeric inputs must be finite")
+        if (
+            not 0 <= self.drag_k0 <= 0.3
+            or min(self.drag_sigma, self.observation_sigma_ft, self.max_speed_std_mph, self.deadline_seconds) <= 0
+        ):
+            raise ValueError("invalid trajectory seed, noise, or deadline")
 
 
 @dataclass(frozen=True)

@@ -80,9 +80,7 @@ class AnalysisServiceImpl(AnalysisService):
         self._analysis_active = False
         self._analysis_paused = False
         self._subscribed = False
-        self._analysis_worker = BoundedAnalysisWorker(
-            self._terminal_handler.handle_pitch_end, max_queue=64
-        )
+        self._analysis_worker = BoundedAnalysisWorker(self._terminal_handler.handle_pitch_end, max_queue=64)
 
         logger.info("AnalysisService initialized")
 
@@ -93,9 +91,7 @@ class AnalysisServiceImpl(AnalysisService):
                 return
 
             if not self._analysis_worker.start():
-                raise RuntimeError(
-                    "Analysis worker from the previous session is still stopping; retry after it exits"
-                )
+                raise RuntimeError("Analysis worker from the previous session is still stopping; retry after it exits")
 
             self._aggregator.reset(session_id)
             self._subscribe_to_events()
@@ -310,6 +306,10 @@ class AnalysisServiceImpl(AnalysisService):
             "dropped": stats.dropped,
             "failed": stats.failed,
             "queue_depth": stats.queue_depth,
+            "oldest_queued_age_ms": stats.oldest_queued_age_ms,
+            "last_queue_wait_ms": stats.last_queue_wait_ms,
+            "service_latency_p95_ms": stats.service_latency_p95_ms,
+            "latency_sample_count": stats.latency_sample_count,
             "drop_rate": stats.dropped / max(attempted, 1),
             "failure_rate": stats.failed / max(stats.submitted, 1),
         }

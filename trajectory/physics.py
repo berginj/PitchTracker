@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -9,6 +10,7 @@ import numpy as np
 from contracts import StereoObservation, TrackSample
 from trajectory.base import TrajectoryFitterBase
 from trajectory.confidence import ConfidenceScorer
+from trajectory.physics_estimation import estimate_parameters, conditional_speed_std_mph, stationary_track
 from trajectory.contracts import (
     FailureCode,
     ResidualReport,
@@ -34,15 +36,36 @@ class PhysicsDragFitter(TrajectoryFitterBase):
     def maybe_fit(self) -> Optional[TrajectoryFitResult]:
         if self._request is None or len(self._buffer) < 6:
             return None
-        return self._fit(self._request, self._buffer, realtime=True)
+        return self.fit_trajectory(replace(self._request, observations=list(self._buffer), realtime=True))
 
     def finalize_fit(self) -> TrajectoryFitResult:
         if self._request is None:
             raise RuntimeError("No request set.")
-        return self._fit(self._request, self._buffer, realtime=self._request.realtime)
+        return self.fit_trajectory(replace(self._request, observations=list(self._buffer)))
 
     def fit_trajectory(self, request: TrajectoryFitRequest) -> TrajectoryFitResult:
-        return self._fit(request, request.observations, realtime=request.realtime)
+        if stationary_track(request):
+            return TrajectoryFitResult(
+                "physics_drag",
+                [],
+                None,
+                None,
+                None,
+                0.0,
+                TrajectoryDiagnostics(failure_codes=[FailureCode.SPEED_UNIDENTIFIABLE]),
+            )
+        try:
+            return self._fit(request, request.observations, realtime=request.realtime)
+        except (ValueError, np.linalg.LinAlgError) as exc:
+            return TrajectoryFitResult(
+                "physics_drag",
+                [],
+                None,
+                None,
+                None,
+                0.0,
+                TrajectoryDiagnostics(failure_codes=[FailureCode.INVALID_INPUT], notes=[str(exc)]),
+            )
 
     def _fit(
         self,
@@ -78,51 +101,24 @@ class PhysicsDragFitter(TrajectoryFitterBase):
         obs_sorted = sorted(observations, key=lambda obs: obs.t_ns)
         times_s = np.array([(obs.t_ns - obs_sorted[0].t_ns) / 1e9 for obs in obs_sorted])
         positions = np.array([[obs.X, obs.Y, obs.Z] for obs in obs_sorted])
+        if not np.all(np.isfinite(positions)) or np.any(np.diff(times_s) <= 0):
+            raise ValueError("stereo fit requires finite positions and distinct timestamps")
         max_gap_ms = float(np.max(np.diff(times_s)) * 1000.0) if len(times_s) > 1 else 0.0
 
         seed_state = _seed_state(times_s, positions)
-        k0 = request.drag_k0
-        dt_seed = (request.fiducial_time_offset_ns or 0) / 1e9
-        params0 = np.array(
-            [seed_state[0], seed_state[1], seed_state[2], seed_state[3], seed_state[4], seed_state[5], k0, dt_seed],
-            dtype=float,
-        )
-
-        bounds = (
-            np.array(
-                [-100.0, -10.0, -10.0, -200.0, -200.0, -400.0, 0.0, -request.time_offset_bounds_ms / 1000.0],
-                dtype=float,
-            ),
-            np.array(
-                [100.0, 10.0, 200.0, 200.0, 200.0, 400.0, 0.3, request.time_offset_bounds_ms / 1000.0],
-                dtype=float,
-            ),
-        )
-
-        max_iter = 20 if realtime else request.max_iter
-        result = least_squares(
-            lambda params: _residuals(
-                params=params,
-                times_s=times_s,
-                positions=positions,
-                k0=request.drag_k0,
-                sigma_k=request.drag_sigma,
-                dt0=dt_seed,
-                sigma_dt=request.time_offset_sigma_ms / 1000.0,
-                wind=request.wind_ft_s,
-            ),
-            params0,
-            bounds=bounds,
-            max_nfev=max_iter,
-            loss="huber",
-            f_scale=1.5,
+        result, params, whiteners, noise_basis = estimate_parameters(
+            replace(request, observations=obs_sorted, realtime=realtime),
+            times_s,
+            positions,
+            seed_state,
+            least_squares,
+            _residuals,
         )
 
         failure_codes = list(diagnostics.failure_codes)
         if not result.success:
             failure_codes.append(FailureCode.OPT_DID_NOT_CONVERGE)
 
-        params = result.x
         samples = _integrate_trajectory(params, times_s, obs_sorted[0].t_ns, request.wind_ft_s)
         plate_crossing = _find_plate_crossing(samples, request.plate_plane_z_ft)
         if plate_crossing is None:
@@ -130,12 +126,19 @@ class PhysicsDragFitter(TrajectoryFitterBase):
         if not _is_monotonic_z(samples):
             failure_codes.append(FailureCode.NON_MONOTONIC_Z)
 
-        residuals = _build_residual_reports(samples, obs_sorted)
+        residuals = _build_residual_reports(samples, obs_sorted, whiteners)
         rmse = _rmse([res.residual_3d_ft for res in residuals if res.residual_3d_ft is not None])
         drag_param = float(params[6])
         drag_param_ok = params[6] >= 0.0
         inlier_ratio = _inlier_ratio(residuals)
         condition_number = _condition_number(result.jac)
+        speed_std = conditional_speed_std_mph(result)
+        if not np.isfinite(speed_std) or speed_std > request.max_speed_std_mph:
+            failure_codes.append(FailureCode.SPEED_UNIDENTIFIABLE)
+        normalized_rmse = _rmse([res.normalized_residual for res in residuals])
+        if normalized_rmse is not None and normalized_rmse > 3.0:
+            failure_codes.append(FailureCode.MODEL_MISMATCH)
+        fit_quality = self._scorer.fit_quality(normalized_rmse, failure_codes)
 
         # Build diagnostics with all computed values
         diagnostics = TrajectoryDiagnostics(
@@ -147,13 +150,16 @@ class PhysicsDragFitter(TrajectoryFitterBase):
             max_gap_ms=max_gap_ms,
             failure_codes=failure_codes,
             notes=list(diagnostics.notes),
+            speed_std_assuming_model_mph=speed_std if np.isfinite(speed_std) else None,
+            observation_noise_basis=noise_basis,
+            fit_quality_score=fit_quality,
         )
 
         expected_error = self._scorer.expected_plate_error_ft(
             residual_scale=rmse,
             plate_crossing=plate_crossing,
         )
-        confidence = self._scorer.confidence_from_error(expected_error)
+        confidence = fit_quality  # Compatibility field: heuristic fit quality, never a probability.
 
         return TrajectoryFitResult(
             model_name="physics_drag",
@@ -189,6 +195,9 @@ def _residuals(
     dt0: float,
     sigma_dt: float,
     wind: Optional[Tuple[float, float, float]],
+    *,
+    whiteners: Optional[np.ndarray] = None,
+    drag_prior_enabled: bool = True,
 ) -> np.ndarray:
     state = params[:6]
     k = params[6]
@@ -197,10 +206,11 @@ def _residuals(
     # re-integrating from t=0 for every observation (O(N) vs O(N^2)).
     predicted_states = _propagate_to_times(state, times_s + dt, k, wind)
     residuals = []
-    for predicted, pos in zip(predicted_states, positions):
-        residuals.extend(predicted[:3] - pos)
-    residuals.append((k - k0) / max(sigma_k, 1e-6))
-    residuals.append((dt - dt0) / max(sigma_dt, 1e-6))
+    for i, (predicted, pos) in enumerate(zip(predicted_states, positions)):
+        residual = predicted[:3] - pos
+        residuals.extend(whiteners[i] @ residual if whiteners is not None else residual)
+    if drag_prior_enabled:
+        residuals.append((k - k0) / max(sigma_k, 1e-6))
     return np.array(residuals, dtype=float)
 
 
@@ -328,15 +338,19 @@ def _find_plate_crossing(
 def _build_residual_reports(
     samples: List[TrackSample],
     observations: List[StereoObservation],
+    whiteners: Optional[np.ndarray] = None,
 ) -> List[ResidualReport]:
     residuals: List[ResidualReport] = []
-    for obs in observations:
+    for i, obs in enumerate(observations):
         closest = min(samples, key=lambda s: abs(s.t_ns - obs.t_ns))
         dx = closest.X - obs.X
         dy = closest.Y - obs.Y
         dz = closest.Z - obs.Z
         dist = float((dx * dx + dy * dy + dz * dz) ** 0.5)
-        residuals.append(ResidualReport(t_ns=obs.t_ns, residual_3d_ft=dist, normalized_residual=dist))
+        normalized = float(np.linalg.norm(whiteners[i] @ np.array([dx, dy, dz]))) if whiteners is not None else dist
+        residuals.append(
+            ResidualReport(t_ns=obs.t_ns, residual_3d_ft=dist, normalized_residual=normalized, inlier=normalized <= 3.0)
+        )
     return residuals
 
 

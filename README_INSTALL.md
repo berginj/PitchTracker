@@ -1,6 +1,6 @@
 # PitchTracker Installation
 
-**Last reviewed:** 2026-08-16
+**Last reviewed:** 2026-09-08
 
 **Applies to:** v2.0.0 and current `main`
 
@@ -49,6 +49,7 @@ python -m pip install -r requirements-dev.txt
 Expected outputs:
 
 - `dist\PitchTracker\PitchTracker.exe`
+- `dist\PitchTracker\PitchTrackerWorker.exe` (required beside the GUI)
 - `installer_output\PitchTracker-Setup-v2.0.0-stereo.exe`
 
 See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md). A successful build does not

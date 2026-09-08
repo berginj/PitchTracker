@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from typing import cast, Dict, List, Optional
 
 import numpy as np
 
 from app.contracts import PitchSummary
 from contracts.quality import MeasurementStatus
+from contracts.measurements import SpeedMeasurement
 from configs.settings import AppConfig
 from contracts import RayObservation, StereoObservation
 from metrics.simple_metrics import compute_plate_from_observations
@@ -16,7 +18,7 @@ from metrics.strike_zone import build_strike_zone, is_strike
 from calib.field_transform import FieldTransform
 from trajectory.camera_model import load_stereo_ray_camera_models
 from trajectory.contracts import FailureCode, TrajectoryDiagnostics, TrajectoryFitRequest, TrajectoryFitResult
-from trajectory.registry import TrajectoryFitterRegistry
+from app.services.analysis.fit_process import fit_in_process
 from app.pipeline.analysis.observation_diagnostics import summarize_observations
 from app.pipeline.corrections import record_fitted_camera_time_offset
 
@@ -54,7 +56,6 @@ class PitchAnalyzer:
         self._get_ball_radius_fn = get_ball_radius_fn
         self._radar_speed_fn = radar_speed_fn
         self._speed_source_fn = speed_source_fn
-        self._trajectory_registry = TrajectoryFitterRegistry()
 
     def analyze_pitch(
         self,
@@ -100,20 +101,41 @@ class PitchAnalyzer:
             observations=list(observations),
             ray_observations=ray_observations,
             radar_speed=radar_speed,
+            correlation_id=pitch_id,
         )
 
         # Extract plate crossing
-        crossing_xyz = trajectory_result.plate_crossing_xyz_ft if trajectory_result else None
+        crossing_xyz = (
+            trajectory_result.plate_crossing_xyz_ft
+            if trajectory_result is not None and _result_is_usable(trajectory_result)
+            else None
+        )
 
         # Extract diagnostics
         diagnostics = trajectory_result.diagnostics if trajectory_result else None
 
-        fitted_speed = _fitted_release_speed_mph(trajectory_result)
+        fitted_speed = _fitted_observed_speed_mph(trajectory_result)
         reported_speed = radar_speed if radar_speed is not None else fitted_speed
         if radar_speed is not None:
             speed_source = self._speed_source_fn() if self._speed_source_fn is not None else "external_measurement"
         else:
             speed_source = "vision_fit" if fitted_speed is not None else None
+        vision_speed = None
+        if fitted_speed is not None and trajectory_result is not None:
+            first = trajectory_result.samples[0]
+            vision_speed = SpeedMeasurement(
+                fitted_speed,
+                "vision_fit",
+                "first_observed_point",
+                first.Z,
+                first.t_ns,
+                trajectory_result.diagnostics.estimator,
+            )
+        external_speed = (
+            SpeedMeasurement(float(radar_speed), str(speed_source), "unspecified", estimator="external")
+            if radar_speed is not None
+            else None
+        )
 
         # Create summary. run/rise retain the legacy fields, but are explicitly
         # described as raw net displacement rather than validated pitch movement.
@@ -142,9 +164,9 @@ class PitchAnalyzer:
             trajectory_rmse_3d_ft=diagnostics.rmse_3d_ft if diagnostics else None,
             trajectory_mode=trajectory_mode,
             trajectory_comparison=comparison,
-            ray_rmse_px=diagnostics.rmse_px
-            if diagnostics and trajectory_mode and trajectory_mode.startswith("ray_")
-            else None,
+            ray_rmse_px=(
+                diagnostics.rmse_px if diagnostics and trajectory_mode and trajectory_mode.startswith("ray_") else None
+            ),
             estimated_camera_time_offset_ms=diagnostics.estimated_camera_time_offset_ms if diagnostics else None,
             ray_failure_codes=_ray_failure_codes(comparison),
             observation_duration_ms=observation_stats["observation_duration_ms"],
@@ -157,8 +179,16 @@ class PitchAnalyzer:
             observation_quality_status=observation_stats["observation_quality_status"],
             observation_rejection_reasons=observation_stats["observation_rejection_reasons"],
             observation_warning_reasons=observation_stats["observation_warning_reasons"],
-            measurement_status=_measurement_status(observation_stats, trajectory_result),
+            measurement_status=(
+                _measurement_status(observation_stats, trajectory_result)
+                if strike.available
+                else MeasurementStatus.UNAVAILABLE
+            ),
             speed_source=speed_source,
+            vision_speed=vision_speed,
+            external_speed=external_speed,
+            strike_call_available=strike.available,
+            strike_call_reason=strike.reason,
             correction_records=_correction_records(start_ns, diagnostics, self._config),
             quality_diagnostics={
                 "speed_available": reported_speed is not None,
@@ -167,6 +197,10 @@ class PitchAnalyzer:
                 "movement_validated": False,
                 "plate_crossing_available": crossing_xyz is not None,
                 "trajectory_mode": trajectory_mode,
+                "speed_reference": "unspecified" if external_speed else "first_observed_point",
+                "fit_quality_basis": "heuristic_not_probability",
+                "physical_prediction_uncertainty": "unavailable",
+                "strike_call_basis": "piecewise_linear_swept_sphere",
             },
         )
 
@@ -185,6 +219,7 @@ class PitchAnalyzer:
         observations: List[StereoObservation],
         ray_observations: List[RayObservation],
         radar_speed: Optional[float],
+        correlation_id: str = "",
     ) -> tuple[Optional[TrajectoryFitResult], Optional[str], Dict[str, dict]]:
         trajectory_config = self._config.trajectory
         modes = [trajectory_config.primary_mode]
@@ -204,7 +239,7 @@ class PitchAnalyzer:
                 camera_models=camera_models,
                 radar_speed=radar_speed,
             )
-            result = self._run_mode(mode, request)
+            result = self._run_mode(mode, replace(request, correlation_id=correlation_id))
             results[mode] = result
             comparison[mode] = _compact_trajectory_result(result)
 
@@ -223,7 +258,7 @@ class PitchAnalyzer:
                     camera_models=camera_models,
                     radar_speed=radar_speed,
                 )
-                stereo_result = self._run_mode("stereo_3d", stereo_request)
+                stereo_result = self._run_mode("stereo_3d", replace(stereo_request, correlation_id=correlation_id))
                 comparison["stereo_3d"] = _compact_trajectory_result(stereo_result)
             if _result_is_usable(stereo_result):
                 comparison[primary_mode]["fallback_used"] = "stereo_3d"
@@ -246,8 +281,20 @@ class PitchAnalyzer:
             ray_observations=list(ray_observations),
             camera_models=dict(camera_models),
             mode=mode,
-            radar_speed_mph=radar_speed,
-            radar_speed_ref="release",
+            # An external reading without a known plane cannot constrain the
+            # vision estimator. Keep it separately as a display measurement.
+            radar_speed_mph=None,
+            radar_speed_ref=None,
+            drag_k0=self._config.metrics.drag_k0_default,
+            drag_sigma=self._config.trajectory.drag_sigma,
+            drag_prior_enabled=self._config.trajectory.drag_prior_enabled,
+            observation_sigma_ft=self._config.trajectory.observation_sigma_ft,
+            max_speed_std_mph=self._config.trajectory.max_speed_std_mph,
+            deadline_seconds=(
+                self._config.trajectory.ray_deadline_seconds
+                if mode.startswith("ray_")
+                else self._config.trajectory.stereo_deadline_seconds
+            ),
             max_time_offset_ms=ray_config.max_time_offset_ms,
             time_offset_prior_ms=ray_config.time_offset_prior_ms,
             min_rays_per_camera=ray_config.min_rays_per_camera,
@@ -258,7 +305,7 @@ class PitchAnalyzer:
 
     def _run_mode(self, mode: str, request: TrajectoryFitRequest) -> TrajectoryFitResult:
         try:
-            return self._trajectory_registry.create(mode).fit_trajectory(request)
+            return fit_in_process(replace(request, mode=mode))
         except ValueError:
             diagnostics = TrajectoryDiagnostics(failure_codes=[FailureCode.UNKNOWN_TRAJECTORY_MODE])
             return _failure_result(mode, diagnostics)
@@ -297,9 +344,7 @@ class PitchAnalyzer:
             calibration_path = service.calibration_path(profile)
             camera_models = load_stereo_ray_camera_models(calibration_path)
             return {
-                camera_id: model.in_transformed_world_frame(
-                    np.asarray(transform.matrix_4x4, dtype=float)
-                )
+                camera_id: model.in_transformed_world_frame(np.asarray(transform.matrix_4x4, dtype=float))
                 for camera_id, model in camera_models.items()
             }
         except Exception as exc:
@@ -317,14 +362,14 @@ def _measurement_status(
     status = str(observation_stats.get("observation_quality_status") or "").upper()
     if status == "REJECT":
         return MeasurementStatus.REJECTED
-    if trajectory_result is None or trajectory_result.plate_crossing_xyz_ft is None:
+    if not _result_is_usable(trajectory_result):
         return MeasurementStatus.UNAVAILABLE
     if status == "WARN":
         return MeasurementStatus.DEGRADED
     return MeasurementStatus.ESTIMATED
 
 
-def _fitted_release_speed_mph(result: Optional[TrajectoryFitResult]) -> Optional[float]:
+def _fitted_observed_speed_mph(result: Optional[TrajectoryFitResult]) -> Optional[float]:
     if result is None or not _result_is_usable(result) or not result.samples:
         return None
     sample = result.samples[0]
@@ -347,7 +392,14 @@ def _correction_records(start_ns: int, diagnostics: Optional[TrajectoryDiagnosti
 
 
 def _result_is_usable(result: Optional[TrajectoryFitResult]) -> bool:
-    return bool(result and result.plate_crossing_xyz_ft is not None and result.confidence > 0.0)
+    return bool(
+        result
+        and result.plate_crossing_xyz_ft is not None
+        and result.confidence > 0.0
+        and np.isfinite(result.confidence)
+        and not result.diagnostics.failure_codes
+        and all(np.isfinite(value) for value in result.plate_crossing_xyz_ft)
+    )
 
 
 def _compact_trajectory_result(result: TrajectoryFitResult) -> dict:

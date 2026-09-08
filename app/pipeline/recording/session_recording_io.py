@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import logging
 from pathlib import Path
 
@@ -15,15 +16,11 @@ logger = logging.getLogger(__name__)
 CODEC_PREFERENCE = ["H264", "avc1", "XVID", "MP4V", "MJPG"]
 
 
-def open_video_writer(
-    path: Path, width: int, height: int, fps: int
-) -> cv2.VideoWriter:
+def open_video_writer(path: Path, width: int, height: int, fps: int) -> cv2.VideoWriter:
     """Open a video writer using the configured codec fallback order."""
     for codec_name in CODEC_PREFERENCE:
         fourcc = getattr(cv2, "VideoWriter_fourcc")(*codec_name)
-        writer = cv2.VideoWriter(
-            str(path), fourcc, float(fps), (width, height), True
-        )
+        writer = cv2.VideoWriter(str(path), fourcc, float(fps), (width, height), True)
         if writer.isOpened():
             logger.info(
                 "Video writer opened successfully: %s with %s codec",
@@ -80,6 +77,8 @@ def write_session_summary_csv(path: Path, summary) -> None:
                 "speed_source",
                 "movement_basis",
                 "movement_validated",
+                "vision_speed",
+                "external_speed",
             ]
         )
         for pitch in summary.pitches:
@@ -95,16 +94,12 @@ def write_session_summary_csv(path: Path, summary) -> None:
                     f"{pitch.run_in:.3f}",
                     f"{pitch.rise_in:.3f}",
                     f"{pitch.speed_mph:.3f}" if pitch.speed_mph is not None else "",
-                    f"{pitch.rotation_rpm:.3f}"
-                    if pitch.rotation_rpm is not None
-                    else "",
+                    f"{pitch.rotation_rpm:.3f}" if pitch.rotation_rpm is not None else "",
                     pitch.sample_count,
                     _format_optional(pitch.trajectory_plate_x_ft, ".4f"),
                     _format_optional(pitch.trajectory_plate_y_ft, ".4f"),
                     _format_optional(pitch.trajectory_plate_z_ft, ".4f"),
-                    pitch.trajectory_plate_t_ns
-                    if pitch.trajectory_plate_t_ns is not None
-                    else "",
+                    pitch.trajectory_plate_t_ns if pitch.trajectory_plate_t_ns is not None else "",
                     pitch.trajectory_model or "",
                     pitch.trajectory_mode or "",
                     _format_optional(pitch.trajectory_expected_error_ft, ".4f"),
@@ -115,6 +110,8 @@ def write_session_summary_csv(path: Path, summary) -> None:
                     pitch.speed_source or "",
                     quality.get("movement_basis", ""),
                     int(bool(quality.get("movement_validated"))),
+                    json.dumps(pitch.vision_speed.to_payload()) if pitch.vision_speed else "",
+                    json.dumps(pitch.external_speed.to_payload()) if pitch.external_speed else "",
                 ]
             )
 
