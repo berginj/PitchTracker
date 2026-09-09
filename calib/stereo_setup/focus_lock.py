@@ -12,6 +12,7 @@ without hardware.
 """
 
 from __future__ import annotations
+from typing import Optional
 
 from dataclasses import dataclass
 
@@ -113,7 +114,7 @@ class ExposureLockInput:
     """
 
     applied: ExposureValues
-    readback: ExposureValues | None
+    readback: Optional[ExposureValues]
     auto_exposure_disabled: bool
     auto_white_balance_disabled: bool
 
@@ -191,3 +192,4 @@ def evaluate_exposure_lock(
         passed=passed,
         recommendation=recommendation,
     )
+

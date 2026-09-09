@@ -8,6 +8,7 @@ the two views barely overlap.
 """
 
 from __future__ import annotations
+from typing import Optional
 
 from dataclasses import dataclass
 
@@ -78,7 +79,7 @@ def _fail(
 def validate_overlap(
     left: np.ndarray,
     right: np.ndarray,
-    config: OverlapConfig | None = None,
+    config: Optional[OverlapConfig] = None,
 ) -> StereoOverlapResult:
     """Validate that ``left`` and ``right`` share a usable field of view.
 
@@ -171,3 +172,4 @@ def validate_overlap(
         passed=passed,
         recommendation=recommendation,
     )
+

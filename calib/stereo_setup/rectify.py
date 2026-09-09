@@ -11,7 +11,7 @@ full stereo calibration come later.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, Optional
 
 import cv2
 import numpy as np
@@ -77,7 +77,7 @@ def _fail(
 def coarse_rectify(
     left: np.ndarray,
     right: np.ndarray,
-    config: RectifyConfig | None = None,
+    config: Optional[RectifyConfig] = None,
 ) -> CoarseRectificationResult:
     """Estimate F and rectifying homographies for a stereo pair.
 
@@ -111,7 +111,7 @@ def rectify_from_correspondences(
     pts_left: np.ndarray,
     pts_right: np.ndarray,
     image_size: Tuple[int, int],
-    config: RectifyConfig | None = None,
+    config: Optional[RectifyConfig] = None,
 ) -> CoarseRectificationResult:
     """Estimate F and rectifying homographies from known correspondences.
 
@@ -205,3 +205,4 @@ def rectify_from_correspondences(
         passed=passed,
         recommendation=recommendation,
     )
+
