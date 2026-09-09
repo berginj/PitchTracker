@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from datetime import datetime, UTC
+from datetime import datetime
+try:
+    from datetime import UTC
+except ImportError:
+    from datetime import timezone as UTC
 from pathlib import Path
 from typing import List, Optional
 
@@ -338,3 +342,4 @@ class PatternDetector:
         self.profile_manager.create_or_update_profile(
             pitcher_id=pitcher_id, pitches=pitch_objects, num_sessions=len(session_dirs)
         )
+
