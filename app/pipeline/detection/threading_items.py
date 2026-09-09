@@ -1,6 +1,7 @@
 """Internal work items shared by detection thread-pool collaborators."""
 
 from dataclasses import dataclass
+from typing import Optional
 
 from contracts import Detection, Frame
 
@@ -20,5 +21,5 @@ class DetectionResultItem:
 
 @dataclass(frozen=True)
 class QueuePutResult:
-    displaced: object | None = None
+    displaced: Optional[object] = None
     accepted: bool = True

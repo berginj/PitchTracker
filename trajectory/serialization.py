@@ -3,7 +3,7 @@
 from dataclasses import asdict
 import json
 import math
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 
@@ -43,7 +43,7 @@ def encode_request(request: TrajectoryFitRequest) -> str:
     )
 
 
-def _camera(payload: dict | None) -> CameraModel | None:
+def _camera(payload: Optional[dict]) -> Optional[CameraModel]:
     if payload is None:
         return None
     data = dict(payload)

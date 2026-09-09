@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import sys
+from typing import Optional, List
 
 WORKER_MODULES = {
     "camera_probe": "app.camera_probe_worker",
@@ -12,7 +13,7 @@ WORKER_MODULES = {
 }
 
 
-def worker_command(task: str, *, python_executable: str | None = None) -> list[str]:
+def worker_command(task: str, *, python_executable: Optional[str] = None) -> List[str]:
     if task not in WORKER_MODULES:
         raise ValueError(f"Unknown worker task: {task}")
     executable = python_executable or sys.executable
