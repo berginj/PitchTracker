@@ -27,7 +27,7 @@ def assemble_setup_snapshot(
     capture_diagnostics: Mapping[str, Any],
     calibration_path: Path,
     roi_path: Path,
-    capability_observations: Mapping[str, Any] | None = None,
+    capability_observations: Optional[Mapping[str, Any]] = None,
 ) -> SetupSystemSnapshot:
     """Build an immutable snapshot; unavailable probe data is explicit, never invented."""
     by_id = {str(getattr(camera, "hardware_id", "")): camera for camera in cameras}
@@ -227,7 +227,7 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _source_revision() -> tuple[str, bool | None]:
+def _source_revision() -> tuple[str, Optional[bool]]:
     override = os.environ.get("PITCHTRACKER_SOURCE_REVISION")
     if override:
         return override, None
@@ -254,8 +254,8 @@ def _source_revision() -> tuple[str, bool | None]:
         return "UNAVAILABLE", None
 
 
-def _package_versions() -> dict[str, str | None]:
-    result: dict[str, str | None] = {}
+def _package_versions() -> dict[str, Optional[str]]:
+    result: dict[str, Optional[str]] = {}
     for name in ("numpy", "opencv-python", "scipy", "PySide6"):
         try:
             result[name] = importlib.metadata.version(name)

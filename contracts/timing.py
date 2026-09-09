@@ -1,7 +1,7 @@
 """Timestamp provenance; receipt timing never proves exposure synchronization."""
 
 from dataclasses import asdict, dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 
 
 @dataclass(frozen=True)
@@ -9,8 +9,8 @@ class TimestampEvidence:
     source: str = "unknown"
     clock_domain: str = "unknown"
     semantics: str = "unknown"
-    acquisition_uncertainty_ns: int | None = None
-    verification_id: str | None = None
+    acquisition_uncertainty_ns: Optional[int] = None
+    verification_id: Optional[str] = None
     schema_version: str = "timestamp_evidence.v1"
 
     def __post_init__(self) -> None:
@@ -34,7 +34,7 @@ class TimestampEvidence:
         return asdict(self)
 
     @classmethod
-    def from_payload(cls, payload: Mapping[str, Any] | None) -> "TimestampEvidence":
+    def from_payload(cls, payload: Optional[Mapping[str, Any]]) -> "TimestampEvidence":
         return cls(**dict(payload or {}))
 
 

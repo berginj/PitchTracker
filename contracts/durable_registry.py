@@ -21,7 +21,7 @@ class DurableContractSpec:
     artifact: str
     schema_version: str
     owner: str
-    schema_path: str | None = None
+    schema_path: Optional[str] = None
 
 
 DURABLE_CONTRACTS: Mapping[str, DurableContractSpec] = {
@@ -64,7 +64,7 @@ DURABLE_CONTRACTS: Mapping[str, DurableContractSpec] = {
 }
 
 
-def validate_durable_contracts(root: Path | None = None) -> tuple[str, ...]:
+def validate_durable_contracts(root: Optional[Path] = None) -> tuple[str, ...]:
     """Return registry violations without importing producer implementations."""
     errors: list[str] = []
     keys = list(DURABLE_CONTRACTS)

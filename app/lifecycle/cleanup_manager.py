@@ -139,7 +139,7 @@ class CleanupManager:
         Returns:
             True if completed before timeout
         """
-        result: dict[str, bool | BaseException | None] = {"completed": False, "exception": None}
+        result: dict[str, Union[bool, BaseException, None]] = {"completed": False, "exception": None}
 
         def wrapper():
             try:

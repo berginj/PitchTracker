@@ -373,9 +373,9 @@ class CalibrationQualityReport:
     epipolar_error_px: float
     baseline_in: float
     passed: bool
-    sync: SyncCheckResult | None = None
-    overlap: StereoOverlapResult | None = None
-    rectification: CoarseRectificationResult | None = None
+    sync: Optional[SyncCheckResult] = None
+    overlap: Optional[StereoOverlapResult] = None
+    rectification: Optional[CoarseRectificationResult] = None
     focus_locks: List[FocusLockResult] = field(default_factory=list)
     exposure_locks: List[ExposureLockResult] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)

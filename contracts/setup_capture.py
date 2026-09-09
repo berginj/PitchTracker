@@ -58,7 +58,7 @@ class SetupCaptureRequest:
     requested_frames_per_camera: int
     overall_deadline_ms: int = 20_000
     backend: str = "uvc"
-    artifact_dir: Path | None = None
+    artifact_dir: Optional[Path] = None
     config_sha256: str = ""
     assignment_generation: int = 0
     schema_version: str = SETUP_CAPTURE_SCHEMA_VERSION
@@ -125,7 +125,7 @@ class SetupFrameRecord:
     width: int
     height: int
     pixfmt: str
-    image_path: Path | None = None
+    image_path: Optional[Path] = None
     timing: TimestampEvidence = field(default_factory=TimestampEvidence)
     capture_epoch: str = ""
 
@@ -175,7 +175,7 @@ class SetupCaptureResult:
     capability_observations: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     errors_by_side: Mapping[str, int] = field(default_factory=dict)
     config_sha256: str = ""
-    artifact_dir: Path | None = None
+    artifact_dir: Optional[Path] = None
     schema_version: str = SETUP_CAPTURE_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -240,7 +240,7 @@ class SetupCaptureResult:
 class SetupCaptureTerminal:
     correlation_id: str
     state: SetupCaptureState
-    failure_code: SetupCaptureFailureCode | None = None
+    failure_code: Optional[SetupCaptureFailureCode] = None
     message: str = ""
     force_killed: bool = False
 

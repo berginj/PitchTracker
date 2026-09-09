@@ -2,7 +2,7 @@
 
 from dataclasses import asdict, dataclass
 from math import isfinite
-from typing import Any
+from typing import Any, Optional
 
 
 @dataclass(frozen=True)
@@ -10,8 +10,8 @@ class SpeedMeasurement:
     speed_mph: float
     source: str
     reference: str
-    reference_z_ft: float | None = None
-    timestamp_ns: int | None = None
+    reference_z_ft: Optional[float] = None
+    timestamp_ns: Optional[int] = None
     estimator: str = "unknown"
     schema_version: str = "speed_measurement.v1"
 
@@ -27,7 +27,7 @@ class SpeedMeasurement:
         return asdict(self)
 
 
-def independent_vision_speed(measurement: SpeedMeasurement | None, reference_z_ft: float) -> float:
+def independent_vision_speed(measurement: Optional[SpeedMeasurement], reference_z_ft: float) -> float:
     """Reject external/assisted results and incomparable measurement planes."""
     if measurement is None or measurement.source != "vision_fit" or measurement.estimator != "vision_only":
         raise ValueError("vision-only validation requires an independent vision measurement")

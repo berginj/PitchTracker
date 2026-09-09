@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 
-def _path_to_str(path: Path | None) -> str | None:
+def _path_to_str(path: Optional[Path]) -> Optional[str]:
     return None if path is None else str(path)
 
 
@@ -237,7 +237,7 @@ class PhysicalValidationRequest:
 
     protocol_path: Path
     dataset_path: Path
-    output_path: Path | None = None
+    output_path: Optional[Path] = None
 
     def to_payload(self) -> dict[str, Any]:
         return {
@@ -260,7 +260,7 @@ class PhysicalValidationResult:
     """Machine-readable physical validation report; never inferred from setup alone."""
 
     report: dict[str, Any]
-    output_path: Path | None = None
+    output_path: Optional[Path] = None
 
     def to_payload(self) -> dict[str, Any]:
         return {"report": dict(self.report), "output_path": _path_to_str(self.output_path)}

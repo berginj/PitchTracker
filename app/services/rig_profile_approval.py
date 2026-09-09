@@ -25,7 +25,7 @@ from log_config.logger import get_logger
 logger = get_logger(__name__)
 
 
-def production_geometry_required(backend: str | None) -> bool:
+def production_geometry_required(backend: Optional[str]) -> bool:
     """Return True when runtime should refuse diagnostic-only geometry."""
     backend_name = str(backend or "").lower()
     return backend_name not in {"", "sim", "simulated", "test"}
@@ -119,7 +119,7 @@ def accuracy_claim_eligibility(
     config: Any,
     mode: str,
     physical: bool,
-    trust_keys: Mapping[str, bytes] | None = None,
+    trust_keys: Optional[Mapping[str, bytes]] = None,
 ) -> dict[str, Any]:
     """Evaluate whether accuracy claims are eligible for the given mode."""
     bindings = measurement_bindings(calibration_path, profile, config)
@@ -187,7 +187,7 @@ def verify_v2_approval(
     profile: RigProfile,
     approval: TrajectoryModeApprovalV2,
     bindings: Mapping[str, str],
-    trust_keys: Mapping[str, bytes] | None = None,
+    trust_keys: Optional[Mapping[str, bytes]] = None,
 ) -> list[str]:
     """Verify a single v2 approval against current bindings and artifacts."""
     blockers: list[str] = []
@@ -317,7 +317,7 @@ def _resolve_approval_artifact(root: Path, raw_path: str) -> Path:
 def validate_config_modes(
     profile: RigProfile,
     config: Any,
-    backend: str | None,
+    backend: Optional[str],
     issues: list[str],
     diagnostics: dict[str, Any],
     calibration_path_fn: Any,

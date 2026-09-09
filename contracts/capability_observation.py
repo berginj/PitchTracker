@@ -257,8 +257,8 @@ def build_unavailable_observation(
     backend: str,
     reason: str,
     *,
-    requested_mode: Mapping[str, Any] | None = None,
-    negotiated_mode: Mapping[str, Any] | None = None,
+    requested_mode: Optional[Mapping[str, Any]] = None,
+    negotiated_mode: Optional[Mapping[str, Any]] = None,
 ) -> CapabilityObservation:
     """Build a complete observation when a backend supplies no probe evidence."""
     from datetime import datetime, timezone
