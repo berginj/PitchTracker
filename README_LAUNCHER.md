@@ -1,6 +1,6 @@
 # PitchTracker Launcher Guide
 
-**Last reviewed:** 2026-07-22
+**Last reviewed:** 2026-10-03
 
 **Applies to:** v2.0.0 and current `main`
 
@@ -52,16 +52,32 @@ does not convert synthetic or incomplete evidence into physical validation.
 
 ## Data locations
 
-Runtime paths are configuration- and working-directory-dependent:
+Source launches use the checkout's working directory. Frozen Windows builds use
+`%LOCALAPPDATA%\PitchTracker\` for writable operator state:
 
 - session output: `recording.output_dir` (`recordings/` in the default config);
 - rig profiles: `calibration/rigs/` by default;
 - update preferences: `configs/update_settings.json`; and
 - logs and exported artifacts: as selected or configured by the workflow.
 
-Do not assume that a packaged deployment uses the same absolute path as a source
-checkout. Confirm the active configuration before backup, support, or uninstall
-testing.
+In a frozen build those relative defaults resolve beneath the operator-state
+directory. Bundled defaults and assets remain inside the installation; updates
+seed missing defaults without overwriting operator configuration. Uninstalling
+the current build does not recursively remove operator data.
+
+On the first default-path launch, legacy `configs`, `calibration`, `rois`, `data`,
+`recordings`, and `logs` beneath the installation and its `_internal` directory
+are copied into operator state without deleting originals or replacing existing
+files. Migration skips links and does not rewrite absolute paths in configuration
+or signed/durable evidence. An old absolute recording or calibration path can
+therefore require explicit operator reselection after migration.
+
+`PITCHTRACKER_DATA_DIR` selects an absolute writable state directory outside the
+installation. An explicit override starts an isolated workspace and suppresses
+automatic legacy migration; it does not change source-launch paths. State
+initialization uses atomic hard links, so the selected filesystem must support
+them (the usual local NTFS directory does). Confirm the active state and any
+configured external destinations before backup or uninstall testing.
 
 ## Common startup problems
 

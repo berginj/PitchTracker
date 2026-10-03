@@ -1,6 +1,6 @@
 # PitchTracker Quick Start
 
-**Last reviewed:** 2026-10-02
+**Last reviewed:** 2026-10-03
 
 **Applies to:** v2.0.0 and current `main`
 

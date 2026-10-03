@@ -1,6 +1,6 @@
 # PitchTracker Installation
 
-**Last reviewed:** 2026-10-02
+**Last reviewed:** 2026-10-03
 
 **Applies to:** v2.0.0 and current `main`
 
@@ -51,6 +51,7 @@ Expected outputs:
 - `dist\PitchTracker\PitchTracker.exe`
 - `dist\PitchTracker\PitchTrackerWorker.exe` (required beside the GUI)
 - `installer_output\PitchTracker-Setup-v2.0.0-stereo.exe`
+- `installer_output\PitchTracker-Setup-v2.0.0-stereo.exe.sha256`
 
 See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md). A successful build does not
 prove that the package installs, updates, uninstalls, or preserves data correctly
@@ -84,16 +85,41 @@ Wizard completion does not establish physical speed or location accuracy.
 
 ## Data and network behavior
 
-- The source configuration records sessions under `recordings/` by default.
-- Rig profiles default to `calibration/rigs/`.
-- Packaged and customized deployments may use a different working or configured
-  directory; inspect the active config and setup report.
+- Source launches retain checkout-relative paths: sessions default to
+  `recordings/`, rig profiles to `calibration/rigs/`, and preferences to `configs/`.
+- Frozen builds keep writable configuration, logs, calibration, ROIs and default
+  recordings beneath `%LOCALAPPDATA%\PitchTracker\`, separate from installed
+  executables and immutable defaults. Updates copy defaults only when absent;
+  uninstalling the current build does not recursively delete operator data.
+- The first default-path launch copies known legacy runtime directories from the
+  installation and `_internal` into per-user state. It preserves originals and
+  existing destination files, skips links, and leaves configured absolute paths
+  unchanged. Review older absolute recording/calibration paths and reselect them
+  explicitly when needed; back up operator state before lifecycle testing.
+- An absolute `PITCHTRACKER_DATA_DIR` outside the installation selects a separate
+  frozen workspace and suppresses automatic legacy migration. Source launches
+  ignore this override. The state filesystem must support atomic hard links;
+  the standard local NTFS path does. Inspect the active config and setup report
+  for separately configured external recording/export locations.
 - The updater checks the public GitHub Releases API by default.
 - Capture artifacts remain local unless an optional integration is explicitly
   enabled, authenticated, and configured.
 
 Treat recordings, frames, logs, manifests, calibration artifacts, athlete data,
 and facility information as private.
+
+The GUI can be checked without camera discovery or updater requests using an
+explicit isolated smoke run:
+
+```powershell
+$env:QT_QPA_PLATFORM = "offscreen"
+$env:PITCHTRACKER_DATA_DIR = "C:\QA\PitchTracker-state"
+.\dist\PitchTracker\PitchTracker.exe --gui-smoke-report "C:\QA\gui-smoke.json"
+```
+
+Choose a new QA directory rather than an operator workspace. This checks GUI
+imports, rendering and simulator shutdown; it does not install the application
+or establish physical accuracy, signing or clean-machine lifecycle behavior.
 
 ## Support
 

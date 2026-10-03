@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-10-02
+**Last reviewed:** 2026-10-03
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -176,6 +176,15 @@ is recorded in [the October consolidation record](review/CONSOLIDATION_VALIDATIO
 Real-rig disconnect, backend-switch, and repeated setup/launcher-close checks
 remain operator-run gates. Automated lifecycle coverage does not replace
 clean-machine installer qualification or establish physical accuracy.
+
+The [October pending-work review](review/PENDING_WORK_2026_10_03.md) is a
+historical baseline. Its eight software findings now have implementations:
+frozen GUI dependencies, per-user writable storage/data preservation, retained
+recording and capture ownership, accepted-pitch terminal delivery, manual
+updater shutdown, exact installer/config provenance, and CSV/strike uncertainty
+semantics. The [remediation validation record](review/REMEDIATION_VALIDATION_2026_10_03.md)
+tracks tests and artifact hashes. Physical qualification, independent accuracy
+confirmation, signing, and clean-machine lifecycle tests remain open.
 
 ## Later or conditional
 

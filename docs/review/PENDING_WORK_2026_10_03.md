@@ -196,21 +196,21 @@ Items 1–8 above are implemented on `fix/pending-work-remediation`. Focused
 validation passed for recording/orchestration (32), camera/detection/coaching
 shutdown (22), packaging/updater (24, with two opt-in skips), and terminal
 evidence retry (2). File-length, Flake8, and repository mypy checks are clean.
-The complete matrix reached 1,819 passed and 34 skipped on Python 3.13 and
-1,818 passed and 34 skipped on Python 3.14; each run had one timing-sensitive
-failure in an existing analysis/calibration test, and both failed cases passed
-when rerun serially. This is a validation follow-up, not a claim of a clean
-full matrix.
+Local matrix runs exposed an analysis idle-wait timeout and a calibration
+fallback timeout; both affected tests passed when rerun separately. Later
+[CI at `b310d3b`](https://github.com/berginj/PitchTracker/actions/runs/37143037101)
+passed both complete suites: 1,821 passed and 33 skipped on each runtime.
+See the [remediation validation record](REMEDIATION_VALIDATION_2026_10_03.md)
+for subsequent retry-ownership fixes and artifact qualification.
 
 The remediation adds simulator GUI smoke coverage and fresh-artifact checks,
 but no physical cameras, clean-machine install, signing, or independent
 measurement validation were performed. Issues #9–#11 and the corresponding
 hardware, clean-install, signing, and accuracy gates remain open.
 
-Two optional unused remnants remain: `SetupWindow._current_step()` at
-`ui/setup/setup_window.py:218`, and write-only `_loading_label` storage at
-`ui/setup/steps/camera_discovery_mixin.py:48`. They are lower priority than
-ownership and deployment correctness. Compatibility shims, CLI diagnostics and
+The two unused remnants identified in the initial review,
+`SetupWindow._current_step()` and write-only `_loading_label` storage, were
+removed in `301bc77`. Compatibility shims, CLI diagnostics and
 abstract/host methods are intentional. In particular, orchestrator runtime
 calibration rejection enforces tooling ownership; it is not a missing feature.
 

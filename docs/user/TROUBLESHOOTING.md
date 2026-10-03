@@ -686,6 +686,10 @@ Microsoft's official distribution channels; do not use third-party DLL sites.
 C:\Users\<username>\AppData\Local\PitchTracker\logs\
 ```
 
+This is the frozen build's default location. With an explicit
+`PITCHTRACKER_DATA_DIR`, logs are in that directory's `logs/` folder. Source
+launches use the checkout's `logs/` folder.
+
 **Files:**
 - `pitchtracker.log` - Main application log
 - `error.log` - Error-only log
@@ -723,26 +727,37 @@ CRITICAL - Severe problems
    - GPU (if using ML detector)
 ```
 
-### Reset to Defaults
+### Configuration Recovery and Reinstallation
 
-**Reset Settings:**
-```
-1. Settings → Advanced → Reset to Defaults
-2. Or delete config file:
-   C:\Users\<username>\AppData\Roaming\PitchTracker\config.yaml
-3. Restart application
-```
+Frozen builds keep writable operator state in `%LOCALAPPDATA%\PitchTracker\`
+by default. Configuration normally lives in `configs/default.yaml` beneath that
+directory. An absolute `PITCHTRACKER_DATA_DIR` outside the installation selects
+a different frozen workspace and suppresses automatic legacy migration. Source
+launches retain checkout-relative paths and ignore this override.
 
-**Full Reinstall:**
-```
-1. Uninstall PitchTracker
-2. Delete folders:
-   - C:\Program Files\PitchTracker\
-   - C:\Users\<username>\AppData\Roaming\PitchTracker\
-   - (Keep \Documents\PitchTracker\ if you want sessions)
-3. Restart computer
-4. Reinstall latest version
-```
+Before an explicitly requested settings reset:
+
+1. Confirm the exact active configuration file, including any `--config` override,
+   and the selected state directory. Check configured recording, calibration and
+   export destinations; absolute paths may point elsewhere.
+2. Stop capture/recording and close the application. Copy the active configuration,
+   calibration, ROIs, recordings and other operator state to a separate backup.
+   Verify the backup includes any configured external destinations.
+3. Agree on the specific settings and replacement configuration before changing
+   them. Preserve the original file and validate the replacement before capture.
+
+To test defaults independently, select a new, empty `PITCHTRACKER_DATA_DIR` for a
+frozen launch rather than resetting an operator workspace. Missing bundled
+defaults are copied into that workspace without overwriting existing files.
+Changing the override changes the active workspace; it does not move existing
+recordings or rewrite absolute configuration paths.
+
+Reinstalling the current build preserves operator state. Back up the exact active
+paths first, then use the normal uninstaller and reinstall the intended validated
+build. Avoid manually deleting installation or state directories as a recovery
+step. Older installers may have different removal behavior; retain a verified
+backup before testing their lifecycle. See [Installation](../../README_INSTALL.md)
+for current migration and storage rules.
 
 ### Enable Debug Mode
 

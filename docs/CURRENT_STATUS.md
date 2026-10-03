@@ -1,9 +1,9 @@
 # PitchTracker Current Status
 
-**Last updated:** 2026-10-02
+**Last updated:** 2026-10-03
 **Published release:** `v2.0.0` / internal app version `2.0.0`
-**Development status:** production-readiness and branch follow-up implementation
-are consolidated through `integration/valuable-branch-consolidation` into local `main`.
+**Development status:** branch consolidation and October remediation are complete;
+the final recording-ownership follow-up passed local software validation.
 Physical validation and clean-machine lifecycle/installer qualification remain.
 
 ## Summary
@@ -27,12 +27,15 @@ approved.
 | Release installer asset | Not currently attached to the GitHub release |
 | Development baseline | `main`; use the checked-out commit for exact provenance |
 | Test collection | Full Python 3.13 and 3.14 suites run in CI; use current CI output for the exact count |
-| Latest local validation | Python 3.13.14 and 3.14.7: 1,750 passed, 32 skipped each; four frozen-worker smoke tests passed; see the October validation record below |
+| Latest committed CI validation | `b310d3b`: Python 3.13 and 3.14 each passed 1,821 tests with 33 skips; required static gates passed |
+| Follow-up local validation | `b101740`: Python 3.13 and 3.14 each passed 1,833 tests with 34 skips; final `597c267` passed 30 focused tests on each runtime; static gates passed |
+| Frozen artifact validation | Application source `597c267`: six source/frozen GUI and worker smoke tests passed with isolated state and camera checking disabled; see the October remediation record below |
 | Static validation | Schema sync, public docs, file length, Flake8, suppression policy, and direct repository-wide mypy are required; no diagnostic baseline remains |
 | Physical accuracy approval | None; results must remain estimated/degraded/unavailable/rejected as evidence requires |
 
-The October local unsigned installer build passed compilation and frozen-worker
-smoke tests. It must be signed and smoke-tested on a clean Windows machine
+The October bundle passes simulator GUI and frozen-worker smoke tests, and a
+fresh unsigned installer compiled successfully. The installer must be signed
+and smoke-tested on a clean Windows machine
 before it is attached to a refreshed release.
 
 Historical review documents under `docs/review/` retain their original dates and
@@ -54,6 +57,9 @@ The [October consolidation record](review/CONSOLIDATION_VALIDATION_2026_10_02.md
 records discovery cancellation, terminal launcher shutdown, source import
 behavior, and removal of verified unused code. These lifecycle changes retain
 the current worker-process dispatch and typed service ownership boundaries.
+The [October remediation record](review/REMEDIATION_VALIDATION_2026_10_03.md)
+records writable installed paths, data preservation, terminal recording/capture
+ownership, updater shutdown, export provenance, and boundary uncertainty tests.
 
 - Typed agent/service boundaries for capture, detection, pitch state,
   trajectory, recording, analysis, tooling, and UI.
@@ -83,7 +89,7 @@ and automated evidence.
 The canonical open work is [ROADMAP.md](ROADMAP.md):
 
 1. Qualify real global-shutter cameras, controls, synchronization, and USB paths.
-2. Resolve native-thread teardown and complete lifecycle failure injection.
+2. Qualify bounded shutdown/reconnect and retry behavior on the target rig.
 3. Run predeclared physical ground-truth speed and plate-location validation.
 4. Smoke-test a signed installer on clean Windows machines.
 5. Publish a hardware matrix and operating envelope only from collected evidence.
