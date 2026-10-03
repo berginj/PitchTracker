@@ -88,6 +88,10 @@ The complete local suites collected `b101740`: Python 3.13 with two loadscope
 workers passed 1,833 tests, with 34 skips and 37 warnings, in 234.95 seconds.
 Python 3.14 ran serially in an isolated clean worktree at that same commit:
 1,833 passed, 34 skipped and 11 warnings in 439.20 seconds.
+After the follow-up source and validation record were pushed as `6d2eacf`, the
+repository CI matrix passed 1,835 tests with 33 skips on both Python 3.13 and
+3.14. The CI run also passed mypy across 759 files, schema/docs/length/Flake8
+gates, native UVC tests and the advisory security job.
 The final `597c267` change passed 30 focused recording, manifest, terminal-flow,
 orchestrator, environment-validation and tooling tests on both runtimes
 (3.21 seconds on 3.13; 3.71 seconds on 3.14). Full-suite counts therefore do not

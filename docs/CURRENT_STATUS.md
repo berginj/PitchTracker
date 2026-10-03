@@ -27,7 +27,7 @@ approved.
 | Release installer asset | Not currently attached to the GitHub release |
 | Development baseline | `main`; use the checked-out commit for exact provenance |
 | Test collection | Full Python 3.13 and 3.14 suites run in CI; use current CI output for the exact count |
-| Latest committed CI validation | `b310d3b`: Python 3.13 and 3.14 each passed 1,821 tests with 33 skips; required static gates passed |
+| Latest committed CI validation | `6d2eacf`: Python 3.13 and 3.14 each passed 1,835 tests with 33 skips; required static gates passed |
 | Follow-up local validation | `b101740`: Python 3.13 and 3.14 each passed 1,833 tests with 34 skips; final `597c267` passed 30 focused tests on each runtime; static gates passed |
 | Frozen artifact validation | Application source `597c267`: six source/frozen GUI and worker smoke tests passed with isolated state and camera checking disabled; see the October remediation record below |
 | Static validation | Schema sync, public docs, file length, Flake8, suppression policy, and direct repository-wide mypy are required; no diagnostic baseline remains |
