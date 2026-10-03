@@ -39,7 +39,6 @@ hiddenimports = [
 excludes = [
     # Testing frameworks
     'pytest',
-    'unittest',
     '_pytest',
 
     # Data science (not used)
@@ -72,7 +71,6 @@ excludes = [
     'pydoc',
     'pdb',
     'doctest',
-    'difflib',
     'profile',
     'cProfile',
     'pstats',
