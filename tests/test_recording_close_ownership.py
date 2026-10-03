@@ -51,6 +51,34 @@ def test_post_roll_close_does_not_retain_an_already_analyzed_recorder(tmp_path):
     assert not service._pending_pitch_closes
 
 
+def test_failed_post_roll_close_during_queue_drain_retains_session(tmp_path, monkeypatch):
+    service, pitch = _session(tmp_path), _pitch(tmp_path)
+    service._pitch_recorder, service._pitch_active = pitch, True
+    service._current_pitch_id = "pitch_1"
+    export = MagicMock(side_effect=OSError("export unavailable"))
+    monkeypatch.setattr(pitch, "_export_observations", export)
+
+    def drain_frames(**kwargs):
+        # The real frame worker logs a codec/export exception and marks the
+        # frame failed before reporting its queue drained.
+        with service._lock:
+            with pytest.raises(OSError):
+                service._stop_pitch_internal()
+        return True
+
+    service._frame_worker.stop.side_effect = drain_frames
+    with pytest.raises(OSError):
+        service.stop_session()
+    assert service.is_recording_session()
+    assert service._pending_pitch_closes["pitch_1"] is pitch
+    service._session_recorder.stop_session.assert_not_called()
+    export.side_effect = pitch.__class__._export_observations.__get__(pitch)
+    service._frame_worker.stop.side_effect = None
+    service.stop_session()
+    assert not service.is_recording_session()
+    assert not service._pending_pitch_closes
+
+
 @pytest.mark.parametrize("operation", ["pause_session", "stop_session"])
 def test_terminal_success_cannot_discard_failed_close(tmp_path, monkeypatch, operation):
     service, pitch = _session(tmp_path), _pitch(tmp_path)

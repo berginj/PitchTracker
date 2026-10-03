@@ -131,6 +131,9 @@ class SessionLifecycleMixin(RecordingServiceState):
                 "open and stop can be retried"
             )
 
+        # Draining accepted frames may finalize post-roll and expose a new
+        # close failure. Resolve that obligation before clearing session state.
+        self._retry_pitch_artifacts()
         with self._lock:
             if self._pitch_active:
                 self._stop_pitch_internal()
