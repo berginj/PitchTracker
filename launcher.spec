@@ -5,7 +5,6 @@ PyInstaller spec file for PitchTracker launcher.
 Optimized for minimal bundle size by excluding unused modules.
 """
 
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 import os
 
 block_cipher = None
