@@ -26,7 +26,7 @@ python launcher.py
 ### Testing
 
 ```powershell
-python -m pytest                         # full suite (1,267 passed / 32 skipped at 211d246)
+python -m pytest                         # full suite; use the current validation record for counts
 python -m pytest tests/test_config.py    # single file
 python -m pytest tests/test_config.py::TestConfigLoading::test_load_default -v  # single test
 python -m pytest tests/integration/      # integration tests only
@@ -47,11 +47,13 @@ python scripts/check_file_length.py      # enforce the 500-line file cap
 python scripts/sync_schema.py --check    # verify root schema/ mirrors contracts-shared/
 ```
 
-CI blocking gates (`.github/workflows/ci.yml`): schema-mirror check, file-length
-guard, **full-style flake8** (`flake8 . --count --statistics`, a hard gate — NOT
-just `E9,F63,F7,F82`), and tests. Only mypy (`continue-on-error: true`) and the
-`safety` security scan are advisory. Run `flake8 .` clean locally before pushing —
-any flake8 error fails CI and blocks the test job from reporting.
+CI blocking gates (`.github/workflows/ci.yml`): schema-mirror and public-docs
+checks, file-length guard, **full-style flake8** (`flake8 . --count --statistics`),
+and tests on Python 3.13/3.14. Typing policy and direct repository-wide mypy are
+required on the canonical Python 3.13 runtime; they are not advisory. The
+dependency security scan remains advisory. Run the required gates clean locally
+before pushing. Preserve unrelated untracked local artifacts; exclude those
+exact paths from local scans rather than modifying them to satisfy repository CI.
 
 ### Building the Installer
 
@@ -126,8 +128,8 @@ YAML files in `configs/` (e.g., `default.yaml`, `snapdragon.yaml`) are loaded by
 ### File & Code Size Limits (strictly enforced)
 
 - **Files: max 500 lines** (target 200–300). Stop adding code at 400 lines and extract.
-  Enforced in CI by `scripts/check_file_length.py` (existing oversized files are
-  grandfathered via an allowlist and may only shrink, never grow past 500).
+  Enforced in CI by `scripts/check_file_length.py`; the current oversized-file
+  allowlist is empty.
 - **Functions: max 50 lines** (target 10–20). Max 5 parameters (use dataclasses for more).
 - **Classes: max 30 methods** (target 10–15).
 - **Cyclomatic complexity: max 10**. Max 3 levels of nesting.

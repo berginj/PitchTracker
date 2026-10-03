@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-09-08
+**Last reviewed:** 2026-10-02
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -51,7 +51,7 @@ clean-machine lifecycle qualification remain necessary.
 The September review identified timestamp provenance (#34), distorted-pixel
 geometry (#35), drag-prior bias (#36), sampled strike misses (#37), misleading
 uncertainty/fit eligibility (#38), speed-reference conflation (#39), and omitted
-transverse physics (#40). Working-tree remediation is described in
+transverse physics (#40). Committed remediation is described in
 [the implementation plan](../DEVELOPMENT_PLAN.md). No issue is closed merely
 by this document. Model limitations remain explicit; no spin or movement
 accuracy claim is added.
@@ -152,6 +152,30 @@ and the pre-field hardware matrix.
   relaxations fixed through the suppression policy check.
 - Keep [OVERSIZED_MODULE_TRIAGE.md](OVERSIZED_MODULE_TRIAGE.md) as historical
   extraction context; the current file-length gate has zero grandfathered files.
+
+## Branch review follow-ups
+
+The [branch consolidation review](review/BRANCH_CONSOLIDATION_2026_10_02.md)
+distinguishes work already incorporated through squash merges from the remaining
+camera and launcher lifecycle changes. Implementation and validation evidence
+is recorded in [the October consolidation record](review/CONSOLIDATION_VALIDATION_2026_10_02.md).
+
+- CR-001 recording lifecycle command admission: already implemented on `main`;
+  control commands bypass bounded frame capacity while preserving FIFO order.
+- CR-004 review-config containment: already implemented on `main`; resolved
+  paths must stay within explicitly permitted roots.
+- CR-002 launcher validation shutdown: implemented in the consolidation branch;
+  cancellation stops/reaps the tooling child and defers closure until validation
+  and updater threads finish. Closing suppresses scheduled and late update work.
+- CR-003 discovery cancellation: implemented in the consolidation branch;
+  cancelled probes do not write caches or deliver stale results. Backend
+  switches and setup closure retain and clean up owned discovery/preview work.
+  Legacy calibration remains owned until its existing bounded tooling operation
+  finishes; close can wait up to that operation's 300-second timeout.
+
+Real-rig disconnect, backend-switch, and repeated setup/launcher-close checks
+remain operator-run gates. Automated lifecycle coverage does not replace
+clean-machine installer qualification or establish physical accuracy.
 
 ## Later or conditional
 

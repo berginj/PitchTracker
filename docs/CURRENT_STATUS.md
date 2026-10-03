@@ -1,9 +1,10 @@
 # PitchTracker Current Status
 
-**Last updated:** 2026-09-08
+**Last updated:** 2026-10-02
 **Published release:** `v2.0.0` / internal app version `2.0.0`
-**Development status:** production-readiness work is consolidated on `main`;
-physical validation, native-thread teardown, and packaging provenance remain
+**Development status:** production-readiness and branch follow-up implementation
+are consolidated through `integration/valuable-branch-consolidation` into local `main`.
+Physical validation and clean-machine lifecycle/installer qualification remain.
 
 ## Summary
 
@@ -26,11 +27,12 @@ approved.
 | Release installer asset | Not currently attached to the GitHub release |
 | Development baseline | `main`; use the checked-out commit for exact provenance |
 | Test collection | Full Python 3.13 and 3.14 suites run in CI; use current CI output for the exact count |
-| Latest local validation | Python 3.13: 1,722 passed, 32 skipped; four frozen-worker smoke tests passed; see the dated validation record below |
+| Latest local validation | Python 3.13.14 and 3.14.7: 1,750 passed, 32 skipped each; four frozen-worker smoke tests passed; see the October validation record below |
 | Static validation | Schema sync, public docs, file length, Flake8, suppression policy, and direct repository-wide mypy are required; no diagnostic baseline remains |
 | Physical accuracy approval | None; results must remain estimated/degraded/unavailable/rejected as evidence requires |
 
-The locally built installer must be smoke-tested on a clean Windows machine
+The October local unsigned installer build passed compilation and frozen-worker
+smoke tests. It must be signed and smoke-tested on a clean Windows machine
 before it is attached to a refreshed release.
 
 Historical review documents under `docs/review/` retain their original dates and
@@ -39,7 +41,7 @@ must use this document and the roadmap below.
 
 ## Delivered software
 
-The controlled-pilot working-tree changes address distorted-pixel geometry,
+The committed controlled-pilot changes address distorted-pixel geometry,
 continuous strike-volume intersection, explicit timing and speed provenance,
 weighted stereo fitting/eligibility, and dedicated deadline-bounded workers.
 They also add analysis queue/latency and pre-roll diagnostics. These are not a
@@ -48,6 +50,10 @@ published release or independently confirmed physical performance. See the
 [pilot checklist](CONTROLLED_PILOT_CHECKLIST.md).
 The [dated software validation record](review/PILOT_SOFTWARE_VALIDATION_2026_09_08.md)
 records test scope, bundle hashes, warnings, and remaining manual gates.
+The [October consolidation record](review/CONSOLIDATION_VALIDATION_2026_10_02.md)
+records discovery cancellation, terminal launcher shutdown, source import
+behavior, and removal of verified unused code. These lifecycle changes retain
+the current worker-process dispatch and typed service ownership boundaries.
 
 - Typed agent/service boundaries for capture, detection, pitch state,
   trajectory, recording, analysis, tooling, and UI.

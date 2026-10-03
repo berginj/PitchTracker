@@ -1,6 +1,6 @@
 # PitchTracker Installation
 
-**Last reviewed:** 2026-09-08
+**Last reviewed:** 2026-10-02
 
 **Applies to:** v2.0.0 and current `main`
 
