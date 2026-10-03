@@ -14,6 +14,8 @@ import time
 import tempfile
 import shutil
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from configs.settings import load_config
 from app.services.orchestrator import PipelineOrchestrator
@@ -49,6 +51,7 @@ class TestFullPipeline(unittest.TestCase):
         """Test full pipeline: capture → detection → recording → stop."""
         # Create pipeline service with simulated backend
         service = PipelineOrchestrator(backend="sim")
+        service.set_record_directory(self.test_dir)
 
         try:
             # Start capture with simulated cameras
@@ -79,13 +82,15 @@ class TestFullPipeline(unittest.TestCase):
             self.assertIsNotNone(right_frame)
 
             # Start recording session
-            warning = service.start_recording(
-                session_name="test_session",
-                pitch_id="test_pitch_001",
-                mode="test",
-            )
+            ample_space = SimpleNamespace(total=500 * 1024**3, used=0, free=200 * 1024**3)
+            with patch("app.pipeline.recording.session_recorder.shutil.disk_usage", return_value=ample_space):
+                warning = service.start_recording(
+                    session_name="test_session",
+                    pitch_id="test_pitch_001",
+                    mode="test",
+                )
 
-            # Should not have disk space warning on fresh system
+            # Disk availability is controlled for this normal-path integration test.
             self.assertEqual(warning, "", f"Unexpected disk warning: {warning}")
 
             # Let pipeline run for a few seconds
@@ -94,6 +99,7 @@ class TestFullPipeline(unittest.TestCase):
             # Verify session directory was created
             session_dir = service.get_session_dir()
             self.assertIsNotNone(session_dir)
+            self.assertEqual(session_dir.parent, self.test_dir)
             self.assertTrue(session_dir.exists())
 
             # Stop recording
@@ -124,19 +130,13 @@ class TestFullPipeline(unittest.TestCase):
             # Stop capture
             service.stop_capture()
 
-        except Exception:
-            # Make sure we clean up even if test fails
-            try:
-                if service._recording:
-                    service.stop_recording()
-                service.stop_capture()
-            except Exception:
-                pass
-            raise
+        finally:
+            service.shutdown()
 
     def test_multiple_sessions_sequential(self):
         """Test multiple recording sessions in sequence."""
         service = PipelineOrchestrator(backend="sim")
+        service.set_record_directory(self.test_dir)
 
         try:
             # Start capture once
@@ -172,14 +172,8 @@ class TestFullPipeline(unittest.TestCase):
             # Stop capture
             service.stop_capture()
 
-        except Exception:
-            try:
-                if service._recording:
-                    service.stop_recording()
-                service.stop_capture()
-            except Exception:
-                pass
-            raise
+        finally:
+            service.shutdown()
 
     def test_preview_frames_during_capture(self):
         """Test that preview frames update during capture."""
@@ -217,12 +211,8 @@ class TestFullPipeline(unittest.TestCase):
             # Stop capture
             service.stop_capture()
 
-        except Exception:
-            try:
-                service.stop_capture()
-            except Exception:
-                pass
-            raise
+        finally:
+            service.shutdown()
 
     def test_stop_capture_cleans_up_resources(self):
         """Test that stopping capture properly cleans up resources."""
@@ -252,12 +242,8 @@ class TestFullPipeline(unittest.TestCase):
             except Exception:
                 pass  # Expected - cameras stopped
 
-        except Exception:
-            try:
-                service.stop_capture()
-            except Exception:
-                pass
-            raise
+        finally:
+            service.shutdown()
 
     def test_recording_without_capture_fails(self):
         """Test that recording fails gracefully if capture not started."""
@@ -283,6 +269,7 @@ class TestFullPipeline(unittest.TestCase):
         - Manifest file creation with pitch metadata
         """
         service = PipelineOrchestrator(backend="sim")
+        service.set_record_directory(self.test_dir)
 
         try:
             # Start capture
@@ -404,15 +391,8 @@ class TestFullPipeline(unittest.TestCase):
             self.assertIsNotNone(bundle.session_dir, "Bundle should have session_dir")
             self.assertIsInstance(bundle.session_dir, Path, "Bundle session_dir should be a Path")
 
-        except Exception:
-            # Clean up on failure
-            try:
-                if service._recording:
-                    service.stop_recording()
-                service.stop_capture()
-            except Exception:
-                pass
-            raise
+        finally:
+            service.shutdown()
 
     def test_detection_health_monitoring(self):
         """Test that detection health is monitored during capture."""
@@ -448,12 +428,8 @@ class TestFullPipeline(unittest.TestCase):
             # Stop capture
             service.stop_capture()
 
-        except Exception:
-            try:
-                service.stop_capture()
-            except Exception:
-                pass
-            raise
+        finally:
+            service.shutdown()
 
 
 if __name__ == "__main__":
