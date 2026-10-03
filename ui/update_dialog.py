@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from threading import Event
 from typing import Optional
 
 from PySide6 import QtCore, QtWidgets
 
 from log_config.logger import get_logger
-from updater import download_update, get_current_version, install_update
+from updater import (
+    download_update, get_current_version, install_update,
+    _read_update_settings, _write_update_settings,
+)
 from ui.themes import (
     apply_standard_layout,
     ask_confirmation,
@@ -36,6 +40,11 @@ class UpdateDialog(QtWidgets.QDialog):
         self._update_info = update_info
         self._download_path: Optional[Path] = None
         self._downloading = False
+        self._download_thread: DownloadThread | None = None
+        self._pending_close: int | None = None
+        self._closing = False
+        self._download_result: Path | None = None
+        self._download_error: str | None = None
 
         self._build_ui()
 
@@ -160,7 +169,7 @@ class UpdateDialog(QtWidgets.QDialog):
 
     def _download_and_install(self) -> None:
         """Download update and launch installer."""
-        if self._downloading:
+        if self._download_thread is not None or self._closing:
             return
 
         self._downloading = True
@@ -174,12 +183,17 @@ class UpdateDialog(QtWidgets.QDialog):
             expected_sha256=self._update_info.get("expected_sha256"),
         )
         self._download_thread.progress.connect(self._on_progress)
-        self._download_thread.finished.connect(self._on_download_finished)
+        self._download_result = None
+        self._download_error = None
+        self._download_thread.downloaded.connect(self._on_download_finished)
         self._download_thread.error.connect(self._on_download_error)
+        self._download_thread.finished.connect(self._on_download_thread_finished)
         self._download_thread.start()
 
     def _on_progress(self, bytes_downloaded: int, total_bytes: int) -> None:
         """Update progress bar."""
+        if self._pending_close is not None:
+            return
         if total_bytes > 0:
             progress = int((bytes_downloaded / total_bytes) * 100)
             self._progress_bar.setValue(progress)
@@ -195,6 +209,51 @@ class UpdateDialog(QtWidgets.QDialog):
             )
 
     def _on_download_finished(self, installer_path: Path) -> None:
+        """Retain the result until the worker's native terminal signal arrives."""
+        if self._pending_close is None:
+            self._download_result = installer_path
+
+    def _on_download_thread_finished(self) -> None:
+        """Release worker ownership only after run() has fully returned."""
+        thread = self._download_thread
+        if thread is not None:
+            thread.wait()
+            self._download_thread = None
+            thread.deleteLater()
+        self._downloading = False
+        if self._pending_close is not None:
+            result = self._pending_close
+            self._pending_close = None
+            super().done(result)
+        elif self._download_result is not None:
+            self._present_download(self._download_result)
+        elif self._download_error is not None:
+            self._present_download_error(self._download_error)
+
+    def done(self, result: int) -> None:
+        """Defer accept/reject until the owned download has terminated."""
+        self._closing = True
+        if self._download_thread is not None:
+            self._pending_close = result
+            self._download_thread.cancel()
+            style_status_label(self._status_label, "warning", "Cancelling update download...")
+            return
+        super().done(result)
+
+    def reject(self) -> None:
+        self.done(int(QtWidgets.QDialog.DialogCode.Rejected))
+
+    def accept(self) -> None:
+        self.done(int(QtWidgets.QDialog.DialogCode.Accepted))
+
+    def closeEvent(self, event) -> None:
+        if self._download_thread is not None:
+            event.ignore()
+            self.reject()
+        else:
+            super().closeEvent(event)
+
+    def _present_download(self, installer_path: Path) -> None:
         """Download completed successfully."""
         self._download_path = installer_path
         style_status_label(self._status_label, "success", "Download complete!")
@@ -212,7 +271,9 @@ class UpdateDialog(QtWidgets.QDialog):
             if install_update(installer_path):
                 # Close application to allow installer to replace files
                 self.accept()
-                QtWidgets.QApplication.quit()
+                parent = self.parentWidget()
+                if parent is not None:
+                    parent.close()
             else:
                 show_message_dialog(
                     self,
@@ -231,6 +292,11 @@ class UpdateDialog(QtWidgets.QDialog):
             self.accept()
 
     def _on_download_error(self, error_msg: str) -> None:
+        """Retain failure until the worker is terminal; retries then become safe."""
+        if self._pending_close is None:
+            self._download_error = error_msg
+
+    def _present_download_error(self, error_msg: str) -> None:
         """Download failed."""
         self._downloading = False
         self._download_button.setEnabled(True)
@@ -262,21 +328,10 @@ class UpdateDialog(QtWidgets.QDialog):
     def _save_skipped_version(self) -> None:
         """Save skipped version to settings file."""
         try:
-            from pathlib import Path
-            import json
-
-            settings_file = Path("configs") / "update_settings.json"
-            settings_file.parent.mkdir(exist_ok=True)
-
-            settings = {}
-            if settings_file.exists():
-                with open(settings_file) as f:
-                    settings = json.load(f)
-
+            settings = _read_update_settings()
             settings["skipped_version"] = self._update_info["version"]
 
-            with open(settings_file, "w") as f:
-                json.dump(settings, f, indent=2)
+            _write_update_settings(settings)
 
         except Exception:
             logger.exception("Failed to save skipped updater version")
@@ -286,17 +341,24 @@ class DownloadThread(QtCore.QThread):
     """Background thread for downloading update."""
 
     progress = QtCore.Signal(int, int)  # bytes_downloaded, total_bytes
-    finished = QtCore.Signal(Path)  # installer_path
+    downloaded = QtCore.Signal(object)  # installer_path; native finished remains terminal
     error = QtCore.Signal(str)  # error_message
 
     def __init__(self, url: str, expected_sha256: Optional[str] = None):
         super().__init__()
         self._url = url
         self._expected_sha256 = expected_sha256
+        self._cancel_event = Event()
+
+    def cancel(self) -> None:
+        self._cancel_event.set()
+        self.requestInterruption()
 
     def run(self) -> None:
         """Download update in background."""
         try:
+            if self._cancel_event.is_set():
+                return
 
             def progress_callback(downloaded, total):
                 self.progress.emit(downloaded, total)
@@ -306,10 +368,13 @@ class DownloadThread(QtCore.QThread):
                 progress_callback=progress_callback,
                 expected_sha256=self._expected_sha256,
                 require_checksum=True,
+                cancel_event=self._cancel_event,
             )
 
+            if self._cancel_event.is_set():
+                return
             if installer_path:
-                self.finished.emit(installer_path)
+                self.downloaded.emit(installer_path)
             elif not self._expected_sha256:
                 self.error.emit(
                     "Update aborted: this release has no SHA-256 checksum, so the "
@@ -320,4 +385,6 @@ class DownloadThread(QtCore.QThread):
                 self.error.emit("Download failed or integrity verification failed")
 
         except Exception as e:
-            self.error.emit(str(e))
+            logger.exception("Update download worker failed")
+            if not self._cancel_event.is_set():
+                self.error.emit(str(e))

@@ -353,7 +353,7 @@ class PitchRecorder:
         (self._pitch_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
         # Analysis completes after capture closes. Append its verdict and rewrite
         # the integrity manifest so replay includes both raw evidence and claims.
-        self._evidence.add(
+        self._evidence.set_singleton(
             "pitch_verdict",
             {
                 "pitch_id": summary.pitch_id,

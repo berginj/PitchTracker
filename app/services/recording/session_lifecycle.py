@@ -65,6 +65,8 @@ class SessionLifecycleMixin(RecordingServiceState):
                 )
                 self._decision_journal = SessionEvidenceJournal(session_dir)
                 self._decision_evidence_incomplete = False
+                self._pending_journal_manifest = None
+                self._pending_journal_complete = None
             except Exception:
                 self._session_recorder = None
                 self._config = None
@@ -85,6 +87,7 @@ class SessionLifecycleMixin(RecordingServiceState):
 
             self._session_active = True
             self._session_paused = False
+            self._inputs_suspended = False
 
             self._subscribe_to_events()
 
@@ -98,27 +101,35 @@ class SessionLifecycleMixin(RecordingServiceState):
 
     def stop_session(self: "RecordingServiceState") -> RecordingBundle:
         """Stop current session and finalize recordings."""
+        close_error: Optional[Exception] = None
+        try:
+            self.retry_completed_pitch_closes()
+        except Exception as exc:
+            # Still attempt terminal analysis below so one failed evidence
+            # stream does not mask the retained-manifest retry state.
+            close_error = exc
+            logger.exception("Pitch evidence close is still pending")
+        self.retry_terminal_manifests()
+        if close_error is not None:
+            raise close_error
         with self._lock:
             if not self._session_active:
                 raise RuntimeError("No session active")
             self._session_paused = True
             self._unsubscribe_from_events()
             journal = self._decision_journal
-            self._decision_journal = None
-            evidence_was_incomplete = self._decision_evidence_incomplete
-
-        decision_evidence_manifest = None
-        decision_evidence_complete = None
         if journal is not None:
             journal.close()
             journal_stats = journal.stats()
-            decision_evidence_manifest = "evidence_journal/manifest.json"
-            decision_evidence_complete = bool(
-                not evidence_was_incomplete
-                and journal_stats["dropped_required"] == 0
-                and journal_stats["write_error"] is None
-                and journal_stats["accepted"] == journal_stats["written"]
-            )
+            with self._lock:
+                self._pending_journal_manifest = "evidence_journal/manifest.json"
+                self._pending_journal_complete = bool(
+                    not self._decision_evidence_incomplete
+                    and journal_stats["dropped_required"] == 0
+                    and journal_stats["write_error"] is None
+                    and journal_stats["accepted"] == journal_stats["written"]
+                )
+                self._decision_journal = None
 
         if not self._frame_worker.stop(drain=True):
             logger.error(
@@ -150,8 +161,8 @@ class SessionLifecycleMixin(RecordingServiceState):
                 measured_speed_mph=self._measured_speed_mph,
                 calibration_profile_id=self._calibration_profile_id,
                 calibration_report=self._calibration_report,
-                decision_evidence_manifest=decision_evidence_manifest,
-                decision_evidence_complete=decision_evidence_complete,
+                decision_evidence_manifest=self._pending_journal_manifest,
+                decision_evidence_complete=self._pending_journal_complete,
                 event_metadata=session_event_metadata,
             )
 
@@ -168,7 +179,12 @@ class SessionLifecycleMixin(RecordingServiceState):
             self._config_path = None
             self._completed_pitch_recorders.clear()
             self._decision_evidence_incomplete = False
+            self._pending_journal_manifest = None
+            self._pending_journal_complete = None
+            self._inputs_suspended = False
             self._pitch_lifecycle_metadata.clear()
+            self._pending_analysis_events.clear()
+            self._pitch_end_in_progress.clear()
 
             self._pre_roll_buffer["left"].clear()
             self._pre_roll_buffer["right"].clear()
@@ -188,25 +204,30 @@ class SessionLifecycleMixin(RecordingServiceState):
                 session_dir=session_dir,
             )
 
+    def suspend_inputs(self: "RecordingServiceState") -> None:
+        """Fence new frames while preserving accepted analysis and lifecycle events."""
+        with self._lock:
+            self._inputs_suspended = True
+
     def pause_session(self: "RecordingServiceState") -> None:
         """Pause recording while keeping the session open."""
         with self._lock:
             if not self._session_active:
                 raise RuntimeError("No session active")
-            if self._session_paused:
-                return
-            self._session_paused = True
-            self._unsubscribe_from_events()
+            self._inputs_suspended = True
+            self._unsubscribe_from_events(keep_analysis=True)
 
         if not self._frame_worker.wait_idle(timeout=10.0):
-            logger.warning("Recording frame queue did not drain before pause")
+            raise RuntimeError("Recording frame queue is still draining; retry session pause")
 
+        self.retry_terminal_manifests()
         with self._lock:
             if self._pitch_active:
                 self._stop_pitch_internal()
 
             self._pre_roll_buffer["left"].clear()
             self._pre_roll_buffer["right"].clear()
+            self._session_paused = True
             logger.info("Recording session paused")
 
     def resume_session(self: "RecordingServiceState") -> None:
@@ -219,4 +240,5 @@ class SessionLifecycleMixin(RecordingServiceState):
 
             self._subscribe_to_events()
             self._session_paused = False
+            self._inputs_suspended = False
             logger.info("Recording session resumed")

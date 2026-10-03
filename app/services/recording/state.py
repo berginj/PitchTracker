@@ -6,6 +6,7 @@ import threading
 from pathlib import Path
 from typing import Any, Optional
 
+from app.events.event_types import PitchAnalyzedEvent
 from app.pipeline.recording.evidence_journal import SessionEvidenceJournal
 from app.pipeline.recording.pitch_recorder import PitchRecorder
 from app.pipeline.recording.session_recorder import SessionRecorder
@@ -27,6 +28,7 @@ class RecordingServiceState:
     _pitch_recorder: Optional[PitchRecorder]
     _session_active: bool
     _session_paused: bool
+    _inputs_suspended: bool
     _pitch_active: bool
     _config: Optional[AppConfig]
     _config_path: Optional[str]
@@ -43,7 +45,12 @@ class RecordingServiceState:
     _pitch_lifecycle_metadata: dict[str, dict[str, dict[str, Any]]]
     _decision_journal: Optional[SessionEvidenceJournal]
     _decision_evidence_incomplete: bool
+    _pending_journal_manifest: Optional[str]
+    _pending_journal_complete: Optional[bool]
     _subscribed: bool
+    _analysis_subscribed: bool
+    _pending_analysis_events: dict[str, PitchAnalyzedEvent]
+    _pitch_end_in_progress: set[str]
 
     def _invoke_callback(self, name: str, payload: str) -> None:
         raise NotImplementedError

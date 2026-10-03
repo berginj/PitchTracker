@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
 from app.events.event_bus import EventBus
+from app.events.event_types import PitchAnalyzedEvent
 from app.pipeline.recording.evidence_journal import SessionEvidenceJournal
 from app.pipeline.recording.pitch_recorder import PitchRecorder
 from app.pipeline.recording.session_recorder import SessionRecorder
@@ -87,11 +88,17 @@ class RecordingServiceImpl(
         # EventBus and worker state
         self._subscribed = False
         self._session_paused = False
+        self._inputs_suspended = False
+        self._analysis_subscribed = False
+        self._pending_analysis_events: Dict[str, PitchAnalyzedEvent] = {}
+        self._pitch_end_in_progress: set[str] = set()
         self._frame_worker = BoundedRecordingWorker(
             cast(Any, getattr(self, "_record_frame_sync")), max_queue=240
         )
         self._decision_journal: Optional[SessionEvidenceJournal] = None
         self._decision_evidence_incomplete = False
+        self._pending_journal_manifest: Optional[str] = None
+        self._pending_journal_complete: Optional[bool] = None
         self._pitch_lifecycle_metadata: Dict[str, Dict[str, dict]] = {}
 
         logger.info("RecordingService initialized")
@@ -103,6 +110,8 @@ class RecordingServiceImpl(
         with self._lock:
             if not self._pitch_active:
                 raise RuntimeError("No pitch active")
+            if self._inputs_suspended:
+                return
             recorder = self._pitch_recorder
             if recorder is None:
                 raise RuntimeError("No pitch recorder active")

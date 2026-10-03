@@ -21,7 +21,7 @@ class FrameRoutingMixin(RecordingServiceState):
         with self._lock:
             if not self._session_active:
                 raise RuntimeError("No session active")
-            if self._session_paused:
+            if self._session_paused or self._inputs_suspended:
                 return
         if not self._frame_worker.submit((camera_id, frame)):
             logger.warning(

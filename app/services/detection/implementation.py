@@ -28,6 +28,7 @@ from configs.settings import AppConfig
 from contracts import Detection, Frame, RayObservation, StereoObservation
 from contracts.evidence import DecisionArtifactBindings, PairingOutcomeEvidence
 from detect.config import DetectorConfig, Mode
+from exceptions import DetectionError
 from log_config.logger import get_logger
 from trajectory.tracklets import TrackletBuilder
 
@@ -41,6 +42,8 @@ class DetectionServiceImpl(DetectionService):
         self._event_bus = event_bus
         self._config = config
         self._lock = threading.Lock()
+        self._lifecycle_lock = threading.RLock()
+        self._stopping = False
         self._tracklet_lock = threading.Lock()
         self._initializer = PipelineInitializer()
         self._thread_pool: Optional[DetectionThreadPool] = None
@@ -102,49 +105,58 @@ class DetectionServiceImpl(DetectionService):
 
     def start_detection(self) -> None:
         """Build processing infrastructure and begin consuming frame events."""
-        with self._lock:
-            if self._running:
-                return
-            if self._left_detector is None or self._right_detector is None:
-                raise RuntimeError("Detectors not configured. Call configure_detectors() first.")
-            if self._thread_pool is None:
-                raise RuntimeError("Threading not configured. Call configure_threading() first.")
-            stereo_matcher = self._initializer.create_stereo_matcher(
-                self._config,
-                self._calibration_path or Path("calibration/stereo_calibration.npz"),
-            )
-            lane_gate, plate_gate, stereo_gate, plate_stereo_gate = self._configuration.build_gates()
-            self._processor = DetectionProcessor(
-                config=self._config,
-                stereo_matcher=stereo_matcher,
-                lane_gate=lane_gate,
-                plate_gate=plate_gate,
-                stereo_gate=stereo_gate,
-                plate_stereo_gate=plate_stereo_gate,
-                get_ball_radius_fn=lambda: 1.45,
-            )
-            self._wire_callbacks()
-            self._reset_runtime_state()
-            self._thread_pool.start(queue_size=6)
-            self._subscribe_to_events()
-            self._running = True
-            self._detection_start_time = time.time()
-            logger.info("Detection started")
+        with self._lifecycle_lock:
+            with self._lock:
+                if self._stopping:
+                    raise DetectionError("Detection workers are still stopping; retry stop before restart")
+                if self._running:
+                    return
+                if self._left_detector is None or self._right_detector is None:
+                    raise RuntimeError("Detectors not configured. Call configure_detectors() first.")
+                if self._thread_pool is None:
+                    raise RuntimeError("Threading not configured. Call configure_threading() first.")
+                stereo_matcher = self._initializer.create_stereo_matcher(
+                    self._config,
+                    self._calibration_path or Path("calibration/stereo_calibration.npz"),
+                )
+                lane_gate, plate_gate, stereo_gate, plate_stereo_gate = self._configuration.build_gates()
+                self._processor = DetectionProcessor(
+                    config=self._config,
+                    stereo_matcher=stereo_matcher,
+                    lane_gate=lane_gate,
+                    plate_gate=plate_gate,
+                    stereo_gate=stereo_gate,
+                    plate_stereo_gate=plate_stereo_gate,
+                    get_ball_radius_fn=lambda: 1.45,
+                )
+                self._wire_callbacks()
+                self._reset_runtime_state()
+                self._stopping = True
+                self._thread_pool.start(queue_size=6)
+                self._subscribe_to_events()
+                self._running = True
+                self._stopping = False
+                self._detection_start_time = time.time()
+                logger.info("Detection started")
 
     def stop_detection(self) -> None:
-        """Stop workers, unsubscribe, and flush pending stereo pairs."""
-        processor_to_flush = None
-        with self._lock:
-            if not self._running:
-                return
-            self._unsubscribe_from_events()
-            if self._thread_pool is not None:
-                self._thread_pool.stop()
-            processor_to_flush = self._processor
-            self._running = False
+        """Fence submissions, await callbacks without their lock, then flush pairs."""
+        with self._lifecycle_lock:
+            with self._lock:
+                if not self._running and not self._stopping:
+                    return
+                self._unsubscribe_from_events()
+                self._running = False
+                self._stopping = True
+                pool = self._thread_pool
+                processor = self._processor
+            if pool is not None:
+                pool.stop()
+            if processor is not None:
+                processor.flush_pairing_buffers()
+            with self._lock:
+                self._stopping = False
             logger.info("Detection stopped")
-        if processor_to_flush is not None:
-            processor_to_flush.flush_pairing_buffers()
 
     def process_frame(self, camera_id: str, frame: Frame) -> List[Detection]:
         """Enqueue a frame for asynchronous detection."""

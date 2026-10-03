@@ -59,6 +59,8 @@ class CameraManager:
 
         # Lock for swapping device references during reconnection
         self._camera_lock = threading.Lock()
+        self._lifecycle_lock = threading.RLock()
+        self._stop_pending = False
 
         # Collaborators
         self._factory = CameraBackendFactory(backend)
@@ -103,7 +105,23 @@ class CameraManager:
     # Public API — capture lifecycle
     # ------------------------------------------------------------------
 
-    def start_capture(
+    def start_capture(self, config: AppConfig, left_serial: str, right_serial: str) -> None:
+        """Start a generation only after all previous resources have stopped."""
+        with self._lifecycle_lock:
+            if self._stop_pending or self._frame_router.capture_running:
+                raise CameraConnectionError("Capture is active or still stopping; retry stop before restart")
+            self._stop_pending = True
+            try:
+                self._start_capture(config, left_serial, right_serial)
+            except Exception:
+                try:
+                    self.stop_capture()
+                except CameraConnectionError:
+                    logger.exception("Startup rollback still owns camera resources; retry stop")
+                raise
+            self._stop_pending = False
+
+    def _start_capture(
         self,
         config: AppConfig,
         left_serial: str,
@@ -151,7 +169,7 @@ class CameraManager:
                 try:
                     self._left.close()
                 except Exception:
-                    pass
+                    logger.exception("Left camera rollback close failed; retaining it for stop retry")
                 raise
 
             # Configure both cameras
@@ -221,39 +239,30 @@ class CameraManager:
             ) from exc
 
     def stop_capture(self) -> None:
-        """Stop capture on both cameras. Best-effort, does not raise."""
-        logger.info("Stopping capture")
-
-        try:
-            # Unregister from reconnection manager
-            self._lifecycle.shutdown()
-
-            # Stop capture threads
-            self._frame_router.stop()
-
-            # Close cameras
-            if self._left is not None:
+        """Release devices only after readers and reconnect operations terminate."""
+        with self._lifecycle_lock:
+            self._stop_pending = True
+            self._frame_router.request_stop()
+            reconnect_stopped = self._lifecycle.shutdown()
+            readers_stopped = self._frame_router.stop()
+            if not reconnect_stopped or not readers_stopped:
+                raise CameraConnectionError("Camera workers are still stopping; resources remain owned; retry stop")
+            errors = []
+            for name in ("_left", "_right"):
+                camera = getattr(self, name)
+                if camera is None:
+                    continue
                 try:
-                    self._left.close()
-                    logger.debug("Left camera closed")
+                    camera.close()
                 except Exception as exc:
-                    logger.error(f"Error closing left camera: {exc}")
-                finally:
-                    self._left = None
-
-            if self._right is not None:
-                try:
-                    self._right.close()
-                    logger.debug("Right camera closed")
-                except Exception as exc:
-                    logger.error(f"Error closing right camera: {exc}")
-                finally:
-                    self._right = None
-
+                    logger.exception("Camera close failed for %s; retaining resource for retry", name)
+                    errors.append(exc)
+                else:
+                    setattr(self, name, None)
+            if errors:
+                raise CameraConnectionError("Camera close failed; retry stop before restart") from errors[0]
+            self._stop_pending = False
             logger.info("Capture stopped successfully")
-
-        except Exception:
-            logger.exception("Unexpected error during capture stop")
 
     # ------------------------------------------------------------------
     # Public API — queries
@@ -331,17 +340,8 @@ class CameraManager:
         return _validate_frame(label, frame)
 
     def _cleanup_cameras(self) -> None:
-        """Clean up camera resources on error."""
+        """Attempt bounded rollback while retaining any nonterminal resources."""
         try:
-            if self._left is not None:
-                self._left.close()
-                self._left = None
-        except Exception as exc:
-            logger.warning(f"Error closing left camera during cleanup: {exc}")
-
-        try:
-            if self._right is not None:
-                self._right.close()
-                self._right = None
-        except Exception as exc:
-            logger.warning(f"Error closing right camera during cleanup: {exc}")
+            self.stop_capture()
+        except CameraConnectionError:
+            logger.exception("Camera rollback is still stopping; retry stop")

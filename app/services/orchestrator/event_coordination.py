@@ -8,6 +8,7 @@ PipelineOrchestrator to keep that file under 500 lines.
 from __future__ import annotations
 
 from dataclasses import replace
+import threading
 from typing import Optional, TYPE_CHECKING
 
 from app.events.event_bus import EventBus
@@ -49,6 +50,8 @@ class EventCoordinator:
         self._config: Optional[AppConfig] = None
         self._latest_observation: Optional[StereoObservation] = None
         self._session_id: Optional[str] = None
+        self._tracking_lock = threading.RLock()
+        self._tracking_enabled = True
 
     # --- Mutable state setters (called by orchestrator) ---
 
@@ -64,6 +67,15 @@ class EventCoordinator:
     def set_session_id(self, session_id: Optional[str]) -> None:
         self._session_id = session_id
 
+    def suspend_tracking(self) -> None:
+        """Fence callbacks already copied by EventBus before finalizing a pitch."""
+        with self._tracking_lock:
+            self._tracking_enabled = False
+
+    def resume_tracking(self) -> None:
+        with self._tracking_lock:
+            self._tracking_enabled = True
+
     @property
     def latest_observation(self) -> Optional[StereoObservation]:
         return self._latest_observation
@@ -73,33 +85,38 @@ class EventCoordinator:
     def on_observation_detected(self, event: ObservationDetectedEvent) -> None:
         """Feed stereo observations to the pitch state machine."""
         try:
-            observation = self._to_field_coordinates(event.observation)
-            self._latest_observation = observation
-            if self._pitch_tracker is not None:
-                self._pitch_tracker.add_observation(observation)
+            with self._tracking_lock:
+                if not self._tracking_enabled:
+                    return
+                observation = self._to_field_coordinates(event.observation)
+                self._latest_observation = observation
+                if self._pitch_tracker is not None:
+                    self._pitch_tracker.add_observation(observation)
         except Exception as e:
             logger.error(f"Error handling observation: {e}", exc_info=True)
 
     def on_ray_observation_detected(self, event: RayObservationDetectedEvent) -> None:
         """Handle per-camera ray observations when ray trajectory modes are enabled."""
         try:
-            if not self._ray_modes_enabled() or self._pitch_tracker is None:
-                return
-            self._pitch_tracker.add_ray_observation(event.observation)
+            with self._tracking_lock:
+                if not self._tracking_enabled or not self._ray_modes_enabled() or self._pitch_tracker is None:
+                    return
+                self._pitch_tracker.add_ray_observation(event.observation)
         except Exception as e:
             logger.error(f"Error handling ray observation: {e}", exc_info=True)
 
     def on_stereo_frame_processed(self, event: StereoFrameProcessedEvent) -> None:
         """Advance pitch lifecycle exactly once for each processed pair."""
         try:
-            if self._pitch_tracker is None:
-                return
-            self._pitch_tracker.update(
-                frame_ns=event.timestamp_ns,
-                lane_count=event.lane_count,
-                plate_count=event.plate_count,
-                obs_count=len(event.observations),
-            )
+            with self._tracking_lock:
+                if not self._tracking_enabled or self._pitch_tracker is None:
+                    return
+                self._pitch_tracker.update(
+                    frame_ns=event.timestamp_ns,
+                    lane_count=event.lane_count,
+                    plate_count=event.plate_count,
+                    obs_count=len(event.observations),
+                )
         except Exception as e:
             logger.error(f"Error handling stereo frame pair: {e}", exc_info=True)
 

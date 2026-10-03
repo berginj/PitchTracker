@@ -9,6 +9,7 @@ from typing import Callable, Optional
 
 from capture import CameraDevice
 from contracts import Frame
+from exceptions import CameraConnectionError
 
 from app.camera import CameraReconnectionManager
 
@@ -31,6 +32,7 @@ class CameraFrameRouter:
     def __init__(self) -> None:
         """Initialize the frame router."""
         self._capture_running = False
+        self._threads_lock = threading.RLock()
 
         # Threads
         self._left_thread: Optional[threading.Thread] = None
@@ -88,23 +90,15 @@ class CameraFrameRouter:
             left_camera: Opened left camera device
             right_camera: Opened right camera device
         """
-        self._capture_running = True
-        self._left_stop.clear()
-        self._right_stop.clear()
-        self._left_thread = threading.Thread(
-            target=self._capture_loop,
-            args=("left", left_camera, self._left_stop),
-            name="Capture-left",
-            daemon=True,
-        )
-        self._right_thread = threading.Thread(
-            target=self._capture_loop,
-            args=("right", right_camera, self._right_stop),
-            name="Capture-right",
-            daemon=True,
-        )
-        self._left_thread.start()
-        self._right_thread.start()
+        with self._threads_lock:
+            if any(thread is not None and thread.is_alive()
+                   for thread in (self._left_thread, self._right_thread)):
+                raise CameraConnectionError("Previous capture threads are still stopping; retry stop before restart")
+            self._capture_running = True
+            self._left_stop = threading.Event()
+            self._right_stop = threading.Event()
+            self._left_thread = self.start_single_thread("left", left_camera, self._left_stop)
+            self._right_thread = self.start_single_thread("right", right_camera, self._right_stop)
 
     def start_single_thread(
         self, label: str, camera: CameraDevice, stop_event: threading.Event
@@ -119,45 +113,65 @@ class CameraFrameRouter:
         Returns:
             The started thread
         """
-        thread = threading.Thread(
-            target=self._capture_loop,
-            args=(label, camera, stop_event),
-            name=f"Capture-{label}",
-            daemon=True,
-        )
-        thread.start()
-        return thread
+        with self._threads_lock:
+            previous = self.get_thread(label)
+            if not self._capture_running or (previous is not None and previous.is_alive()):
+                raise CameraConnectionError(f"Cannot restart {label} capture until the previous reader stops")
+            thread = threading.Thread(
+                target=self._capture_loop,
+                args=(label, camera, stop_event),
+                name=f"Capture-{label}",
+                daemon=True,
+            )
+            self.set_thread(label, thread)
+            thread.start()
+            return thread
 
-    def stop(self) -> None:
-        """Signal all loops to stop and join threads."""
-        self._capture_running = False
-        self._left_stop.set()
-        self._right_stop.set()
+    def request_stop(self) -> None:
+        """Fence new reader starts before waiting for native operations."""
+        with self._threads_lock:
+            self._capture_running = False
+            self._left_stop.set()
+            self._right_stop.set()
 
-        for label, thread in [("left", self._left_thread), ("right", self._right_thread)]:
-            if thread is not None:
-                try:
-                    thread.join(timeout=1.0)
-                    if thread.is_alive():
-                        logger.warning(f"{label.capitalize()} capture thread did not stop within timeout")
-                except Exception as exc:
-                    logger.warning(f"Error joining {label} capture thread: {exc}")
-
-        self._left_thread = None
-        self._right_thread = None
+    def stop(self, timeout: float = 1.0) -> bool:
+        """Join readers while retaining ownership of any timed-out thread."""
+        self.request_stop()
+        deadline = time.monotonic() + timeout
+        stopped = True
+        for label in ("left", "right"):
+            thread = self.get_thread(label)
+            if thread is None:
+                continue
+            if thread is threading.current_thread():
+                stopped = False
+                continue
+            try:
+                thread.join(timeout=max(0.0, deadline - time.monotonic()))
+            except RuntimeError:
+                # A thread whose start failed never acquired a native reader.
+                if thread.ident is not None:
+                    raise
+            if thread.is_alive():
+                stopped = False
+                logger.warning("%s capture thread is still stopping; resources remain owned", label)
+            else:
+                with self._threads_lock:
+                    if self.get_thread(label) is thread:
+                        self.set_thread(label, None)
+        return stopped
 
     def get_thread(self, label: str) -> Optional[threading.Thread]:
-        """Get the thread for a camera label."""
-        if label == "left":
-            return self._left_thread
-        return self._right_thread
+        """Get the owned reader, including one still stopping after a timeout."""
+        with self._threads_lock:
+            return self._left_thread if label == "left" else self._right_thread
 
     def set_thread(self, label: str, thread: Optional[threading.Thread]) -> None:
-        """Set the thread reference for a camera label."""
-        if label == "left":
-            self._left_thread = thread
-        else:
-            self._right_thread = thread
+        with self._threads_lock:
+            if label == "left":
+                self._left_thread = thread
+            else:
+                self._right_thread = thread
 
     def _capture_loop(
         self, label: str, camera: CameraDevice, stop_event: threading.Event
@@ -176,6 +190,8 @@ class CameraFrameRouter:
         while self._capture_running and not stop_event.is_set():
             try:
                 frame = camera.read_frame(timeout_ms=200)
+                if stop_event.is_set() or not self._capture_running:
+                    break
 
                 consecutive_failures = 0
                 last_frame_time = time.monotonic()

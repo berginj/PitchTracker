@@ -8,7 +8,6 @@ window stays focused on role selection and under the file-length cap.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from loguru import logger
 from PySide6 import QtCore, QtWidgets
@@ -34,17 +33,21 @@ class LauncherUpdateController(QtCore.QObject):
         self._silent_update_thread: SilentUpdateThread | None = None
         self._pending_installer = None
         self._closing = False
+        self._manual_dialog: QtWidgets.QDialog | None = None
 
     def begin_shutdown(self) -> bool:
         """Prevent new work and retain active Qt workers until they finish."""
         self._closing = True
+        if self._manual_dialog is not None:
+            self._manual_dialog.reject()
         for thread in (self._update_thread, self._silent_update_thread):
             if thread is not None:
                 thread.requestInterruption()
         return not self._has_active_workers()
 
     def _has_active_workers(self) -> bool:
-        return self._update_thread is not None or self._silent_update_thread is not None
+        return (self._update_thread is not None or self._silent_update_thread is not None
+                or self._manual_dialog is not None)
 
     def check_for_updates(self) -> None:
         """Check for updates in a background worker thread (non-blocking)."""
@@ -116,7 +119,13 @@ class LauncherUpdateController(QtCore.QObject):
         from ui.update_dialog import UpdateDialog
 
         dialog = UpdateDialog(update_info, parent=self._window)
-        dialog.exec()
+        self._manual_dialog = dialog
+        try:
+            dialog.exec()
+        finally:
+            self._manual_dialog = None
+            dialog.deleteLater()
+            self._on_worker_finished()
 
     def _start_silent_update(self, update_info: dict) -> None:
         """Download + SHA-256-verify the update in the background, then install."""
@@ -143,7 +152,8 @@ class LauncherUpdateController(QtCore.QObject):
     def _is_version_skipped(version: str) -> bool:
         """Return True if the user previously chose to skip this version."""
         try:
-            settings_file = Path("configs") / "update_settings.json"
+            from updater import UPDATE_SETTINGS_PATH
+            settings_file = UPDATE_SETTINGS_PATH
             if not settings_file.exists():
                 return False
 

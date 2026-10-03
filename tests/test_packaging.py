@@ -19,7 +19,9 @@ def test_launcher_spec_does_not_bundle_runtime_local_config_state():
 def test_installer_only_adds_checked_in_config_yaml_directly():
     installer_text = (ROOT / "installer.iss").read_text(encoding="utf-8")
 
-    assert 'Source: "configs\\*.yaml"' in installer_text
+    assert 'Source: "configs\\default.yaml"' in installer_text
+    assert 'Source: "configs\\snapdragon.yaml"' in installer_text
+    assert 'Source: "configs\\*.yaml"' not in installer_text
     assert 'Source: "configs\\*"' not in installer_text
 
 
@@ -51,3 +53,16 @@ def test_local_installer_build_generates_checksum():
 
     assert "Get-FileHash" in script_text
     assert '".sha256"' in script_text or ".sha256" in script_text
+
+
+def test_installer_preserves_operator_data_and_uses_immutable_defaults():
+    installer_text = (ROOT / "installer.iss").read_text(encoding="utf-8")
+    assert "filesandordirs" not in installer_text
+    assert "CreateDir(" not in installer_text
+    assert "_internal\\defaults\\configs" in installer_text
+
+
+def test_gui_does_not_exclude_its_eager_matplotlib_dependency():
+    spec_text = (ROOT / "launcher.spec").read_text(encoding="utf-8")
+    assert "'matplotlib'," not in spec_text
+    assert "'defaults/configs'" in spec_text

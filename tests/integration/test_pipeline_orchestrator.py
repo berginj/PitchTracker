@@ -178,8 +178,10 @@ class TestPipelineOrchestratorRecording:
         detection.set_session_id.side_effect = lambda value: session_ids.__setitem__("detection", value)
 
         def start_detection():
+            assert order == ["analysis", "recording"]
             order.append("detection")
             assert orchestrator._event_coordinator._session_id == "bullpen"
+            assert orchestrator._event_coordinator._tracking_enabled
             assert session_ids == {"capture": "bullpen", "detection": "bullpen"}
 
         def start_analysis(*, session_id):
@@ -188,6 +190,7 @@ class TestPipelineOrchestratorRecording:
             assert orchestrator._event_coordinator._session_id == "bullpen"
 
         def start_session(**kwargs):
+            assert not orchestrator._event_coordinator._tracking_enabled
             order.append("recording")
             assert kwargs["session_name"] == "bullpen"
             assert orchestrator._event_coordinator._session_id == "bullpen"
@@ -198,7 +201,7 @@ class TestPipelineOrchestratorRecording:
         recording.start_session.side_effect = start_session
 
         assert orchestrator.start_recording(session_name="bullpen") == ""
-        assert order == ["detection", "analysis", "recording"]
+        assert order == ["analysis", "recording", "detection"]
 
     def test_start_failure_stops_new_producers_before_clearing_session_ids(self):
         orchestrator = PipelineOrchestrator(backend="sim")
@@ -224,12 +227,12 @@ class TestPipelineOrchestratorRecording:
             orchestrator.start_recording(session_name="rollback")
 
         stop_analysis = order.index("stop-analysis")
-        stop_detection = order.index("stop-detection")
         clear_capture = order.index("capture-id:None")
         clear_detection = order.index("detection-id:None")
         assert stop_analysis < clear_capture
-        assert stop_detection < clear_capture
-        assert stop_detection < clear_detection
+        assert stop_analysis < clear_detection
+        detection.start_detection.assert_not_called()
+        detection.stop_detection.assert_not_called()
         assert orchestrator._event_coordinator._session_id is None
         assert orchestrator._detection_started is False
 

@@ -11,6 +11,8 @@ import re
 import ssl
 import subprocess
 import tempfile
+from concurrent.futures import CancelledError
+from threading import Event
 from pathlib import Path
 from collections.abc import Callable
 from typing import Any, Optional
@@ -18,6 +20,7 @@ from urllib.error import URLError
 from urllib.request import urlopen
 
 from loguru import logger
+from app.runtime_paths import state_root
 
 # Version information
 CURRENT_VERSION = "2.0.0"  # Stereo-foundation rebuild release (June 2026)
@@ -31,7 +34,7 @@ def _default_ssl_context() -> ssl.SSLContext:
 
 
 # Persisted update preferences (auto-update toggle, skipped version, etc.)
-UPDATE_SETTINGS_PATH = Path("configs") / "update_settings.json"
+UPDATE_SETTINGS_PATH = state_root() / "configs" / "update_settings.json"
 
 
 def _read_update_settings() -> dict[str, Any]:
@@ -49,7 +52,7 @@ def _read_update_settings() -> dict[str, Any]:
 def _write_update_settings(settings: dict[str, Any]) -> None:
     """Persist update settings to disk."""
     try:
-        UPDATE_SETTINGS_PATH.parent.mkdir(exist_ok=True)
+        UPDATE_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(UPDATE_SETTINGS_PATH, "w") as f:
             json.dump(settings, f, indent=2)
     except Exception:
@@ -246,6 +249,7 @@ def download_update(
     progress_callback: Optional[Callable[[int, int], None]] = None,
     expected_sha256: Optional[str] = None,
     require_checksum: bool = True,
+    cancel_event: Event | None = None,
 ) -> Optional[Path]:
     """Download update installer with optional integrity verification.
 
@@ -263,6 +267,11 @@ def download_update(
         Path to downloaded file, or None if download or verification failed
     """
     try:
+        if cancel_event is not None and cancel_event.is_set():
+            return None
+        if require_checksum and not expected_sha256:
+            logger.error("No SHA-256 checksum available; refusing update download")
+            return None
         # Use temp file if no destination specified
         if dest_path is None:
             temp_file = tempfile.NamedTemporaryFile(
@@ -282,6 +291,8 @@ def download_update(
             with open(dest_path, "wb") as f:
                 chunk_size = 8192
                 while True:
+                    if cancel_event is not None and cancel_event.is_set():
+                        raise CancelledError("Update download cancelled")
                     chunk = response.read(chunk_size)
                     if not chunk:
                         break
@@ -292,6 +303,8 @@ def download_update(
                     if progress_callback:
                         progress_callback(bytes_downloaded, total_size)
 
+        if cancel_event is not None and cancel_event.is_set():
+            raise CancelledError("Update download cancelled")
         logger.info(f"Update downloaded: {dest_path} ({bytes_downloaded} bytes)")
 
         # Verify integrity if checksum provided
@@ -302,18 +315,16 @@ def download_update(
                 logger.error("SHA-256 verification FAILED — download may be corrupted or tampered")
                 dest_path.unlink(missing_ok=True)
                 return None
-        elif require_checksum:
-            logger.error(
-                "No SHA-256 checksum available for this release — refusing to launch an "
-                "unverified installer. Download the update manually from GitHub releases."
-            )
-            dest_path.unlink(missing_ok=True)
-            return None
         else:
             logger.warning("No SHA-256 checksum available — skipping integrity verification")
 
         return dest_path
 
+    except CancelledError:
+        logger.info("Update download cancelled")
+        if dest_path is not None:
+            dest_path.unlink(missing_ok=True)
+        return None
     except Exception as e:
         logger.error(f"Download failed: {e}", exc_info=True)
         if dest_path and dest_path.exists():

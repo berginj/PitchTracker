@@ -17,6 +17,7 @@ Write-Host ""
 # Get script directory
 $ScriptDir = $PSScriptRoot
 Set-Location $ScriptDir
+. (Join-Path $ScriptDir "scripts\installer_artifact.ps1")
 
 # Check for required tools
 function Test-Command {
@@ -34,14 +35,13 @@ if (-not $SkipPyInstaller) {
     $pythonVersion = python --version 2>&1
     Write-Host "✓ Found: $pythonVersion" -ForegroundColor Green
 
-    try {
-        python -c "import PyInstaller" 2>&1 | Out-Null
-        Write-Host "✓ PyInstaller is installed" -ForegroundColor Green
-    } catch {
+    python -c "import PyInstaller" 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
         Write-Host "ERROR: PyInstaller not installed" -ForegroundColor Red
         Write-Host "Install with: pip install pyinstaller" -ForegroundColor Yellow
         exit 1
     }
+    Write-Host "✓ PyInstaller is installed" -ForegroundColor Green
 }
 
 # Check Inno Setup
@@ -63,9 +63,17 @@ if ($Clean) {
 
     $DirsToClean = @("build", "dist", "installer_output")
     foreach ($dir in $DirsToClean) {
-        if (Test-Path $dir) {
+        $target = [System.IO.Path]::GetFullPath((Join-Path $ScriptDir $dir))
+        $workspacePrefix = $ScriptDir.TrimEnd('\') + '\'
+        if (-not $target.StartsWith($workspacePrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing cleanup outside the build workspace: $target"
+        }
+        if (Test-Path -LiteralPath $target) {
+            if ((Get-Item -LiteralPath $target).LinkType) {
+                throw "Refusing recursive cleanup of linked build directory: $target"
+            }
             Write-Host "  Removing $dir/" -ForegroundColor Gray
-            Remove-Item -Path $dir -Recurse -Force
+            Remove-Item -LiteralPath $target -Recurse -Force
         }
     }
 
@@ -143,18 +151,15 @@ if (-not $SkipInnoSetup) {
     $elapsedTime = (Get-Date) - $startTime
     Write-Host "  ✓ Installer build complete ($($elapsedTime.TotalSeconds.ToString('0.0'))s)" -ForegroundColor Green
 
-    # Check output
-    $installerFiles = Get-ChildItem "installer_output\*.exe"
-    if ($installerFiles.Count -eq 0) {
-        Write-Host "ERROR: Installer not found in installer_output/" -ForegroundColor Red
-        exit 1
-    }
-
-    $installerPath = $installerFiles[0].FullName
-    $installerSize = $installerFiles[0].Length / 1MB
+    # Bind checksum/reporting to this compiler's exact expected output, not an
+    # arbitrary old executable retained in installer_output.
+    $installerFile = Get-FreshInstallerArtifact -DefinitionPath (Join-Path $ScriptDir "installer.iss") `
+        -OutputDirectory (Join-Path $ScriptDir "installer_output") -BuiltAfter $startTime
+    $installerPath = $installerFile.FullName
+    $installerSize = $installerFile.Length / 1MB
     $installerHash = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
     $checksumPath = "$installerPath.sha256"
-    "$installerHash  $($installerFiles[0].Name)" | Set-Content -LiteralPath $checksumPath -Encoding ascii
+    "$installerHash  $($installerFile.Name)" | Set-Content -LiteralPath $checksumPath -Encoding ascii
 
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan

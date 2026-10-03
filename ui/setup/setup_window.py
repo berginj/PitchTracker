@@ -215,10 +215,6 @@ class SetupWindow(QtWidgets.QMainWindow):
 
         return nav_layout
 
-    def _current_step(self) -> WizardStep:
-        """The machine's current wizard step."""
-        return self._machine.current
-
     def _current_widget(self) -> BaseStep:
         """The widget for the machine's current step."""
         return self._widget_by_step[self._machine.current]

@@ -26,6 +26,8 @@ def lifecycle_parts():
     factory = MagicMock(spec=CameraBackendFactory)
     factory.backend = "sim"
     router = CameraFrameRouter()
+    router._capture_running = True
+    router.start_single_thread = MagicMock(return_value=MagicMock())
     lock = threading.Lock()
     lifecycle = CameraLifecycleManager(factory, router, lock)
     return lifecycle, factory, router

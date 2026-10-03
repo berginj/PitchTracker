@@ -29,6 +29,13 @@ class EvidencePackageWriter:
         with self._lock:
             self._streams.setdefault(stream, []).append(dict(payload))
 
+    def set_singleton(self, stream: str, payload: dict[str, Any]) -> None:
+        """Replace one terminal record so persistence retries remain idempotent."""
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", stream):
+            raise ValueError(f"invalid evidence stream name: {stream!r}")
+        with self._lock:
+            self._streams[stream] = [dict(payload)]
+
     def write(self) -> Path:
         # Serialize complete package generations. Stream files are immutable and
         # content-addressed; the manifest is replaced last, so a concurrent

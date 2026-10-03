@@ -45,7 +45,7 @@ class CameraDiscoveryMixin(BaseStep):
         if not hasattr(self, "_loading_frame"):
             from ui.themes.dialog_helpers import build_loading_indicator
 
-            self._loading_frame, self._loading_label, self._loading_bar = build_loading_indicator(
+            self._loading_frame, _, self._loading_bar = build_loading_indicator(
                 "Probing USB devices...", self
             )
             self._loading_bar.setRange(0, 0)

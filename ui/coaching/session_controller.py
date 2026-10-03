@@ -11,7 +11,7 @@ import threading
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
-from PySide6 import QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from configs.app_state import load_state, save_state
 from ui.coaching.settings_workflow import SettingsWorkflow
@@ -27,11 +27,12 @@ class SessionController:
     """Encapsulates session lifecycle logic for the coaching window.
 
     This is a mixin-style helper that operates on CoachWindow state via
-    a reference to the host window.  It holds no independent state.
+    a reference to the host window and tracks deferred close requests.
     """
 
     def __init__(self, host: "CoachWindow") -> None:
         self._host = host
+        self._close_pending = False
         self._settings = SettingsWorkflow(host)
 
     # ------------------------------------------------------------------
@@ -40,6 +41,8 @@ class SessionController:
 
     def warm_camera_cache_async(self) -> None:
         """Proactively warm camera cache in background thread."""
+        if self._host._backend == "sim":
+            return
 
         def _warm_cache():
             try:
@@ -382,7 +385,7 @@ class SessionController:
         h._preview_timer.stop()
         h._metrics_timer.stop()
 
-        if h._session_active:
+        if h._session_active and not self._close_pending:
             reply = show_choice_dialog(
                 h,
                 "Session Active",
@@ -408,13 +411,19 @@ class SessionController:
                 try:
                     h._service.stop_recording()
                 except Exception:
-                    pass
+                    logger.exception("Recording stop still pending; coaching shutdown will retry")
 
+        self._close_pending = True
         try:
             h._service.shutdown()
         except Exception:
-            logger.exception("Failed to shut down coaching pipeline cleanly")
+            logger.exception("Coaching pipeline still stopping; retaining the window for retry")
+            h._status_label.setText("Waiting for camera and recording workers to stop; close will retry.")
+            event.ignore()
+            QtCore.QTimer.singleShot(250, h.close)
+            return
 
+        self._close_pending = False
         event.accept()
 
     def open_review_mode(self) -> None:

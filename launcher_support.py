@@ -3,9 +3,17 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import sys
 from pathlib import Path
+
+
+def ensure_project_root_on_sys_path(project_root: Path) -> None:
+    """Insert the project root once, normalized for Windows path casing."""
+    normalized_root = os.path.normcase(str(project_root))
+    if not any(os.path.normcase(entry) == normalized_root for entry in sys.path):
+        sys.path.insert(0, str(project_root))
 
 
 def clear_python_cache(verbose: bool = False, clear_memory: bool = True) -> None:

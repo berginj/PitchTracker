@@ -37,7 +37,7 @@ class EventHandlersMixin(RecordingServiceState):
     ) -> None:
         """Handle ObservationDetectedEvent from EventBus."""
         try:
-            if self._pitch_active:
+            if self._pitch_active and not self._inputs_suspended:
                 self.record_observation(event.observation)
         except Exception as e:
             logger.error(f"Error recording observation: {e}", exc_info=True)
@@ -91,6 +91,7 @@ class EventHandlersMixin(RecordingServiceState):
         try:
             logger.debug("PitchEndEvent received for %s", event.pitch_id)
             with self._lock:
+                self._pitch_end_in_progress.add(event.pitch_id)
                 lifecycle = self._pitch_lifecycle_metadata.get(event.pitch_id)
                 if lifecycle is not None:
                     lifecycle["pitch_end"] = event.metadata.to_dict()
@@ -108,6 +109,12 @@ class EventHandlersMixin(RecordingServiceState):
                 recorder.end_pitch(event.timestamp_ns)
         except Exception as e:
             logger.error(f"Error handling pitch end: {e}", exc_info=True)
+        finally:
+            with self._lock:
+                self._pitch_end_in_progress.discard(event.pitch_id)
+                pending = self._pending_analysis_events.get(event.pitch_id)
+            if pending is not None:
+                self._on_pitch_analyzed(pending)
 
     def _on_pitch_analyzed(self: "RecordingServiceState", event: PitchAnalyzedEvent) -> None:
         """Handle PitchAnalyzedEvent from EventBus."""
@@ -118,7 +125,13 @@ class EventHandlersMixin(RecordingServiceState):
                     recorder = self._pitch_recorder
                 if recorder is None:
                     recorder = self._completed_pitch_recorders.get(event.pitch_id)
-                lifecycle = self._pitch_lifecycle_metadata.pop(event.pitch_id, {})
+                lifecycle = dict(self._pitch_lifecycle_metadata.get(event.pitch_id, {}))
+                if recorder is not None:
+                    self._pending_analysis_events[event.pitch_id] = event
+                if event.pitch_id in self._pitch_end_in_progress or (
+                    "pitch_start" in lifecycle and "pitch_end" not in lifecycle
+                ):
+                    return
 
             if recorder is None:
                 logger.warning(
@@ -136,8 +149,20 @@ class EventHandlersMixin(RecordingServiceState):
 
             with self._lock:
                 self._completed_pitch_recorders.pop(event.pitch_id, None)
+                self._pending_analysis_events.pop(event.pitch_id, None)
+                self._pitch_lifecycle_metadata.pop(event.pitch_id, None)
         except Exception as e:
             logger.error(f"Error writing pitch manifest: {e}", exc_info=True)
+
+    def retry_terminal_manifests(self: "RecordingServiceState") -> None:
+        """Retry retained terminal results before discarding any session state."""
+        with self._lock:
+            pending = list(self._pending_analysis_events.values())
+        for event in pending:
+            self._on_pitch_analyzed(event)
+        with self._lock:
+            if self._pending_analysis_events:
+                raise RuntimeError("Pitch manifests are still pending; retry session finalization")
 
     def _validate_lifecycle_metadata(
         self: "RecordingServiceState", pitch_id: str, lifecycle: Dict[str, dict]
@@ -177,7 +202,9 @@ class EventHandlersMixin(RecordingServiceState):
         self._event_bus.subscribe(ObservationDetectedEvent, self._on_observation_detected)
         self._event_bus.subscribe(PitchStartEvent, self._on_pitch_start)
         self._event_bus.subscribe(PitchEndEvent, self._on_pitch_end)
-        self._event_bus.subscribe(PitchAnalyzedEvent, self._on_pitch_analyzed)
+        if not self._analysis_subscribed:
+            self._event_bus.subscribe(PitchAnalyzedEvent, self._on_pitch_analyzed)
+            self._analysis_subscribed = True
         self._event_bus.subscribe(
             StereoFrameProcessedEvent, self._on_stereo_frame_processed
         )
@@ -193,8 +220,11 @@ class EventHandlersMixin(RecordingServiceState):
         self._subscribed = True
         logger.info("RecordingService subscribed to EventBus")
 
-    def _unsubscribe_from_events(self: "RecordingServiceState") -> None:
+    def _unsubscribe_from_events(self: "RecordingServiceState", *, keep_analysis: bool = False) -> None:
         """Unsubscribe from EventBus events."""
+        if self._analysis_subscribed and not keep_analysis:
+            self._event_bus.unsubscribe(PitchAnalyzedEvent, self._on_pitch_analyzed)
+            self._analysis_subscribed = False
         if not self._subscribed:
             return
 
@@ -204,7 +234,6 @@ class EventHandlersMixin(RecordingServiceState):
         )
         self._event_bus.unsubscribe(PitchStartEvent, self._on_pitch_start)
         self._event_bus.unsubscribe(PitchEndEvent, self._on_pitch_end)
-        self._event_bus.unsubscribe(PitchAnalyzedEvent, self._on_pitch_analyzed)
         self._event_bus.unsubscribe(
             StereoFrameProcessedEvent, self._on_stereo_frame_processed
         )

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 from typing import Optional
 
 from loguru import logger
+from app.runtime_paths import state_root
 
 # Remove default handler
 logger.remove()
@@ -20,8 +20,8 @@ logger.add(
 )
 
 # Add file handler with rotation
-logs_dir = Path("logs")
-logs_dir.mkdir(exist_ok=True)
+logs_dir = state_root() / "logs"
+logs_dir.mkdir(parents=True, exist_ok=True)
 
 logger.add(
     logs_dir / "pitchtracker_{time}.log",

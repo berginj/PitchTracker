@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import threading
-import time
 from pathlib import Path
+
+import pytest
 
 from app.events.event_types import (
     FrameProcessingOpportunityEvent,
@@ -16,6 +17,7 @@ from app.pipeline.recording.evidence_journal import SessionEvidenceJournal, load
 from app.pipeline.replay.decision_replay import reconcile_decision_journal
 from configs.settings import load_config
 from contracts import Detection, Frame
+from exceptions import DetectionError
 from contracts.evidence import PairingOutcomeEvidence
 from stereo.association import StereoMatch, StereoMatcher
 from stereo.global_assignment import evaluate_stereo_assignment
@@ -78,9 +80,12 @@ def test_frame_conservation_covers_queue_eviction_and_stop_cancellation() -> Non
     assert entered.wait(timeout=1.0)
     pool.enqueue_frame("left", _frame("left", 2))
     pool.enqueue_frame("left", _frame("left", 3))
-    pool.stop()
-    release.set()
-    time.sleep(0.05)
+    try:
+        with pytest.raises(DetectionError, match="still stopping"):
+            pool.stop(timeout=0.01)
+    finally:
+        release.set()
+        pool.stop()
 
     stats = pool.get_runtime_stats()["frame_conservation"]
     assert len(opportunities) == 3

@@ -21,7 +21,9 @@ DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 OutputDir=installer_output
 OutputBaseFilename=PitchTracker-Setup-v{#AppVersion}-{#ReleaseTag}
+#if FileExists("assets\icon.ico")
 SetupIconFile=assets\icon.ico
+#endif
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -55,7 +57,10 @@ Source: "dist\PitchTracker\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversio
 Source: "dist\PitchTracker\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Config and assets
-Source: "configs\*.yaml"; DestDir: "{app}\configs"; Flags: ignoreversion confirmoverwrite
+; Runtime defaults are immutable resources; the application seeds per-user
+; copies without overwriting operator settings.
+Source: "configs\default.yaml"; DestDir: "{app}\_internal\defaults\configs"; Flags: ignoreversion
+Source: "configs\snapdragon.yaml"; DestDir: "{app}\_internal\defaults\configs"; Flags: ignoreversion
 Source: "assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs; Attribs: readonly
 
 ; Documentation
@@ -70,12 +75,8 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
-[UninstallDelete]
-Type: filesandordirs; Name: "{app}\data"
-Type: filesandordirs; Name: "{app}\logs"
-Type: filesandordirs; Name: "{app}\calibration"
-Type: filesandordirs; Name: "{app}\rois"
-Type: filesandordirs; Name: "{app}\__pycache__"
+; Operator data in LOCALAPPDATA and legacy runtime directories is retained.
+; Removing it is a separate, explicit operator action.
 
 [Code]
 function InitializeSetup(): Boolean;
@@ -97,15 +98,3 @@ begin
   Result := True;
 end;
 
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if CurStep = ssPostInstall then
-  begin
-    // Create directories for user data
-    CreateDir(ExpandConstant('{app}\data'));
-    CreateDir(ExpandConstant('{app}\data\sessions'));
-    CreateDir(ExpandConstant('{app}\logs'));
-    CreateDir(ExpandConstant('{app}\calibration'));
-    CreateDir(ExpandConstant('{app}\rois'));
-  end;
-end;

@@ -26,6 +26,7 @@ from app.services.capture.interface import (
 )
 from configs.settings import AppConfig
 from contracts import Frame
+from exceptions import CameraConnectionError
 from log_config.logger import get_logger
 
 logger = get_logger(__name__)
@@ -62,6 +63,8 @@ class CaptureServiceImpl(CaptureService):
         self._event_bus = event_bus
         self._backend = backend
         self._lock = threading.Lock()
+        self._lifecycle_lock = threading.RLock()
+        self._stopping = False
 
         # Camera manager
         self._initializer = PipelineInitializer()
@@ -102,38 +105,45 @@ class CaptureServiceImpl(CaptureService):
             CameraConnectionError: If cameras cannot be opened
             CameraConfigurationError: If camera settings are invalid
         """
-        with self._lock:
-            if self._capturing:
-                raise RuntimeError("Capture already started")
-
-            self._config = config
-            self._config_path = config_path
-
-            # Start camera manager
-            self._camera_mgr.start_capture(config, left_serial, right_serial)
-
-            # Set camera state callback if any registered
-            if self._state_callbacks:
-                self._camera_mgr.set_camera_state_callback(self._on_camera_state_changed_internal)
-
-            self._capturing = True
+        with self._lifecycle_lock:
+            with self._lock:
+                if self._stopping:
+                    raise CameraConnectionError("Capture is still stopping; retry stop before restart")
+                if self._capturing:
+                    raise RuntimeError("Capture already started")
+                self._config = config
+                self._config_path = config_path
+            try:
+                self._camera_mgr.start_capture(config, left_serial, right_serial)
+            except Exception:
+                try:
+                    self._camera_mgr.stop_capture()
+                except CameraConnectionError:
+                    with self._lock:
+                        self._capturing = True
+                        self._stopping = True
+                    logger.exception("Partial capture remains owned; retry stop before restart")
+                raise
+            with self._lock:
+                if self._state_callbacks:
+                    self._camera_mgr.set_camera_state_callback(self._on_camera_state_changed_internal)
+                self._capturing = True
             logger.info(f"Capture started: left={left_serial}, right={right_serial}")
 
     def stop_capture(self) -> None:
-        """Stop capturing and release camera resources.
-
-        Thread-Safe: Can be called from any thread.
-        Idempotent: Safe to call multiple times.
-        """
-        with self._lock:
-            if not self._capturing:
-                return
-
+        """Bounded, retryable stop without holding the frame-callback lock."""
+        with self._lifecycle_lock:
+            with self._lock:
+                if not self._capturing and not self._stopping:
+                    return
+                self._stopping = True
+            # Native joins and camera close must never hold the callback lock.
             self._camera_mgr.stop_capture()
-            self._capturing = False
-            self._config = None
-            self._config_path = None
-
+            with self._lock:
+                self._capturing = False
+                self._stopping = False
+                self._config = None
+                self._config_path = None
             logger.info("Capture stopped")
 
     def get_preview_frames(self) -> Tuple[Frame, Frame]:
@@ -243,7 +253,11 @@ class CaptureServiceImpl(CaptureService):
         """
         try:
             # Publish to EventBus (PRIMARY path for event-driven architecture)
-            sid = self._session_id
+            with self._lock:
+                if self._stopping:
+                    return
+                sid = self._session_id
+                callbacks = list(self._frame_callbacks)
             event = FrameCapturedEvent(
                 camera_id=camera_id,
                 frame=frame,
@@ -261,8 +275,6 @@ class CaptureServiceImpl(CaptureService):
             # Invoke registered callbacks (for backward compatibility).
             # Copy the list under the lock so concurrent on_frame_captured()
             # registration can't mutate it mid-iteration on this thread.
-            with self._lock:
-                callbacks = list(self._frame_callbacks)
             for callback in callbacks:
                 try:
                     callback(camera_id, frame)
@@ -284,7 +296,9 @@ class CaptureServiceImpl(CaptureService):
         Note: Called from reconnection thread
         """
         try:
-            for callback in self._state_callbacks:
+            with self._lock:
+                callbacks = list(self._state_callbacks)
+            for callback in callbacks:
                 try:
                     callback(camera_id, state)
                 except Exception as e:

@@ -16,6 +16,7 @@ from app.pipeline.detection.threading_queue import DetectionQueueMixin
 from app.pipeline.detection.threading_stats import DetectionStatsMixin
 from app.pipeline.detection.threading_workers import DetectionWorkerMixin
 from contracts import Detection, Frame
+from exceptions import DetectionError
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ class DetectionThreadPool(DetectionQueueMixin, DetectionWorkerMixin, DetectionSt
 
         # Threading state
         self._detection_running = False
+        self._lifecycle_lock = threading.RLock()
         self._detector_threads: List[threading.Thread] = []
         self._worker_threads: List[threading.Thread] = []
         self._stereo_thread: Optional[threading.Thread] = None
@@ -135,6 +137,17 @@ class DetectionThreadPool(DetectionQueueMixin, DetectionWorkerMixin, DetectionSt
         self._frame_outcome_callback = outcome_callback
 
     def start(self, queue_size: int = 6) -> None:
+        """Reject restart while an earlier detector or result callback is live."""
+        with self._lifecycle_lock:
+            if not self._detection_running and any(thread.is_alive() for thread in self._owned_threads()):
+                raise DetectionError("Detection workers are still stopping; retry stop before restart")
+            self._start(queue_size)
+
+    def _owned_threads(self) -> list[threading.Thread]:
+        return [*self._detector_threads, *self._worker_threads,
+                *([] if self._stereo_thread is None else [self._stereo_thread])]
+
+    def _start(self, queue_size: int = 6) -> None:
         """Start detection threads.
 
         Args:
@@ -193,27 +206,28 @@ class DetectionThreadPool(DetectionQueueMixin, DetectionWorkerMixin, DetectionSt
                 self._worker_threads.append(thread)
                 thread.start()
 
-    def stop(self) -> None:
-        """Stop all detection threads."""
-        self._detection_running = False
-
-        for thread in self._detector_threads:
-            thread.join(timeout=1.0)
-        for thread in self._worker_threads:
-            thread.join(timeout=1.0)
-        if self._stereo_thread is not None:
-            self._stereo_thread.join(timeout=1.0)
-
-        # A driver/detector callback can outlive the bounded join. Close every
-        # remaining opportunity exactly once; a late callback is de-duplicated.
-        with self._detection_error_lock:
-            remaining = list(self._open_opportunities.values())
-        for work in remaining:
-            self._finish_opportunity(work, "CANCELLED_ON_STOP", reason_codes=("POOL_STOPPED",))
-
-        self._detector_threads = []
-        self._worker_threads = []
-        self._stereo_thread = None
+    def stop(self, timeout: float = 1.0) -> None:
+        """Cancel work while retaining live callbacks for bounded stop retries."""
+        with self._lifecycle_lock:
+            self._detection_running = False
+            deadline = time.monotonic() + timeout
+            for thread in self._owned_threads():
+                if thread is not threading.current_thread():
+                    try:
+                        thread.join(timeout=max(0.0, deadline - time.monotonic()))
+                    except RuntimeError:
+                        if thread.ident is not None:
+                            raise
+            with self._detection_error_lock:
+                remaining = list(self._open_opportunities.values())
+            for work in remaining:
+                self._finish_opportunity(work, "CANCELLED_ON_STOP", reason_codes=("POOL_STOPPED",))
+            self._detector_threads = [thread for thread in self._detector_threads if thread.is_alive()]
+            self._worker_threads = [thread for thread in self._worker_threads if thread.is_alive()]
+            if self._stereo_thread is not None and not self._stereo_thread.is_alive():
+                self._stereo_thread = None
+            if self._owned_threads():
+                raise DetectionError("Detection workers are still stopping; retry stop before restart")
 
     def enqueue_frame(self, label: str, frame: Frame) -> None:
         """Enqueue frame for detection.

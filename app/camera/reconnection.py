@@ -8,6 +8,7 @@ import time
 from enum import Enum
 from typing import Callable, Optional
 
+from exceptions import CameraConnectionError
 from app.events import ErrorCategory, ErrorSeverity, publish_error
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,7 @@ class CameraReconnectionManager:
         self._camera_states: dict[str, CameraState] = {}
         self._reconnect_attempts: dict[str, int] = {}
         self._reconnect_threads: dict[str, threading.Thread] = {}
+        self._cancel_events: dict[str, threading.Event] = {}
         self._lock = threading.Lock()
 
         # Callbacks
@@ -80,6 +82,10 @@ class CameraReconnectionManager:
         """
         with self._lock:
             if camera_id not in self._camera_states:
+                previous = self._reconnect_threads.get(camera_id)
+                if previous is not None and previous.is_alive():
+                    raise CameraConnectionError("Previous reconnect is still stopping; retry before registering")
+                self._cancel_events[camera_id] = threading.Event()
                 self._camera_states[camera_id] = CameraState.CONNECTED
                 self._reconnect_attempts[camera_id] = 0
                 logger.info(f"Registered camera for reconnection monitoring: {camera_id}")
@@ -91,15 +97,32 @@ class CameraReconnectionManager:
             camera_id: Camera identifier
         """
         with self._lock:
-            if camera_id in self._camera_states:
-                # Stop any ongoing reconnection
-                if camera_id in self._reconnect_threads:
-                    # Thread will stop on next iteration check
-                    del self._reconnect_threads[camera_id]
+            cancel = self._cancel_events.get(camera_id)
+            if cancel is not None:
+                cancel.set()
+            self._camera_states.pop(camera_id, None)
+            self._reconnect_attempts.pop(camera_id, None)
+            # Keep the live thread reference until its callback has returned.
+            logger.info("Unregistered camera from reconnection monitoring: %s", camera_id)
 
-                del self._camera_states[camera_id]
-                del self._reconnect_attempts[camera_id]
-                logger.info(f"Unregistered camera from reconnection monitoring: {camera_id}")
+    def wait_stopped(self, timeout: float = 1.0) -> bool:
+        """Bounded join for cancelled callbacks; timed-out ownership is retained."""
+        deadline = time.monotonic() + timeout
+        with self._lock:
+            threads = list(self._reconnect_threads.items())
+        stopped = True
+        for camera_id, thread in threads:
+            if thread is threading.current_thread():
+                stopped = False
+                continue
+            thread.join(max(0.0, deadline - time.monotonic()))
+            if thread.is_alive():
+                stopped = False
+            else:
+                with self._lock:
+                    if self._reconnect_threads.get(camera_id) is thread:
+                        self._reconnect_threads.pop(camera_id, None)
+        return stopped
 
     def report_disconnection(self, camera_id: str) -> None:
         """Report camera disconnection.
@@ -117,6 +140,8 @@ class CameraReconnectionManager:
                 return
 
             self._set_state(camera_id, CameraState.DISCONNECTED)
+            if camera_id not in self._camera_states:
+                return
             self._reconnect_attempts[camera_id] = 0
 
         # Publish error event
@@ -190,6 +215,9 @@ class CameraReconnectionManager:
             camera_id: Camera identifier
         """
         with self._lock:
+            cancel = self._cancel_events.get(camera_id)
+            if cancel is None or cancel.is_set() or camera_id not in self._camera_states:
+                return
             # Check if already reconnecting
             if camera_id in self._reconnect_threads:
                 thread = self._reconnect_threads[camera_id]
@@ -200,7 +228,7 @@ class CameraReconnectionManager:
             # Create reconnection thread
             thread = threading.Thread(
                 target=self._reconnection_loop,
-                args=(camera_id,),
+                args=(camera_id, cancel),
                 name=f"CameraReconnect-{camera_id}",
                 daemon=False,
             )
@@ -208,13 +236,13 @@ class CameraReconnectionManager:
             thread.start()
             logger.info(f"Started reconnection thread for camera {camera_id}")
 
-    def _reconnection_loop(self, camera_id: str) -> None:
+    def _reconnection_loop(self, camera_id: str, cancel: threading.Event) -> None:
         """Reconnection loop with exponential backoff.
 
         Args:
             camera_id: Camera identifier
         """
-        while True:
+        while not cancel.is_set():
             with self._lock:
                 # Check if still registered and disconnected
                 if camera_id not in self._camera_states:
@@ -249,7 +277,11 @@ class CameraReconnectionManager:
                 f"Attempting reconnection for camera {camera_id} "
                 f"(attempt {attempt + 1}/{self._max_attempts}) in {delay:.1f}s"
             )
-            time.sleep(delay)
+            if cancel.wait(delay):
+                break
+            with self._lock:
+                if cancel.is_set() or camera_id not in self._camera_states:
+                    break
 
             # Attempt reconnection
             if self._reconnect_callback:
@@ -258,7 +290,11 @@ class CameraReconnectionManager:
 
                     if success:
                         with self._lock:
+                            if cancel.is_set() or camera_id not in self._camera_states:
+                                break
                             self._set_state(camera_id, CameraState.CONNECTED)
+                            if cancel.is_set() or camera_id not in self._camera_states:
+                                break
                             self._reconnect_attempts[camera_id] = 0
 
                         publish_error(
@@ -278,7 +314,7 @@ class CameraReconnectionManager:
 
         # Cleanup thread reference
         with self._lock:
-            if camera_id in self._reconnect_threads:
+            if self._reconnect_threads.get(camera_id) is threading.current_thread():
                 del self._reconnect_threads[camera_id]
 
 

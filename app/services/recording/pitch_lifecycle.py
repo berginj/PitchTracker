@@ -146,13 +146,22 @@ class PitchLifecycleMixin(RecordingServiceState):
     ) -> Optional[Path]:
         """Close an already-detached recorder and retain it for analysis."""
         pitch_dir = recorder.get_pitch_dir()
-        recorder.close(force=False)
-
-        if pitch_id is not None and not (recorder.get_pitch_dir() / "manifest.json").exists():
+        # Retain ownership before closing.  Evidence flushes can fail after the
+        # active pitch has been detached; keeping the recorder makes the close
+        # retryable and preserves the terminal analysis handoff.
+        if pitch_id is not None:
             self._completed_pitch_recorders[pitch_id] = recorder
+        recorder.close(force=False)
 
         self._invoke_callback(
             "pitch_ended", json.dumps({"pitch_id": pitch_id, "pitch_dir": str(pitch_dir)})
         )
         logger.info(f"Pitch stopped: {pitch_id}")
         return Path(pitch_dir)
+
+    def retry_completed_pitch_closes(self: "RecordingServiceState") -> None:
+        """Retry evidence flushes for pitches whose close previously failed."""
+        with self._lock:
+            recorders = list(self._completed_pitch_recorders.values())
+        for recorder in recorders:
+            recorder.close(force=False)

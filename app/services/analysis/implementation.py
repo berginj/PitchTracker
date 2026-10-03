@@ -122,12 +122,14 @@ class AnalysisServiceImpl(AnalysisService):
     def pause_analysis(self) -> None:
         """Pause analysis without clearing accumulated session state."""
         with self._lock:
-            if not self._analysis_active or self._analysis_paused:
+            if not self._analysis_active:
                 return
 
             self._unsubscribe_from_events()
             self._analysis_paused = True
-            logger.info("Analysis paused")
+        if not self._analysis_worker.wait_idle(timeout=5.0):
+            raise RuntimeError("Analysis is still draining; retry session pause")
+        logger.info("Analysis paused")
 
     def resume_analysis(self) -> None:
         """Resume analysis for the current session."""

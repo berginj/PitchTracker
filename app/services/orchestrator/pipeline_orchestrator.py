@@ -18,7 +18,10 @@ from app.services.detection import DetectionServiceImpl
 from app.services.orchestrator.event_coordination import EventCoordinator
 from app.services.orchestrator.lifecycle import (
     shutdown_pipeline,
+    pause_recording_pipeline,
+    resume_recording_pipeline,
     start_capture_runtime,
+    stop_capture_runtime,
     stop_recording_pipeline,
 )
 from app.services.orchestrator.quality_diagnostics import (
@@ -69,9 +72,11 @@ class PipelineOrchestrator(PipelineService):
         self._runtime_roi_path: Optional[Path] = None
         self._runtime_calibration_report: Optional[dict] = None
         self._capturing = False
+        self._capture_stopping = False
         self._detection_started = False
         self._recording_active = False
         self._recording_paused = False
+        self._recording_stopping = False
 
     def start_capture(
         self,
@@ -84,6 +89,8 @@ class PipelineOrchestrator(PipelineService):
         with self._lock:
             if self._capturing:
                 raise RuntimeError("Capture already started")
+            if self._recording_active:
+                raise RuntimeError("Finish the owned recording session before restarting capture")
 
             self._left_serial = left_serial
             self._right_serial = right_serial
@@ -134,19 +141,7 @@ class PipelineOrchestrator(PipelineService):
     def stop_capture(self) -> None:
         """Stop capture on both cameras. Idempotent and thread-safe."""
         with self._lock:
-            if not self._capturing:
-                return
-
-            if self._capture_service is not None:
-                self._capture_service.stop_capture()
-
-            if self._detection_started and self._detection_service is not None:
-                self._detection_service.stop_detection()
-                self._detection_started = False
-
-            self._event_coordinator.unsubscribe()
-
-            self._capturing = False
+            stop_capture_runtime(self)
 
     def shutdown(self) -> None:
         """Stop all active work before the UI object is destroyed."""
@@ -174,6 +169,8 @@ class PipelineOrchestrator(PipelineService):
         with self._lock:
             if not self._capturing:
                 raise RuntimeError("Cannot start recording without capture")
+            if self._capture_stopping:
+                raise RuntimeError("Capture is still stopping; retry stop before recording")
             if self._recording_active:
                 raise RuntimeError("Recording already active")
             if self._recording_service is None:
@@ -183,7 +180,9 @@ class PipelineOrchestrator(PipelineService):
 
             session_id = session_name or "session"
             detection_started_here = analysis_started_here = False
+            recording_started_here = False
             try:
+                self._event_coordinator.suspend_tracking()
                 self._propagate_session_id(session_id)
                 if not self._detection_started and self._detection_service is not None:
                     self._detection_service.configure_detectors(
@@ -192,9 +191,6 @@ class PipelineOrchestrator(PipelineService):
                         detector_type="classical",
                     )
                     self._detection_service.configure_threading(mode="per_camera", worker_count=2)
-                    detection_started_here = True
-                    self._detection_service.start_detection()
-                    self._detection_started = True
 
                 if self._analysis_service is not None:
                     analysis_started_here = True
@@ -207,8 +203,21 @@ class PipelineOrchestrator(PipelineService):
                     pitch_id=pitch_id,
                     config_path=self._config_path,
                 )
+                recording_started_here = True
+                self._recording_active = True
+                self._event_coordinator.resume_tracking()
+                if not self._detection_started and self._detection_service is not None:
+                    detection_started_here = True
+                    self._detection_started = True
+                    self._detection_service.start_detection()
             except Exception:
-                if analysis_started_here and self._analysis_service is not None:
+                self._event_coordinator.suspend_tracking()
+                if recording_started_here:
+                    try:
+                        stop_recording_pipeline(self)
+                    except Exception:
+                        logger.exception("Roll back recording failed; session stop remains retryable")
+                elif analysis_started_here and self._analysis_service is not None:
                     try:
                         self._analysis_service.stop_analysis()
                     except Exception:
@@ -219,7 +228,8 @@ class PipelineOrchestrator(PipelineService):
                         self._detection_started = False
                     except Exception:
                         logger.exception("Roll back detection failed")
-                self._propagate_session_id(None)
+                if not self._recording_active:
+                    self._propagate_session_id(None)
                 raise
             self._recording_active = True
             self._recording_paused = False
@@ -253,37 +263,23 @@ class PipelineOrchestrator(PipelineService):
                 raise RuntimeError("Recording not active")
             if self._recording_paused:
                 return
-            if self._pitch_tracker is not None:
-                self._pitch_tracker.force_end()
-
-            if self._analysis_service is not None:
-                self._analysis_service.pause_analysis()
-
-            if self._detection_started and self._detection_service is not None:
-                self._detection_service.stop_detection()
-                self._detection_started = False
-
-            self._recording_service.pause_session()
-            self._recording_paused = True
+            if self._recording_stopping:
+                raise RuntimeError("Recording is still stopping; retry stop before pausing")
+            pause_recording_pipeline(self)
 
     def resume_recording(self) -> None:
         """Resume a paused recording session."""
         with self._lock:
             if not self._recording_active or self._recording_service is None:
                 raise RuntimeError("Recording not active")
+            if self._recording_stopping:
+                raise RuntimeError("Recording is still stopping; retry stop before resuming")
             if not self._recording_paused:
                 return
             if self._detection_service is None:
                 raise RuntimeError("Detection service not initialized")
 
-            self._recording_service.resume_session()
-
-            if self._analysis_service is not None:
-                self._analysis_service.resume_analysis()
-
-            self._detection_service.start_detection()
-            self._detection_started = True
-            self._recording_paused = False
+            resume_recording_pipeline(self)
 
     def is_recording_paused(self) -> bool:
         """Check if the current recording session is paused."""

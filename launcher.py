@@ -2,24 +2,18 @@
 """PitchTracker unified launcher - role selector entry point."""
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from app.runtime_paths import prepare_frozen_runtime, prepare_launcher_environment
 
+prepare_frozen_runtime()
 
-def _ensure_project_root_on_sys_path(project_root: Path) -> None:
-    """Insert the project root once, normalized for Windows path casing."""
-    normalized_root = os.path.normcase(str(project_root))
-    for entry in sys.path:
-        if os.path.normcase(entry) == normalized_root:
-            return
-    sys.path.insert(0, str(project_root))
+from PySide6 import QtCore, QtGui, QtWidgets  # noqa: E402
 
 
 from app.services.tooling import ToolingService, get_tooling_service  # noqa: E402
-from launcher_support import clear_python_cache  # noqa: E402
+from launcher_support import clear_python_cache, ensure_project_root_on_sys_path as _ensure_project_root_on_sys_path  # noqa: E402
 from launcher_threads import StartupValidationThread  # noqa: E402
 from launcher_updates import LauncherUpdateController  # noqa: E402
 from startup_validator import create_required_directories  # noqa: E402
@@ -31,7 +25,7 @@ from updater import (  # noqa: E402
     set_auto_update_enabled,
 )
 
-__all__ = ["LauncherWindow", "clear_python_cache", "main"]
+__all__ = ["LauncherWindow", "clear_python_cache", "main", "_ensure_project_root_on_sys_path"]
 
 
 class LauncherWindow(QtWidgets.QMainWindow):
@@ -39,7 +33,8 @@ class LauncherWindow(QtWidgets.QMainWindow):
 
     def __init__(self, startup_warnings: list[str] | None = None,
                  validation_service: ToolingService | None = None,
-                 backend: str = "uvc", config_path: Path | None = None):
+                 backend: str = "uvc", config_path: Path | None = None,
+                 background_tasks: bool = True):
         super().__init__()
         self._style_manager = get_style_manager()
         self._startup_warnings = list(startup_warnings or [])
@@ -56,9 +51,9 @@ class LauncherWindow(QtWidgets.QMainWindow):
         self.resize(800, 600)
         self._build_ui()
 
-        QtCore.QTimer.singleShot(0, self._start_environment_validation)
-        # Check for updates after a short delay (non-blocking)
-        QtCore.QTimer.singleShot(2000, self._update_controller.check_for_updates)
+        if background_tasks:
+            QtCore.QTimer.singleShot(0, self._start_environment_validation)
+            QtCore.QTimer.singleShot(2000, self._update_controller.check_for_updates)
 
     def _build_ui(self):
         """Build launcher UI."""
@@ -464,16 +459,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="PitchTracker role launcher.")
     parser.add_argument("--backend", choices=("uvc", "opencv", "sim"), default="uvc")
     parser.add_argument("--config", type=Path, default=None)
+    parser.add_argument("--gui-smoke-report", type=Path, default=None)
     args, _unknown = parser.parse_known_args(argv)
     return args
 
 
 def main(argv: list[str] | None = None):
     """Main entry point."""
-    project_root = Path(__file__).parent.resolve()
-    _ensure_project_root_on_sys_path(project_root)
-    os.chdir(project_root)
+    prepare_launcher_environment()
     args = parse_args(argv)
+    if args.gui_smoke_report:
+        from app.gui_smoke import run_gui_smoke
+        sys.exit(run_gui_smoke(args.gui_smoke_report))
     # Create required directories first
     create_required_directories()
 

@@ -29,6 +29,7 @@ from exceptions import (
 from .interface import ToolingService
 from .process_runner import run_cancellable_worker
 from app.worker_process import worker_command
+from app.runtime_paths import resource_root, state_root
 
 
 class SubprocessToolingService(ToolingService):
@@ -40,7 +41,7 @@ class SubprocessToolingService(ToolingService):
         project_root: Path | None = None,
     ) -> None:
         self._python_executable = python_executable or sys.executable
-        self._project_root = project_root or Path(__file__).resolve().parents[3]
+        self._project_root = project_root or (state_root() if getattr(sys, "frozen", False) else resource_root())
 
     def validate_environment(self) -> EnvironmentValidationResult:
         payload = self._run_task("validate_environment", {})

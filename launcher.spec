@@ -16,8 +16,8 @@ block_cipher = None
 # .first_run_done are generated on an operator machine and must not ship in the
 # installer.
 datas = [
-    ('configs/default.yaml', 'configs'),
-    ('configs/snapdragon.yaml', 'configs'),
+    ('configs/default.yaml', 'defaults/configs'),
+    ('configs/snapdragon.yaml', 'defaults/configs'),
     ('assets', 'assets'),
     ('README_LAUNCHER.md', '.'),
     ('LICENSE', '.'),
@@ -44,7 +44,6 @@ excludes = [
 
     # Data science (not used)
     'pandas',
-    'matplotlib',
     'seaborn',
     'plotly',
     'bokeh',
