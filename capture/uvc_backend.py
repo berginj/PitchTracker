@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import threading
 from collections import deque
 from dataclasses import dataclass
 from typing import Any, Deque, Mapping, Optional, Sequence
@@ -477,8 +478,8 @@ class UvcCamera(CameraDevice):
             )
 
 
-def list_uvc_devices() -> list[dict[str, str]]:
+def list_uvc_devices(cancel_event: threading.Event | None = None) -> list[dict[str, str]]:
     """Return UVC camera devices with friendly names and serials."""
     from capture.device_discovery import list_uvc_devices as _discover
 
-    return _discover()
+    return _discover(cancel_event=cancel_event)

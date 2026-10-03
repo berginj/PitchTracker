@@ -52,7 +52,9 @@ def current_serial(combo: QtWidgets.QComboBox) -> str:
     return combo.currentText().strip()
 
 
-def _probe_single_index(index: int, timeout_seconds: float = 3.0) -> Optional[int]:
+def _probe_single_index(
+    index: int, timeout_seconds: float = 3.0, cancel_event: threading.Event | None = None,
+) -> Optional[int]:
     """Probe a single camera index with timeout protection.
 
     Args:
@@ -66,23 +68,36 @@ def _probe_single_index(index: int, timeout_seconds: float = 3.0) -> Optional[in
     cannot be safely cancelled from a Python thread. Process isolation prevents
     an abandoned DirectShow thread from crashing Qt or the interpreter later.
     """
+    if cancel_event is not None and cancel_event.is_set():
+        return None
     creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
-        completed = subprocess.run(
+        process = subprocess.Popen(
             [*worker_command("camera_probe"), str(index)],
-            check=False,
-            timeout=timeout_seconds,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             creationflags=creation_flags,
         )
-    except subprocess.TimeoutExpired:
-        logger.debug(f"Camera index {index} probe timed out after {timeout_seconds}s")
-        return None
     except OSError as exc:
         logger.debug("Failed to launch camera index %s probe: %s", index, exc)
         return None
-    return index if completed.returncode == 0 else None
+    deadline = time.monotonic() + timeout_seconds
+    try:
+        while True:
+            if cancel_event is not None and cancel_event.is_set():
+                return None
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                logger.debug("Camera index %s probe timed out after %ss", index, timeout_seconds)
+                return None
+            try:
+                return index if process.wait(timeout=min(0.05, remaining)) == 0 else None
+            except subprocess.TimeoutExpired:
+                continue
+    finally:
+        if process.poll() is None:
+            process.kill()
+        process.wait()
 
 
 def is_arducam_device(name: str) -> bool:
@@ -126,6 +141,7 @@ def probe_opencv_indices(
     max_index: int = DEFAULT_OPENCV_MAX_INDEX,
     parallel: bool = False,
     use_cache: bool = True,
+    cancel_event: threading.Event | None = None,
 ) -> list[int]:
     """Probe for available OpenCV camera indices.
 
@@ -146,6 +162,8 @@ def probe_opencv_indices(
         - Results are cached to avoid repeated slow probes
     """
     global _opencv_cache
+    if cancel_event is not None and cancel_event.is_set():
+        return []
 
     # Check cache first
     if use_cache:
@@ -160,7 +178,11 @@ def probe_opencv_indices(
         # Probe all indices in parallel for speed
         indices: list[int] = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_index) as executor:
-            futures = {executor.submit(_probe_single_index, i, 1.0): i for i in range(max_index)}
+            futures = {
+                (executor.submit(_probe_single_index, i, 1.0) if cancel_event is None
+                 else executor.submit(_probe_single_index, i, 1.0, cancel_event)): i
+                for i in range(max_index)
+            }
 
             for future in concurrent.futures.as_completed(futures):
                 try:
@@ -177,7 +199,10 @@ def probe_opencv_indices(
         # Sequential probing - more reliable but slower
         indices = []
         for i in range(max_index):
-            result = _probe_single_index(i, 3.0)
+            if cancel_event is not None and cancel_event.is_set():
+                return []
+            result = (_probe_single_index(i, 3.0) if cancel_event is None
+                      else _probe_single_index(i, 3.0, cancel_event))
             if result is not None:
                 indices.append(result)
                 logger.debug(f"Camera {i}: detected")
@@ -186,19 +211,23 @@ def probe_opencv_indices(
 
             # Small delay to avoid USB contention between probes
             if i < max_index - 1:  # Don't delay after last camera
-                time.sleep(0.1)
+                if cancel_event is None:
+                    time.sleep(0.1)
+                elif cancel_event.wait(0.1):
+                    return []
 
         logger.info(f"Found {len(indices)} OpenCV cameras: {indices}")
 
     # Cache results
     if use_cache:
         with _cache_lock:
-            _opencv_cache = indices.copy()
+            if cancel_event is None or not cancel_event.is_set():
+                _opencv_cache = indices.copy()
 
-    return indices
+    return [] if cancel_event is not None and cancel_event.is_set() else indices
 
 
-def probe_uvc_devices(use_cache: bool = True) -> list[dict[str, str]]:
+def probe_uvc_devices(use_cache: bool = True, cancel_event: threading.Event | None = None) -> list[dict[str, str]]:
     """Probe for available UVC devices.
 
     Args:
@@ -214,6 +243,8 @@ def probe_uvc_devices(use_cache: bool = True) -> list[dict[str, str]]:
         - This is the preferred method for production use
     """
     global _uvc_cache
+    if cancel_event is not None and cancel_event.is_set():
+        return []
 
     # Check cache first
     if use_cache:
@@ -223,7 +254,9 @@ def probe_uvc_devices(use_cache: bool = True) -> list[dict[str, str]]:
                 return _uvc_cache.copy()
 
     logger.info("Probing UVC devices via PowerShell")
-    devices = list_uvc_devices()
+    devices = list_uvc_devices() if cancel_event is None else list_uvc_devices(cancel_event=cancel_event)
+    if cancel_event is not None and cancel_event.is_set():
+        return []
     usable: list[dict[str, str]] = []
 
     for device in devices:
@@ -302,9 +335,10 @@ def probe_uvc_devices(use_cache: bool = True) -> list[dict[str, str]]:
     # Cache results
     if use_cache:
         with _cache_lock:
-            _uvc_cache = usable.copy()
+            if cancel_event is None or not cancel_event.is_set():
+                _uvc_cache = usable.copy()
 
-    return usable
+    return [] if cancel_event is not None and cancel_event.is_set() else usable
 
 
 def probe_all_devices(use_cache: bool = True) -> tuple[list[dict[str, str]], list[int]]:

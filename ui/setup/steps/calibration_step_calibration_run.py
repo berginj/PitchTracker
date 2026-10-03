@@ -19,6 +19,8 @@ logger = get_logger(__name__)
 class CalibrationStepCalibrationRunMixin(CalibrationStepMixinHost):
     def _run_calibration(self) -> None:
         """Run stereo calibration on captured images."""
+        if self.is_busy():
+            return
         if len(self._captures) < self._min_captures:
             show_message_dialog(
                 self,
@@ -52,12 +54,41 @@ class CalibrationStepCalibrationRunMixin(CalibrationStepMixinHost):
             self._config_path,
             quick_mode=quick_mode,
         )
-        self._calibration_worker.finished.connect(self._on_calibration_complete)
+        self._calibration_cancelled = False
+        self.set_busy(True)
+        self._calibration_worker.result_ready.connect(self._on_calibration_complete)
+        self._calibration_worker.finished.connect(self._on_calibration_terminal)
         self._calibration_worker.error.connect(self._on_calibration_error)
         self._calibration_worker.start()
 
+    def cancel_pending(self) -> bool:
+        worker = self._calibration_worker
+        if worker is None:
+            return False
+        self._calibration_cancelled = True
+        worker.requestInterruption()
+        # Calibration tooling already has a 300-second subprocess timeout.
+        # Keep owning the thread until that bounded operation reaches terminal state.
+        return True
+
+    @QtCore.Slot()
+    def _on_calibration_terminal(self) -> None:
+        worker = self._calibration_worker
+        if worker is None:
+            return
+        if not worker.wait(0):
+            QtCore.QTimer.singleShot(10, self._on_calibration_terminal)
+            return
+        self._calibration_worker = None
+        self._progress_bar.hide()
+        self._capture_button.setEnabled(True)
+        self._calibrate_button.setEnabled(True)
+        self.set_busy(False)
+
     def _on_calibration_complete(self, result: dict) -> None:
         """Handle successful calibration with quality metrics."""
+        if self._calibration_cancelled:
+            return
         self._calibration_result = result
 
         # Hide progress bar
@@ -150,6 +181,8 @@ class CalibrationStepCalibrationRunMixin(CalibrationStepMixinHost):
 
     def _on_calibration_error(self, error: dict | str) -> None:
         """Handle calibration error."""
+        if self._calibration_cancelled:
+            return
         if isinstance(error, dict):
             error_title = str(error.get("title", "Calibration Error"))
             error_tone = str(error.get("tone", "error"))

@@ -10,7 +10,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from capture import CameraDevice
 from ui.device_utils import current_serial
-from ui.setup.steps.base_step import BaseStep
+from ui.setup.steps.camera_discovery_mixin import CameraDiscoveryMixin
 from ui.setup.steps.camera_discovery_worker import CameraDiscoveryWorker
 from ui.themes import (
     apply_standard_layout,
@@ -21,7 +21,7 @@ from ui.themes import (
 )
 
 
-class CameraStep(BaseStep):
+class CameraStep(CameraDiscoveryMixin):
     """Camera discovery, selection, and preview step."""
 
     def __init__(self, backend: str = "uvc"):
@@ -34,6 +34,7 @@ class CameraStep(BaseStep):
         self._right_camera: Optional[CameraDevice] = None
         self._preview_timer: Optional[QtCore.QTimer] = None
         self._discovery_worker: Optional[CameraDiscoveryWorker] = None
+        self._refresh_after_cancel = False
 
         self._build_ui()
         self._setup_preview_timer()
@@ -43,10 +44,6 @@ class CameraStep(BaseStep):
 
     def get_description(self) -> str:
         return "Discover and select left and right cameras for stereo tracking."
-
-    def _set_status_message(self, message: str, tone: str = "info") -> None:
-        """Update the step status label."""
-        style_status_label(self._status_label, tone, message)
 
     def _build_ui(self) -> None:
         """Build camera selection UI."""
@@ -143,6 +140,10 @@ class CameraStep(BaseStep):
 
     def _switch_backend(self, backend: str) -> None:
         """Switch camera backend."""
+        self.cancel_pending()
+        self._refresh_after_cancel = self._discovery_worker is not None
+        self._close_left_camera()
+        self._close_right_camera()
         self._backend = backend
         self._left_combo.clear()
         self._right_combo.clear()
@@ -152,79 +153,6 @@ class CameraStep(BaseStep):
             f"Backend changed to {backend.upper()}. Refresh devices to discover cameras.",
             "info",
         )
-
-    def _refresh_devices(self) -> None:
-        """Discover available cameras in a background thread."""
-        if getattr(self, "_discovery_worker", None) is not None:
-            return
-        self._set_status_message("Searching for cameras...", "info")
-        self._refresh_button.setEnabled(False)
-        self._show_loading(True)
-
-        self._discovery_worker = CameraDiscoveryWorker(self._backend)
-        self._discovery_worker.signals.finished_signal.connect(self._on_discovery_complete)
-        self._discovery_worker.signals.error_signal.connect(self._on_discovery_error)
-        QtCore.QThreadPool.globalInstance().start(self._discovery_worker)
-
-    def _show_loading(self, visible: bool) -> None:
-        """Show or hide the loading indicator."""
-        if not hasattr(self, "_loading_frame"):
-            from ui.themes.dialog_helpers import build_loading_indicator
-
-            self._loading_frame, self._loading_label, self._loading_bar = build_loading_indicator(
-                "Probing USB devices...", self
-            )
-            self._loading_bar.setRange(0, 0)
-            layout = self.layout()
-            if not isinstance(layout, QtWidgets.QBoxLayout):
-                raise RuntimeError("Camera step requires a box layout")
-            layout.insertWidget(layout.count() - 1, self._loading_frame)
-        self._loading_frame.setVisible(visible)
-
-    def _on_discovery_complete(self, devices: list[object]) -> None:
-        """Handle device discovery results on the main thread."""
-        self._show_loading(False)
-        self._refresh_button.setEnabled(True)
-        self._discovery_worker = None
-
-        self._left_combo.clear()
-        self._right_combo.clear()
-
-        if not devices:
-            self._set_status_message("No cameras found. Check connections and try again.", "error")
-            return
-
-        self._left_combo.addItem("(Select Camera)", None)
-        self._right_combo.addItem("(Select Camera)", None)
-
-        if self._backend == "opencv":
-            for index in devices:
-                if not isinstance(index, int):
-                    continue
-                label = f"Camera {index}"
-                self._left_combo.addItem(label, str(index))
-                self._right_combo.addItem(label, str(index))
-        else:
-            for device in devices:
-                if not isinstance(device, dict):
-                    continue
-                serial = str(device.get("serial", "") or "")
-                friendly_name = str(device.get("friendly_name", "") or "")
-                label = f"{serial} - {friendly_name}" if serial and friendly_name else (friendly_name or serial)
-                self._left_combo.addItem(label, serial)
-                self._right_combo.addItem(label, serial)
-
-        self._set_status_message(
-            f"Found {len(devices)} camera(s). Select left and right cameras above.",
-            "success",
-        )
-
-    def _on_discovery_error(self, message: str) -> None:
-        """Handle device discovery failure on the main thread."""
-        self._show_loading(False)
-        self._refresh_button.setEnabled(True)
-        self._discovery_worker = None
-        self._set_status_message(f"Error discovering cameras: {message}", "error")
 
     def _on_left_changed(self, text: str) -> None:
         """Handle left camera selection change."""
@@ -286,8 +214,18 @@ class CameraStep(BaseStep):
     def on_exit(self) -> None:
         self._stop_resources()
 
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        self._stop_resources()
+        if self.is_busy():
+            event.ignore()
+            QtCore.QTimer.singleShot(50, self.close)
+            return
+        super().closeEvent(event)
+
     def _stop_resources(self) -> None:
         """Stop timers and close cameras — safe to call multiple times."""
+        self._refresh_after_cancel = False
+        self.cancel_pending()
         if self._preview_timer is not None:
             self._preview_timer.stop()
         self._close_left_camera()

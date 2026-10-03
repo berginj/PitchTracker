@@ -12,6 +12,7 @@ from analysis.camera_alignment_types import AlignmentResults
 from calib.camera_capabilities import CameraCapabilities
 from capture import CameraDevice
 from ui.setup.steps.base_step import BaseStep
+from ui.setup.steps.calibration_worker import CalibrationWorker
 from ui.themes import GlassTheme, StyleManager
 
 
@@ -32,6 +33,8 @@ class CalibrationStepMixinHost(BaseStep):
     _config_path: Path
     _captures: list[tuple[np.ndarray, np.ndarray]]
     _temp_dir: Path
+    _calibration_worker: CalibrationWorker | None
+    _calibration_cancelled: bool
     _calibration_result: dict[str, Any] | None
     _alignment_history: list[dict[str, Any]]
     _alignment_results: AlignmentResults | None

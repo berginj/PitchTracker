@@ -333,9 +333,12 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
             else:
                 for step in busy_steps:
                     step.cancel_pending()
-            if now < self._capture_close_deadline + 0.5:
-                event.ignore()
-                QtCore.QTimer.singleShot(50, self.close)
-                return
+            # A timeout triggers process cancellation; it does not establish
+            # terminal state. Keep ownership until the monitor reports completion.
+            event.ignore()
+            QtCore.QTimer.singleShot(50, self.close)
+            return
+        for step in self._steps:
+            step.on_exit()
         self._style_manager.set_mode("production")
         super().closeEvent(event)

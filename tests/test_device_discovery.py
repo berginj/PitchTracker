@@ -5,7 +5,6 @@ Validates that camera enumeration is fast, reliable, and properly cached.
 
 from __future__ import annotations
 
-import inspect
 import subprocess
 import threading
 from unittest.mock import patch
@@ -172,24 +171,26 @@ class TestOpenCVIndexProbing:
         """A stuck native probe is terminated at the process boundary."""
         from ui.device_utils import _probe_single_index
 
-        with patch(
-            "ui.device_utils.subprocess.run",
-            side_effect=subprocess.TimeoutExpired(cmd="camera-probe", timeout=0.01),
-        ):
-            assert _probe_single_index(3, timeout_seconds=0.01) is None
-
-        source = inspect.getsource(_probe_single_index)
-        assert "subprocess.run" in source
-        assert "timeout=timeout_seconds" in source
+        with patch("ui.device_utils.subprocess.Popen") as popen:
+            process = popen.return_value
+            process.poll.return_value = None
+            process.wait.side_effect = [subprocess.TimeoutExpired("camera-probe", 0.01), 1]
+            with patch("ui.device_utils.time.monotonic", side_effect=[0.0, 0.0, 0.02]):
+                assert _probe_single_index(3, timeout_seconds=0.01) is None
+            process.kill.assert_called_once_with()
+            assert process.wait.call_count == 2
+            assert popen.call_args.args[0][-1] == "3"
+            assert "app.camera_probe_worker" in popen.call_args.args[0]
 
     def test_probe_opencv_reports_successful_child_result(self):
         """Only a successful isolated probe exposes an OpenCV index."""
         from ui.device_utils import _probe_single_index
 
-        with patch("ui.device_utils.subprocess.run") as run:
-            run.return_value.returncode = 0
+        with patch("ui.device_utils.subprocess.Popen") as run:
+            run.return_value.poll.return_value = 0
+            run.return_value.wait.return_value = 0
             assert _probe_single_index(4) == 4
-            run.return_value.returncode = 1
+            run.return_value.wait.return_value = 1
             assert _probe_single_index(4) is None
 
 

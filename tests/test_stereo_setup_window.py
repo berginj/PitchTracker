@@ -145,3 +145,35 @@ def test_stereo_setup_window_cancels_busy_step_before_close(qapp):
 
     assert cancel_calls
     assert not window.isVisible()
+
+
+def test_stereo_setup_close_deadline_does_not_override_busy_ownership(qapp, monkeypatch):
+    from unittest.mock import Mock
+    from PySide6 import QtGui
+
+    window = StereoSetupWindow()
+    monkeypatch.setattr("ui.setup.stereo_setup_window.QtCore.QTimer.singleShot", lambda *args: None)
+    for step in window._steps:
+        step.on_exit = Mock()
+    active = window._current_widget()
+    active.cancel_pending = Mock(return_value=True)
+    active.force_cancel_pending = Mock()
+    active.set_busy(True)
+    with_time = [0.0]
+    monkeypatch.setattr("ui.setup.stereo_setup_window.time.monotonic", lambda: with_time[0])
+    first = QtGui.QCloseEvent()
+    window.closeEvent(first)
+    assert not first.isAccepted()
+    with_time[0] = 5.0
+    repeated = QtGui.QCloseEvent()
+    window.closeEvent(repeated)
+    assert not repeated.isAccepted()
+    active.force_cancel_pending.assert_called_once()
+    for step in window._steps:
+        step.on_exit.assert_not_called()
+    active.set_busy(False)
+    final = QtGui.QCloseEvent()
+    window.closeEvent(final)
+    assert final.isAccepted()
+    for step in window._steps:
+        step.on_exit.assert_called_once()

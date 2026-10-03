@@ -14,13 +14,17 @@ from exceptions import (
     CalibrationInputError,
     CalibrationPersistenceError,
 )
+from log_config.logger import get_logger
 from ui.setup.steps.calibration_errors import build_calibration_error_payload
+
+
+logger = get_logger(__name__)
 
 
 class CalibrationWorker(QtCore.QThread):
     """Background worker for running calibration."""
 
-    finished = QtCore.Signal(dict)  # Emits calibration results
+    result_ready = QtCore.Signal(dict)  # Emits calibration results
     error = QtCore.Signal(dict)  # Emits structured error payload
 
     def __init__(
@@ -43,6 +47,8 @@ class CalibrationWorker(QtCore.QThread):
     def run(self):
         """Run calibration in background thread."""
         try:
+            if self.isInterruptionRequested():
+                return
             result = get_tooling_service().run_calibration(
                 CalibrationRequest(
                     left_paths=tuple(self.left_paths),
@@ -54,12 +60,17 @@ class CalibrationWorker(QtCore.QThread):
                     write_updates=True,
                 )
             )
-            self.finished.emit(result.to_payload())
+            if not self.isInterruptionRequested():
+                self.result_ready.emit(result.to_payload())
         except (
             CalibrationInputError,
             CalibrationPersistenceError,
             CalibrationExecutionError,
         ) as exc:
-            self.error.emit(build_calibration_error_payload(exc))
+            logger.exception("Setup calibration failed")
+            if not self.isInterruptionRequested():
+                self.error.emit(build_calibration_error_payload(exc))
         except Exception as exc:
-            self.error.emit(build_calibration_error_payload(exc))
+            logger.exception("Setup calibration failed")
+            if not self.isInterruptionRequested():
+                self.error.emit(build_calibration_error_payload(exc))

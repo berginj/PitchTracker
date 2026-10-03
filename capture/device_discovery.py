@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import subprocess
+import threading
+import time
 from typing import List
 
 from log_config.logger import get_logger
@@ -11,12 +13,12 @@ from log_config.logger import get_logger
 logger = get_logger(__name__)
 
 
-def list_uvc_devices() -> list[dict[str, str]]:
+def list_uvc_devices(cancel_event: threading.Event | None = None) -> list[dict[str, str]]:
     """Return UVC camera devices with friendly names and serials."""
-    return _list_camera_devices()
+    return _list_camera_devices(cancel_event)
 
 
-def _list_camera_devices() -> list[dict[str, str]]:
+def _list_camera_devices(cancel_event: threading.Event | None = None) -> list[dict[str, str]]:
     """List camera devices from Windows PnP system.
 
     Returns:
@@ -27,9 +29,9 @@ def _list_camera_devices() -> list[dict[str, str]]:
         - Falls back to "Image" class if no cameras found
         - "Image" class includes scanners/printers, so filtering is important
     """
-    devices = _query_pnp_devices("Camera")
-    if not devices:
-        devices = _query_pnp_devices("Image")
+    devices = _query_pnp_devices("Camera", cancel_event)
+    if not devices and not (cancel_event is not None and cancel_event.is_set()):
+        devices = _query_pnp_devices("Image", cancel_event)
     output: list[dict[str, str]] = []
     for device in devices:
         friendly = (device.get("FriendlyName") or "").strip()
@@ -102,7 +104,9 @@ def _list_camera_devices() -> list[dict[str, str]]:
     return output
 
 
-def _query_pnp_devices(device_class: str) -> List[dict[str, str]]:
+def _query_pnp_devices(
+    device_class: str, cancel_event: threading.Event | None = None,
+) -> List[dict[str, str]]:
     """Query PnP devices via PowerShell.
 
     Args:
@@ -143,23 +147,47 @@ def _query_pnp_devices(device_class: str) -> List[dict[str, str]]:
         + "} | ConvertTo-Json"
     )
 
+    if cancel_event is not None and cancel_event.is_set():
+        return []
     try:
-        result = subprocess.run(
+        process = subprocess.Popen(
             ["powershell", "-NoProfile", "-Command", command],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=10.0,
-            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
-    except subprocess.TimeoutExpired:
-        logger.warning(f"PowerShell query for {device_class} devices timed out after 10s")
+    except OSError as exc:
+        logger.warning("Failed to start PowerShell device query: {}", exc)
         return []
 
-    if result.returncode != 0 or not result.stdout.strip():
+    deadline = time.monotonic() + 10.0
+    try:
+        while True:
+            if cancel_event is not None and cancel_event.is_set():
+                return []
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                logger.warning("PowerShell query for {} devices timed out after 10s", device_class)
+                return []
+            try:
+                stdout, _stderr = process.communicate(timeout=min(0.05, remaining))
+                break
+            except subprocess.TimeoutExpired:
+                continue
+    finally:
+        if process.poll() is None:
+            process.kill()
+        # communicate drains both pipes and reaps the child, including cancellation.
+        process.communicate()
+
+    if cancel_event is not None and cancel_event.is_set():
+        return []
+    if process.returncode != 0 or not stdout.strip():
         return []
 
     try:
-        data = json.loads(result.stdout)
+        data = json.loads(stdout)
     except json.JSONDecodeError:
         logger.warning(f"Failed to parse PowerShell output for {device_class} devices")
         return []

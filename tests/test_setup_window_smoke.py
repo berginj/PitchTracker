@@ -25,9 +25,10 @@ def qapp():
     yield app
 
 
-def test_setup_window_wires_state_machine(qapp):
+def test_setup_window_wires_state_machine(qapp, monkeypatch):
     from ui.setup.setup_window import SetupWindow
 
+    monkeypatch.setattr("ui.setup.steps.camera_step.CameraStep._refresh_devices", lambda self: None)
     window = SetupWindow(backend="opencv")
     try:
         # The window exposes one widget per canonical wizard step, in order.
@@ -56,3 +57,30 @@ def test_setup_window_wires_state_machine(qapp):
         assert window._back_button.isEnabled()
     finally:
         window.close()
+
+
+def test_setup_window_close_waits_for_discovery_and_cleans_all_steps(qapp, monkeypatch):
+    from unittest.mock import Mock
+    from PySide6 import QtGui
+    from ui.setup.setup_window import SetupWindow
+
+    monkeypatch.setattr("ui.setup.steps.camera_step.CameraStep._refresh_devices", lambda self: None)
+    monkeypatch.setattr("ui.setup.setup_window.QtCore.QTimer.singleShot", lambda *args: None)
+    window = SetupWindow("opencv")
+    for step in window._steps:
+        step.on_exit = Mock()
+    camera = window._steps[0]
+    camera.cancel_pending = Mock(return_value=True)
+    camera.set_busy(True)
+    pending = QtGui.QCloseEvent()
+    window.closeEvent(pending)
+    assert not pending.isAccepted()
+    camera.cancel_pending.assert_called_once()
+    for step in window._steps:
+        step.on_exit.assert_not_called()
+    camera.set_busy(False)
+    done = QtGui.QCloseEvent()
+    window.closeEvent(done)
+    assert done.isAccepted()
+    for step in window._steps:
+        step.on_exit.assert_called_once()

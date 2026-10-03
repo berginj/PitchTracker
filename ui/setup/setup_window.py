@@ -71,6 +71,8 @@ class SetupWindow(QtWidgets.QMainWindow):
 
         # Build UI
         self._build_ui()
+        for step in self._steps:
+            step.busy_changed.connect(self._update_navigation_buttons)
 
         # Show first step
         self._show_current()
@@ -233,7 +235,11 @@ class SetupWindow(QtWidgets.QMainWindow):
     def _update_navigation_buttons(self) -> None:
         """Update button states based on current step."""
         # Back button
-        self._back_button.setEnabled(self._machine.can_go_back())
+        busy = self._current_widget().is_busy()
+        self._back_button.setEnabled(self._machine.can_go_back() and not busy)
+        self._skip_button.setEnabled(not busy)
+        self._next_button.setEnabled(not busy)
+        self._finish_button.setEnabled(not busy)
 
         # Skip button (only for optional steps that may be skipped)
         self._skip_button.setVisible(self._machine.can_skip())
@@ -306,7 +312,7 @@ class SetupWindow(QtWidgets.QMainWindow):
 
     def _go_back(self) -> None:
         """Go to previous step."""
-        if not self._machine.can_go_back():
+        if self._current_widget().is_busy() or not self._machine.can_go_back():
             return
         self._current_widget().on_exit()
         self._machine.go_back()
@@ -315,6 +321,8 @@ class SetupWindow(QtWidgets.QMainWindow):
     def _go_next(self) -> None:
         """Go to next step (with validation)."""
         current_widget = self._current_widget()
+        if current_widget.is_busy():
+            return
 
         # Validate current step
         is_valid, error_msg = current_widget.validate()
@@ -339,7 +347,7 @@ class SetupWindow(QtWidgets.QMainWindow):
 
     def _skip_step(self) -> None:
         """Skip current step (if optional)."""
-        if not self._machine.can_skip():
+        if self._current_widget().is_busy() or not self._machine.can_skip():
             return
 
         current_widget = self._current_widget()
@@ -356,6 +364,8 @@ class SetupWindow(QtWidgets.QMainWindow):
     def _finish_wizard(self) -> None:
         """Complete wizard and close window."""
         current_widget = self._current_widget()
+        if current_widget.is_busy():
+            return
 
         # Validate final step
         is_valid, error_msg = current_widget.validate()
@@ -395,7 +405,15 @@ class SetupWindow(QtWidgets.QMainWindow):
         self.close()
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
-        """Handle window close - switch back to production mode."""
-        # Reset to production mode for main application
+        """Wait for terminal workers, then release each step's resources."""
+        busy_steps = [step for step in self._steps if step.is_busy()]
+        if busy_steps:
+            for step in busy_steps:
+                step.cancel_pending()
+            event.ignore()
+            QtCore.QTimer.singleShot(50, self.close)
+            return
+        for step in self._steps:
+            step.on_exit()
         self._style_manager.set_mode("production")
         super().closeEvent(event)

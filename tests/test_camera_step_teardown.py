@@ -34,6 +34,7 @@ requires_pytest_qt = pytest.mark.skipif(
 def _blocking_probe(_use_cache=False, **_kw):
     """Fake probe that blocks until released."""
     # Wait up to 5s for release event (set by test)
+    _blocking_probe.started.set()
     _blocking_probe.event.wait(timeout=5.0)
     return [{"serial": "FAKE001", "friendly_name": "Fake Camera"}]
 
@@ -44,6 +45,7 @@ def test_destroy_camera_step_during_discovery(qtbot: "QtBot") -> None:
     from ui.setup.steps.camera_step import CameraStep
 
     _blocking_probe.event = threading.Event()
+    _blocking_probe.started = threading.Event()
 
     with patch(
         "ui.setup.steps.camera_discovery_worker.probe_uvc_devices",
@@ -59,6 +61,7 @@ def test_destroy_camera_step_during_discovery(qtbot: "QtBot") -> None:
 
         # Ensure worker is actually scheduled
         QtWidgets.QApplication.processEvents()
+        assert _blocking_probe.started.wait(1.0)
 
     # Destroy the widget while worker is still blocked
     step.close()
@@ -135,3 +138,74 @@ def test_camera_step_on_enter_reopens_selected_cameras(qtbot: "QtBot") -> None:
     assert step._right_serial == "right-selected"
     open_left.assert_called_once_with()
     open_right.assert_called_once_with()
+
+
+@requires_pytest_qt
+def test_backend_switch_discards_queued_results_then_probes_new_backend(qtbot: "QtBot") -> None:
+    from ui.setup.steps.camera_step import CameraStep
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def blocked(**kwargs):
+        started.set()
+        release.wait(2.0)
+        return [{"serial": "stale", "friendly_name": "Old Camera"}]
+
+    with (
+        patch("ui.setup.steps.camera_discovery_worker.probe_uvc_devices", side_effect=blocked),
+        patch("ui.setup.steps.camera_discovery_worker.probe_opencv_indices", return_value=[9]) as opencv,
+    ):
+        step = CameraStep("uvc")
+        qtbot.addWidget(step)
+        step._refresh_devices()
+        assert started.wait(1.0)
+        old = step._discovery_worker
+        # Simulate a result queued just before the backend switch cancels it.
+        producer = threading.Thread(
+            target=lambda: old.signals.finished_signal.emit(
+                [{"serial": "stale", "friendly_name": "Old Camera"}]
+            )
+        )
+        producer.start()
+        producer.join()
+        step._switch_backend("opencv")
+        release.set()
+        qtbot.waitUntil(lambda: not step.is_busy(), timeout=3000)
+        assert old.wait(0)
+        opencv.assert_called_once()
+        assert step._left_combo.count() == 2
+        assert step._left_combo.itemText(1) == "Camera 9"
+        step.on_exit()
+
+
+@requires_pytest_qt
+@pytest.mark.parametrize("closing", [False, True])
+def test_exit_during_backend_switch_does_not_restart_discovery(qtbot: "QtBot", closing: bool) -> None:
+    from ui.setup.steps.camera_step import CameraStep
+
+    started = threading.Event()
+
+    def blocked(**kwargs):
+        started.set()
+        assert kwargs["cancel_event"].wait(2.0)
+        return []
+
+    with (
+        patch("ui.setup.steps.camera_discovery_worker.probe_uvc_devices", side_effect=blocked),
+        patch("ui.setup.steps.camera_discovery_worker.probe_opencv_indices", return_value=[]) as opencv,
+    ):
+        step = CameraStep("uvc")
+        qtbot.addWidget(step)
+        step._refresh_devices()
+        assert started.wait(1.0)
+        step._switch_backend("opencv")
+        if closing:
+            step.cancel_pending()
+        else:
+            step.on_exit()
+        qtbot.waitUntil(lambda: not step.is_busy(), timeout=3000)
+        opencv.assert_not_called()
+        if not closing:
+            assert not step._preview_timer.isActive()
+        assert step._left_combo.count() == 0

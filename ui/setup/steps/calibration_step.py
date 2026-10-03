@@ -89,6 +89,8 @@ class CalibrationStep(
 
         # Calibration results
         self._calibration_result: Optional[dict] = None
+        self._calibration_worker = None
+        self._calibration_cancelled = False
 
         # Alignment history tracking
         self._alignment_history: list[dict[str, Any]] = []
