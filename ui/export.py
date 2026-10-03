@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import shutil
 import time
@@ -16,6 +15,7 @@ from typing import Optional
 from PySide6 import QtCore, QtWidgets
 
 from app.services.tooling import get_tooling_service
+from app.pipeline.recording.summary_csv import write_summary_csv
 from configs.settings import AppConfig
 from contracts.tooling import TrainingReportRequest
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
@@ -257,89 +257,14 @@ def export_session_summary_csv(
     )
     if not path:
         return
-    src = session_dir / "session_summary.csv"
-    if src.exists():
-        shutil.copyfile(src, path)
-        return
+    # Rebuild old recordings' exports with explicit semantics; leave the stored
+    # artifact unchanged. The loaded summary preserves unavailable legacy fields.
     write_session_summary_csv(Path(path), summary)
 
 
 def write_session_summary_csv(path: Path, summary) -> None:
-    """Write session summary to CSV file.
-
-    Args:
-        path: Output CSV file path
-        summary: Session summary data with pitches list
-    """
-    with path.open("w", newline="") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(
-            [
-                "pitch_id",
-                "t_start_ns",
-                "t_end_ns",
-                "is_strike",
-                "zone_row",
-                "zone_col",
-                "run_in",
-                "rise_in",
-                "speed_mph",
-                "rotation_rpm",
-                "sample_count",
-                "trajectory_plate_x_ft",
-                "trajectory_plate_y_ft",
-                "trajectory_plate_z_ft",
-                "trajectory_plate_t_ns",
-                "trajectory_model",
-                "trajectory_expected_error_ft",
-                "trajectory_confidence",
-                "measurement_status",
-                "speed_source",
-                "movement_basis",
-                "movement_validated",
-            ]
-        )
-        for pitch in summary.pitches:
-            writer.writerow(
-                [
-                    pitch.pitch_id,
-                    pitch.t_start_ns,
-                    pitch.t_end_ns,
-                    int(pitch.is_strike),
-                    pitch.zone_row if pitch.zone_row is not None else "",
-                    pitch.zone_col if pitch.zone_col is not None else "",
-                    f"{pitch.run_in:.3f}",
-                    f"{pitch.rise_in:.3f}",
-                    f"{pitch.speed_mph:.3f}" if pitch.speed_mph is not None else "",
-                    f"{pitch.rotation_rpm:.3f}" if pitch.rotation_rpm is not None else "",
-                    pitch.sample_count,
-                    f"{pitch.trajectory_plate_x_ft:.4f}"
-                    if getattr(pitch, "trajectory_plate_x_ft", None) is not None
-                    else "",
-                    f"{pitch.trajectory_plate_y_ft:.4f}"
-                    if getattr(pitch, "trajectory_plate_y_ft", None) is not None
-                    else "",
-                    f"{pitch.trajectory_plate_z_ft:.4f}"
-                    if getattr(pitch, "trajectory_plate_z_ft", None) is not None
-                    else "",
-                    getattr(pitch, "trajectory_plate_t_ns", "")
-                    if getattr(pitch, "trajectory_plate_t_ns", None) is not None
-                    else "",
-                    getattr(pitch, "trajectory_model", "")
-                    if getattr(pitch, "trajectory_model", None) is not None
-                    else "",
-                    f"{getattr(pitch, 'trajectory_expected_error_ft', None):.4f}"
-                    if getattr(pitch, "trajectory_expected_error_ft", None) is not None
-                    else "",
-                    f"{getattr(pitch, 'trajectory_confidence', None):.3f}"
-                    if getattr(pitch, "trajectory_confidence", None) is not None
-                    else "",
-                    getattr(pitch, "measurement_status", "ESTIMATED"),
-                    getattr(pitch, "speed_source", None) or "",
-                    (getattr(pitch, "quality_diagnostics", None) or {}).get("movement_basis", ""),
-                    int(bool((getattr(pitch, "quality_diagnostics", None) or {}).get("movement_validated"))),
-                ]
-            )
+    """Write compatible pitch columns and explicit measurement provenance."""
+    write_summary_csv(path, summary)
 
 
 def export_training_report(

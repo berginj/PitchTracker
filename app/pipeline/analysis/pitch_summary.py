@@ -200,7 +200,8 @@ class PitchAnalyzer:
                 "speed_reference": "unspecified" if external_speed else "first_observed_point",
                 "fit_quality_basis": "heuristic_not_probability",
                 "physical_prediction_uncertainty": "unavailable",
-                "strike_call_basis": "piecewise_linear_swept_sphere",
+                "strike_call_basis": strike.basis,
+                "strike_uncertainty_policy": "conditional_sensitivity_not_physical_confidence",
             },
         )
 

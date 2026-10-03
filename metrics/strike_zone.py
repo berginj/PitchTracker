@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from math import isfinite
+from dataclasses import dataclass, replace
+from math import isfinite, sqrt
 from typing import Iterable, List, Tuple
 
 from contracts import StereoObservation
+from contracts.timing import TimestampEvidence
 from detect.utils import point_in_polygon
+from metrics.strike_uncertainty import StrikeSensitivity, strike_sensitivity
 
 Point2D = Tuple[float, float]
 
@@ -28,6 +30,7 @@ class StrikeResult:
     zone_col: int | None = None
     available: bool = True
     reason: str | None = None
+    basis: str = "piecewise_linear_swept_sphere_estimated_geometry"
 
 
 def build_strike_zone(
@@ -65,17 +68,18 @@ def is_strike(
     ball_radius_in: float,
     *,
     max_gap_ms: float = 50.0,
+    timing_evidence: TimestampEvidence | None = None,
 ) -> StrikeResult:
-    """Intersect a piecewise-linear swept sphere with the full zone volume.
-
-    The 50 ms interpolation limit matches the observation-health gap warning;
-    this is an estimated geometry call, not a physical uncertainty guarantee.
+    """Intersect the full zone volume with an estimated piecewise-linear sphere.
+    The 50 ms interpolation limit is not a physical uncertainty guarantee.
     """
-    obs_list = sorted(observations, key=lambda obs: obs.t_ns)
-    if not obs_list:
-        return StrikeResult(is_strike=False, sample_count=0, available=False, reason="NO_OBSERVATIONS")
-    if not all(isfinite(value) for obs in obs_list for value in (obs.X, obs.Y, obs.Z)):
-        return StrikeResult(False, len(obs_list), available=False, reason="INVALID_COORDINATES")
+    obs_list = list(observations)
+    invalid_reason = _invalid_geometry_reason(obs_list, ball_radius_in, max_gap_ms)
+    if invalid_reason is not None:
+        return StrikeResult(False, len(obs_list), available=False, reason=invalid_reason)
+    sensitivity = strike_sensitivity(obs_list, timing_evidence)
+    if sensitivity.invalid_reason is not None:
+        return StrikeResult(False, len(obs_list), available=False, reason=sensitivity.invalid_reason)
     radius_ft = ball_radius_in / 12.0
     zone_row = None
     zone_col = None
@@ -96,7 +100,8 @@ def is_strike(
             continue
         hit = hit or _segment_distance_squared(a, b, strike_zone) <= radius_ft**2 + 1e-12
     if hit:
-        return StrikeResult(True, len(obs_list), zone_row, zone_col)
+        result = StrikeResult(True, len(obs_list), zone_row, zone_col)
+        return _conditional_call(result, obs_list, strike_zone, (radius_ft, max_gap_ms), sensitivity)
     if uncertain_gap:
         return StrikeResult(False, len(obs_list), available=False, reason="UNSUPPORTED_TIMING_GAP")
     if crossing is None:
@@ -105,7 +110,64 @@ def is_strike(
     # volume. Retain the single-point API for an observation on the front plane.
     if len(obs_list) > 1 and min(obs.Z for obs in obs_list) > min(z for _, z in strike_zone.polygon_xz) - radius_ft:
         return StrikeResult(False, len(obs_list), available=False, reason="INCOMPLETE_ZONE_COVERAGE")
-    return StrikeResult(False, len(obs_list), zone_row, zone_col)
+    result = StrikeResult(False, len(obs_list), zone_row, zone_col)
+    return _conditional_call(result, obs_list, strike_zone, (radius_ft, max_gap_ms), sensitivity)
+
+
+def _invalid_geometry_reason(observations: List[StereoObservation], radius_in: float, max_gap_ms: float) -> str | None:
+    if not observations:
+        return "NO_OBSERVATIONS"
+    if not all(isfinite(value) for obs in observations for value in (obs.X, obs.Y, obs.Z)):
+        return "INVALID_COORDINATES"
+    if not isfinite(radius_in) or radius_in <= 0 or not isfinite(max_gap_ms) or max_gap_ms <= 0:
+        return "INVALID_GEOMETRY_POLICY"
+    return None
+
+
+def _conditional_call(
+    result: StrikeResult, observations: List[StereoObservation], zone: StrikeZone,
+    geometry_policy: tuple[float, float], sensitivity: StrikeSensitivity,
+) -> StrikeResult:
+    radius_ft, max_gap_ms = geometry_policy
+    if sensitivity.radius_ft > 0:
+        clearance = min(_signed_distance(obs.X, obs.Y, obs.Z, zone) for obs in observations)
+        for a, b in zip(observations, observations[1:]):
+            if (b.t_ns - a.t_ns) / 1e6 <= max_gap_ms:
+                clearance = min(clearance, _minimum_segment_clearance(a, b, zone))
+        robust = (
+            clearance <= radius_ft - sensitivity.radius_ft
+            if result.is_strike else clearance > radius_ft + sensitivity.radius_ft
+        )
+        if not robust:
+            return replace(result, is_strike=False, available=False, reason="STRIKE_BOUNDARY_UNCERTAIN", basis=sensitivity.basis)
+    return replace(result, reason=sensitivity.reason, basis=sensitivity.basis)
+
+
+def _signed_distance(x: float, y: float, z: float, zone: StrikeZone) -> float:
+    if zone.y_bottom_ft <= y <= zone.y_top_ft and point_in_polygon((x, z), zone.polygon_xz):
+        return -min(y - zone.y_bottom_ft, zone.y_top_ft - y, _distance_to_polygon((x, z), zone.polygon_xz))
+    return sqrt(_point_distance_squared(x, y, z, zone))
+
+
+def _minimum_segment_clearance(a: StereoObservation, b: StereoObservation, zone: StrikeZone) -> float:
+    """Minimize signed distance to the convex strike prism along a segment."""
+    def distance(t: float) -> float:
+        return _signed_distance(a.X + t * (b.X - a.X), a.Y + t * (b.Y - a.Y), a.Z + t * (b.Z - a.Z), zone)
+
+    lo, hi = 0.0, 1.0
+    ratio = (5.0**0.5 - 1.0) / 2.0
+    left, right = hi - ratio, lo + ratio
+    f_left, f_right = distance(left), distance(right)
+    for _ in range(60):
+        if f_left <= f_right:
+            hi, right, f_right = right, left, f_left
+            left = hi - ratio * (hi - lo)
+            f_left = distance(left)
+        else:
+            lo, left, f_left = left, right, f_right
+            right = lo + ratio * (hi - lo)
+            f_right = distance(right)
+    return min(distance(0.0), distance(1.0), f_left, f_right)
 
 
 def _sphere_intersects_zone(
