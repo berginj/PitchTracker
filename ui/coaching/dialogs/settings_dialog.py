@@ -52,7 +52,6 @@ class SettingsDialog(QtWidgets.QDialog):
         self._current_left = current_left_camera
         self._current_right = current_right_camera
         self._current_mound_distance = current_mound_distance
-        self._current_ball_type = current_ball_type
         self._current_color_mode = current_color_mode
 
         self.selected_width = current_width

@@ -236,7 +236,6 @@ class TrajectoryWidget(QtWidgets.QWidget):
         # Field dimensions (in feet)
         self._mound_y = 60.5  # Distance from plate to mound
         self._plate_y = 0.0
-        self._ground_z = 0.0
 
     def add_trajectory(self, y_positions: list[float], z_positions: list[float]) -> None:
         """Add a trajectory to display.

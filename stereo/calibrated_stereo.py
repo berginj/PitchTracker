@@ -160,9 +160,6 @@ class CalibratedStereoMatcher(StereoMatcher):
             self._ideal_pixel(right_pt, left=False),
         )
 
-    def _estimate_depth_sigma_ft(self, left_pt: np.ndarray, right_pt: np.ndarray) -> float:
-        return float(np.sqrt(self._estimate_covariance_ft2(left_pt, right_pt)[2, 2]))
-
     def _estimate_covariance_ft2(self, left_pt: np.ndarray, right_pt: np.ndarray) -> np.ndarray:
         """Propagate raw pixel noise through undistortion and triangulation.
 

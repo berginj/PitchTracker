@@ -8,12 +8,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
 
 from analysis.trend_classification import (
-    classify_deviation,
-    classify_movement_deviation,
     classify_trend,
-    compute_overall_status,
     generate_recommendations,
-    generate_trend_alerts,
 )
 from analysis.trend_models import BaselineComparison, SessionSummary, TrendReport
 from analysis.trend_reports import build_baseline_comparison, build_trend_report
@@ -143,54 +139,6 @@ class TrendAnalyzer:
     ) -> str:
         """Classify a regression slope."""
         return classify_trend(slope, threshold, higher_is_better)
-
-    def _classify_deviation(
-        self,
-        deviation: float,
-        metric: str,
-        positive: bool,
-    ) -> str:
-        """Classify an absolute baseline deviation."""
-        return classify_deviation(
-            deviation,
-            positive,
-            self.BASELINE_NORMAL_THRESHOLD,
-            self.BASELINE_CONCERNING_THRESHOLD,
-        )
-
-    def _classify_movement_deviation(
-        self,
-        h_deviation: float,
-        v_deviation: float,
-    ) -> str:
-        """Classify a movement deviation in inches."""
-        return classify_movement_deviation(h_deviation, v_deviation)
-
-    def _compute_overall_status(
-        self,
-        velocity_status: str,
-        movement_status: str,
-        accuracy_status: str,
-    ) -> str:
-        """Combine metric classifications into an overall status."""
-        return compute_overall_status(velocity_status, movement_status, accuracy_status)
-
-    def _generate_trend_alerts(
-        self,
-        velocity_slope: float,
-        velocity_direction: str,
-        strike_slope: float,
-        strike_direction: str,
-        velocity_vs_peak: float,
-    ) -> List[str]:
-        """Generate trend alerts."""
-        return generate_trend_alerts(
-            velocity_slope,
-            velocity_direction,
-            strike_slope,
-            strike_direction,
-            velocity_vs_peak,
-        )
 
     def _generate_recommendations(
         self,

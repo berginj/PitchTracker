@@ -53,17 +53,6 @@ def _load_json(path: Path) -> Dict[str, Any]:
     return dict(data)
 
 
-def _collect_pitch_dirs(session_dir: Path) -> List[Path]:
-    pitch_dirs = []
-    for child in session_dir.iterdir():
-        if not child.is_dir():
-            continue
-        manifest = child / "manifest.json"
-        if manifest.exists():
-            pitch_dirs.append(child)
-    return sorted(pitch_dirs)
-
-
 def _load_timestamp_deltas(paths: Iterable[Path]) -> List[int]:
     deltas: List[int] = []
     for path in paths:

@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Optional, cast
 
 from PySide6 import QtCore, QtWidgets
 
-from ui.device_utils import current_serial
 from ui.dialogs.calibration_wizard_support import (
     CalibrationWizardSupport,
     build_wizard_steps,
@@ -226,16 +225,6 @@ class CalibrationWizardDialog(QtWidgets.QDialog):
             return
         self._index += 1
         self._refresh_step()
-
-    def _validate_devices(self) -> bool:
-        """Validate that both cameras are selected.
-
-        Returns:
-            True if both cameras have serials
-        """
-        left = current_serial(self._parent._left_input)
-        right = current_serial(self._parent._right_input)
-        return bool(left and right)
 
     def _refresh_devices_and_sync(self) -> None:
         """Refresh device list and sync dropdowns."""

@@ -138,7 +138,6 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._prev_session_action = actions.prev_session
         self._next_session_action = actions.next_session
         self._delete_session_action = actions.delete_session
-        self._annotation_action = actions.annotation
         self._trajectory_action = actions.trajectory
 
     def _build_content_area(self) -> QtWidgets.QWidget:

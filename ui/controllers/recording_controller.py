@@ -84,7 +84,6 @@ class RecordingController:
         self._get_config_path = get_config_path
         self._get_session_name = get_session_name
         self._set_session_name = set_session_name
-        self._get_output_dir = get_output_dir
         self._set_output_dir_widget = set_output_dir_widget
         self._get_roi_path = get_roi_path
         self._get_pitcher_name = get_pitcher_name

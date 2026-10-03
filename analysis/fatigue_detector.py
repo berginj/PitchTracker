@@ -150,7 +150,7 @@ class FatigueDetector:
         trajectory_drop = 0.0
 
         # Calculate composite score and recommendation
-        score, factors = self._compute_fatigue_score(velocity_drop, velocity_trend, movement_variance, trajectory_drop)
+        score, factors = self._compute_fatigue_score(velocity_drop, velocity_trend, movement_variance)
         recommendation = self._get_recommendation(score)
 
         return FatigueMetrics(
@@ -170,7 +170,7 @@ class FatigueDetector:
             pitches: List of pitch summaries
 
         Returns:
-            Dictionary with velocity, movement, and trajectory stats
+            Dictionary with velocity and validated movement stats
         """
         # Extract data
         velocities = [p.speed_mph for p in pitches if p.speed_mph is not None]
@@ -184,13 +184,11 @@ class FatigueDetector:
         ]
         h_movements = [p.run_in for p in validated_movement]
         v_movements = [p.rise_in for p in validated_movement]
-        trajectory_confs = [p.trajectory_confidence for p in pitches if p.trajectory_confidence is not None]
 
         return {
             "velocity": compute_statistics(velocities),
             "h_movement": compute_statistics(h_movements),
             "v_movement": compute_statistics(v_movements),
-            "trajectory_conf": compute_statistics(trajectory_confs),
             "velocity_cv": compute_coefficient_of_variation(velocities),
             "h_movement_cv": compute_coefficient_of_variation(h_movements),
             "v_movement_cv": compute_coefficient_of_variation(v_movements),
@@ -263,34 +261,11 @@ class FatigueDetector:
         variance_increase = ((recent_cv - baseline_cv) / baseline_cv) * 100
         return float(max(0.0, variance_increase))  # Only increases indicate fatigue
 
-    def _compute_trajectory_quality_drop(
-        self,
-        baseline_stats: Dict[str, Any],
-        recent_stats: Dict[str, Any],
-    ) -> float:
-        """Compute drop in trajectory confidence.
-
-        Lower trajectory quality suggests less clean ball flight.
-
-        Args:
-            baseline_stats: Baseline window statistics
-            recent_stats: Recent window statistics
-
-        Returns:
-            Absolute drop in confidence (0.0-1.0 scale)
-        """
-        baseline_conf = baseline_stats["trajectory_conf"]["mean"]
-        recent_conf = recent_stats["trajectory_conf"]["mean"]
-
-        drop = baseline_conf - recent_conf
-        return float(max(0.0, drop))  # Only drops indicate concern
-
     def _compute_fatigue_score(
         self,
         velocity_drop: float,
         velocity_trend: float,
         movement_variance: float,
-        trajectory_drop: float,
     ) -> Tuple[float, List[str]]:
         """Compute composite fatigue score (0-100).
 
@@ -298,7 +273,6 @@ class FatigueDetector:
             velocity_drop: Percentage velocity drop
             velocity_trend: Velocity trend per pitch
             movement_variance: Percentage variance increase
-            trajectory_drop: Trajectory confidence drop
 
         Returns:
             Tuple of (fatigue_score, contributing_factors)

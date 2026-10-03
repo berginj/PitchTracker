@@ -58,7 +58,7 @@ Repository layout (required):
 - /stereo
 - /track
 - /metrics
-- /telemetry
+- /app/monitoring (resource health and diagnostics; timing lives in service stats)
 - /ui
 - /record
 - /tests

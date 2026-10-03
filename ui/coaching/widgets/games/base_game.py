@@ -29,8 +29,6 @@ class BaseGame(QtWidgets.QWidget):
         super().__init__(parent)
         self._style_manager = get_style_manager()
         self._state_mgr = game_state_manager
-        self._session_score = 0
-        self._session_start_time = 0.0
 
     def process_pitch(self, pitch: "PitchSummary") -> None:
         """Process incoming pitch and update game state.

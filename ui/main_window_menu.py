@@ -180,34 +180,6 @@ class MainWindowMenuMixin(MainWindowMixinHost):
         panel.setLayout(layout)
         return panel
 
-    def _build_detector_panel(self) -> QtWidgets.QGroupBox:
-        panel = QtWidgets.QGroupBox("Detector (Quick)")
-        form = QtWidgets.QFormLayout()
-        for field in (
-            self._frame_diff,
-            self._bg_diff,
-            self._bg_alpha,
-            self._edge_thresh,
-            self._blob_thresh,
-            self._min_circ,
-        ):
-            field.setDecimals(2)
-            field.setMaximum(10_000.0)
-        self._bg_alpha.setMaximum(1.0)
-        self._bg_alpha.setSingleStep(0.01)
-        self._min_area.setMaximum(100_000)
-        form.addRow("Mode", self._mode_combo)
-        form.addRow("Frame diff", self._frame_diff)
-        form.addRow("BG diff", self._bg_diff)
-        form.addRow("BG alpha", self._bg_alpha)
-        form.addRow("Edge thresh", self._edge_thresh)
-        form.addRow("Blob thresh", self._blob_thresh)
-        form.addRow("Min area", self._min_area)
-        form.addRow("Min circularity", self._min_circ)
-        form.addRow(self._apply_detector)
-        panel.setLayout(form)
-        return panel
-
     def _open_calibration_guide(self) -> None:
         self._calibration_manager.open_calibration_guide()
 

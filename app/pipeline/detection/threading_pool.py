@@ -83,7 +83,6 @@ class DetectionThreadPool(DetectionQueueMixin, DetectionWorkerMixin, DetectionSt
         self._frames_dropped: Dict[str, int] = {"left": 0, "right": 0, "results": 0}
         self._queue_attempts: Dict[str, int] = {"left": 0, "right": 0, "results": 0}
         self._last_drop_log_time: Dict[str, float] = {"left": 0.0, "right": 0.0, "results": 0.0}
-        self._drop_warning_threshold = 10  # Warn after this many drops
 
         # Per-frame conservation state. Each offered work item remains open until
         # one terminal result is emitted, including stop-time cancellation.

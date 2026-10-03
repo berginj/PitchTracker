@@ -230,8 +230,4 @@ def _global_edge_ids(
     return tuple(sorted(selected))
 
 
-def _edge_id_for_match(pair_id: str, match: StereoMatch) -> str:
-    return association_edge_id(pair_id, detection_decision_id(match.left), detection_decision_id(match.right))
-
-
 __all__ = ["StereoAssignmentDecision", "evaluate_stereo_assignment"]
