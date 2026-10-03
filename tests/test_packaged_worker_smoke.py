@@ -15,12 +15,13 @@ from trajectory.serialization import decode_result, encode_request
 
 
 @pytest.fixture
-def worker():
+def worker(tmp_path, monkeypatch):
     directory = os.environ.get("PITCHTRACKER_PACKAGED_DIR")
     if not directory:
         pytest.skip("set PITCHTRACKER_PACKAGED_DIR to opt into frozen-artifact validation")
     path = Path(directory).resolve() / "PitchTrackerWorker.exe"
     assert path.is_file()
+    monkeypatch.setenv("PITCHTRACKER_DATA_DIR", str(tmp_path / "state"))
     return path
 
 
@@ -84,6 +85,7 @@ def test_frozen_setup_capture_uses_only_simulator(worker, tmp_path):
 
 
 def test_frozen_tooling_dispatches_environment_validation(worker):
-    payload = json.loads(run_worker(worker, "tooling", json.dumps({"task": "validate_environment", "payload": {}})))
+    request = {"task": "validate_environment", "payload": {"check_cameras": False}}
+    payload = json.loads(run_worker(worker, "tooling", json.dumps(request)))
     assert payload["ok"], payload
     assert "errors" in payload["result"]

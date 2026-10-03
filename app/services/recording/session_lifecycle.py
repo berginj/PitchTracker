@@ -101,17 +101,7 @@ class SessionLifecycleMixin(RecordingServiceState):
 
     def stop_session(self: "RecordingServiceState") -> RecordingBundle:
         """Stop current session and finalize recordings."""
-        close_error: Optional[Exception] = None
-        try:
-            self.retry_completed_pitch_closes()
-        except Exception as exc:
-            # Still attempt terminal analysis below so one failed evidence
-            # stream does not mask the retained-manifest retry state.
-            close_error = exc
-            logger.exception("Pitch evidence close is still pending")
-        self.retry_terminal_manifests()
-        if close_error is not None:
-            raise close_error
+        self._retry_pitch_artifacts()
         with self._lock:
             if not self._session_active:
                 raise RuntimeError("No session active")
@@ -178,6 +168,7 @@ class SessionLifecycleMixin(RecordingServiceState):
             self._last_pitch_id = None
             self._config_path = None
             self._completed_pitch_recorders.clear()
+            self._pending_pitch_closes.clear()
             self._decision_evidence_incomplete = False
             self._pending_journal_manifest = None
             self._pending_journal_complete = None
@@ -204,6 +195,18 @@ class SessionLifecycleMixin(RecordingServiceState):
                 session_dir=session_dir,
             )
 
+    def _retry_pitch_artifacts(self: "RecordingServiceState") -> None:
+        """Drain close and terminal obligations without conflating ownership."""
+        close_error: Optional[Exception] = None
+        try:
+            self.retry_completed_pitch_closes()
+        except Exception as exc:
+            close_error = exc
+            logger.exception("Pitch evidence close is still pending")
+        self.retry_terminal_manifests()
+        if close_error is not None:
+            raise close_error
+
     def suspend_inputs(self: "RecordingServiceState") -> None:
         """Fence new frames while preserving accepted analysis and lifecycle events."""
         with self._lock:
@@ -220,7 +223,7 @@ class SessionLifecycleMixin(RecordingServiceState):
         if not self._frame_worker.wait_idle(timeout=10.0):
             raise RuntimeError("Recording frame queue is still draining; retry session pause")
 
-        self.retry_terminal_manifests()
+        self._retry_pitch_artifacts()
         with self._lock:
             if self._pitch_active:
                 self._stop_pitch_internal()

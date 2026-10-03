@@ -23,7 +23,8 @@ class FrameRoutingMixin(RecordingServiceState):
                 raise RuntimeError("No session active")
             if self._session_paused or self._inputs_suspended:
                 return
-        if not self._frame_worker.submit((camera_id, frame)):
+            accepted = self._frame_worker.submit((camera_id, frame))
+        if not accepted:
             logger.warning(
                 "Recording queue full; dropping newest frame camera=%s index=%s",
                 camera_id,

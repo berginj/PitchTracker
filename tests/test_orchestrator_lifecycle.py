@@ -7,7 +7,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.services.orchestrator.lifecycle import (
-    shutdown_pipeline, start_capture_runtime, stop_capture_runtime, stop_recording_pipeline,
+    resume_recording_pipeline, shutdown_pipeline, start_capture_runtime,
+    stop_capture_runtime, stop_recording_pipeline,
 )
 
 
@@ -92,3 +93,32 @@ def test_capture_rollback_failure_remains_owned_for_retry() -> None:
     assert fake._capturing and fake._capture_stopping
     stop_capture_runtime(fake)
     assert not fake._capturing and not fake._capture_stopping
+
+
+def test_partial_detection_resume_rolls_back_to_paused_consumers() -> None:
+    fake = _runtime_fake()
+    fake._recording_active = True
+    fake._recording_paused = True
+    fake._recording_stopping = False
+    fake._detection_service.start_detection.side_effect = RuntimeError("partial start")
+    with pytest.raises(RuntimeError, match="partial start"):
+        resume_recording_pipeline(fake)
+    fake._detection_service.stop_detection.assert_called_once_with()
+    fake._recording_service.pause_session.assert_called_once_with()
+    fake._analysis_service.pause_analysis.assert_called_once_with()
+    fake._event_coordinator.suspend_tracking.assert_called_once_with()
+    assert fake._recording_active and fake._recording_paused
+    assert not fake._detection_started and not fake._recording_stopping
+
+
+def test_resume_rollback_failure_retains_detection_until_stop_retry() -> None:
+    fake = _runtime_fake()
+    fake._recording_active = True
+    fake._recording_paused = True
+    fake._detection_service.start_detection.side_effect = RuntimeError("partial start")
+    fake._detection_service.stop_detection.side_effect = [RuntimeError("worker alive"), None]
+    with pytest.raises(RuntimeError, match="partial start"):
+        resume_recording_pipeline(fake)
+    assert fake._recording_active and fake._recording_stopping and fake._detection_started
+    stop_recording_pipeline(fake)
+    assert not fake._recording_active and not fake._detection_started

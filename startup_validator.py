@@ -211,8 +211,10 @@ def check_configuration() -> tuple[list[str], list[str]]:
     return warnings, info
 
 
-def validate_environment() -> tuple[list[str], list[str]]:
+def validate_environment(*, include_cameras: bool = True) -> tuple[list[str], list[str]]:
     """Validate complete environment before launching.
+
+    Set include_cameras=False for software-only artifact qualification.
 
     Returns:
         Tuple of (errors, warnings)
@@ -243,10 +245,11 @@ def validate_environment() -> tuple[list[str], list[str]]:
     logger.debug("Dependencies: OK")
 
     # Check cameras (warning only)
-    camera_warnings, camera_info = check_cameras()
-    warnings.extend(camera_warnings)
-    for msg in camera_info:
-        logger.debug(msg)
+    if include_cameras:
+        camera_warnings, camera_info = check_cameras()
+        warnings.extend(camera_warnings)
+        for msg in camera_info:
+            logger.debug(msg)
 
     # Check configuration (warning only - can run Setup Wizard)
     config_warnings, config_info = check_configuration()

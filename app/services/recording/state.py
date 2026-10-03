@@ -23,6 +23,7 @@ class RecordingServiceState:
     """
 
     _lock: threading.Lock
+    _pitch_artifact_lock: threading.Lock
     _frame_worker: BoundedRecordingWorker
     _session_recorder: Optional[SessionRecorder]
     _pitch_recorder: Optional[PitchRecorder]
@@ -41,6 +42,7 @@ class RecordingServiceState:
     _calibration_profile_id: Optional[str]
     _calibration_report: Optional[dict[str, Any]]
     _completed_pitch_recorders: dict[str, PitchRecorder]
+    _pending_pitch_closes: dict[str, PitchRecorder]
     _pre_roll_buffer: dict[str, Any]
     _pitch_lifecycle_metadata: dict[str, dict[str, dict[str, Any]]]
     _decision_journal: Optional[SessionEvidenceJournal]

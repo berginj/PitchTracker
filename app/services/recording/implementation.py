@@ -56,6 +56,7 @@ class RecordingServiceImpl(
     def __init__(self, event_bus: EventBus):
         self._event_bus = event_bus
         self._lock = threading.Lock()
+        self._pitch_artifact_lock = threading.Lock()
 
         # Session state
         self._session_recorder: Optional[SessionRecorder] = None
@@ -68,6 +69,7 @@ class RecordingServiceImpl(
         self._pitch_active = False
         self._current_pitch_id: Optional[str] = None
         self._completed_pitch_recorders: Dict[str, PitchRecorder] = {}
+        self._pending_pitch_closes: Dict[str, PitchRecorder] = {}
 
         # Pre-roll frame buffer (60 frames × 2 cameras)
         self._pre_roll_buffer: Dict[str, deque[Frame]] = {

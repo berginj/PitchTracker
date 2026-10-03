@@ -150,8 +150,13 @@ class PitchLifecycleMixin(RecordingServiceState):
         # active pitch has been detached; keeping the recorder makes the close
         # retryable and preserves the terminal analysis handoff.
         if pitch_id is not None:
-            self._completed_pitch_recorders[pitch_id] = recorder
-        recorder.close(force=False)
+            if pitch_id in self._pending_analysis_events or not (pitch_dir / "manifest.json").exists():
+                self._completed_pitch_recorders[pitch_id] = recorder
+            self._pending_pitch_closes[pitch_id] = recorder
+        with self._pitch_artifact_lock:
+            recorder.close(force=False)
+        if pitch_id is not None:
+            self._pending_pitch_closes.pop(pitch_id, None)
 
         self._invoke_callback(
             "pitch_ended", json.dumps({"pitch_id": pitch_id, "pitch_dir": str(pitch_dir)})
@@ -162,6 +167,12 @@ class PitchLifecycleMixin(RecordingServiceState):
     def retry_completed_pitch_closes(self: "RecordingServiceState") -> None:
         """Retry evidence flushes for pitches whose close previously failed."""
         with self._lock:
-            recorders = list(self._completed_pitch_recorders.values())
-        for recorder in recorders:
-            recorder.close(force=False)
+            recorders = list(self._pending_pitch_closes.items())
+        for pitch_id, recorder in recorders:
+            with self._pitch_artifact_lock:
+                recorder.close(force=False)
+            # Release the artifact lock before acquiring the state lock:
+            # frame-worker finalization holds state before artifact.
+            with self._lock:
+                if self._pending_pitch_closes.get(pitch_id) is recorder:
+                    self._pending_pitch_closes.pop(pitch_id)

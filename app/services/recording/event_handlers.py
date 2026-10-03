@@ -141,11 +141,12 @@ class EventHandlersMixin(RecordingServiceState):
 
             lifecycle["pitch_analyzed"] = event.metadata.to_dict()
             self._validate_lifecycle_metadata(event.pitch_id, lifecycle)
-            recorder.write_manifest(
-                event.summary,
-                self._config_path,
-                event_metadata=lifecycle,
-            )
+            with self._pitch_artifact_lock:
+                recorder.write_manifest(
+                    event.summary,
+                    self._config_path,
+                    event_metadata=lifecycle,
+                )
 
             with self._lock:
                 self._completed_pitch_recorders.pop(event.pitch_id, None)

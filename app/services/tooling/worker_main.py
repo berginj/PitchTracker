@@ -30,10 +30,13 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
-def _handle_validate_environment(_payload: dict[str, Any]) -> dict[str, Any]:
+def _handle_validate_environment(payload: dict[str, Any]) -> dict[str, Any]:
     from startup_validator import validate_environment
 
-    errors, warnings = validate_environment()
+    include_cameras = payload.get("check_cameras", True)
+    if not isinstance(include_cameras, bool):
+        raise ValueError("check_cameras must be a boolean")
+    errors, warnings = validate_environment(include_cameras=include_cameras)
     return {"errors": errors, "warnings": warnings}
 
 
