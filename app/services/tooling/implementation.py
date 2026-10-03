@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from threading import Event
 from typing import Any
 
 from contracts.tooling import (
@@ -26,6 +27,7 @@ from exceptions import (
 )
 
 from .interface import ToolingService
+from .process_runner import run_cancellable_worker
 from app.worker_process import worker_command
 
 
@@ -42,6 +44,10 @@ class SubprocessToolingService(ToolingService):
 
     def validate_environment(self) -> EnvironmentValidationResult:
         payload = self._run_task("validate_environment", {})
+        return EnvironmentValidationResult.from_payload(payload)
+
+    def validate_environment_with_cancellation(self, cancel_event: Event) -> EnvironmentValidationResult:
+        payload = self._run_task("validate_environment", {}, cancel_event=cancel_event)
         return EnvironmentValidationResult.from_payload(payload)
 
     def build_training_report(self, request: TrainingReportRequest) -> TrainingReportResult:
@@ -81,22 +87,30 @@ class SubprocessToolingService(ToolingService):
         task: str,
         payload: dict[str, Any],
         timeout_seconds: int = 60,
+        *,
+        cancel_event: Event | None = None,
     ) -> dict[str, Any]:
         command = worker_command("tooling", python_executable=self._python_executable)
         request_envelope = {"task": task, "payload": payload}
 
         try:
-            completed = subprocess.run(
-                command,
-                input=json.dumps(request_envelope),
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                cwd=str(self._project_root),
-                timeout=timeout_seconds,
-                check=False,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
+            if cancel_event is not None:
+                completed = run_cancellable_worker(
+                    command, json.dumps(request_envelope), self._project_root,
+                    timeout_seconds, cancel_event,
+                )
+            else:
+                completed = subprocess.run(
+                    command,
+                    input=json.dumps(request_envelope),
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    cwd=str(self._project_root),
+                    timeout=timeout_seconds,
+                    check=False,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
         except subprocess.TimeoutExpired as exc:
             self._raise_task_error(
                 task,

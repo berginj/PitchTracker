@@ -11,13 +11,13 @@ import json
 from pathlib import Path
 
 from loguru import logger
-from PySide6 import QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from launcher_threads import SilentUpdateThread, UpdateCheckThread
 from updater import install_update, is_auto_update_enabled
 
 
-class LauncherUpdateController:
+class LauncherUpdateController(QtCore.QObject):
     """Drive update checks and installs on behalf of the launcher window.
 
     The owning window is visible only on the launcher screen (it hides while a
@@ -25,17 +25,58 @@ class LauncherUpdateController:
     installer may launch immediately or must be deferred until the user returns.
     """
 
+    shutdown_finished = QtCore.Signal()
+
     def __init__(self, window: QtWidgets.QMainWindow):
+        super().__init__(window)
         self._window = window
         self._update_thread: UpdateCheckThread | None = None
         self._silent_update_thread: SilentUpdateThread | None = None
         self._pending_installer = None
+        self._closing = False
+
+    def begin_shutdown(self) -> bool:
+        """Prevent new work and retain active Qt workers until they finish."""
+        self._closing = True
+        for thread in (self._update_thread, self._silent_update_thread):
+            if thread is not None:
+                thread.requestInterruption()
+        return not self._has_active_workers()
+
+    def _has_active_workers(self) -> bool:
+        return self._update_thread is not None or self._silent_update_thread is not None
 
     def check_for_updates(self) -> None:
         """Check for updates in a background worker thread (non-blocking)."""
+        if self._closing or self._update_thread is not None:
+            return
         self._update_thread = UpdateCheckThread()
         self._update_thread.update_available.connect(self._on_update_available)
+        self._update_thread.finished.connect(self._on_update_check_finished)
         self._update_thread.start()
+
+    def _on_update_check_finished(self) -> None:
+        thread = self._update_thread
+        if thread is not None:
+            thread.wait()
+            self._update_thread = None
+            thread.deleteLater()
+        self._on_worker_finished()
+
+    def _on_silent_update_finished(self) -> None:
+        thread = self._silent_update_thread
+        if thread is not None:
+            thread.wait()
+            self._silent_update_thread = None
+            thread.deleteLater()
+        self._on_worker_finished()
+
+    def _on_worker_finished(self) -> None:
+        if self._closing:
+            if not self._has_active_workers():
+                self.shutdown_finished.emit()
+        else:
+            self.install_pending_update()
 
     def install_pending_update(self) -> None:
         """Launch a pending verified installer, but only from the launcher screen.
@@ -44,7 +85,7 @@ class LauncherUpdateController:
         in that case we defer so a silent install never interrupts a live or
         recording session. The install runs once the user returns to the launcher.
         """
-        if not self._pending_installer:
+        if self._closing or self._has_active_workers() or not self._pending_installer:
             return
         if not self._window.isVisible():
             logger.info("Auto-update ready; deferring install until current workflow closes")
@@ -53,12 +94,15 @@ class LauncherUpdateController:
         self._pending_installer = None
         logger.info(f"Auto-update: launching verified installer silently: {installer_path}")
         if install_update(installer_path, silent=True):
-            QtWidgets.QApplication.quit()
+            # Go through the launcher's close guard so validation also drains.
+            self._window.close()
         else:
             logger.warning("Auto-update: installer failed to launch")
 
     def _on_update_available(self, update_info: dict) -> None:
         """Decide between silent auto-install and the manual update dialog."""
+        if self._closing:
+            return
         if self._is_version_skipped(update_info["version"]):
             return
 
@@ -76,23 +120,24 @@ class LauncherUpdateController:
 
     def _start_silent_update(self, update_info: dict) -> None:
         """Download + SHA-256-verify the update in the background, then install."""
-        if self._silent_update_thread is not None:
+        if self._closing or self._silent_update_thread is not None:
             return
         logger.info(f"Auto-update: downloading v{update_info.get('version')} in background")
         self._silent_update_thread = SilentUpdateThread(update_info["download_url"], update_info.get("expected_sha256"))
         self._silent_update_thread.ready.connect(self._on_silent_update_ready)
         self._silent_update_thread.failed.connect(self._on_silent_update_failed)
+        self._silent_update_thread.finished.connect(self._on_silent_update_finished)
         self._silent_update_thread.start()
 
     def _on_silent_update_ready(self, installer_path) -> None:
         """A verified installer is ready; install now or defer if a session is open."""
+        if self._closing:
+            return
         self._pending_installer = installer_path
-        self.install_pending_update()
 
     def _on_silent_update_failed(self, message: str) -> None:
         """Log a silent-update failure without interrupting the user."""
         logger.warning(f"Auto-update download/verification failed: {message}")
-        self._silent_update_thread = None
 
     @staticmethod
     def _is_version_skipped(version: str) -> bool:

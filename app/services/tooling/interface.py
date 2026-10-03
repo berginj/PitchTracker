@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from threading import Event
 
 from contracts.tooling import (
     AlignmentAnalysisRequest,
@@ -23,6 +24,10 @@ class ToolingService(ABC):
     @abstractmethod
     def validate_environment(self) -> EnvironmentValidationResult:
         """Run environment validation in a worker process."""
+
+    def validate_environment_with_cancellation(self, cancel_event: Event) -> EnvironmentValidationResult:
+        """Validate with a cancellation token; legacy implementations finish normally."""
+        return self.validate_environment()
 
     @abstractmethod
     def build_training_report(self, request: TrainingReportRequest) -> TrainingReportResult:

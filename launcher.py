@@ -18,11 +18,6 @@ def _ensure_project_root_on_sys_path(project_root: Path) -> None:
     sys.path.insert(0, str(project_root))
 
 
-# Add project root to path and set working directory
-project_root = Path(__file__).parent.resolve()
-_ensure_project_root_on_sys_path(project_root)
-os.chdir(project_root)
-
 from app.services.tooling import ToolingService, get_tooling_service  # noqa: E402
 from launcher_support import clear_python_cache  # noqa: E402
 from launcher_threads import StartupValidationThread  # noqa: E402
@@ -54,7 +49,9 @@ class LauncherWindow(QtWidgets.QMainWindow):
         self._backend = backend
         self._config_path = config_path
         self._validation_thread: StartupValidationThread | None = None
+        self._close_requested = False
         self._update_controller = LauncherUpdateController(self)
+        self._update_controller.shutdown_finished.connect(self._on_updates_finished)
         self.setWindowTitle("PitchTracker")
         self.resize(800, 600)
         self._build_ui()
@@ -72,7 +69,6 @@ class LauncherWindow(QtWidgets.QMainWindow):
         layout.setContentsMargins(36, 32, 36, 32)
         layout.setSpacing(18)
 
-        # Logo/Title area
         title_widget = self._build_title()
         layout.addWidget(title_widget)
 
@@ -95,8 +91,6 @@ class LauncherWindow(QtWidgets.QMainWindow):
         scroll.setWidget(central)
         self.setCentralWidget(scroll)
 
-        # Set window icon if available
-        self._set_window_icon()
         self._set_role_buttons_enabled(False, review_enabled=True)
 
     def _build_title(self) -> QtWidgets.QWidget:
@@ -258,14 +252,6 @@ class LauncherWindow(QtWidgets.QMainWindow):
         button.setAccessibleName(f"Launch {accessible_title}")
         return button
 
-    def _darken_color(self, color: str, factor: float = 0.9) -> str:
-        """Darken a hex color by a factor."""
-        # Simple darkening - multiply RGB values
-        color = color.lstrip("#")
-        r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
-        r, g, b = int(r * factor), int(g * factor), int(b * factor)
-        return f"#{r:02x}{g:02x}{b:02x}"
-
     def _build_footer(self) -> QtWidgets.QWidget:
         """Build footer with about button."""
         widget = QtWidgets.QWidget()
@@ -297,43 +283,51 @@ class LauncherWindow(QtWidgets.QMainWindow):
         widget.setLayout(layout)
         return widget
 
-    def _set_window_icon(self):
-        """Set window icon if available."""
-        # Try to set an icon (placeholder for now)
-
     def _start_environment_validation(self) -> None:
         """Run startup validation after the launcher is already visible."""
-        if self._validation_thread is not None:
+        if self._validation_thread is not None or self._close_requested:
             return
 
         self._validation_thread = StartupValidationThread(self._validation_service)
         self._validation_thread.validation_complete.connect(self._on_validation_complete)
         self._validation_thread.validation_failed.connect(self._on_validation_failed)
+        self._validation_thread.finished.connect(self._on_validation_finished)
         self._validation_thread.start()
 
     def _on_validation_complete(self, errors: list[str], warnings: list[str]) -> None:
         """Handle background validation results."""
-        thread = self._validation_thread
+        if self._close_requested:
+            return
         self._validation_state = "completed"
         self._startup_errors = list(errors)
         self._startup_warnings = list(warnings)
         self._set_role_buttons_enabled(not bool(errors), review_enabled=True)
         self._update_warning_banner()
-        self._validation_thread = None
-        if thread is not None:
-            thread.deleteLater()
 
     def _on_validation_failed(self, error_message: str) -> None:
         """Handle background validation failures."""
-        thread = self._validation_thread
+        if self._close_requested:
+            return
         self._validation_state = "completed"
         self._startup_errors = [f"Background validation failed: {error_message}"]
         self._startup_warnings = []
         self._set_role_buttons_enabled(False, review_enabled=True)
         self._update_warning_banner()
-        self._validation_thread = None
+
+    def _on_validation_finished(self) -> None:
+        """Release the worker only after its thread and subprocess are terminal."""
+        thread = self._validation_thread
         if thread is not None:
+            thread.wait()
+            self._validation_thread = None
             thread.deleteLater()
+        if self._close_requested:
+            self.close()
+
+    def _on_updates_finished(self) -> None:
+        """Retry deferred close after all updater threads have finished."""
+        if self._close_requested:
+            self.close()
 
     def _set_role_buttons_enabled(self, enabled: bool, *, review_enabled: bool | None = None) -> None:
         """Enable or disable launcher entry points."""
@@ -377,13 +371,16 @@ class LauncherWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         """Ensure background threads are joined before destruction."""
-        if self._validation_thread is not None and self._validation_thread.isRunning():
-            self._validation_thread.wait(3000)
+        self._close_requested = True
+        updates_finished = self._update_controller.begin_shutdown()
+        if self._validation_thread is not None:
+            event.ignore()
+            self._validation_thread.cancel()
+            return
+        if not updates_finished:
+            event.ignore()
+            return
         super().closeEvent(event)
-
-    def _launch_setup(self):
-        """Compatibility route to the single canonical stereo setup wizard."""
-        self._launch_stereo_setup()
 
     def _launch_stereo_setup(self):
         """Launch the canonical stereo setup wizard."""
@@ -473,6 +470,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None):
     """Main entry point."""
+    project_root = Path(__file__).parent.resolve()
+    _ensure_project_root_on_sys_path(project_root)
+    os.chdir(project_root)
     args = parse_args(argv)
     # Create required directories first
     create_required_directories()

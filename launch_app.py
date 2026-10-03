@@ -44,14 +44,18 @@ def _clear_import_caches_before_launcher_import(project_root: Path) -> None:
     importlib.invalidate_caches()
 
 
-# Add project root to Python path and set working directory
-project_root = Path(__file__).parent.resolve()
-_ensure_project_root_on_sys_path(project_root)
-os.chdir(project_root)
-_clear_import_caches_before_launcher_import(project_root)
+def main():
+    """Prepare source execution only when explicitly launching the application."""
+    project_root = Path(__file__).parent.resolve()
+    _ensure_project_root_on_sys_path(project_root)
+    os.chdir(project_root)
+    _clear_import_caches_before_launcher_import(project_root)
+
+    from launcher import main as launcher_main
+
+    return launcher_main()
+
 
 # Import and run launcher
 if __name__ == "__main__":
-    from launcher import main
-
     sys.exit(main())
