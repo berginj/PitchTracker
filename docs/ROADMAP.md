@@ -160,6 +160,10 @@ These findings remain work even though the original pull requests are closed.
 
 ## Branch review follow-ups
 
+The [October 6 final branch review](review/BRANCH_CONSOLIDATION_2026_10_06.md)
+records the meaningful PR #41 merge, already-incorporated work, rejected Python
+3.9 patches, and archive references for retired branch tips.
+
 The [branch consolidation review](review/BRANCH_CONSOLIDATION_2026_10_02.md)
 distinguishes work already incorporated through squash merges from the remaining
 camera and launcher lifecycle changes. Implementation and validation evidence
