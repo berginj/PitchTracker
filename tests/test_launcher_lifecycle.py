@@ -15,8 +15,8 @@ def test_startup_validation_respects_backend_camera_intent(monkeypatch, qtbot, b
     requests = []
 
     class RecordingService(SubprocessToolingService):
-        def _run_task(self, task, payload, **kwargs):
-            requests.append((task, payload, kwargs))
+        def _run_task(self, task, payload, timeout_seconds=120, *, cancel_event=None):
+            requests.append((task, payload, {"cancel_event": cancel_event}))
             return {"errors": [], "warnings": []}
 
     monkeypatch.setattr(launcher.QtCore.QTimer, "singleShot", lambda *_args: None)
@@ -37,7 +37,7 @@ def test_repeated_close_waits_for_validation_terminal_state(monkeypatch, qtbot) 
     cancellation_tokens = []
 
     class BlockedService(SubprocessToolingService):
-        def validate_environment_with_cancellation(self, cancel_event):
+        def validate_environment_with_cancellation(self, cancel_event, *, check_cameras=True):
             cancellation_tokens.append(cancel_event)
             started.set()
             release.wait(5)
