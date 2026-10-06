@@ -1,6 +1,6 @@
 # PitchTracker Quick Start
 
-**Last reviewed:** 2026-10-03
+**Last reviewed:** 2026-10-06
 
 **Applies to:** v2.0.0 and current `main`
 
@@ -13,7 +13,8 @@ public claim.
 ### Current public path: run from source
 
 The published `v2.0.0` release has no installer asset. On Windows with Python
-3.13 or newer:
+3.14 recommended (Python 3.13 requires C++ Build Tools for the pinned PyYAML
+dependency; see [Installation](../README_INSTALL.md)):
 
 ```powershell
 git clone https://github.com/berginj/PitchTracker.git
@@ -21,13 +22,16 @@ cd PitchTracker
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-python setup_validator.py
 python launcher.py --backend sim
 ```
 
 Do not download the older v1.5 pilot installer as though it were the current v2
 build. A refreshed installer will be published only after clean-machine smoke
 testing and checksum verification.
+
+Simulator startup skips camera checks. The standalone `setup_validator.py`
+opens physical cameras; it is not needed to try the simulator. The launcher
+still checks software dependencies and may check GitHub for updates.
 
 ### Future packaged installer
 

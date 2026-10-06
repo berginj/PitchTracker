@@ -85,4 +85,4 @@ When behavior changes:
 5. Move superseded point-in-time reports to the archive instead of leaving two
    competing status sources.
 
-Last reviewed: **2026-08-16**.
+Last reviewed: **2026-10-06**.

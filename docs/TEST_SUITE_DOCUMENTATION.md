@@ -1,35 +1,41 @@
 # PitchTracker Test Suite Documentation
 
-**Version:** v2.0.0 / current `codex/python313-mypy` branch head
-**Date:** 2026-08-16
-**Status:** Current collection recorded; physical tests and native teardown remain separate gates
+**Scope:** test reference plus dated historical reports
+**Last reviewed:** 2026-10-06
+**Current evidence:** [Current Status](CURRENT_STATUS.md) and exact GitHub CI runs
 
-> Historical version sections later in this file preserve point-in-time test
-> reports. Their failure counts and release recommendations are not current
-> status; use the run summary immediately below.
+> Module inventories, counts, timings, failure lists and release recommendations
+> below are historical unless explicitly bound to a current commit/run. They are
+> not a current test collection or coverage claim.
 
 ---
 
 ## Overview
 
-This document provides exhaustive documentation of the PitchTracker test suite, including all test modules, test counts, coverage areas, and execution details.
-
-**Current collection:** `1,614 tests collected` under Python 3.13.
-**Latest complete parallel run:** `1,577 passed, 28 skipped`; pytest then
-reported a Windows native-thread teardown access violation.
-**Pass rate:** Do not treat the assertion count as a clean release pass until
-the teardown failure is eliminated.
-**Test Framework:** pytest 7.4.3
-
-Current interpretation and capability-level confidence are maintained in
-[review/TEST_CONFIDENCE_REVIEW.md](review/TEST_CONFIDENCE_REVIEW.md).
-**Recorded job:** Python 3.13 on GitHub Actions; required matrix also passed on Python 3.14
-
-Command:
+Use this document for test organization and historical context. Use
+[the workflow](../.github/workflows/ci.yml) for current gates and execution policy.
+Install development dependencies before testing:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest
+python -m pip install -r requirements-dev.txt
+python -m pytest
 ```
+
+Development dependencies currently pin pytest 9.0.3. CI runs Python 3.13 with
+two loadscope workers and Python 3.14 serially. The exact baseline `e1df60d`
+[CI run](https://github.com/berginj/PitchTracker/actions/runs/37162376775) passed;
+the preceding `6d2eacf` run recorded 1,835 passed and 33 skipped per runtime.
+These results do not include subsequent uncommitted changes.
+
+## Historical August 16 run
+
+The August `codex/python313-mypy` collection recorded 1,614 tests; a parallel
+run recorded 1,577 passed and 28 skipped followed by a Windows native-thread
+teardown access violation. That result is historical. Later process-isolation
+and lifecycle fixes and clean CI runs are documented in Current Status and
+[the October remediation record](review/REMEDIATION_VALIDATION_2026_10_03.md).
+The [test-confidence review](review/TEST_CONFIDENCE_REVIEW.md) is also a dated
+audit, not the current run summary.
 
 ---
 
@@ -856,8 +862,8 @@ python -m benchmarks.memory --duration 300
 
 ## Summary
 
-**Test Suite Status:** Automated suite current; hardware and physical accuracy
-remain open under `docs/ROADMAP.md`
+**Test Suite Status:** See Current Status and the exact CI run for current
+software evidence. The inventory and metrics below are historical.
 
 **Coverage:**
 - Unit and contract tests: comprehensive
@@ -880,6 +886,6 @@ remain open under `docs/ROADMAP.md`
 ---
 
 **Document Version:** 1.0
-**Last Updated:** 2026-07-22
+**Last Updated:** 2026-10-06
 **Maintainer:** PitchTracker Development Team
-**Status:** Software regression suite passing; field validation pending
+**Status:** Historical test reference; current software and field gates are in the roadmap

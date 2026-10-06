@@ -2,10 +2,34 @@
 
 from threading import Event
 
+import pytest
+
 from contracts.tooling import EnvironmentValidationResult
 from app.services.tooling import SubprocessToolingService
 import launcher
 from launcher_threads import StartupValidationThread
+
+
+@pytest.mark.parametrize("backend", ["sim", "uvc", "opencv"])
+def test_startup_validation_respects_backend_camera_intent(monkeypatch, qtbot, backend) -> None:
+    requests = []
+
+    class RecordingService(SubprocessToolingService):
+        def _run_task(self, task, payload, **kwargs):
+            requests.append((task, payload, kwargs))
+            return {"errors": [], "warnings": []}
+
+    monkeypatch.setattr(launcher.QtCore.QTimer, "singleShot", lambda *_args: None)
+    window = launcher.LauncherWindow(backend=backend, validation_service=RecordingService())
+    qtbot.addWidget(window)
+    window._start_environment_validation()
+    qtbot.waitUntil(lambda: window._validation_thread is None)
+    assert window._validation_state == "completed"
+    assert len(requests) == 1
+    expected_payload = {"check_cameras": False} if backend == "sim" else {}
+    assert requests[0][0:2] == ("validate_environment", expected_payload)
+    assert isinstance(requests[0][2]["cancel_event"], Event)
+    assert window.close()
 
 
 def test_repeated_close_waits_for_validation_terminal_state(monkeypatch, qtbot) -> None:

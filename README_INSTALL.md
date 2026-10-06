@@ -1,6 +1,6 @@
 # PitchTracker Installation
 
-**Last reviewed:** 2026-10-03
+**Last reviewed:** 2026-10-06
 
 **Applies to:** v2.0.0 and current `main`
 
@@ -20,9 +20,14 @@ its exact source commit and SHA-256.
 Requirements:
 
 - 64-bit Windows 10 or Windows 11;
-- Python 3.13 or newer;
+- Python 3.14 is recommended for a fresh Windows source environment;
 - enough disk space for dependencies and private recordings; and
 - two qualifying global-shutter UVC cameras for physical testing.
+
+Python 3.13 remains covered by CI, but its pinned PyYAML 6.0.1 dependency builds
+from source on Windows and requires Microsoft C++ Build Tools. Python 3.14 uses
+the newer PyYAML pin with a Windows wheel. CI success on a prepared runner does
+not establish dependency installation on a clean machine.
 
 ```powershell
 git clone https://github.com/berginj/PitchTracker.git
@@ -30,12 +35,13 @@ cd PitchTracker
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-python setup_validator.py
 python launcher.py --backend sim
 ```
 
 Most automated tests and simulator workflows do not require cameras. Use
 `python launcher.py --backend uvc` for a camera-backed run after setup.
+Simulator startup skips camera checks. `python setup_validator.py` opens physical
+cameras and is intended for an operator-initiated hardware check.
 
 ## Build an installer for controlled testing
 

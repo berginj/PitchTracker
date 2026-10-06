@@ -78,9 +78,10 @@ class StartupValidationThread(QtCore.QThread):
     validation_complete = QtCore.Signal(list, list)
     validation_failed = QtCore.Signal(str)
 
-    def __init__(self, tooling_service: ToolingService):
+    def __init__(self, tooling_service: ToolingService, *, check_cameras: bool = True):
         super().__init__()
         self._tooling_service = tooling_service
+        self._check_cameras = check_cameras
         self._cancel_event = Event()
 
     def cancel(self) -> None:
@@ -91,7 +92,11 @@ class StartupValidationThread(QtCore.QThread):
         try:
             if self._cancel_event.is_set():
                 return
-            if isinstance(self._tooling_service, ToolingService):
+            if not self._check_cameras:
+                result = self._tooling_service.validate_environment_with_cancellation(
+                    self._cancel_event, check_cameras=False,
+                )
+            elif isinstance(self._tooling_service, ToolingService):
                 result = self._tooling_service.validate_environment_with_cancellation(self._cancel_event)
             else:
                 # Existing callers inject lightweight, non-subclass service doubles.

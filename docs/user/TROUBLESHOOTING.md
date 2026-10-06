@@ -1,6 +1,6 @@
 # PitchTracker - Troubleshooting Guide
 
-**Last Updated:** 2026-08-16
+**Last Updated:** 2026-10-06
 **Version:** 2.0.0
 
 ---
@@ -39,12 +39,13 @@
 
 **Step 2: Check Camera Backend**
 ```
-1. Settings → Camera → Backend
-2. Try each backend option:
-   - UVC (Universal Video Class)
-   - DirectShow (Windows default)
-   - OpenCV (Cross-platform)
-3. Click "Refresh Cameras" after each change
+1. Select the intended launcher backend:
+   - python launcher.py --backend uvc (preferred for stable device identity)
+   - python launcher.py --backend opencv (numeric camera indexes)
+   - python launcher.py --backend sim (no physical cameras)
+2. DirectShow is used internally by the Windows UVC path; it is not a separate
+   launcher backend option.
+3. Re-run camera discovery after an intentional backend change.
 ```
 
 **Step 3: Close Conflicting Applications**
@@ -162,9 +163,10 @@
 
 **Timing Issues:**
 ```
-1. Settings → Camera → Backend → Try different backend
-2. Enable "Sync Mode" if available
-3. Reduce FPS (60 → 30) to reduce USB bandwidth
+1. Compare requested/negotiated modes, pair skew, unmatched counts and USB load.
+2. Qualify exposure timing independently; receipt pairing is not proof of sync.
+3. Correct USB contention and re-run setup. Lowering FPS can aid diagnostics,
+   but does not qualify a mode below the intended field-testing requirements.
 ```
 
 ---

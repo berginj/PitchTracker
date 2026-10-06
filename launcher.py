@@ -283,7 +283,9 @@ class LauncherWindow(QtWidgets.QMainWindow):
         if self._validation_thread is not None or self._close_requested:
             return
 
-        self._validation_thread = StartupValidationThread(self._validation_service)
+        self._validation_thread = StartupValidationThread(
+            self._validation_service, check_cameras=self._backend != "sim",
+        )
         self._validation_thread.validation_complete.connect(self._on_validation_complete)
         self._validation_thread.validation_failed.connect(self._on_validation_failed)
         self._validation_thread.finished.connect(self._on_validation_finished)

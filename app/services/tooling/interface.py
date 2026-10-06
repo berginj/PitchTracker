@@ -25,8 +25,12 @@ class ToolingService(ABC):
     def validate_environment(self) -> EnvironmentValidationResult:
         """Run environment validation in a worker process."""
 
-    def validate_environment_with_cancellation(self, cancel_event: Event) -> EnvironmentValidationResult:
+    def validate_environment_with_cancellation(
+        self, cancel_event: Event, *, check_cameras: bool = True,
+    ) -> EnvironmentValidationResult:
         """Validate with a cancellation token; legacy implementations finish normally."""
+        if not check_cameras:
+            raise NotImplementedError("This tooling service does not support camera-free validation")
         return self.validate_environment()
 
     @abstractmethod

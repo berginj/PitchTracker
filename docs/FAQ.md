@@ -1,6 +1,6 @@
 # PitchTracker Frequently Asked Questions
 
-**Last reviewed:** 2026-08-16
+**Last reviewed:** 2026-10-06
 
 **Applies to:** v2.0.0 and current `main`
 
@@ -17,7 +17,9 @@ artifact provenance recording, and checksum verification.
 
 ### How do I run from source?
 
-Use Windows with Python 3.13 or newer:
+Use Windows with Python 3.14 for the simplest fresh dependency installation.
+Python 3.13 remains covered by CI but needs C++ Build Tools for its pinned
+PyYAML dependency; see [Installation](../README_INSTALL.md).
 
 ```powershell
 git clone https://github.com/berginj/PitchTracker.git
@@ -25,9 +27,12 @@ cd PitchTracker
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-python setup_validator.py
-python launcher.py
+python launcher.py --backend sim
 ```
+
+Simulator startup skips camera checks. Use `--backend uvc` for an intentional
+camera-backed run. The standalone `setup_validator.py` opens cameras and is not
+required for simulator use.
 
 ### Will a packaged installer require Python?
 
