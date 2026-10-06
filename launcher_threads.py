@@ -96,6 +96,8 @@ class StartupValidationThread(QtCore.QThread):
             if not self._check_cameras:
                 validator = getattr(self._tooling_service, "validate_environment_with_cancellation", None)
                 try:
+                    if not callable(validator):
+                        raise TypeError("No cancellable validator")
                     inspect.signature(validator).bind(self._cancel_event, check_cameras=False)
                     supported = getattr(validator, "__func__", None) is not (
                         ToolingService.validate_environment_with_cancellation
@@ -105,6 +107,7 @@ class StartupValidationThread(QtCore.QThread):
                 if not supported:
                     # Legacy validators may probe hardware; use the camera-free worker instead.
                     validator = SubprocessToolingService().validate_environment_with_cancellation
+                assert callable(validator)
                 result = validator(
                     self._cancel_event, check_cameras=False,
                 )
