@@ -114,3 +114,29 @@ def test_validation_worker_retains_legacy_injected_service(qtbot) -> None:
         worker.start()
     assert worker.wait(5000)
     assert signal.args == [[], ["legacy"]]
+
+
+@pytest.mark.parametrize("cancellable", [False, True])
+def test_simulator_legacy_validator_uses_camera_free_worker(monkeypatch, qtbot, cancellable) -> None:
+    requests = []
+
+    class LegacyService:
+        def validate_environment(self):
+            pytest.fail("Legacy validation must not probe cameras in simulator mode")
+
+    if cancellable:
+        LegacyService.validate_environment_with_cancellation = lambda self, token: self.validate_environment()
+
+    def validate(self, token, *, check_cameras=True):
+        requests.append((token, check_cameras))
+        return EnvironmentValidationResult(errors=[], warnings=["camera-free"])
+
+    monkeypatch.setattr(SubprocessToolingService, "validate_environment_with_cancellation", validate)
+    worker = StartupValidationThread(LegacyService(), check_cameras=False)
+    with qtbot.waitSignal(worker.validation_complete) as signal:
+        worker.start()
+    assert worker.wait(5000)
+    assert signal.args == [[], ["camera-free"]]
+    assert len(requests) == 1
+    assert isinstance(requests[0][0], Event)
+    assert requests[0][1] is False

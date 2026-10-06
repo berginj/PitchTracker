@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from concurrent.futures import CancelledError
+import inspect
 import logging
 from threading import Event
 
 from PySide6 import QtCore
 
-from app.services.tooling import ToolingService
+from app.services.tooling import SubprocessToolingService, ToolingService
 from updater import check_for_updates, download_update
 
 
@@ -93,7 +94,18 @@ class StartupValidationThread(QtCore.QThread):
             if self._cancel_event.is_set():
                 return
             if not self._check_cameras:
-                result = self._tooling_service.validate_environment_with_cancellation(
+                validator = getattr(self._tooling_service, "validate_environment_with_cancellation", None)
+                try:
+                    inspect.signature(validator).bind(self._cancel_event, check_cameras=False)
+                    supported = getattr(validator, "__func__", None) is not (
+                        ToolingService.validate_environment_with_cancellation
+                    )
+                except (TypeError, ValueError):
+                    supported = False
+                if not supported:
+                    # Legacy validators may probe hardware; use the camera-free worker instead.
+                    validator = SubprocessToolingService().validate_environment_with_cancellation
+                result = validator(
                     self._cancel_event, check_cameras=False,
                 )
             elif isinstance(self._tooling_service, ToolingService):
