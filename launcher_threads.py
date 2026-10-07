@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from concurrent.futures import CancelledError
+import inspect
 import logging
 from threading import Event
 
 from PySide6 import QtCore
 
-from app.services.tooling import ToolingService
+from app.services.tooling import SubprocessToolingService, ToolingService
 from updater import check_for_updates, download_update
 
 
@@ -78,9 +79,10 @@ class StartupValidationThread(QtCore.QThread):
     validation_complete = QtCore.Signal(list, list)
     validation_failed = QtCore.Signal(str)
 
-    def __init__(self, tooling_service: ToolingService):
+    def __init__(self, tooling_service: ToolingService, *, check_cameras: bool = True):
         super().__init__()
         self._tooling_service = tooling_service
+        self._check_cameras = check_cameras
         self._cancel_event = Event()
 
     def cancel(self) -> None:
@@ -91,7 +93,25 @@ class StartupValidationThread(QtCore.QThread):
         try:
             if self._cancel_event.is_set():
                 return
-            if isinstance(self._tooling_service, ToolingService):
+            if not self._check_cameras:
+                validator = getattr(self._tooling_service, "validate_environment_with_cancellation", None)
+                try:
+                    if not callable(validator):
+                        raise TypeError("No cancellable validator")
+                    inspect.signature(validator).bind(self._cancel_event, check_cameras=False)
+                    supported = getattr(validator, "__func__", None) is not (
+                        ToolingService.validate_environment_with_cancellation
+                    )
+                except (TypeError, ValueError):
+                    supported = False
+                if not supported:
+                    # Legacy validators may probe hardware; use the camera-free worker instead.
+                    validator = SubprocessToolingService().validate_environment_with_cancellation
+                assert callable(validator)
+                result = validator(
+                    self._cancel_event, check_cameras=False,
+                )
+            elif isinstance(self._tooling_service, ToolingService):
                 result = self._tooling_service.validate_environment_with_cancellation(self._cancel_event)
             else:
                 # Existing callers inject lightweight, non-subclass service doubles.

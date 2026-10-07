@@ -1,6 +1,6 @@
 # PitchTracker Launcher Guide
 
-**Last reviewed:** 2026-10-03
+**Last reviewed:** 2026-10-06
 
 **Applies to:** v2.0.0 and current `main`
 
@@ -11,6 +11,10 @@ After installing source dependencies:
 ```powershell
 python launcher.py
 ```
+
+For simulator use without camera validation, run `python launcher.py --backend sim`.
+The default UVC launch is an intentional camera-backed workflow. Update checks
+remain enabled by default in either mode.
 
 Or use the repository wrapper:
 

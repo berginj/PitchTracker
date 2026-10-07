@@ -29,7 +29,8 @@ hardware evidence. See the [glossary](docs/GLOSSARY.md) if terms such as
 ## What the app does
 
 1. Helps an operator select and qualify a camera pair.
-2. Captures synchronized views of the pitch lane.
+2. Captures paired views of the pitch lane; physical exposure synchronization
+   requires independent timing evidence.
 3. Finds ball candidates and reconstructs a 3D trajectory when the evidence is
    sufficient.
 4. Records replayable video, observations, decisions, and quality diagnostics.
@@ -55,7 +56,8 @@ exact rig, software, environment, protocol, and dataset.
 Requirements:
 
 - Windows 10 or 11;
-- Python 3.13 or newer;
+- Python 3.14 recommended (Python 3.13 requires C++ Build Tools for the pinned
+  PyYAML dependency; see [Installation](README_INSTALL.md));
 - no cameras for simulator development;
 - two matching, qualified global-shutter UVC cameras for field testing.
 
@@ -65,7 +67,6 @@ cd PitchTracker
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-python setup_validator.py
 python launcher.py --backend sim
 ```
 
@@ -75,9 +76,13 @@ For a camera-backed run, use the same launcher after setup, or run:
 .\run.ps1 -Backend uvc
 ```
 
-Most automated tests do not require cameras:
+Simulator startup skips camera validation. The standalone `setup_validator.py`
+opens physical cameras; reserve it for an operator-initiated hardware check.
+
+Most automated tests do not require cameras. Install the test dependencies first:
 
 ```powershell
+python -m pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 

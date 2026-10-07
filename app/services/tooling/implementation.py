@@ -47,8 +47,13 @@ class SubprocessToolingService(ToolingService):
         payload = self._run_task("validate_environment", {})
         return EnvironmentValidationResult.from_payload(payload)
 
-    def validate_environment_with_cancellation(self, cancel_event: Event) -> EnvironmentValidationResult:
-        payload = self._run_task("validate_environment", {}, cancel_event=cancel_event)
+    def validate_environment_with_cancellation(
+        self, cancel_event: Event, *, check_cameras: bool = True,
+    ) -> EnvironmentValidationResult:
+        payload = self._run_task(
+            "validate_environment", {} if check_cameras else {"check_cameras": False},
+            cancel_event=cancel_event,
+        )
         return EnvironmentValidationResult.from_payload(payload)
 
     def build_training_report(self, request: TrainingReportRequest) -> TrainingReportResult:

@@ -1,10 +1,11 @@
 # PitchTracker Current Status
 
-**Last updated:** 2026-10-03
+**Last updated:** 2026-10-06
 **Published release:** `v2.0.0` / internal app version `2.0.0`
-**Development status:** branch consolidation and October remediation are complete;
-the final recording-ownership follow-up passed local software validation.
-Physical validation and clean-machine lifecycle/installer qualification remain.
+**Development status:** the October consolidation/remediation batch is implemented
+and validated in software. The October 5 audit identified eight additional
+software review follow-ups. Physical validation and clean-machine lifecycle/
+installer qualification also remain.
 
 ## Summary
 
@@ -27,7 +28,7 @@ approved.
 | Release installer asset | Not currently attached to the GitHub release |
 | Development baseline | `main`; use the checked-out commit for exact provenance |
 | Test collection | Full Python 3.13 and 3.14 suites run in CI; use current CI output for the exact count |
-| Latest committed CI validation | `6d2eacf`: Python 3.13 and 3.14 each passed 1,835 tests with 33 skips; required static gates passed |
+| Latest committed CI validation | Baseline `e1df60d`: [CI run 37162376775](https://github.com/berginj/PitchTracker/actions/runs/37162376775) passed. Preceding `6d2eacf` recorded 1,835 passed and 33 skipped per runtime; use exact run output for counts. |
 | Follow-up local validation | `b101740`: Python 3.13 and 3.14 each passed 1,833 tests with 34 skips; final `597c267` passed 30 focused tests on each runtime; static gates passed |
 | Frozen artifact validation | Application source `597c267`: six source/frozen GUI and worker smoke tests passed with isolated state and camera checking disabled; see the October remediation record below |
 | Static validation | Schema sync, public docs, file length, Flake8, suppression policy, and direct repository-wide mypy are required; no diagnostic baseline remains |
@@ -88,11 +89,16 @@ and automated evidence.
 
 The canonical open work is [ROADMAP.md](ROADMAP.md):
 
-1. Qualify real global-shutter cameras, controls, synchronization, and USB paths.
-2. Qualify bounded shutdown/reconnect and retry behavior on the target rig.
-3. Run predeclared physical ground-truth speed and plate-location validation.
-4. Smoke-test a signed installer on clean Windows machines.
-5. Publish a hardware matrix and operating envelope only from collected evidence.
+1. Resolve eight software review findings: native/capture identity, autofocus
+   capability and unknown-state presentation, release version binding, legacy
+   lane ROI mapping, typing-policy enforcement, export cancellation, and UI
+   measurement-status labels. See [the request/work audit](review/REQUEST_AND_WORK_AUDIT_2026_10_05.md).
+2. Reconcile committed remediation with each acceptance criterion in #34–#40.
+3. Qualify real global-shutter cameras, controls, synchronization, and USB paths.
+4. Qualify bounded shutdown/reconnect and retry behavior on the target rig.
+5. Run predeclared physical ground-truth speed and plate-location validation.
+6. Smoke-test a signed installer on clean Windows machines.
+7. Publish a hardware matrix and operating envelope only from collected evidence.
 
 ## Product boundary
 

@@ -2,10 +2,34 @@
 
 from threading import Event
 
+import pytest
+
 from contracts.tooling import EnvironmentValidationResult
 from app.services.tooling import SubprocessToolingService
 import launcher
 from launcher_threads import StartupValidationThread
+
+
+@pytest.mark.parametrize("backend", ["sim", "uvc", "opencv"])
+def test_startup_validation_respects_backend_camera_intent(monkeypatch, qtbot, backend) -> None:
+    requests = []
+
+    class RecordingService(SubprocessToolingService):
+        def _run_task(self, task, payload, timeout_seconds=120, *, cancel_event=None):
+            requests.append((task, payload, {"cancel_event": cancel_event}))
+            return {"errors": [], "warnings": []}
+
+    monkeypatch.setattr(launcher.QtCore.QTimer, "singleShot", lambda *_args: None)
+    window = launcher.LauncherWindow(backend=backend, validation_service=RecordingService())
+    qtbot.addWidget(window)
+    window._start_environment_validation()
+    qtbot.waitUntil(lambda: window._validation_thread is None)
+    assert window._validation_state == "completed"
+    assert len(requests) == 1
+    expected_payload = {"check_cameras": False} if backend == "sim" else {}
+    assert requests[0][0:2] == ("validate_environment", expected_payload)
+    assert isinstance(requests[0][2]["cancel_event"], Event)
+    assert window.close()
 
 
 def test_repeated_close_waits_for_validation_terminal_state(monkeypatch, qtbot) -> None:
@@ -13,7 +37,7 @@ def test_repeated_close_waits_for_validation_terminal_state(monkeypatch, qtbot) 
     cancellation_tokens = []
 
     class BlockedService(SubprocessToolingService):
-        def validate_environment_with_cancellation(self, cancel_event):
+        def validate_environment_with_cancellation(self, cancel_event, *, check_cameras=True):
             cancellation_tokens.append(cancel_event)
             started.set()
             release.wait(5)
@@ -90,3 +114,29 @@ def test_validation_worker_retains_legacy_injected_service(qtbot) -> None:
         worker.start()
     assert worker.wait(5000)
     assert signal.args == [[], ["legacy"]]
+
+
+@pytest.mark.parametrize("cancellable", [False, True])
+def test_simulator_legacy_validator_uses_camera_free_worker(monkeypatch, qtbot, cancellable) -> None:
+    requests = []
+
+    class LegacyService:
+        def validate_environment(self):
+            pytest.fail("Legacy validation must not probe cameras in simulator mode")
+
+    if cancellable:
+        LegacyService.validate_environment_with_cancellation = lambda self, token: self.validate_environment()
+
+    def validate(self, token, *, check_cameras=True):
+        requests.append((token, check_cameras))
+        return EnvironmentValidationResult(errors=[], warnings=["camera-free"])
+
+    monkeypatch.setattr(SubprocessToolingService, "validate_environment_with_cancellation", validate)
+    worker = StartupValidationThread(LegacyService(), check_cameras=False)
+    with qtbot.waitSignal(worker.validation_complete) as signal:
+        worker.start()
+    assert worker.wait(5000)
+    assert signal.args == [[], ["camera-free"]]
+    assert len(requests) == 1
+    assert isinstance(requests[0][0], Event)
+    assert requests[0][1] is False

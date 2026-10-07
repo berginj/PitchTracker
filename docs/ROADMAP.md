@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-10-03
+**Last reviewed:** 2026-10-06
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -148,12 +148,21 @@ and the pre-field hardware matrix.
 
 ## Engineering debt with active owners
 
+The [October 5 request/work audit](review/REQUEST_AND_WORK_AUDIT_2026_10_05.md)
+records eight still-valid software review follow-ups, open issue acceptance
+reconciliation, operator/release gates, and completed GitHub response coverage.
+These findings remain work even though the original pull requests are closed.
+
 - Keep the direct repository-wide mypy gate clean and keep test-only typing
   relaxations fixed through the suppression policy check.
 - Keep [OVERSIZED_MODULE_TRIAGE.md](OVERSIZED_MODULE_TRIAGE.md) as historical
   extraction context; the current file-length gate has zero grandfathered files.
 
 ## Branch review follow-ups
+
+The [October 6 final branch review](review/BRANCH_CONSOLIDATION_2026_10_06.md)
+records the meaningful PR #41 merge, already-incorporated work, rejected Python
+3.9 patches, and archive references for retired branch tips.
 
 The [branch consolidation review](review/BRANCH_CONSOLIDATION_2026_10_02.md)
 distinguishes work already incorporated through squash merges from the remaining
@@ -197,5 +206,7 @@ confirmation, signing, and clean-machine lifecycle tests remain open.
 ## Not current commitments
 
 Historical month-by-month estimates, old version task lists, and partnership
-concept schedules remain useful context but are not the active backlog. Open
-GitHub issues linked to R-001–R-005 are the executable work queue.
+concept schedules remain useful context but are not the active backlog. The
+active queue includes open issues #9–#11 and #34–#40 plus the eight software
+review follow-ups in the October 5 request/work audit, even though their original
+PRs are closed.

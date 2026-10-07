@@ -1,6 +1,6 @@
 # PitchTracker - Calibration Tips & Best Practices
 
-**Last Updated:** 2026-07-22
+**Last Updated:** 2026-10-06
 **Version:** v2.0.0
 
 ---
@@ -30,13 +30,17 @@ Calibration is the process of teaching the application about your camera setup. 
 - Wrong strike zone positioning
 - Unusable trajectory data
 
-✅ **With Calibration:**
-- Accurate 3D ball position
-- More reliable velocity measurement once reference validation is complete
-- Precise strike zone mapping
-- Reliable pitch metrics
+**What calibration enables:**
+- Estimated 3D reconstruction when observations and geometry are eligible.
+- Vision velocity estimates with explicit provenance and model limitations.
+- Mapping the measured field fixture into the strike-zone coordinate system.
+- Diagnostics for checking geometry and rejecting unsupported measurements.
 
-**Time Investment:** 30-60 minutes for initial setup, 10-15 minutes for recalibration
+Calibration alone does not establish accurate position, speed, or strike calls.
+Independent physical confirmation remains required; see [Current Status](../CURRENT_STATUS.md)
+and [Physical Validation Protocol v2](../PHYSICAL_VALIDATION_PROTOCOL_V2.md).
+Setup duration depends on the rig and operator; no field-validated time target
+has been established.
 
 ---
 

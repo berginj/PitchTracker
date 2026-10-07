@@ -7,8 +7,9 @@ This directory contains standalone utility and validation scripts for PitchTrack
 ### `check_public_docs.py`
 Check the public documentation entry points before opening a pull request.
 The check verifies required local Markdown links, prevents obsolete PyQt6 and
-Python-version wording in the README, and keeps dated public pages aligned with
-`docs/CURRENT_STATUS.md`.
+Python-version wording in the README, and checks that each dated public page has
+a valid review date that is not in the future. Review dates are independent;
+the check does not require them to match `docs/CURRENT_STATUS.md` or assess freshness.
 
 **Usage:**
 ```bash
