@@ -38,6 +38,22 @@ The preferred runtime flow is event-driven:
 7. `RecordingAgent` writes final manifests after analysis.
 8. `UIAgent` observes summaries, metrics, warnings, and errors.
 
+Primary analysis uses supervised persistent numerical workers. Configuration and
+camera models are snapshotted per admitted job. Optional comparison fits publish
+`TrajectoryComparisonEvent` after the primary `PitchAnalyzedEvent`; RecordingAgent
+owns their journal and artifact persistence. `TrajectoryFitPreparedEvent` carries
+the complete versioned fit request for offline refitting. Comparison failure must
+not replace a primary verdict. Accepted primary and comparison work drains before
+the recording journal is finalized.
+
+Offline refitting/reprocessing belongs to AnalysisAgent services and runs with
+bounded workers, cancellation and immutable captured inputs. New offline work
+pauses during capture. Video replay requires explicit calibration, ROI, field
+transform and verified frame-to-timestamp mappings. CPU is the compute default;
+Auto GPU admission requires implementation/hardware-bound numerical parity and
+at least 1.5x end-to-end throughput qualification. See
+[compute acceleration](docs/COMPUTE_ACCELERATION.md) for platform release gates.
+
 Agents communicate through typed dataclasses, service interfaces, or explicit callbacks. Agents must not reach into another agent's private state except in tests.
 
 ## Agent Definitions

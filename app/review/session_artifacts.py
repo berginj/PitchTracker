@@ -36,6 +36,7 @@ class LoadedPitch:
     original_observations: Optional[list] = None
     frame_files: Optional[list[Path]] = None
     event_metadata: Optional[dict] = None
+    trajectory_comparisons: Optional[dict] = None
 
 
 @dataclass
@@ -133,6 +134,14 @@ def load_pitch(pitch_dir: Path) -> LoadedPitch:
     validate_manifest(manifest, pitch=True)
     assert isinstance(manifest, dict)
     pitch_id = manifest.get("pitch_id") or pitch_dir.name
+    delayed = load_optional_json(pitch_dir / "trajectory_comparisons.json", "delayed trajectory comparisons")
+    comparisons = None
+    if isinstance(delayed, dict):
+        if (delayed.get("schema_version") == "trajectory_comparisons.v1" and delayed.get("pitch_id") == pitch_id
+                and isinstance(delayed.get("results"), dict)):
+            comparisons = delayed["results"]
+        else:
+            logger.warning("Ignoring invalid delayed trajectory comparisons for {}", pitch_id)
     left_detections = cast(Optional[dict[Any, Any]], load_optional_json(
         find_existing_path(pitch_dir, DETECTIONS_LEFT_CANDIDATES),
         f"left detections for {pitch_id}",
@@ -167,4 +176,5 @@ def load_pitch(pitch_dir: Path) -> LoadedPitch:
         original_observations=observations,
         frame_files=frame_files,
         event_metadata=manifest.get("event_metadata"),
+        trajectory_comparisons=comparisons,
     )

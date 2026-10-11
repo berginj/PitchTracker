@@ -3,6 +3,7 @@
 from typing import Any
 
 import numpy as np
+from trajectory.native_kernel import NativeResidual, native_module
 
 from trajectory.contracts import TrajectoryFitRequest
 
@@ -62,15 +63,23 @@ def estimate_parameters(request, times_s, positions, seed_state, least_squares_f
             drag_prior_enabled=request.drag_prior_enabled,
         )
 
+    native = NativeResidual(request, times_s, positions, whiteners) if (
+        request.compute_backend != "reference" and native_module() is not None
+    ) else None
     result = least_squares_fn(
-        residuals,
+        native.residual if native is not None else residuals,
         initial,
         bounds=(lower, upper),
         max_nfev=20 if request.realtime else request.max_iter,
         loss="huber",
         f_scale=1.5,
         x_scale="jac",
+        jac=native.jacobian if native is not None else "2-point",
     )
+    result["compute_performance"] = dict(native.evaluator.performance) if native is not None else {
+        "effective_backend": "cpu_reference", "requested_backend": request.compute_backend,
+        "implementation_version": "0.1.0", "fallback_reason": "Native extension unavailable" if request.compute_backend != "reference" else None,
+    }
     return result, np.r_[result.x, 0.0], whiteners, basis
 
 

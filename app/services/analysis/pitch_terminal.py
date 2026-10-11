@@ -11,6 +11,8 @@ aggregator; callers must pass the lock explicitly.
 from __future__ import annotations
 
 import threading
+from dataclasses import replace
+from time import monotonic_ns
 from typing import Optional
 
 from app.contracts import PitchSummary
@@ -36,12 +38,14 @@ class PitchTerminalHandler:
         aggregator: SessionAggregator,
         refiner: RefinementAccumulator,
         lock: threading.Lock,
+        submitted_ns: int = 0,
     ) -> None:
         self._event_bus = event_bus
         self._analyzer = analyzer
         self._aggregator = aggregator
         self._refiner = refiner
         self._lock = lock
+        self._submitted_ns = submitted_ns
 
     def handle_pitch_end(self, event: PitchEndEvent) -> None:
         """Analyze pitch and publish terminal result.
@@ -74,9 +78,7 @@ class PitchTerminalHandler:
                     exception_type=type(exc).__name__,
                 )
             except Exception:
-                logger.exception(
-                    "Failed to publish unavailable verdict for pitch %s", event.pitch_id
-                )
+                logger.exception("Failed to publish unavailable verdict for pitch %s", event.pitch_id)
             raise
 
         # Online refinement is advisory; failure must not create a second terminal result.
@@ -135,6 +137,10 @@ class PitchTerminalHandler:
 
     def _publish_terminal_summary(self, event: PitchEndEvent, summary: PitchSummary) -> bool:
         """Atomically aggregate and publish exactly one terminal event per pitch."""
+        if self._submitted_ns:
+            diagnostics = dict(summary.quality_diagnostics or {})
+            diagnostics["queue_and_analysis_ms"] = (monotonic_ns() - self._submitted_ns) / 1e6
+            summary = replace(summary, quality_diagnostics=diagnostics)
         with self._lock:
             if self._aggregator.is_duplicate(event.pitch_id):
                 logger.warning(
@@ -143,9 +149,7 @@ class PitchTerminalHandler:
                 )
                 return False
 
-            session_summary = self._aggregator.aggregate(
-                event.pitch_id, summary, list(event.observations)
-            )
+            session_summary = self._aggregator.aggregate(event.pitch_id, summary, list(event.observations))
 
         sid = session_summary.session_id if session_summary else None
         self._event_bus.publish(

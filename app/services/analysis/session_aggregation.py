@@ -42,6 +42,10 @@ class SessionAggregator:
         """Return True if pitch_id already has a terminal result."""
         return pitch_id in self._terminal_pitch_ids
 
+    @property
+    def session_id(self) -> str | None:
+        return self._session_summary.session_id if self._session_summary else None
+
     def aggregate(
         self,
         pitch_id: str,

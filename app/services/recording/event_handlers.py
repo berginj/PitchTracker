@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from app.events.trajectory_events import TrajectoryComparisonEvent, TrajectoryFitPreparedEvent
+from app.services.recording.trajectory_artifacts import persist_comparison
+
 from typing import Dict
 
 from app.events.event_types import (
@@ -205,6 +208,8 @@ class EventHandlersMixin(RecordingServiceState):
         self._event_bus.subscribe(PitchEndEvent, self._on_pitch_end)
         if not self._analysis_subscribed:
             self._event_bus.subscribe(PitchAnalyzedEvent, self._on_pitch_analyzed)
+            self._event_bus.subscribe(TrajectoryFitPreparedEvent, self._on_decision_evidence)
+            self._event_bus.subscribe(TrajectoryComparisonEvent, self._on_trajectory_comparison)
             self._analysis_subscribed = True
         self._event_bus.subscribe(
             StereoFrameProcessedEvent, self._on_stereo_frame_processed
@@ -225,6 +230,8 @@ class EventHandlersMixin(RecordingServiceState):
         """Unsubscribe from EventBus events."""
         if self._analysis_subscribed and not keep_analysis:
             self._event_bus.unsubscribe(PitchAnalyzedEvent, self._on_pitch_analyzed)
+            self._event_bus.unsubscribe(TrajectoryFitPreparedEvent, self._on_decision_evidence)
+            self._event_bus.unsubscribe(TrajectoryComparisonEvent, self._on_trajectory_comparison)
             self._analysis_subscribed = False
         if not self._subscribed:
             return
@@ -251,3 +258,9 @@ class EventHandlersMixin(RecordingServiceState):
 
         self._subscribed = False
         logger.info("RecordingService unsubscribed from EventBus")
+
+    def _on_trajectory_comparison(self, event):
+        try:
+            persist_comparison(self, event)
+        except Exception:
+            logger.exception("Failed to persist comparison: pitch=%s", event.pitch_id)

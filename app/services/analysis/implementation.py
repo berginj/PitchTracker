@@ -24,6 +24,7 @@ from app.services.analysis.pitch_terminal import PitchTerminalHandler
 from app.services.analysis.refinement import RefinementAccumulator
 from app.services.analysis.session_aggregation import SessionAggregator
 from app.services.analysis.worker import BoundedAnalysisWorker
+from app.services.analysis.optimized_runtime import OptimizedAnalysisRuntime
 from configs.settings import AppConfig
 from contracts import StereoObservation
 from log_config.logger import get_logger
@@ -80,7 +81,8 @@ class AnalysisServiceImpl(AnalysisService):
         self._analysis_active = False
         self._analysis_paused = False
         self._subscribed = False
-        self._analysis_worker = BoundedAnalysisWorker(self._terminal_handler.handle_pitch_end, max_queue=64)
+        self._fit_runtime = OptimizedAnalysisRuntime(self)
+        self._analysis_worker = BoundedAnalysisWorker(lambda job: self._fit_runtime.analyze(job), max_queue=64)
 
         logger.info("AnalysisService initialized")
 
@@ -97,6 +99,9 @@ class AnalysisServiceImpl(AnalysisService):
             self._subscribe_to_events()
             self._analysis_active = True
             self._analysis_paused = False
+
+            self._fit_runtime = OptimizedAnalysisRuntime(self)
+            self._fit_runtime.start()
 
             logger.info("Analysis started")
 
@@ -117,6 +122,7 @@ class AnalysisServiceImpl(AnalysisService):
         if not self._analysis_worker.stop(drain=True):
             logger.error("Analysis worker did not drain and stop within timeout")
             raise RuntimeError("Analysis worker is still stopping; retry session stop")
+        self._fit_runtime.stop()
         logger.info("Analysis stopped")
 
     def pause_analysis(self) -> None:
@@ -398,7 +404,7 @@ class AnalysisServiceImpl(AnalysisService):
 
     def _on_pitch_end_internal(self, event: PitchEndEvent) -> None:
         """Queue pitch analysis so the event publisher is never blocked by fitting."""
-        if not self._analysis_worker.submit(event):
+        if not self._analysis_worker.submit(self._fit_runtime.snapshot(event)):
             logger.error("Analysis queue dropped pitch %s", event.pitch_id)
             self._terminal_handler._publish_unavailable_result(event, "ANALYSIS_QUEUE_DROPPED")
 

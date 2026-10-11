@@ -8,6 +8,8 @@ WORKER_MODULES = {
     "setup_capture": "app.services.capture.setup_worker_main",
     "tooling": "app.services.tooling.worker_main",
     "trajectory_fit": "app.trajectory_worker",
+    "trajectory_fit_persistent": "app.trajectory_persistent_worker",
+    "video_replay": "app.video_replay_worker",
     "health": "app.worker_entrypoint",
 }
 

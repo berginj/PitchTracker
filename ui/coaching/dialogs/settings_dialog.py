@@ -40,6 +40,7 @@ class SettingsDialog(QtWidgets.QDialog):
         current_ball_type: str = "baseball",
         current_color_mode: bool = True,
         parent: Optional[QtWidgets.QWidget] = None,
+        current_compute_backend: str = "cpu",
     ):
         super().__init__(parent)
         self.setWindowTitle("Coaching App Settings")
@@ -53,6 +54,8 @@ class SettingsDialog(QtWidgets.QDialog):
         self._current_right = current_right_camera
         self._current_mound_distance = current_mound_distance
         self._current_color_mode = current_color_mode
+        self._current_compute_backend = current_compute_backend
+        self.compute_backend = current_compute_backend
 
         self.selected_width = current_width
         self.selected_height = current_height
@@ -79,6 +82,14 @@ class SettingsDialog(QtWidgets.QDialog):
         layout.addWidget(self._build_resolution_group())
         layout.addWidget(self._build_camera_group())
         layout.addWidget(self._build_distance_group())
+        compute_row = QtWidgets.QHBoxLayout()
+        compute_row.addWidget(QtWidgets.QLabel("Trajectory compute"))
+        self._compute_combo = QtWidgets.QComboBox()
+        for label, backend in (("CPU", "cpu"), ("Auto", "auto"), ("NVIDIA GPU", "cuda")):
+            self._compute_combo.addItem(label, backend)
+        self._compute_combo.setCurrentIndex(max(0, self._compute_combo.findData(self.compute_backend)))
+        compute_row.addWidget(self._compute_combo)
+        layout.addLayout(compute_row)
 
         warning_frame, _ = build_notice(
             "Changing capture settings restarts camera capture. Stop any active recording first.",
@@ -291,6 +302,7 @@ class SettingsDialog(QtWidgets.QDialog):
 
         mound_distance = self._custom_distance_spin.value()
         color_mode = self._color_mode_checkbox.isChecked()
+        compute_backend = self._compute_combo.currentData()
 
         settings_changed = (
             width != self._current_width
@@ -300,6 +312,7 @@ class SettingsDialog(QtWidgets.QDialog):
             or right_camera != self._current_right
             or mound_distance != self._current_mound_distance
             or color_mode != self._current_color_mode
+            or compute_backend != self._current_compute_backend
         )
 
         self.selected_width = width
@@ -309,6 +322,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.right_camera = right_camera
         self.mound_distance_ft = mound_distance
         self.color_mode = color_mode
+        self.compute_backend = compute_backend
         self.settings_changed = settings_changed
 
         state = load_state()
@@ -319,6 +333,7 @@ class SettingsDialog(QtWidgets.QDialog):
         state["last_right_camera"] = right_camera
         state["mound_distance_ft"] = mound_distance
         state["coaching_color_mode"] = color_mode
+        state["trajectory_compute_backend"] = compute_backend
         save_state(state)
 
         self.accept()

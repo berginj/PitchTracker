@@ -1,0 +1,102 @@
+{
+  "schema_version": "fitting_benchmark.v1",
+  "scope": "synthetic_stereo_60_observations",
+  "physical_claim_eligible": false,
+  "implementation": {
+    "files": {
+      "association.py": "577ceca0ebbcc0292f4a35b8a9a7f2f9b32778977cbfeb0005e89c4533a35703",
+      "base.py": "c7066c1a5d90e53ce99f970805488c8a52937a823e1b6664574c7badf6f4027d",
+      "camera_model.py": "49cb12b391c39faaa7590cb93bb5560c50a720d8e9e8684ad243eaa492045d61",
+      "compute_backend.py": "32e5d251fcd019e46883587ef0fdef8ac9d0105024b09072ead93dbe356aab53",
+      "confidence.py": "ab044be6c51a22b5ff1e9dc1a128421c273a893e762445af530a57e47c832f25",
+      "contracts.py": "941394e67999d76e8f143b64ead75fda55f04e825e7f91060d9588a04b55ac8f",
+      "ensemble.py": "ec8d7594e1cb306b0b1d109ed3504a8c25e011f0b98bca533b5f36fae359e5a0",
+      "gpu_qualification.py": "d5c3d60abea6a6cc709968e1939d5f1a04acd94a8353742b51ce3cce63ccc061",
+      "mode_validation.py": "ac80424db09ab490322cb5e8f341de10c9b1205cd95dac8efd7e31fa216714f8",
+      "native_kernel.py": "cf264be1f444114df548f8b68c5abbe4672e7b77f86a3c14d77fb9c9bb11e802",
+      "physics.py": "a76aafc116e322c47ecffd0dab632873d0cc327166e791e359090d7d83e9b43d",
+      "physics_estimation.py": "6dc3c4eb6f32a6a6322d9f6c377207b7013c73dbf0611ee9194efcd0e8dde5d7",
+      "radar.py": "12e48c20179a7c0b20e3c7181e97407abefe5dcbd539e83ec99f56d0997fef58",
+      "ray_fit.py": "cd5857454f4d3e8c72a943a40df56b1da3c2c3361d341a471e8d4442dcc4dfd9",
+      "ray_fit_helpers.py": "16fdf23139bb139942de3ec7cf90f32f0c4553d11eda7812de70993745975096",
+      "registry.py": "220faa80b48338a773fc366e6752a2acf6a891c7dd54423297d25a84103cf64f",
+      "reprojection.py": "ea0622886a2c9b3141b7028c13168ad49d93dd068f38f667c85e6d43c152a95f",
+      "serialization.py": "f4eb5f6395ab9639220bb242db33d662bf17f694a94bfd84a0e9ff34ae63e7a1",
+      "sim.py": "9d337fc6d16458b7bb04f81894170ba244a211566b798525df533ffac41ef285",
+      "tracklets.py": "6dbeeede6cb69ee8d6b1a80947ac5b2492ea9a5f42ad3b04509df06045b5a0c1",
+      "__init__.py": "6d3052955ff4a3687af60e2a24df0090b67342275938a58f06bd4a0f66f86a9f",
+      "fit_batch.py": "2ffb4bf821d58e72ddc79e4aa1d44b4529bee1048327fc8898487aece4e4117a",
+      "_pitchtracker_native.cp313-win_amd64.pyd": "7facc6ae16e4836d7b8bea70c3e1ce0a44ffe9285b124b8719320dc6b32db841"
+    },
+    "python": "3.13.16",
+    "machine": "ARM64",
+    "process_platform": "win-amd64",
+    "scipy": "1.17.0",
+    "numpy": "2.2.2",
+    "cuda_device": null
+  },
+  "reference": {
+    "runs_ms": [
+      1516.5819999820087,
+      1482.2505000047386,
+      1455.1631000067573,
+      1499.934299994493,
+      1453.429299988784
+    ],
+    "p50_ms": 1482.2505000047386,
+    "p95_ms": 1513.2524599845055
+  },
+  "cpu": {
+    "runs_ms": [
+      20.985099981771782,
+      17.91100000264123,
+      18.53190001565963,
+      17.590800009202212,
+      21.96469999034889
+    ],
+    "p50_ms": 18.53190001565963,
+    "p95_ms": 21.76877998863347
+  },
+  "warm_worker": {
+    "runs_ms": [
+      36.35660000145435,
+      28.79219999886118,
+      23.118399985833094,
+      22.494100005133078,
+      28.800100000808015
+    ],
+    "p50_ms": 28.79219999886118,
+    "p95_ms": 34.845300001325086
+  },
+  "worker_warmup_ms": 1144.2209999950137,
+  "speedup_p50": 79.9837306888243,
+  "differences": [
+    {
+      "same_failure_codes": true,
+      "plate_max_abs_error_ft": 5.722473606084577e-10
+    },
+    {
+      "same_failure_codes": true,
+      "plate_max_abs_error_ft": 5.722473606084577e-10
+    },
+    {
+      "same_failure_codes": true,
+      "plate_max_abs_error_ft": 5.722473606084577e-10
+    },
+    {
+      "same_failure_codes": true,
+      "plate_max_abs_error_ft": 5.722473606084577e-10
+    },
+    {
+      "same_failure_codes": true,
+      "plate_max_abs_error_ft": 5.722473606084577e-10
+    }
+  ],
+  "effective_backend": {
+    "effective_backend": "cpu_native",
+    "requested_backend": "cpu",
+    "implementation_version": "0.1.0"
+  },
+  "measured_utc_date": "2026-10-11",
+  "host_scope": "RTX Spark N1X; Windows ARM64 host, emulated x64 CPython; CPU-only measurement"
+}

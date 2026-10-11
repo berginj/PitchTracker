@@ -54,6 +54,18 @@ class CoachWindow(QtWidgets.QMainWindow):
             config_path = Path("configs/default.yaml")
         self._config_path = config_path
         self._config = load_config(config_path)
+        from configs.app_state import load_state
+        from dataclasses import replace
+
+        compute_backend = load_state().get("trajectory_compute_backend")
+        if isinstance(compute_backend, str) and compute_backend in {"cpu", "auto", "cuda"}:
+            self._config = replace(
+                self._config,
+                trajectory=replace(
+                    self._config.trajectory,
+                    compute_backend=compute_backend,
+                ),
+            )
         active_profile = RigProfileService(config_path=config_path).load_active()
         if active_profile is not None:
             self._config = RigProfileService(config_path=config_path).apply_profile_to_config(
@@ -157,9 +169,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._quality_indicator = QtWidgets.QLabel("Quality: waiting")
         self._style_manager.style_status_indicator(self._quality_indicator, "info")
         self._diagnostics_button = QtWidgets.QPushButton("Diagnostics")
-        self._diagnostics_button.setToolTip(
-            "Open detailed capture, tracking, and correction evidence"
-        )
+        self._diagnostics_button.setToolTip("Open detailed capture, tracking, and correction evidence")
         self._style_manager.style_button(self._diagnostics_button, "ghost")
         self._diagnostics_button.clicked.connect(self._show_quality_diagnostics)
 

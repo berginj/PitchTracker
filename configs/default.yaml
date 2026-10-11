@@ -51,6 +51,7 @@ metrics:
   last_refinement_date: null  # ISO timestamp
   drag_k0_default: 0.002  # Optimizer seed in inverse feet; not dimensionless Cd
 trajectory:
+  compute_backend: cpu           # cpu | auto | cuda; CUDA requires qualification
   primary_mode: stereo_3d        # stereo_3d | ray_reprojection | ray_graph
   compare_modes: []              # e.g. [stereo_3d, ray_reprojection, ray_graph]
   fallback_to_stereo: true

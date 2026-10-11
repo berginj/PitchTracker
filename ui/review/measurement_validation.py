@@ -70,6 +70,8 @@ class MeasurementValidationDialog(QtWidgets.QDialog):
         for label, callback in (
             ("Select session", self.select_session),
             ("Inspect evidence", self.inspect),
+            ("Batch refits", self.batch_refits),
+            ("Apply refit to case", self.apply_refit),
             ("Import protocol", self.import_protocol),
             ("Import dataset", self.import_dataset),
             ("Add shadow case", self.add_case),
@@ -143,6 +145,31 @@ class MeasurementValidationDialog(QtWidgets.QDialog):
     def _invalidate(self, *_args: Any) -> None:
         if not self._loading:
             self.workspace = None
+
+    def batch_refits(self):
+        from ui.review.fit_batch_dialog import FitBatchDialog
+
+        FitBatchDialog(self, self.session_dir).exec()
+
+    def apply_refit(self):
+        from app.services.analysis.derived_measurements import shadow_measurements
+
+        try:
+            row = self.cases.currentRow()
+            if row < 0:
+                raise ValueError("Select the shadow case to update")
+            phase = json.loads(self.metadata_editor.toPlainText()).get("phase")
+            if phase != "shadow":
+                raise ValueError("Confirmation datasets are read-only")
+            filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Select one derived fit", "", "JSON (*.json)")
+            if filename:
+                for key, value in shadow_measurements(Path(filename), phase).items():
+                    column = CASE_COLUMNS.index(key)
+                    text = str(value) if key in TEXT_COLUMNS and value is not None else json.dumps(value)
+                    self.cases.setItem(row, column, QtWidgets.QTableWidgetItem(text))
+                self.source_paths.append(Path(filename))
+        except Exception as exc:
+            self._error(exc)
 
     def _run(self, title, operation):
         self._task_active = True

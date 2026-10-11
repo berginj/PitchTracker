@@ -56,6 +56,7 @@ class TrajectoryDiagnostics:
     fit_quality_score: Optional[float] = None
     uncertainty_basis: str = "unavailable"
     estimator: str = "vision_only"
+    performance: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -76,6 +77,7 @@ class TrajectoryDiagnostics:
             "fit_quality_score": self.fit_quality_score,
             "uncertainty_basis": self.uncertainty_basis,
             "estimator": self.estimator,
+            "performance": dict(self.performance),
         }
 
 
@@ -109,9 +111,16 @@ class TrajectoryFitRequest:
     max_speed_std_mph: float = 2.0  # conditional identifiability gate, not a physical accuracy claim
     deadline_seconds: float = 15.0
     correlation_id: str = ""
+    compute_backend: str = "cpu"
+    compute_concurrency: int = 1
 
     def __post_init__(self) -> None:
         import math
+
+        if self.compute_backend not in {"cpu", "auto", "cuda", "reference"}:
+            raise ValueError("unsupported compute backend")
+        if type(self.compute_concurrency) is not int or not 1 <= self.compute_concurrency <= 16:
+            raise ValueError("compute concurrency must be between 1 and 16")
 
         for value in (
             self.drag_k0,

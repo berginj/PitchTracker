@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import logging
+import json
+from typing import Callable
 from dataclasses import replace
+from copy import copy
 from typing import cast, Dict, List, Optional
 
 import numpy as np
@@ -19,6 +22,7 @@ from calib.field_transform import FieldTransform
 from trajectory.camera_model import load_stereo_ray_camera_models
 from trajectory.contracts import FailureCode, TrajectoryDiagnostics, TrajectoryFitRequest, TrajectoryFitResult
 from app.services.analysis.fit_process import fit_in_process
+from trajectory.serialization import encode_request
 from app.pipeline.analysis.observation_diagnostics import summarize_observations
 from app.pipeline.corrections import record_fitted_camera_time_offset
 
@@ -41,6 +45,10 @@ class PitchAnalyzer:
         get_ball_radius_fn,
         radar_speed_fn,
         speed_source_fn=None,
+        fit_runner=None,
+        fit_observer: Callable | None = None,
+        defer_comparisons: bool = False,
+        camera_models_snapshot: dict | None = None,
     ):
         """Initialize pitch analyzer.
 
@@ -56,6 +64,17 @@ class PitchAnalyzer:
         self._get_ball_radius_fn = get_ball_radius_fn
         self._radar_speed_fn = radar_speed_fn
         self._speed_source_fn = speed_source_fn
+        self._fit_runner = fit_runner
+        self._fit_observer = fit_observer
+        self._defer_comparisons = defer_comparisons
+        self._comparison_requests: list[TrajectoryFitRequest] = []
+        self._camera_models_snapshot = camera_models_snapshot
+
+    def for_job(self, *args, **kwargs) -> "PitchAnalyzer":
+        """Preserve injected analysis hooks while replacing all per-job state."""
+        analyzer = copy(self)
+        analyzer.__dict__.update(PitchAnalyzer(*args, **kwargs).__dict__)
+        return analyzer
 
     def analyze_pitch(
         self,
@@ -240,7 +259,12 @@ class PitchAnalyzer:
                 camera_models=camera_models,
                 radar_speed=radar_speed,
             )
-            result = self._run_mode(mode, replace(request, correlation_id=correlation_id))
+            request = replace(request, correlation_id=correlation_id)
+            if self._defer_comparisons and mode != trajectory_config.primary_mode:
+                self._comparison_requests.append(request)
+                comparison[mode] = {"status": "DEFERRED"}
+                continue
+            result = self._run_mode(mode, request)
             results[mode] = result
             comparison[mode] = _compact_trajectory_result(result)
 
@@ -252,6 +276,7 @@ class PitchAnalyzer:
         if primary_mode.startswith("ray_") and trajectory_config.fallback_to_stereo and observations:
             stereo_result = results.get("stereo_3d")
             if stereo_result is None:
+                self._comparison_requests = [r for r in self._comparison_requests if r.mode != "stereo_3d"]
                 stereo_request = self._build_trajectory_request(
                     mode="stereo_3d",
                     observations=observations,
@@ -282,6 +307,7 @@ class PitchAnalyzer:
             ray_observations=list(ray_observations),
             camera_models=dict(camera_models),
             mode=mode,
+            compute_backend=self._config.trajectory.compute_backend,
             # An external reading without a known plane cannot constrain the
             # vision estimator. Keep it separately as a display measurement.
             radar_speed_mph=None,
@@ -306,10 +332,14 @@ class PitchAnalyzer:
 
     def _run_mode(self, mode: str, request: TrajectoryFitRequest) -> TrajectoryFitResult:
         try:
-            return fit_in_process(replace(request, mode=mode))
+            request = replace(request, mode=mode)
+            if self._fit_observer is not None:
+                self._fit_observer(request.correlation_id, json.loads(encode_request(request)))
+            return (self._fit_runner or fit_in_process)(request)
         except ValueError:
             diagnostics = TrajectoryDiagnostics(failure_codes=[FailureCode.UNKNOWN_TRAJECTORY_MODE])
             return _failure_result(mode, diagnostics)
+
         except Exception as exc:
             logger.warning("Trajectory mode %s failed: %s", mode, exc, exc_info=True)
             diagnostics = TrajectoryDiagnostics(
@@ -318,7 +348,13 @@ class PitchAnalyzer:
             )
             return _failure_result(mode, diagnostics)
 
+    def take_comparison_requests(self) -> list[TrajectoryFitRequest]:
+        requests, self._comparison_requests = self._comparison_requests, []
+        return requests
+
     def _load_ray_camera_models(self) -> dict:
+        if self._camera_models_snapshot is not None:
+            return self._camera_models_snapshot
         try:
             from app.services.rig_profile import RigProfileService
 

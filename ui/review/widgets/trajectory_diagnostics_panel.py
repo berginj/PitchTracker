@@ -54,7 +54,8 @@ class TrajectoryDiagnosticsPanel(QtWidgets.QWidget):
         raw_manifest = getattr(pitch, "manifest", {}) or {}
         manifest = raw_manifest if isinstance(raw_manifest, dict) else {}
         trajectory = _trajectory_block(manifest)
-        comparison = _comparison_data(manifest, trajectory)
+        delayed = getattr(pitch, "trajectory_comparisons", None)
+        comparison = delayed if isinstance(delayed, dict) else _comparison_data(manifest, trajectory)
 
         mode = _first_present(trajectory, manifest, "mode", "trajectory_mode")
         ray_rmse = _first_present(trajectory, manifest, "ray_rmse_px", "ray_rmse_px")

@@ -60,6 +60,7 @@ class SessionRecorder:
 
         # Track write failures
         self._write_failures = 0
+        self._encoded_counts = {"left": 0, "right": 0}
         self._last_write_warning = 0.0
 
         # Disk space monitoring
@@ -303,7 +304,7 @@ class SessionRecorder:
             if label == "left" and self._left_writer is not None:
                 # Write frame and check for failure
                 success = self._left_writer.write(image)
-                if not success:
+                if success is False:
                     self._write_failures += 1
                     # Throttle warnings (don't spam logs)
                     current_time = time.monotonic()
@@ -329,12 +330,14 @@ class SessionRecorder:
 
                 # Write CSV timestamp regardless
                 if self._left_csv is not None:
-                    self._left_csv[1].writerow(timestamp_row(frame))
+                    index = self._encoded_counts["left"] if success is not False else None
+                    self._left_csv[1].writerow(timestamp_row(frame, index, "accepted" if success is not False else "failed"))
+                    self._encoded_counts["left"] += int(success is not False)
 
             elif label == "right" and self._right_writer is not None:
                 # Write frame and check for failure
                 success = self._right_writer.write(image)
-                if not success:
+                if success is False:
                     self._write_failures += 1
                     # Throttle warnings (don't spam logs)
                     current_time = time.monotonic()
@@ -360,7 +363,9 @@ class SessionRecorder:
 
                 # Write CSV timestamp regardless
                 if self._right_csv is not None:
-                    self._right_csv[1].writerow(timestamp_row(frame))
+                    index = self._encoded_counts["right"] if success is not False else None
+                    self._right_csv[1].writerow(timestamp_row(frame, index, "accepted" if success is not False else "failed"))
+                    self._encoded_counts["right"] += int(success is not False)
 
     def write_session_summary(self, summary) -> None:
         """Write session summary to JSON and CSV files.
@@ -446,6 +451,7 @@ class SessionRecorder:
         logger.info(f"Session recording initialized: {width}x{height}@{fps}fps")
 
         # Open CSV files
+        self._encoded_counts = {"left": 0, "right": 0}
         left_csv = (self._session_dir / "session_left_timestamps.csv").open("w", newline="")
         right_csv = (self._session_dir / "session_right_timestamps.csv").open("w", newline="")
         self._left_csv = (left_csv, csv.writer(left_csv))

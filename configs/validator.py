@@ -110,6 +110,7 @@ CONFIG_SCHEMA = {
                     "uniqueItems": True,
                 },
                 "fallback_to_stereo": {"type": "boolean"},
+                "compute_backend": {"type": "string", "enum": ["cpu", "auto", "cuda"]},
                 "drag_prior_enabled": {"type": "boolean"},
                 "drag_sigma": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.3},
                 "observation_sigma_ft": {"type": "number", "exclusiveMinimum": 0},

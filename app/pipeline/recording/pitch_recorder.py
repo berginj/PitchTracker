@@ -250,6 +250,7 @@ class PitchRecorder:
                     "Z_ft": float(obs.Z),
                     "quality": float(obs.quality),
                     "confidence": float(obs.confidence),
+                    "covariance": obs.covariance,
                 },
             )
 

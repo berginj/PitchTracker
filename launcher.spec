@@ -6,6 +6,7 @@ Optimized for minimal bundle size by excluding unused modules.
 """
 
 import os
+from importlib.util import find_spec
 
 block_cipher = None
 
@@ -34,6 +35,8 @@ hiddenimports = [
     'loguru',
     'jsonschema',
 ]
+if find_spec('_pitchtracker_native') is not None:
+    hiddenimports.append('_pitchtracker_native')
 
 # Modules to explicitly exclude (not used)
 excludes = [
@@ -136,6 +139,8 @@ worker_analysis = Analysis(
         'app.services.capture.setup_worker_main',
         'app.services.tooling.worker_main',
         'app.trajectory_worker',
+        'app.trajectory_persistent_worker',
+        'app.video_replay_worker',
     ],
     # Tooling imports plotting/report dependencies; they must remain available
     # even when the GUI does not use them directly.

@@ -100,6 +100,7 @@ class TrajectoryConfig:
     max_speed_std_mph: float = 2.0
     stereo_deadline_seconds: float = 15.0
     ray_deadline_seconds: float = 10.0
+    compute_backend: str = "cpu"
 
 
 @dataclass(frozen=True)
@@ -278,6 +279,7 @@ def load_config(path: Path) -> AppConfig:
             observation_sigma_ft=float(trajectory_data.get("observation_sigma_ft", 0.02)),
             max_speed_std_mph=float(trajectory_data.get("max_speed_std_mph", 2.0)),
             stereo_deadline_seconds=float(trajectory_data.get("stereo_deadline_seconds", 15.0)),
+            compute_backend=str(trajectory_data.get("compute_backend", "cpu")),
             ray_deadline_seconds=float(trajectory_data.get("ray_deadline_seconds", 10.0)),
             ray=RayTrajectoryConfig(
                 max_time_offset_ms=float(ray_data.get("max_time_offset_ms", 20.0)),

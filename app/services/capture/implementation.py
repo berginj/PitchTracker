@@ -113,6 +113,8 @@ class CaptureServiceImpl(CaptureService):
                     raise RuntimeError("Capture already started")
                 self._config = config
                 self._config_path = config_path
+            from app.services.analysis.research_priority import set_capture_active
+            set_capture_active(self, True)
             try:
                 self._camera_mgr.start_capture(config, left_serial, right_serial)
             except Exception:
@@ -123,6 +125,8 @@ class CaptureServiceImpl(CaptureService):
                         self._capturing = True
                         self._stopping = True
                     logger.exception("Partial capture remains owned; retry stop before restart")
+                else:
+                    set_capture_active(self, False)
                 raise
             with self._lock:
                 if self._state_callbacks:
@@ -144,6 +148,8 @@ class CaptureServiceImpl(CaptureService):
                 self._stopping = False
                 self._config = None
                 self._config_path = None
+            from app.services.analysis.research_priority import set_capture_active
+            set_capture_active(self, False)
             logger.info("Capture stopped")
 
     def get_preview_frames(self) -> Tuple[Frame, Frame]:

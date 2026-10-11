@@ -4,7 +4,9 @@
 param(
     [switch]$Clean = $false,
     [switch]$SkipPyInstaller = $false,
-    [switch]$SkipInnoSetup = $false
+    [switch]$SkipInnoSetup = $false,
+    [switch]$SkipNativeKernel = $false,
+    [switch]$CudaKernel = $false
 )
 
 $ErrorActionPreference = "Stop"
@@ -88,6 +90,18 @@ if (-not $SkipPyInstaller) {
     Write-Host ""
 
     $startTime = Get-Date
+
+    if (-not $SkipNativeKernel) {
+        Write-Host "  Building the float64 trajectory kernel..." -ForegroundColor Gray
+        if ($CudaKernel) {
+            python -m pip install ./native --config-settings=cmake.define.PITCHTRACKER_CUDA=ON
+        } else {
+            python -m pip install ./native
+        }
+        if ($LASTEXITCODE -ne 0) {
+            throw "Native kernel build failed. Install the matching C++ toolchain, or supply a prebuilt wheel and use -SkipNativeKernel."
+        }
+    }
 
     # Run PyInstaller
     python -m PyInstaller --clean launcher.spec

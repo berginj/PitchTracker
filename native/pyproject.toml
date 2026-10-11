@@ -1,0 +1,12 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=3.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pitchtracker-native"
+version = "0.1.0"
+requires-python = ">=3.13"
+
+[tool.scikit-build]
+wheel.packages = []
+cmake.build-type = "Release"

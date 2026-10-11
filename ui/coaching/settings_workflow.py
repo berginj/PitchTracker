@@ -32,8 +32,7 @@ class SettingsWorkflow:
             show_message_dialog(
                 h,
                 "Session Active",
-                "Cannot change settings during an active session.\n"
-                "Please end the current session first.",
+                "Cannot change settings during an active session.\n" "Please end the current session first.",
                 tone="warning",
             )
             return
@@ -42,15 +41,9 @@ class SettingsWorkflow:
 
         state = load_state()
         active_profile = RigProfileService(config_path=h._config_path).load_active()
-        current_left = (
-            active_profile.left_serial if active_profile else state.get("last_left_camera", "0")
-        )
-        current_right = (
-            active_profile.right_serial if active_profile else state.get("last_right_camera", "1")
-        )
-        current_mound_distance = state.get(
-            "mound_distance_ft", h._config.metrics.release_plane_z_ft
-        )
+        current_left = active_profile.left_serial if active_profile else state.get("last_left_camera", "0")
+        current_right = active_profile.right_serial if active_profile else state.get("last_right_camera", "1")
+        current_mound_distance = state.get("mound_distance_ft", h._config.metrics.release_plane_z_ft)
         current_left = current_left if isinstance(current_left, str) else "0"
         current_right = current_right if isinstance(current_right, str) else "1"
         current_mound_distance = (
@@ -68,6 +61,7 @@ class SettingsWorkflow:
             current_ball_type=h._config.ball.type,
             current_color_mode=h._camera_color_mode,
             parent=h,
+            current_compute_backend=h._config.trajectory.compute_backend,
         )
         if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
             return
@@ -80,6 +74,13 @@ class SettingsWorkflow:
         h._camera_height = dialog.selected_height
         h._camera_fps = dialog.fps
         h._camera_color_mode = dialog.color_mode
+        h._config = replace(
+            h._config,
+            trajectory=replace(
+                h._config.trajectory,
+                compute_backend=getattr(dialog, "compute_backend", h._config.trajectory.compute_backend),
+            ),
+        )
         if active_profile is not None:
             self._apply_profile_lock(dialog, active_profile)
 
@@ -149,9 +150,7 @@ class SettingsWorkflow:
             coaching_config, left_camera, right_camera = self.apply_rig_capture_settings(
                 coaching_config, dialog.left_camera, dialog.right_camera
             )
-            h._service.start_capture(
-                coaching_config, left_camera, right_camera, str(h._config_path)
-            )
+            h._service.start_capture(coaching_config, left_camera, right_camera, str(h._config_path))
             h._set_status_message(
                 f"Settings applied: {h._camera_width}x{h._camera_height}@{h._camera_fps}fps",
                 "success",

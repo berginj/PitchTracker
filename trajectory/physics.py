@@ -153,6 +153,7 @@ class PhysicsDragFitter(TrajectoryFitterBase):
             speed_std_assuming_model_mph=speed_std if np.isfinite(speed_std) else None,
             observation_noise_basis=noise_basis,
             fit_quality_score=fit_quality,
+            performance=result.get("compute_performance", {}),
         )
 
         expected_error = self._scorer.expected_plate_error_ft(

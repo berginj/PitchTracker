@@ -78,11 +78,13 @@ class PitchStateMachineV2:
 
         # Event log for debugging
         self._event_log: deque = deque(maxlen=1000)
+        self._on_pitch_rejected: Optional[Callable[[PitchData, str], None]] = None
 
     def set_callbacks(
         self,
         on_pitch_start: Optional[Callable[[int, PitchData], None]] = None,
         on_pitch_end: Optional[Callable[[PitchData], None]] = None,
+        on_pitch_rejected: Optional[Callable[[PitchData, str], None]] = None,
     ) -> None:
         """Set callbacks for pitch events.
 
@@ -93,6 +95,7 @@ class PitchStateMachineV2:
         with self._lock:
             self._on_pitch_start = on_pitch_start
             self._on_pitch_end = on_pitch_end
+            self._on_pitch_rejected = on_pitch_rejected
 
     def buffer_frame(self, label: str, frame: Frame) -> None:
         """Buffer frame for pre-roll capture.
@@ -417,6 +420,11 @@ class PitchStateMachineV2:
         is_valid, reason = pitch_data.is_valid(self._config)
         if not is_valid:
             logger.warning(f"Pitch {self._pitch_index} rejected: {reason}")
+            if self._on_pitch_rejected:
+                try:
+                    self._on_pitch_rejected(pitch_data, reason)
+                except Exception:
+                    logger.exception("Pitch rejection callback failed: pitch=%s", self._pitch_index)
             self._reset_for_next_pitch()
             return
 
