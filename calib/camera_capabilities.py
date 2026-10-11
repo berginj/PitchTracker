@@ -328,14 +328,13 @@ class CameraCapabilityDetector:
     def _query_uvc_autofocus(self, camera: CameraDevice) -> Optional[bool]:
         """Determine whether the camera has autofocus hardware from observations.
 
-        Uses the typed ``ControlQueryStatus`` of the focus control rather than
-        raw readback values.  A *verified* successful autofocus-disable write
-        plus readback (SUPPORTED status) proves the device exposes the control,
-        so the camera *has* autofocus hardware.
+        Native focus queries use the DirectShow auto-capability bit; successful
+        manual focus queries alone do not establish autofocus support. The
+        OpenCV provider requires a verified autofocus write and readback.
 
         Returns:
-            True  — focus control is SUPPORTED (autofocus hardware present).
-            False — focus control is UNSUPPORTED (verified absent).
+            True  — autofocus capability observed.
+            False — native auto bit absent or focus verified unsupported.
             None  — status is QUERY_FAILED, UNAVAILABLE, or no observation.
         """
         observation = camera.get_capability_observation()
@@ -345,6 +344,11 @@ class CameraCapabilityDetector:
         if focus is None:
             return None
         if focus.status == ControlQueryStatus.SUPPORTED:
+            if focus.query_method == "directshow_iam_camera_control":
+                value = focus.observed_value
+                if not isinstance(value, dict) or "caps_flags" not in value:
+                    return None
+                return bool(int(value["caps_flags"]) & 1)
             return True
         if focus.status == ControlQueryStatus.UNSUPPORTED:
             return False

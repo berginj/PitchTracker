@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from threading import Event
 from typing import Any
+from contracts.research import MeasurementWorkspaceRequest, ResearchToolResult, SessionInspectionRequest
 
 from contracts.tooling import (
     AlignmentAnalysisRequest,
@@ -63,6 +64,24 @@ class SubprocessToolingService(ToolingService):
             timeout_seconds=300,
         )
         return TrainingReportResult.from_payload(payload)
+
+    def build_training_report_with_cancellation(
+        self, request: TrainingReportRequest, cancel_event: Event,
+    ) -> TrainingReportResult:
+        return TrainingReportResult.from_payload(self._run_task(
+            "build_training_report", request.to_payload(), timeout_seconds=300, cancel_event=cancel_event,
+        ))
+
+    def inspect_measurement_session(self, request: SessionInspectionRequest, cancel_event: Event) -> ResearchToolResult:
+        return ResearchToolResult.from_payload(self._run_task(
+            "inspect_measurement_session", request.to_payload(), timeout_seconds=120, cancel_event=cancel_event,
+        ))
+
+    def evaluate_measurement_workspace(self, request: MeasurementWorkspaceRequest,
+                                       cancel_event: Event) -> ResearchToolResult:
+        return ResearchToolResult.from_payload(self._run_task(
+            "evaluate_measurement_workspace", request.to_payload(), timeout_seconds=300, cancel_event=cancel_event,
+        ))
 
     def run_calibration(self, request: CalibrationRequest) -> CalibrationResult:
         payload = self._run_task(

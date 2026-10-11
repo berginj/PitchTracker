@@ -137,7 +137,7 @@ class ReplayController:
         refresh_ms = int(1000 / max(config.ui.refresh_hz, 1))
         self._start_timer(refresh_ms)
 
-        self._status_label.setText("Replay mode.")
+        self._status_label.setText("Single-video detection inspection; no timed stereo measurements.")
         logger.info("Replay started successfully")
         return True
 

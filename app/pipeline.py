@@ -68,16 +68,24 @@ def build_lane_gate(
 
 
 def load_lane_polygon(roi_path: Path, left_id: str, right_id: str) -> list[tuple[float, float]] | None:
+    polygons = load_lane_polygons(roi_path, left_id, right_id)
+    return polygons.get(left_id) or polygons.get(right_id)
+
+
+def load_lane_polygons(roi_path: Path, left_id: str, right_id: str) -> dict[str, list[tuple[float, float]]]:
+    """Preserve side-specific legacy ROIs when runtime camera IDs are numeric."""
     rois = load_rois(roi_path)
     lane = rois.get("lane")
     if lane:
-        return [(float(x), float(y)) for x, y in lane]
+        polygon = [(float(x), float(y)) for x, y in lane]
+        return {left_id: polygon, right_id: polygon}
     legacy = load_lane_rois(Path("configs/lane_roi.json"))
-    if left_id in legacy:
-        return [(float(x), float(y)) for x, y in legacy[left_id].polygon]
-    if right_id in legacy:
-        return [(float(x), float(y)) for x, y in legacy[right_id].polygon]
-    return None
+    result = {}
+    for runtime_id, side in ((left_id, "left"), (right_id, "right")):
+        roi = legacy.get(runtime_id) or legacy.get(side)
+        if roi is not None:
+            result[runtime_id] = [(float(x), float(y)) for x, y in roi.polygon]
+    return result
 
 
 def load_plate_polygon(roi_path: Path) -> list[tuple[float, float]] | None:
@@ -168,7 +176,8 @@ def run_pipeline(
         min_velocity=config.detector.filters.min_velocity,
         max_velocity=config.detector.filters.max_velocity,
     )
-    lane_polygon = load_lane_polygon(roi_path, left_id, right_id)
+    lane_polygons = load_lane_polygons(roi_path, left_id, right_id)
+    lane_polygon = lane_polygons.get(left_id) or lane_polygons.get(right_id)
     if config.detector.type == "ml":
         detector = MlDetector(
             model_path=config.detector.model_path,
@@ -192,7 +201,7 @@ def run_pipeline(
         detector = ClassicalDetector(
             config=detector_cfg,
             mode=Mode(config.detector.mode),
-            roi_by_camera=({left_id: lane_polygon, right_id: lane_polygon} if lane_polygon else None),
+            roi_by_camera=lane_polygons or None,
         )
     lane_gate = build_lane_gate(
         config.camera.width,
@@ -201,6 +210,12 @@ def run_pipeline(
         right_id,
         lane_polygon,
     )
+    if lane_polygons:
+        defaults = lane_gate.roi_by_camera
+        lane_gate = LaneGate(roi_by_camera={
+            camera_id: LaneRoi(polygon=lane_polygons[camera_id]) if camera_id in lane_polygons else defaults[camera_id]
+            for camera_id in (left_id, right_id)
+        })
     plate_polygon = load_plate_polygon(roi_path)
     plate_gate = None
     if plate_polygon:

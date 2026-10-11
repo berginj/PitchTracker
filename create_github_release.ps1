@@ -26,12 +26,15 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot 'scripts/installer_artifact.ps1')
 
 foreach ($path in @($InstallerPath, $ChecksumPath, $NotesFile)) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Required release input does not exist: $path"
     }
 }
+
+Assert-InstallerReleaseVersion -Tag $Tag -ProductVersion (Get-Item -LiteralPath $InstallerPath).VersionInfo.ProductVersion
 
 gh auth status | Out-Null
 if ($LASTEXITCODE -ne 0) {

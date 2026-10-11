@@ -180,19 +180,19 @@ class CalibrationStepLifecycleMixin(CalibrationStepMixinHost):
         # Update camera type label with emoji
         if caps.camera_type == "industrial":
             type_emoji = "✓"
-            type_text = f"{type_emoji} Industrial (Fixed Focus)"
+            type_text = f"{type_emoji} Industrial"
         elif caps.camera_type == "webcam":
             type_emoji = "⚠️"
-            type_text = f"{type_emoji} Webcam (Autofocus)"
+            type_text = f"{type_emoji} Webcam"
         else:
             type_emoji = "?"
             type_text = f"{type_emoji} Unknown"
 
+        autofocus = {True: "supported", False: "unsupported", None: "unknown"}[caps.has_autofocus]
+        type_text += f" — Autofocus: {autofocus}"
         self._camera_type_label.setText(type_text)
         self._set_camera_type_state(
-            "Industrial (Fixed Focus)"
-            if caps.camera_type == "industrial"
-            else ("Webcam (Autofocus)" if caps.camera_type == "webcam" else "Unknown Camera Type"),
+            type_text,
             "success" if caps.camera_type == "industrial" else ("warning" if caps.camera_type == "webcam" else "info"),
         )
 
@@ -205,7 +205,7 @@ class CalibrationStepLifecycleMixin(CalibrationStepMixinHost):
         )
 
         # Show webcam warning if detected
-        if caps.camera_type == "webcam" or caps.has_autofocus:
+        if caps.has_autofocus is True:
             warning_text = (
                 "⚠️ WEBCAM DETECTED: Autofocus cameras may reduce accuracy\n"
                 "Recommendation: Disable autofocus in camera settings or use manual focus cameras\n"

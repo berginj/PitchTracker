@@ -66,6 +66,8 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
         # Review service backend
         self._service = ReviewService()
+        self._measurement_dialog: QtWidgets.QDialog | None = None
+        self._close_after_measurement = False
 
         # Status bar (needed by controllers)
         self._status_bar = QtWidgets.QStatusBar()
@@ -130,11 +132,13 @@ class ReviewWindow(QtWidgets.QMainWindow):
             "seek_end": self._playback_ctrl.seek_to_end,
             "toggle_annotation": self._toggle_annotation_mode,
             "clear_annotations": self._clear_annotations,
+            "measurement_validation": self._open_measurement_validation,
             "toggle_trajectory": self._toggle_trajectory_overlay,
             "export_config": lambda: self._export_ctrl.export_config(),
             "export_annotations": lambda: self._export_ctrl.export_annotations(),
         }
         actions = build_menu_bar(self, handlers)
+        self._menu_actions = actions
         self._prev_session_action = actions.prev_session
         self._next_session_action = actions.next_session
         self._delete_session_action = actions.delete_session
@@ -460,8 +464,6 @@ class ReviewWindow(QtWidgets.QMainWindow):
             else:
                 self._status_bar.showMessage(f"Ready | {nav_state}")
 
-    # Compatibility shims for existing tests
-
     def _load_session(self, session_dir: Path) -> None:
         """Compatibility: delegates to session controller."""
         self._session_ctrl.load_session(session_dir)
@@ -474,10 +476,18 @@ class ReviewWindow(QtWidgets.QMainWindow):
         """Compatibility: delegates to _show_trajectory_diagnostics."""
         self._show_trajectory_diagnostics(pitch_index)
 
-    # Lifecycle
+    def _open_measurement_validation(self) -> None:
+        from ui.review.measurement_validation import open_measurement_validation
+        session = self._service.session
+        open_measurement_validation(self, session.session_dir if session else None)
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         """Handle window close event."""
+        if self._measurement_dialog is not None:
+            self._close_after_measurement = True
+            self._measurement_dialog.reject()
+            event.ignore()
+            return
         self._playback_ctrl.teardown()
         self._service.close()
         self.closed.emit()

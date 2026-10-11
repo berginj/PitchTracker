@@ -135,3 +135,18 @@ def test_composite_uses_verified_fallback_after_native_query_failure() -> None:
 
     assert observation.results[CONTROL_GAIN].status == ControlQueryStatus.SUPPORTED
     assert observation.results[CONTROL_GAIN].query_method == "opencv_directshow_readback"
+
+
+def test_composite_discards_evidence_bound_to_another_capture_index():
+    native = ProbeEvidence(
+        provider="native_directshow",
+        results={CONTROL_GAIN: ControlQueryResult(CONTROL_GAIN, ControlQueryStatus.UNSUPPORTED)},
+        device_metadata={"directshow_index": 1},
+    )
+    observation = compose_observation(
+        camera_id="left", friendly_name="Camera", device_index=0, requested_mode={}, fallback=_fallback(), native=native
+    )
+    assert observation.results[CONTROL_GAIN].status == ControlQueryStatus.SUPPORTED
+    assert observation.device_metadata["directshow_index"] == 0
+    assert observation.device_metadata["native_probe_available"] is False
+    assert "mismatch" in observation.provenance_note

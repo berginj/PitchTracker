@@ -161,10 +161,10 @@ can be considered fully complete:
    Calibration remains in Setup Doctor/tooling and the stereo setup wizard so
    the runtime orchestrator only starts from a validated rig profile. The
    method rejects calls with an actionable message pointing to those paths.
-2. Event dataclasses do not yet carry the full message metadata described in
-   `agents.md` (`correlation_id`, `session_id`, durable `schema_version`, and
-   diagnostics fields where applicable). Runtime events are typed, but metadata
-   completeness still needs an audit.
+2. Event metadata is implemented through `app/events/event_metadata.py`, with
+   correlation/session/pitch/camera identifiers and schema versioning. Preserve
+   this contract in new flows. Desktop research requests carry correlation IDs
+   and execute inspection/evaluation through subprocess tooling services.
 3. `InProcessPipelineService` remains in the repo. Treat it as compatibility
    code unless a maintenance task explicitly targets legacy behavior.
 4. Some historical architecture and status reports remain in `archive/`; those

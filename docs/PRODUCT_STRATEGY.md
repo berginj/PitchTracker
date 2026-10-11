@@ -1,5 +1,11 @@
 # PitchTracker: Product Strategy and Capability Contract
 
+> **Current direction (2026-10-10):** prioritize local research/developer work,
+> a measurement baseline first, through existing desktop workflows. Rig and
+> reference equipment still require qualification. Facility adoption follows
+> evidence. See [Desktop Measurement Research](MEASUREMENT_RESEARCH.md).
+> Readiness, coverage and competitive assertions below are historical context.
+
 > **Planning context (2026-07-21):** retain the capability contract and decision
 > framework. Version references, test counts, dated 30/60/90-day tables, and task
 > status below describe the March 2026 planning baseline. Current delivery and

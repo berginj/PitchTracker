@@ -124,3 +124,13 @@ def test_native_probe_rejects_ambiguous_friendly_name(monkeypatch: pytest.Monkey
             device_index=0,
             friendly_name="Camera A",
         )
+
+
+def test_native_probe_rejects_different_enumeration_order(monkeypatch):
+    class ReorderedGraph(_Graph):
+        def get_input_devices(self):
+            return ["Other", "Camera A"]
+
+    _install_fake_graph(monkeypatch, ReorderedGraph)
+    with pytest.raises(RuntimeError, match="identity differs"):
+        NativeDirectShowProbe().probe(camera_id="serial-1", device_index=0, friendly_name="Camera A")

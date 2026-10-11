@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from threading import Event
+from contracts.research import MeasurementWorkspaceRequest, ResearchToolResult, SessionInspectionRequest
 
 from contracts.tooling import (
     AlignmentAnalysisRequest,
@@ -20,6 +21,18 @@ from contracts.tooling import (
 
 class ToolingService(ABC):
     """Boundary for heavyweight tooling tasks that should not run in the UI process."""
+
+    def inspect_measurement_session(self, request: SessionInspectionRequest, cancel_event: Event) -> ResearchToolResult:
+        raise NotImplementedError("Session inspection is unavailable in this tooling service")
+
+    def evaluate_measurement_workspace(self, request: MeasurementWorkspaceRequest,
+                                       cancel_event: Event) -> ResearchToolResult:
+        raise NotImplementedError("Measurement research is unavailable in this tooling service")
+
+    def build_training_report_with_cancellation(
+        self, request: TrainingReportRequest, cancel_event: Event,
+    ) -> TrainingReportResult:
+        raise NotImplementedError("Cancellable export is unavailable in this tooling service")
 
     @abstractmethod
     def validate_environment(self) -> EnvironmentValidationResult:

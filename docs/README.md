@@ -8,6 +8,7 @@ or validation documents before trying the simulator.
 - **I want to try the app without cameras:** [Quick Start](QUICK_START.md)
 - **I operate a camera rig:** [Operator runbook](OPERATOR_RUNBOOK.md)
 - **I am testing hardware:** [Testing Help Needed](TESTING_NEEDED.md)
+- **I am establishing a baseline:** [Desktop Measurement Research](MEASUREMENT_RESEARCH.md)
 - **I need to understand a term:** [Glossary](GLOSSARY.md)
 - **I need help with a problem:** [Troubleshooting](user/TROUBLESHOOTING.md)
 - **I want to contribute:** [Contributing](../CONTRIBUTING.md)

@@ -213,7 +213,7 @@ class SessionSummaryDialog(QtWidgets.QDialog):
                 f"{pitch.rise_in:.2f}",
                 f"{pitch.speed_mph:.1f}" if pitch.speed_mph is not None else "-",
                 f"{pitch.rotation_rpm:.1f}" if pitch.rotation_rpm is not None else "-",
-                pitch.measurement_status,
+                getattr(pitch.measurement_status, "value", pitch.measurement_status),
             ]
 
             for col, value in enumerate(values):

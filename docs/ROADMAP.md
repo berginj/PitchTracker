@@ -1,11 +1,21 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-10-06
+**Last reviewed:** 2026-10-10
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
 cannot be produced in CI. A checked box means the implementation and automated
 contract are complete; it does not imply physical measurement accuracy.
+
+## Current priority: desktop measurement research
+
+Use [Desktop Measurement Research](MEASUREMENT_RESEARCH.md) to inspect captured
+evidence, edit shadow cases, and compare independent speed/location references.
+The eight October 5 software follow-ups now have focused implementations; see
+[the acceptance ledger](review/RESEARCH_ACCEPTANCE_LEDGER.md). Establish the
+operator-run rig qualification and initial 100-attempt, three-session shadow
+baseline before selecting the next algorithm change. Confirmation, independent
+review, signing, and clean-machine qualification retain their existing gates.
 
 ## Completed in software
 
@@ -148,10 +158,10 @@ and the pre-field hardware matrix.
 
 ## Engineering debt with active owners
 
-The [October 5 request/work audit](review/REQUEST_AND_WORK_AUDIT_2026_10_05.md)
-records eight still-valid software review follow-ups, open issue acceptance
-reconciliation, operator/release gates, and completed GitHub response coverage.
-These findings remain work even though the original pull requests are closed.
+The [October 5 audit](review/REQUEST_AND_WORK_AUDIT_2026_10_05.md) records the
+historical eight follow-ups. Their implementations and regression coverage are
+now mapped in the research acceptance ledger. Physical/manual evidence and
+issue-specific acceptance reconciliation remain work.
 
 - Keep the direct repository-wide mypy gate clean and keep test-only typing
   relaxations fixed through the suppression policy check.
@@ -207,6 +217,6 @@ confirmation, signing, and clean-machine lifecycle tests remain open.
 
 Historical month-by-month estimates, old version task lists, and partnership
 concept schedules remain useful context but are not the active backlog. The
-active queue includes open issues #9–#11 and #34–#40 plus the eight software
-review follow-ups in the October 5 request/work audit, even though their original
-PRs are closed.
+active queue includes physical gates #9–#11, acceptance reconciliation for
+#34–#40, and baseline-driven research improvements. Preserve regression coverage
+for the eight implemented October software follow-ups.

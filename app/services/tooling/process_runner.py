@@ -15,7 +15,7 @@ def run_cancellable_worker(
 ) -> subprocess.CompletedProcess[str]:
     """Poll a worker and reap it before returning, failing, or cancelling."""
     if cancel_event.is_set():
-        raise CancelledError("Environment validation cancelled")
+        raise CancelledError("Tooling operation cancelled")
     process = subprocess.Popen(
         command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         text=True, encoding="utf-8", cwd=str(project_root),
@@ -26,14 +26,14 @@ def run_cancellable_worker(
     try:
         while True:
             if cancel_event.is_set():
-                raise CancelledError("Environment validation cancelled")
+                raise CancelledError("Tooling operation cancelled")
             remaining = deadline - monotonic()
             if remaining <= 0:
                 raise subprocess.TimeoutExpired(command, timeout_seconds)
             try:
                 stdout, stderr = process.communicate(worker_input, timeout=min(0.1, remaining))
                 if cancel_event.is_set():
-                    raise CancelledError("Environment validation cancelled")
+                    raise CancelledError("Tooling operation cancelled")
                 return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
             except subprocess.TimeoutExpired:
                 # communicate() retains partial output and must receive input only once.

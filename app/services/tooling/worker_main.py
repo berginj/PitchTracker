@@ -130,7 +130,21 @@ def _handle_validate_physical_dataset(payload: dict[str, Any]) -> dict[str, Any]
     return PhysicalValidationResult(report=report, output_path=request.output_path).to_payload()
 
 
+def _handle_session_inspection(payload: dict[str, Any]) -> dict[str, Any]:
+    from contracts.research import SessionInspectionRequest
+    from app.services.tooling.research import inspect_session
+    return inspect_session(SessionInspectionRequest.from_payload(payload)).to_payload()
+
+
+def _handle_measurement_workspace(payload: dict[str, Any]) -> dict[str, Any]:
+    from contracts.research import MeasurementWorkspaceRequest
+    from app.services.tooling.research import evaluate_workspace
+    return evaluate_workspace(MeasurementWorkspaceRequest.from_payload(payload)).to_payload()
+
+
 HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "inspect_measurement_session": _handle_session_inspection,
+    "evaluate_measurement_workspace": _handle_measurement_workspace,
     "validate_environment": _handle_validate_environment,
     "build_training_report": _handle_build_training_report,
     "run_calibration": _handle_run_calibration,

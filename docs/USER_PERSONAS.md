@@ -8,6 +8,12 @@
 
 ## Purpose
 
+The current primary user is a researcher/developer operating a local Windows
+rig: qualify capture, compare measurements with independent references, inspect
+rejected attempts, and reproduce findings in Review. Success means complete
+denominators, clear provenance, preserved sources, and repeatable error reports.
+The facility personas below remain downstream users.
+
 These personas define the real users PitchTracker should optimize for during
 the pilot phase. They are intentionally practical: they describe jobs,
 constraints, success signals, and documentation implications.

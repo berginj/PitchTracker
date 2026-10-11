@@ -10,6 +10,7 @@ from PySide6 import QtGui, QtWidgets
 
 @dataclass(frozen=True)
 class ReviewMenuActions:
+    menus: tuple[QtWidgets.QMenu, ...]
     prev_session: QtGui.QAction
     next_session: QtGui.QAction
     delete_session: QtGui.QAction
@@ -58,6 +59,9 @@ def build_menu_bar(
 
     # --- Tools menu ---
     tools_menu = menubar.addMenu("&Tools")
+    if "measurement_validation" in handlers:
+        _add(tools_menu, "Measurement Validation…", None, handlers["measurement_validation"])
+        tools_menu.addSeparator()
 
     annotation_action = QtGui.QAction("Toggle Annotation Mode", window)
     annotation_action.setShortcut("A")
@@ -80,6 +84,7 @@ def build_menu_bar(
     _add(export_menu, "Export &Annotations...", None, handlers["export_annotations"])
 
     return ReviewMenuActions(
+        menus=(file_menu, playback_menu, tools_menu, export_menu),
         prev_session=prev_action,
         next_session=next_action,
         delete_session=delete_action,

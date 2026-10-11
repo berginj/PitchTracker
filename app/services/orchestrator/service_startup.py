@@ -81,6 +81,13 @@ def load_and_validate_rig(
     calibration_report = build_calibration_report(
         calibration_path, config_file,
     )
+    if profile.setup_snapshot:
+        # Durable recording context retains the configured system inventory.
+        # This is provenance, not a physical accuracy approval.
+        from copy import deepcopy
+        calibration_report["setup_snapshot"] = deepcopy(profile.setup_snapshot)
+        calibration_report["rig_profile_revision"] = profile.profile_revision
+        calibration_report["artifact_hashes"] = dict(profile.artifact_hashes)
 
     return RigStartupResult(
         profile=profile,

@@ -131,7 +131,9 @@ def load_session_evidence_journal(
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if require_complete and not bool(manifest.get("complete")):
         raise ValueError("decision journal is incomplete")
-    path = manifest_path.parent / str(manifest["file"])
+    path = (manifest_path.parent / str(manifest["file"])).resolve()
+    if not path.is_relative_to(manifest_path.parent.resolve()):
+        raise ValueError("decision journal file escapes its artifact directory")
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     if digest != manifest.get("sha256"):
         raise ValueError("decision journal integrity check failed")

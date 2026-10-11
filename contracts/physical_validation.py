@@ -80,6 +80,8 @@ class ReferenceChannelV2:
         end = _parse_utc("calibration_valid_until_utc", self.calibration_valid_until_utc)
         if end <= start:
             raise ValueError("reference calibration validity interval is empty")
+        if not isfinite(self.uncertainty) or not isfinite(self.time_uncertainty_ms):
+            raise ValueError("reference uncertainty must be finite")
         if self.uncertainty < 0 or self.time_uncertainty_ms < 0:
             raise ValueError("reference uncertainty must be non-negative")
         if self.independent_from_pitchtracker is not True:

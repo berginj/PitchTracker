@@ -330,3 +330,17 @@ def test_camera_capabilities_str():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+@pytest.mark.parametrize("flags,expected", [(2, False), (3, True)])
+def test_native_manual_focus_is_not_autofocus_capability(flags, expected):
+    from types import SimpleNamespace
+    from contracts.capability_observation import CapabilityObservation, ControlQueryResult, ControlQueryStatus, CONTROL_FOCUS
+    observation = CapabilityObservation(camera_id="left", backend="uvc", results={
+        CONTROL_FOCUS: ControlQueryResult(
+            CONTROL_FOCUS, ControlQueryStatus.SUPPORTED, observed_value={"caps_flags": flags},
+            query_method="directshow_iam_camera_control",
+        ),
+    })
+    camera = SimpleNamespace(get_capability_observation=lambda: observation)
+    assert CameraCapabilityDetector()._query_uvc_autofocus(camera) is expected

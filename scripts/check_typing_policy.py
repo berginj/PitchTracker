@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import re
+import configparser
+import tomllib
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 TYPE_IGNORE = re.compile(r"#\s*type:\s*ignore(?!\s*\[[^\]]+\])")
-IGNORE_ERRORS = re.compile(r"^\s*ignore_errors\s*=\s*(?:true|1|yes)\s*$", re.IGNORECASE)
-SECTION = re.compile(r"^\s*\[([^]]+)]\s*$")
-DISABLED_CODES = re.compile(r"^\s*disable_error_code\s*=\s*(.+)$")
 EXCLUDED_PARTS = {".git", ".venv", "venv", "archive", "build", "dist", "__pycache__"}
 TEST_RELAXATIONS = {
     "arg-type",
@@ -41,19 +40,30 @@ def policy_violations(root: Path = ROOT) -> list[str]:
         path = root / config_name
         if not path.exists():
             continue
-        section = ""
-        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            section_match = SECTION.match(line)
-            if section_match:
-                section = section_match.group(1)
-            if IGNORE_ERRORS.match(line):
-                violations.append(f"{config_name}:{line_number}: blanket ignore_errors is forbidden")
-            disabled_match = DISABLED_CODES.match(line)
-            if disabled_match:
-                codes = {code.strip() for code in disabled_match.group(1).split(",")}
+        try:
+            if path.suffix == ".toml":
+                mypy = tomllib.loads(path.read_text(encoding="utf-8")).get("tool", {}).get("mypy", {})
+                sections = {"mypy": {key: value for key, value in mypy.items() if key != "overrides"}}
+                for index, override in enumerate(mypy.get("overrides", [])):
+                    modules = override.get("module", [])
+                    name = "mypy-tests.*" if modules in ("tests.*", ["tests.*"]) else f"override-{index}"
+                    sections[name] = override
+            else:
+                parser = configparser.ConfigParser(inline_comment_prefixes=("#", ";"))
+                parser.read_string(path.read_text(encoding="utf-8"))
+                sections = {name: dict(parser[name]) for name in parser.sections() if name.startswith("mypy")}
+        except (ValueError, configparser.Error) as exc:
+            violations.append(f"{config_name}: invalid configuration: {exc}")
+            continue
+        for section, options in sections.items():
+            if str(options.get("ignore_errors", "false")).lower() in {"true", "1", "yes", "on"}:
+                violations.append(f"{config_name}:{section}: blanket ignore_errors is forbidden")
+            disabled = options.get("disable_error_code")
+            if disabled is not None:
+                codes = set(disabled) if isinstance(disabled, list) else {code.strip() for code in str(disabled).split(",")}
                 if section != "mypy-tests.*" or codes != TEST_RELAXATIONS:
                     violations.append(
-                        f"{config_name}:{line_number}: disable_error_code must match the fixed test-only policy"
+                        f"{config_name}:{section}: disable_error_code must match the fixed test-only policy"
                     )
 
     for path in root.rglob("*.py"):

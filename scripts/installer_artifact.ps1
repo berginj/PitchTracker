@@ -1,3 +1,12 @@
+function Assert-InstallerReleaseVersion {
+    param([string]$Tag, [string]$ProductVersion)
+    if ($Tag -notmatch '^v(\d+\.\d+\.\d+)$') { throw "Invalid release tag: $Tag" }
+    $expected = $Matches[1]
+    if ($ProductVersion -notmatch '^(\d+\.\d+\.\d+)(?:\.0)?$' -or $Matches[1] -ne $expected) {
+        throw "Installer product version '$ProductVersion' does not match release $Tag"
+    }
+}
+
 function Get-FreshInstallerArtifact {
     param(
         [Parameter(Mandatory = $true)][string]$DefinitionPath,

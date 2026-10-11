@@ -7,7 +7,6 @@ import shutil
 import time
 import urllib.error
 import urllib.request
-import zipfile
 from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
@@ -20,6 +19,8 @@ from configs.settings import AppConfig
 from contracts.tooling import TrainingReportRequest
 from contracts.versioning import APP_VERSION, SCHEMA_VERSION
 from ui.themes import show_message_dialog
+from ui.tooling_task import run_tooling_task
+from app.services.tooling.export_artifacts import export_json, export_manifest_archive
 
 
 def upload_session(
@@ -159,22 +160,6 @@ def save_session_export(
         )
         return
 
-    # Create progress dialog for longer exports
-    progress = None
-    if export_type in ("training_report", "manifests_zip"):
-        progress = QtWidgets.QProgressDialog(
-            f"Exporting {export_type.replace('_', ' ')}...",
-            "Cancel",
-            0,
-            0,  # Indeterminate
-            parent,
-        )
-        progress.setWindowTitle("Export Progress")
-        progress.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
-        progress.setMinimumDuration(250)  # Show if takes > 250ms
-        progress.setValue(0)
-        QtWidgets.QApplication.processEvents()
-
     try:
         if export_type == "summary_json":
             export_session_summary_json(parent, summary, session_dir)
@@ -200,9 +185,6 @@ def save_session_export(
             )
     except Exception as exc:  # noqa: BLE001 - surface export failures
         show_message_dialog(parent, "Save Session", str(exc), tone="warning")
-    finally:
-        if progress:
-            progress.close()
 
 
 def export_session_summary_json(
@@ -308,8 +290,12 @@ def export_training_report(
             "host": None,
         },
     )
-    result = tooling.build_training_report(request)
-    Path(path).write_text(json.dumps(result.payload, indent=2))
+
+    def operation(cancel_event):
+        result = tooling.build_training_report_with_cancellation(request, cancel_event)
+        return export_json(Path(path), result.payload, session_dir, cancel_event)
+
+    run_tooling_task(parent, "Export training report", operation)
 
 
 def export_manifests_zip(
@@ -332,45 +318,9 @@ def export_manifests_zip(
     if not path:
         return
 
-    # Collect files to export
-    files: list[Path] = []
-    manifest = session_dir / "manifest.json"
-    summary_json = session_dir / "session_summary.json"
-    summary_csv = session_dir / "session_summary.csv"
-    if manifest.exists():
-        files.append(manifest)
-    if summary_json.exists():
-        files.append(summary_json)
-    if summary_csv.exists():
-        files.append(summary_csv)
-    files.extend(session_dir.rglob("*/manifest.json"))
-
-    if not files:
-        raise RuntimeError("No manifest files found to export.")
-
-    # Show progress dialog for larger exports
-    progress = QtWidgets.QProgressDialog("Exporting manifest files...", "Cancel", 0, len(files), parent)
-    progress.setWindowTitle("Export Progress")
-    progress.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
-    progress.setMinimumDuration(500)  # Only show if takes > 500ms
-
-    try:
-        with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            for i, file_path in enumerate(files):
-                if progress.wasCanceled():
-                    # Clean up partial zip file
-                    Path(path).unlink(missing_ok=True)
-                    return
-
-                progress.setValue(i)
-                progress.setLabelText(f"Adding {file_path.name}... ({i+1}/{len(files)})")
-                QtWidgets.QApplication.processEvents()
-
-                archive.write(file_path, file_path.relative_to(session_dir))
-
-            progress.setValue(len(files))
-    finally:
-        progress.close()
+    run_tooling_task(parent, "Export manifests", lambda cancel_event: export_manifest_archive(
+        Path(path), session_dir, cancel_event,
+    ))
 
 
 def _resolve_api_key(config: AppConfig) -> str:

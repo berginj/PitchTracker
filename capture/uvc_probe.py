@@ -309,6 +309,8 @@ def compose_observation(
     device_metadata: Mapping[str, Any] | None = None,
 ) -> CapabilityObservation:
     """Compose native and fallback facts without turning guesses into support."""
+    if native is not None and native.device_metadata.get("directshow_index", device_index) != device_index:
+        native = unavailable_native_evidence("Native/capture identity mismatch; native evidence discarded.")
     native_results = {} if native is None else dict(native.results)
     results: dict[str, ControlQueryResult] = {}
     for control in ALL_CONTROLS:

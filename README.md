@@ -28,6 +28,10 @@ hardware evidence. See the [glossary](docs/GLOSSARY.md) if terms such as
 
 ## What the app does
 
+The current development priority is local measurement research. Review mode
+includes **Tools > Measurement Validation** for evidence inspection, shadow case
+editing, and independent comparisons. See [Desktop Measurement Research](docs/MEASUREMENT_RESEARCH.md).
+
 1. Helps an operator select and qualify a camera pair.
 2. Captures paired views of the pitch lane; physical exposure synchronization
    requires independent timing evidence.

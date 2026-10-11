@@ -207,6 +207,11 @@ class NativeDirectShowProbe:
             graph = graph_type()
             names = [str(name) for name in graph.get_input_devices()]
             resolved_index = self._resolve_index(names, device_index, friendly_name)
+            if resolved_index != device_index:
+                raise RuntimeError(
+                    "Native DirectShow identity differs from the capture index; "
+                    "capability evidence cannot be attached to this capture."
+                )
             graph.add_video_input_device(resolved_index)
             video_input = graph.get_input_device()
             results = {

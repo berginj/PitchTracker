@@ -52,3 +52,13 @@ def test_explicit_camera_ids_override_backend_defaults(monkeypatch, pipeline_cli
 
     assert args.left == "4"
     assert args.right == "7"
+
+
+def test_numeric_runtime_ids_preserve_distinct_legacy_lane_polygons(tmp_path, monkeypatch, pipeline_cli):
+    from detect.lane import LaneRoi
+    left = [(0, 0), (10, 0), (10, 10)]
+    right = [(20, 0), (30, 0), (30, 10)]
+    monkeypatch.setattr(pipeline_cli, "load_rois", lambda _path: {})
+    monkeypatch.setattr(pipeline_cli, "load_lane_rois", lambda _path: {"left": LaneRoi(left), "right": LaneRoi(right)})
+    polygons = pipeline_cli.load_lane_polygons(tmp_path / "roi.json", "0", "1")
+    assert polygons == {"0": left, "1": right}

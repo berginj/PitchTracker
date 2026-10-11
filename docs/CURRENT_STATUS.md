@@ -1,11 +1,19 @@
 # PitchTracker Current Status
 
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-10
 **Published release:** `v2.0.0` / internal app version `2.0.0`
 **Development status:** the October consolidation/remediation batch is implemented
-and validated in software. The October 5 audit identified eight additional
-software review follow-ups. Physical validation and clean-machine lifecycle/
+and validated in software. The October 5 software follow-ups have implementations
+in the measurement research change. Physical validation and clean-machine lifecycle/
 installer qualification also remain.
+
+The measurement research implementation adds Review-mode evidence inspection,
+shadow case editing, independent evaluation and cancellable local exports.
+Eight October software follow-ups now have implementations; see
+[the acceptance ledger](review/RESEARCH_ACCEPTANCE_LEDGER.md). Physical reference,
+confirmation, signing, and clean-machine gates remain operator-run work.
+Local software checks are recorded in
+[the research validation record](review/RESEARCH_VALIDATION_2026_10_10.md).
 
 ## Summary
 
@@ -28,7 +36,7 @@ approved.
 | Release installer asset | Not currently attached to the GitHub release |
 | Development baseline | `main`; use the checked-out commit for exact provenance |
 | Test collection | Full Python 3.13 and 3.14 suites run in CI; use current CI output for the exact count |
-| Latest committed CI validation | Baseline `e1df60d`: [CI run 37162376775](https://github.com/berginj/PitchTracker/actions/runs/37162376775) passed. Preceding `6d2eacf` recorded 1,835 passed and 33 skipped per runtime; use exact run output for counts. |
+| Latest committed CI validation | Baseline `e8287a9`: [CI run 37608797117](https://github.com/berginj/PitchTracker/actions/runs/37608797117) passed. This does not validate the current uncommitted research change; use its local validation record and subsequent CI. |
 | Follow-up local validation | `b101740`: Python 3.13 and 3.14 each passed 1,833 tests with 34 skips; final `597c267` passed 30 focused tests on each runtime; static gates passed |
 | Frozen artifact validation | Application source `597c267`: six source/frozen GUI and worker smoke tests passed with isolated state and camera checking disabled; see the October remediation record below |
 | Static validation | Schema sync, public docs, file length, Flake8, suppression policy, and direct repository-wide mypy are required; no diagnostic baseline remains |
@@ -89,10 +97,8 @@ and automated evidence.
 
 The canonical open work is [ROADMAP.md](ROADMAP.md):
 
-1. Resolve eight software review findings: native/capture identity, autofocus
-   capability and unknown-state presentation, release version binding, legacy
-   lane ROI mapping, typing-policy enforcement, export cancellation, and UI
-   measurement-status labels. See [the request/work audit](review/REQUEST_AND_WORK_AUDIT_2026_10_05.md).
+1. Complete the operator-run research baseline and preserve regression coverage
+   for the eight follow-ups in the acceptance ledger.
 2. Reconcile committed remediation with each acceptance criterion in #34–#40.
 3. Qualify real global-shutter cameras, controls, synchronization, and USB paths.
 4. Qualify bounded shutdown/reconnect and retry behavior on the target rig.

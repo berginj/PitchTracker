@@ -148,7 +148,9 @@ class TestStartReplay:
         assert rc.is_active is True
         mock_deps["stop_capture"].assert_called_once()
         mock_deps["start_timer"].assert_called_once()
-        mock_deps["status_label"].setText.assert_called_with("Replay mode.")
+        mock_deps["status_label"].setText.assert_called_with(
+            "Single-video detection inspection; no timed stereo measurements."
+        )
 
 
 class TestStopReplay:
