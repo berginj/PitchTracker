@@ -34,6 +34,7 @@ class RigStartupResult:
     calibration_path: Optional[Path]
     roi_path: Optional[Path]
     calibration_report: Optional[dict]
+    config_path: Optional[Path] = None
 
 
 def load_and_validate_rig(
@@ -51,6 +52,9 @@ def load_and_validate_rig(
     profile = rig_service.load_active_or_legacy(
         config, backend=backend,
         left_serial=left_serial, right_serial=right_serial,
+    )
+    config = rig_service.apply_profile_to_config(
+        config, profile, preserve_camera_mode=profile.profile_id == "legacy",
     )
     validation = rig_service.validate_for_runtime(
         profile, config=config, backend=backend,
@@ -77,7 +81,10 @@ def load_and_validate_rig(
     )
     calibration_path = rig_service.calibration_path(profile)
     roi_path = rig_service.roi_path(profile)
-    config_file = rig_service.config_path
+    config_file = (
+        rig_service.effective_config_path(profile)
+        if getattr(profile, "effective_config_file", "") else rig_service.config_path
+    )
     calibration_report = build_calibration_report(
         calibration_path, config_file,
     )
@@ -95,6 +102,7 @@ def load_and_validate_rig(
         calibration_path=calibration_path,
         roi_path=roi_path,
         calibration_report=calibration_report,
+        config_path=config_file,
     )
 
 

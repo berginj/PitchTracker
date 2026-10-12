@@ -275,6 +275,13 @@ The current preferred runtime entry point is `PipelineOrchestrator`, wrapped by 
 
 Legacy `InProcessPipelineService` remains a compatibility path. New work should prefer the service-based architecture unless explicitly maintaining legacy behavior.
 
+Guided setup uses SetupWorkflowService as the single owner of immediately saved
+working configuration, generations, quality checks and publication. UI stages
+issue explicit commands; camera acquisition stays in supervised capture workers
+and full calibration stays in tooling workers. Completed rig revisions include
+their effective configuration, metric calibration, per-camera regions and target
+evidence. Runtime admission checks pending edits independently of UI controls.
+
 ### Testing
 
 Each agent requires tests at the smallest useful boundary:

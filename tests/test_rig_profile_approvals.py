@@ -323,7 +323,10 @@ def test_unapproved_ray_mode_may_remain_comparison_only_on_physical_runtime(tmp_
     assert validation.diagnostics["trajectory_primary_approval_required"] is False
 
 
-def test_v2_accuracy_claim_requires_exact_artifacts_fingerprints_and_two_signatures(tmp_path: Path) -> None:
+def test_v2_accuracy_claim_requires_exact_artifacts_fingerprints_and_two_signatures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PITCHTRACKER_SOURCE_REVISION", "b" * 40)
     keys = {"collector-key": b"collector-secret", "reviewer-key": b"reviewer-secret"}
     service = RigProfileService(base_dir=tmp_path / "rigs", approval_trust_keys=keys)
     profile = _profile(service, backend="uvc")
@@ -458,6 +461,12 @@ def test_v2_accuracy_claim_requires_exact_artifacts_fingerprints_and_two_signatu
     assert recommended_pairs[0]["left_id"] == profile.camera_serials["left"]
     assert recommended_pairs[0]["right_id"] == profile.camera_serials["right"]
     assert recommended_pairs[0]["profile_id"] == profile.profile_id
+
+    monkeypatch.setenv("PITCHTRACKER_SOURCE_REVISION", "c" * 40)
+    changed_build = service.validate_for_runtime(profile, config=config, backend="uvc")
+    assert changed_build.diagnostics["trajectory_accuracy_claim_eligible"] is False
+    assert "RUNNING_SOFTWARE_REVISION_NOT_APPROVED" in changed_build.diagnostics["trajectory_accuracy_claim_blockers"]
+    monkeypatch.setenv("PITCHTRACKER_SOURCE_REVISION", "b" * 40)
 
     report_path.write_text(json.dumps({**report, "claim_ready": False}), encoding="utf-8")
     tampered = service.validate_for_runtime(profile, config=config, backend="uvc")

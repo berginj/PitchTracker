@@ -46,6 +46,9 @@ class BaseStep(QtWidgets.QWidget):
     def on_exit(self) -> None:
         """Called when leaving step. Subclasses should override."""
 
+    def finish_setup(self) -> None:
+        """Publish checked setup state, when this step owns finalization."""
+
     def cancel_pending(self) -> bool:
         """Cancel an active asynchronous operation, if any."""
         return False

@@ -7,6 +7,9 @@ black==26.3.1
 mypy==1.18.2
 flake8==6.1.0
 
+# Native build tooling imported by scripts/build_native.py
+pybind11>=3.0
+
 # Profiling
 py-spy==0.3.14
 memory-profiler==0.61.0

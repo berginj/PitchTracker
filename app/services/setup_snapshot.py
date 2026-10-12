@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.metadata
-import os
 import platform
-import subprocess
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -228,30 +226,8 @@ def _file_sha256(path: Path) -> str:
 
 
 def _source_revision() -> tuple[str, bool | None]:
-    override = os.environ.get("PITCHTRACKER_SOURCE_REVISION")
-    if override:
-        return override, None
-    root = Path(__file__).resolve().parents[2]
-    try:
-        revision = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=True,
-        ).stdout.strip()
-        dirty = bool(
-            subprocess.run(
-                ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=no"],
-                capture_output=True,
-                text=True,
-                timeout=2,
-                check=True,
-            ).stdout.strip()
-        )
-        return revision, dirty
-    except (OSError, subprocess.SubprocessError):
-        return "UNAVAILABLE", None
+    from app.build_identity import current_source_revision
+    return current_source_revision()
 
 
 def _package_versions() -> dict[str, str | None]:

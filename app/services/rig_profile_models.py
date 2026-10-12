@@ -108,6 +108,7 @@ class RigProfile:
     artifact_hashes: dict[str, str] = field(default_factory=dict)
     setup_snapshot_file: str = "setup_snapshot.json"
     setup_snapshot: dict[str, Any] = field(default_factory=dict)
+    effective_config_file: str = ""
 
     @property
     def left_serial(self) -> str:
@@ -152,6 +153,7 @@ class RigProfile:
             artifact_hashes=dict(data.get("artifact_hashes") or {}),
             setup_snapshot_file=str(data.get("setup_snapshot_file") or "setup_snapshot.json"),
             setup_snapshot=dict(data.get("setup_snapshot") or {}),
+            effective_config_file=str(data.get("effective_config_file") or ""),
         )
 
     @classmethod

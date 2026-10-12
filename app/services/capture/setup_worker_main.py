@@ -218,6 +218,10 @@ def _capture(request: SetupCaptureRequest) -> SetupCaptureResult:
         SetupCapturePurpose.FOCUS,
         SetupCapturePurpose.OVERLAP,
         SetupCapturePurpose.RECTIFY,
+        SetupCapturePurpose.CHECKS,
+        SetupCapturePurpose.CALIBRATION_PAIR,
+        SetupCapturePurpose.FIELD_PAIR,
+        SetupCapturePurpose.PREVIEW,
     }:
         left_path = artifact_dir / "left_last.npy"
         right_path = artifact_dir / "right_last.npy"

@@ -19,6 +19,12 @@ any captured setup fact changes.
 
 ## Required inventory
 
+The five-stage guided workflow saves one effective rig configuration and uses it
+for capture, validation, recording provenance and snapshot generation. Completed
+revisions preserve their artifacts; unchanged rechecks append preflight evidence.
+Pending edits block recording and stale generations cannot restore readiness.
+Running source/build provenance must match an approval before it can be reused.
+
 The snapshot records:
 
 - Rig ID/revision, backend, site-facing camera serial assignment, and timestamps.

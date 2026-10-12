@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import time
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ui.setup.state_machine import DEFAULT_SETUP_SPEC, SetupStateMachine, SetupStep
+from ui.setup.state_machine import DEFAULT_SETUP_SPEC, SetupStateMachine, StepSpec
 from ui.setup.steps.base_step import BaseStep
 from ui.setup.stereo_steps import build_stereo_step_widgets
 from ui.themes import (
@@ -27,7 +27,8 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         self,
         parent: Optional[QtWidgets.QWidget] = None,
         *,
-        widget_factory: Optional[Callable[[], Dict[SetupStep, BaseStep]]] = None,
+        widget_factory: Optional[Callable[[], Dict[Any, BaseStep]]] = None,
+        specs: tuple[StepSpec[Any], ...] = DEFAULT_SETUP_SPEC,
     ):
         super().__init__(parent)
         self.setWindowTitle("PitchTracker Stereo Setup")
@@ -37,13 +38,16 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         self._style_manager.set_mode("setup")
 
         factory = widget_factory or build_stereo_step_widgets
-        self._widget_by_step: Dict[SetupStep, BaseStep] = factory()
-        self._machine = SetupStateMachine(DEFAULT_SETUP_SPEC)
-        self._steps = [self._widget_by_step[spec.step] for spec in DEFAULT_SETUP_SPEC]
+        self._widget_by_step: Dict[Any, BaseStep] = factory()
+        self._machine: SetupStateMachine[Any] = SetupStateMachine(specs)
+        self._guided = len(specs) == 5 and specs[0].step.value == "cameras"
+        self._steps = [self._widget_by_step[spec.step] for spec in specs]
         self._closing_after_capture_cancel = False
         self._capture_close_deadline = 0.0
         for step in self._steps:
             step.busy_changed.connect(self._on_step_busy_changed)
+            if hasattr(step, "configuration_changed"):
+                step.configuration_changed.connect(self._invalidate_progress)
 
         self._build_ui()
         self._show_current()
@@ -88,16 +92,21 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
 
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(24, 22, 24, 22)
+        if self._guided:
+            layout.setContentsMargins(16, 12, 16, 12)
 
         eyebrow = QtWidgets.QLabel("Stereo setup")
         self._style_manager.style_label(eyebrow, "eyebrow")
-        layout.addWidget(eyebrow)
+        if not self._guided:
+            layout.addWidget(eyebrow)
 
-        title = QtWidgets.QLabel("Configure the stereo rig end to end")
+        title = QtWidgets.QLabel("Set up the rig" if self._guided else "Configure the stereo rig end to end")
         self._style_manager.style_label(title, "pageTitle")
         layout.addWidget(title)
 
         subtitle = QtWidgets.QLabel(
+            "Changes save immediately. Complete each stage to check the saved rig."
+            if self._guided else
             "Verify camera pairing, synchronization, optical alignment, field coordinates, "
             "artifact persistence, and final calibration quality."
         )
@@ -191,6 +200,15 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
     def _current_widget(self) -> BaseStep:
         """Return the widget for the machine's current step."""
         return self._widget_by_step[self._machine.current]
+
+    def _invalidate_progress(self) -> None:
+        for step in self._machine.steps:
+            widget = self._widget_by_step[step]
+            valid, _reason = widget.validate()
+            if not valid:
+                widget.set_complete(False)
+                self._machine.mark_complete(step, False)
+        self._update_step_indicator()
 
     def _show_current(self) -> None:
         """Render the machine's current step."""
@@ -304,10 +322,16 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
             )
             return
 
+        try:
+            current_widget.finish_setup()
+        except Exception as exc:
+            show_message_dialog(self, "Setup needs attention", str(exc), tone="warning")
+            return
+
         show_message_dialog(
             self,
             "Stereo Setup Complete",
-            "Stereo setup is complete and the rig is ready for coaching sessions.",
+            "Setup is complete. The rig is ready for research recording with estimated measurements.",
             tone="success",
         )
         self.close()

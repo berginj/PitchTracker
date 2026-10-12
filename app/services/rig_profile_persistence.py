@@ -102,6 +102,8 @@ def save_profile(
     for label, path in {
         "calibration": calibration_path,
         "roi": roi_path,
+        **({"effective_config": base_dir / profile.profile_id / profile.effective_config_file}
+           if profile.effective_config_file else {}),
     }.items():
         if path.exists() and path.is_file():
             hashes[label] = sha256_file(path)

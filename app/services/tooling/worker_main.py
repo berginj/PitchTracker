@@ -88,7 +88,11 @@ def _handle_run_calibration(payload: dict[str, Any]) -> dict[str, Any]:
 
     if request.write_updates:
         _write_config(request.config_path, updates)
-        _save_calibration_file(updates)
+    if request.write_updates or request.output_dir is not None:
+        if request.output_dir is None:
+            _save_calibration_file(updates)
+        else:
+            _save_calibration_file(updates, request.output_dir)
 
     return CalibrationResult.from_updates(updates).to_payload()
 

@@ -24,6 +24,7 @@ class SettingsWorkflow:
 
     def __init__(self, host: "CoachWindow") -> None:
         self._host = host
+        self._setup_window: QtWidgets.QMainWindow | None = None
 
     def show(self) -> None:
         """Show settings dialog."""
@@ -51,22 +52,41 @@ class SettingsWorkflow:
             if isinstance(current_mound_distance, (int, float))
             else float(h._config.metrics.release_plane_z_ft)
         )
+        rig_camera = (
+            RigProfileService(config_path=h._config_path).apply_profile_to_config(
+                h._config, active_profile, preserve_camera_mode=False,
+            ).camera if active_profile is not None else None
+        )
         dialog = SettingsDialog(
-            current_width=h._camera_width,
-            current_height=h._camera_height,
-            current_fps=h._camera_fps,
+            current_width=rig_camera.width if rig_camera else h._camera_width,
+            current_height=rig_camera.height if rig_camera else h._camera_height,
+            current_fps=rig_camera.fps if rig_camera else h._camera_fps,
             current_left_camera=current_left,
             current_right_camera=current_right,
             current_mound_distance=current_mound_distance,
             current_ball_type=h._config.ball.type,
-            current_color_mode=h._camera_color_mode,
+            current_color_mode=rig_camera.color_mode if rig_camera else h._camera_color_mode,
             parent=h,
             current_compute_backend=h._config.trajectory.compute_backend,
+            rig_profile=active_profile,
         )
+        dialog.setup_requested.connect(lambda: self._open_setup(dialog))
         if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
             return
         if dialog.settings_changed:
             self._apply_changes(dialog, active_profile, current_mound_distance)
+
+    def _open_setup(self, dialog) -> None:
+        h = self._host
+        try:
+            if h._service.is_capturing():
+                h._service.stop_capture()
+            dialog.reject()
+            from ui.setup.launcher_integration import launch_stereo_setup_window
+            self._setup_window = launch_stereo_setup_window(h, h.show, config_path=h._config_path, backend=h._backend)
+        except Exception as exc:
+            logger.exception("Unable to open rig setup")
+            show_message_dialog(h, "Setup unavailable", str(exc), tone="warning")
 
     def _apply_changes(self, dialog, active_profile, current_mound_distance) -> None:
         h = self._host

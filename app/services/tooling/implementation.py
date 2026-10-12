@@ -91,6 +91,13 @@ class SubprocessToolingService(ToolingService):
         )
         return CalibrationResult.from_payload(payload)
 
+    def run_calibration_with_cancellation(
+        self, request: CalibrationRequest, cancel_event: Event,
+    ) -> CalibrationResult:
+        return CalibrationResult.from_payload(self._run_task(
+            "run_calibration", request.to_payload(), timeout_seconds=300, cancel_event=cancel_event,
+        ))
+
     def analyze_alignment(self, request: AlignmentAnalysisRequest) -> AlignmentAnalysisResult:
         payload = self._run_task(
             "analyze_alignment",

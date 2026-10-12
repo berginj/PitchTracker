@@ -108,7 +108,7 @@ class PipelineOrchestrator(PipelineService):
             self._runtime_calibration_report = rig_result.calibration_report
             config = rig_result.config
             self._config = config
-            self._config_path = config_path
+            self._config_path = rig_result.config_path or config_path
 
             (
                 self._capture_service,
@@ -123,7 +123,6 @@ class PipelineOrchestrator(PipelineService):
                 self._record_dir, self._manual_speed_mph,
             )
 
-            # Pitch tracker
             self._pitch_config = PitchConfig(
                 min_active_frames=config.recording.session_min_active_frames,
                 end_gap_frames=config.recording.session_end_gap_frames,
@@ -178,6 +177,12 @@ class PipelineOrchestrator(PipelineService):
             if self._config is None:
                 raise RuntimeError("Pipeline configuration not initialized")
 
+            from app.services.setup_workflow.runtime_access import admit_recording
+            admit_recording(
+                id(self), self._rig_profile_service, self._active_rig_profile, self._config,
+                self._backend, self._left_serial, self._right_serial,
+            )
+
             session_id = session_name or "session"
             detection_started_here = analysis_started_here = False
             recording_started_here = False
@@ -229,6 +234,8 @@ class PipelineOrchestrator(PipelineService):
                     except Exception:
                         logger.exception("Roll back detection failed")
                 if not self._recording_active:
+                    from app.services.setup_workflow.runtime_access import release_recording
+                    release_recording(id(self))
                     self._propagate_session_id(None)
                 raise
             self._recording_active = True

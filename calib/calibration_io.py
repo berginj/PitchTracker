@@ -203,9 +203,9 @@ def _write_config(config_path: Path, updates: dict) -> None:
     config_path.write_text(yaml.safe_dump(data, sort_keys=False))
 
 
-def _save_calibration_file(updates: dict) -> None:
+def _save_calibration_file(updates: dict, output_dir: Optional[Path] = None) -> None:
     """Save full calibration matrices and quality metrics to npz file."""
-    calib_dir = Path("calibration")
+    calib_dir = Path(output_dir) if output_dir is not None else Path("calibration")
     calib_dir.mkdir(parents=True, exist_ok=True)
 
     calib_path = calib_dir / "stereo_calibration.npz"

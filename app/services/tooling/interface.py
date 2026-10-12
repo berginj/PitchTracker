@@ -54,6 +54,11 @@ class ToolingService(ABC):
     def run_calibration(self, request: CalibrationRequest) -> CalibrationResult:
         """Run stereo calibration in a worker process."""
 
+    def run_calibration_with_cancellation(
+        self, request: CalibrationRequest, cancel_event: Event,
+    ) -> CalibrationResult:
+        raise NotImplementedError("This tooling service does not support cancellable calibration")
+
     @abstractmethod
     def analyze_alignment(self, request: AlignmentAnalysisRequest) -> AlignmentAnalysisResult:
         """Analyze camera alignment in a worker process."""

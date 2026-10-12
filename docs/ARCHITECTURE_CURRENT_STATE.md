@@ -137,7 +137,10 @@ not reach through another service's private fields.
 Setup/calibration runs outside the runtime orchestrator in a dedicated, tested
 wizard under `ui/setup/` (see `ui/setup/README.md` for full detail):
 
-- `state_machine.py` defines the canonical 10-step flow (`SetupStep` +
+- The launcher uses the five-stage guided workflow backed by
+  SetupWorkflowService; configuration saves immediately and admission blocks
+  pending edits. The earlier registry is retained for compatibility.
+- `state_machine.py` defines the compatibility 10-step flow (`SetupStep` +
   `DEFAULT_SETUP_SPEC`) on a Qt-free `SetupStateMachine`.
 - `stereo_steps.py` builds a registry of ten genuine, provider-driven step
   widgets; `stereo_setup_window.py` hosts them; `providers.py` supplies live

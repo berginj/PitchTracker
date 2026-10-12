@@ -63,6 +63,10 @@ def validate_for_runtime(
         "calibration_file": str(calibration_path_fn(profile)),
         "roi_file": str(roi_path_fn(profile)),
     }
+    if profile.effective_config_file:
+        expected_config_hash = profile.artifact_hashes.get("effective_config")
+        if not expected_config_hash or not config_path.is_file() or sha256_file(config_path) != expected_config_hash:
+            issues.append("Saved rig configuration changed after setup; revalidate it in Setup.")
 
     snapshot_assessment = (
         assess_setup_snapshot_payload(profile.setup_snapshot)

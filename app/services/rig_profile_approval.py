@@ -152,6 +152,14 @@ def accuracy_claim_eligibility(
             "blockers": ["SETUP_SNAPSHOT_MISSING"],
             "pipeline_fingerprint": bindings["pipeline_fingerprint"],
         }
+    from app.build_identity import current_source_revision
+    revision, dirty = current_source_revision()
+    recorded_revision = profile.setup_snapshot.get("sections", {}).get("software", {}).get("source_revision")
+    if revision == "UNAVAILABLE" or dirty is True or recorded_revision != revision:
+        return {
+            "eligible": False, "blockers": ["RUNNING_SOFTWARE_REVISION_NOT_APPROVED"],
+            "pipeline_fingerprint": bindings["pipeline_fingerprint"],
+        }
     setup_assessment = assess_setup_snapshot_payload(profile.setup_snapshot)
     if not setup_assessment.configuration_evidence_complete:
         return {

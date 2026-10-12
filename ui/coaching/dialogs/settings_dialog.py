@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-from PySide6 import QtWidgets
+from PySide6 import QtCore, QtWidgets
+
+if TYPE_CHECKING:
+    from app.services.rig_profile_models import RigProfile
 
 from configs.app_state import load_state, save_state
 from ui.themes import (
@@ -20,6 +23,8 @@ from ui.themes import (
 
 class SettingsDialog(QtWidgets.QDialog):
     """Dialog for coaching app settings."""
+
+    setup_requested = QtCore.Signal()
 
     RESOLUTIONS = [
         ("640x480 @ 30fps (Low)", 640, 480, 30),
@@ -41,6 +46,7 @@ class SettingsDialog(QtWidgets.QDialog):
         current_color_mode: bool = True,
         parent: Optional[QtWidgets.QWidget] = None,
         current_compute_backend: str = "cpu",
+        rig_profile: Optional["RigProfile"] = None,
     ):
         super().__init__(parent)
         self.setWindowTitle("Coaching App Settings")
@@ -56,6 +62,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self._current_color_mode = current_color_mode
         self._current_compute_backend = current_compute_backend
         self.compute_backend = current_compute_backend
+        self._rig_profile = rig_profile
 
         self.selected_width = current_width
         self.selected_height = current_height
@@ -76,7 +83,7 @@ class SettingsDialog(QtWidgets.QDialog):
         layout.addWidget(
             build_dialog_header(
                 "Coaching App Settings",
-                "Adjust capture quality, camera assignments, and mound distance without leaving coaching mode.",
+                "Review the saved rig and adjust session settings.",
             )
         )
         layout.addWidget(self._build_resolution_group())
@@ -90,6 +97,11 @@ class SettingsDialog(QtWidgets.QDialog):
         self._compute_combo.setCurrentIndex(max(0, self._compute_combo.findData(self.compute_backend)))
         compute_row.addWidget(self._compute_combo)
         layout.addLayout(compute_row)
+        if self._rig_profile is not None:
+            setup = QtWidgets.QPushButton("Open setup")
+            setup.clicked.connect(self.setup_requested.emit)
+            layout.addWidget(setup)
+            layout.addWidget(QtWidgets.QLabel("Camera settings are saved and checked in Setup."))
 
         warning_frame, _ = build_notice(
             "Changing capture settings restarts camera capture. Stop any active recording first.",
@@ -133,10 +145,19 @@ class SettingsDialog(QtWidgets.QDialog):
             if width == self._current_width and height == self._current_height and fps == self._current_fps:
                 self._resolution_combo.setCurrentIndex(i)
                 break
+        else:
+            self._resolution_combo.addItem(
+                f"{self._current_width}x{self._current_height} @ {self._current_fps}fps (Saved rig)",
+                (self._current_width, self._current_height, self._current_fps),
+            )
+            self._resolution_combo.setCurrentIndex(self._resolution_combo.count() - 1)
 
         self._color_mode_checkbox = QtWidgets.QCheckBox("Capture Color Video")
         self._color_mode_checkbox.setAccessibleName("Color Mode")
         self._color_mode_checkbox.setChecked(self._current_color_mode)
+        if self._rig_profile is not None:
+            self._resolution_combo.setEnabled(False)
+            self._color_mode_checkbox.setEnabled(False)
         self._color_mode_checkbox.setToolTip(
             "Enable to capture color video (YUYV format).\n"
             "Disable for grayscale capture.\n"
@@ -165,7 +186,10 @@ class SettingsDialog(QtWidgets.QDialog):
 
         group = QtWidgets.QGroupBox("Camera Assignment")
 
-        indices = probe_opencv_indices(max_index=DEFAULT_OPENCV_MAX_INDEX, parallel=False, use_cache=False)
+        indices = (
+            [self._current_left, self._current_right] if self._rig_profile is not None
+            else probe_opencv_indices(max_index=DEFAULT_OPENCV_MAX_INDEX, parallel=False, use_cache=False)
+        )
 
         left_label = QtWidgets.QLabel("Left Camera")
         self._left_camera_combo = QtWidgets.QComboBox()
@@ -173,6 +197,9 @@ class SettingsDialog(QtWidgets.QDialog):
         right_label = QtWidgets.QLabel("Right Camera")
         self._right_camera_combo = QtWidgets.QComboBox()
         self._right_camera_combo.setAccessibleName("Right Camera")
+        if self._rig_profile is not None:
+            self._left_camera_combo.setEnabled(False)
+            self._right_camera_combo.setEnabled(False)
 
         if indices:
             for index in indices:
@@ -326,13 +353,14 @@ class SettingsDialog(QtWidgets.QDialog):
         self.settings_changed = settings_changed
 
         state = load_state()
-        state["coaching_width"] = width
-        state["coaching_height"] = height
-        state["coaching_fps"] = fps
-        state["last_left_camera"] = left_camera
-        state["last_right_camera"] = right_camera
+        if self._rig_profile is None:
+            state["coaching_width"] = width
+            state["coaching_height"] = height
+            state["coaching_fps"] = fps
+            state["last_left_camera"] = left_camera
+            state["last_right_camera"] = right_camera
+            state["coaching_color_mode"] = color_mode
         state["mound_distance_ft"] = mound_distance
-        state["coaching_color_mode"] = color_mode
         state["trajectory_compute_backend"] = compute_backend
         save_state(state)
 

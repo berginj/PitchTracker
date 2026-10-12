@@ -1,6 +1,6 @@
 # PitchTracker Quick Start
 
-**Last reviewed:** 2026-10-06
+**Last reviewed:** 2026-10-11
 
 **Applies to:** v2.0.0 and current `main`
 
@@ -61,18 +61,13 @@ the pair.
 
 For a camera-backed run, launch `python launcher.py --backend uvc`, choose
 **Setup & Calibration**, and complete the
-ten-step workflow:
+five-stage workflow (see [Guided Setup](GUIDED_SETUP.md)):
 
-1. Select and verify the camera pair.
-2. Confirm paired preview.
-3. Qualify synchronization.
-4. Lock and verify focus and exposure controls.
-5. Validate image overlap.
-6. Compute coarse rectification.
-7. Optionally refine with ChArUco.
-8. Align camera coordinates to the measured field fixture.
-9. Persist the rig profile and content-addressed setup snapshot.
-10. Review the quality report and resolve blockers.
+1. Select cameras and save capture settings.
+2. Run pairing, focus, control, overlap, and alignment checks.
+3. Create or verify compatible full metric stereo calibration.
+4. Click surveyed targets, check an independent holdout, and draw both cameras' regions.
+5. Resolve readiness blockers and Finish setup.
 
 Wizard completion is not equivalent to a validated measurement system. The
 current snapshot, calibration artifacts, physical approval, preflight, and

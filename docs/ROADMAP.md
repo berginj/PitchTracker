@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-10-10
+**Last reviewed:** 2026-10-11
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -89,7 +89,7 @@ Acceptance evidence:
 
 ### [R-002 — Setup repeatability](https://github.com/berginj/PitchTracker/issues/9)
 
-Run the canonical ten-step workflow after intentional poor configurations such
+Run the canonical five-stage workflow after intentional poor configurations such
 as camera swap, baseline shift, focus loss, exposure mismatch, USB contention,
 and partial overlap.
 

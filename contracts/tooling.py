@@ -96,6 +96,7 @@ class CalibrationRequest:
     config_path: Path
     mode: str = "quick"
     write_updates: bool = True
+    output_dir: Path | None = None
 
     def to_payload(self) -> dict[str, Any]:
         return {
@@ -106,6 +107,7 @@ class CalibrationRequest:
             "config_path": str(self.config_path),
             "mode": self.mode,
             "write_updates": self.write_updates,
+            "output_dir": _path_to_str(self.output_dir),
         }
 
     @classmethod
@@ -118,6 +120,7 @@ class CalibrationRequest:
             config_path=Path(payload["config_path"]),
             mode=str(payload.get("mode", "quick")),
             write_updates=bool(payload.get("write_updates", True)),
+            output_dir=Path(payload["output_dir"]) if payload.get("output_dir") else None,
         )
 
 

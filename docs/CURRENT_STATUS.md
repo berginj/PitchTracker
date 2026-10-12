@@ -1,6 +1,6 @@
 # PitchTracker Current Status
 
-**Last updated:** 2026-10-10
+**Last updated:** 2026-10-11
 **Published release:** `v2.0.0` / internal app version `2.0.0`
 **Development status:** the October consolidation/remediation batch is implemented
 and validated in software. The October 5 software follow-ups have implementations
@@ -14,6 +14,8 @@ Eight October software follow-ups now have implementations; see
 confirmation, signing, and clean-machine gates remain operator-run work.
 Local software checks are recorded in
 [the research validation record](review/RESEARCH_VALIDATION_2026_10_10.md).
+The guided setup change and its supported-runtime checks are recorded in
+[the setup validation record](review/GUIDED_SETUP_VALIDATION_2026_10_11.md).
 
 ## Summary
 
@@ -72,7 +74,9 @@ ownership, updater shutdown, export provenance, and boundary uncertainty tests.
 
 - Typed agent/service boundaries for capture, detection, pitch state,
   trajectory, recording, analysis, tooling, and UI.
-- Ten-step evidence-gated setup workflow with interruptible capture and explicit
+- Five-stage guided setup with immediate saved configuration, metric calibration,
+  paired field targets/holdouts, per-camera regions, and recording admission.
+- Interruptible capture and explicit
   failure paths.
 - Stable camera identity, capability-based recommendation, and previous
   validated-pair preference.

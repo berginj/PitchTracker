@@ -173,6 +173,14 @@ class RigProfileService:
             self.base_dir, profile, profile.setup_snapshot_file
         )
 
+    def effective_config_path(self, profile: RigProfile) -> Path:
+        if not profile.effective_config_file:
+            return self.config_path
+        path = (self.profile_dir(profile.profile_id) / profile.effective_config_file).resolve()
+        if not path.is_relative_to(self.profile_dir(profile.profile_id).resolve()):
+            raise ValueError("Rig configuration escapes the profile directory")
+        return path
+
     def previously_validated_camera_pairs(self) -> list[dict[str, Any]]:
         """Return non-expired ACTIVE v2-approved pairs for recommendation only."""
         pairs: list[dict[str, Any]] = []
@@ -248,7 +256,7 @@ class RigProfileService:
             roi_path_fn=self.roi_path,
             setup_snapshot_path_fn=self.setup_snapshot_path,
             profile_dir_fn=self.profile_dir,
-            config_path=self.config_path,
+            config_path=self.effective_config_path(profile) if profile and profile.effective_config_file else self.config_path,
             approval_trust_keys=self.approval_trust_keys,
         )
 
@@ -260,6 +268,13 @@ class RigProfileService:
         preserve_camera_mode: bool = True,
     ) -> AppConfig:
         """Apply rig image transforms to an AppConfig."""
+        if profile.effective_config_file:
+            from configs.settings import load_config
+            saved = load_config(self.effective_config_path(profile))
+            # Session settings and compute selection are not owned by the rig.
+            config = replace(saved, recording=config.recording, ui=config.ui, telemetry=config.telemetry,
+                             upload=config.upload, strike_zone=config.strike_zone, ball=config.ball,
+                             trajectory=replace(saved.trajectory, compute_backend=config.trajectory.compute_backend))
         transforms = profile.image_transforms or {}
         camera_mode = profile.camera_mode or {}
         controls = profile.control_settings or {}

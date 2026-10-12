@@ -7,6 +7,15 @@ Optimized for minimal bundle size by excluding unused modules.
 
 import os
 from importlib.util import find_spec
+from pathlib import Path
+import subprocess
+import sys
+
+identity_file = Path(SPECPATH) / "build" / "build_identity.json"
+subprocess.run(
+    [sys.executable, str(Path(SPECPATH) / "scripts" / "write_build_identity.py"), "--output", str(identity_file)],
+    check=True,
+)
 
 block_cipher = None
 
@@ -17,6 +26,7 @@ block_cipher = None
 # .first_run_done are generated on an operator machine and must not ship in the
 # installer.
 datas = [
+    (str(identity_file), '.'),
     ('configs/default.yaml', 'defaults/configs'),
     ('configs/snapdragon.yaml', 'defaults/configs'),
     ('assets', 'assets'),

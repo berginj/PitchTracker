@@ -23,6 +23,9 @@ class SetupCapturePurpose(str, Enum):
     FOCUS = "focus"
     OVERLAP = "overlap"
     RECTIFY = "rectify"
+    CHECKS = "checks"
+    CALIBRATION_PAIR = "calibration_pair"
+    FIELD_PAIR = "field_pair"
 
 
 class SetupCaptureState(str, Enum):

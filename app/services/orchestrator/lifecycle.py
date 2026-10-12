@@ -39,6 +39,9 @@ def start_capture_runtime(orchestrator: Any, config: Any, left_serial: str, righ
     try:
         orchestrator._capture_service.start_capture(config, left_serial, right_serial)
         orchestrator._capturing = True
+        if hasattr(orchestrator, "_rig_profile_service"):
+            from app.services.setup_workflow.runtime_access import register_capture
+            register_capture(id(orchestrator), orchestrator._rig_profile_service.base_dir, orchestrator.stop_capture)
         logger.info("Capture started")
     except Exception:
         rollback_failed = False
@@ -68,6 +71,8 @@ def stop_capture_runtime(orchestrator: Any) -> None:
     orchestrator._event_coordinator.unsubscribe()
     orchestrator._capturing = False
     orchestrator._capture_stopping = False
+    from app.services.setup_workflow.runtime_access import release_capture
+    release_capture(id(orchestrator))
 
 
 def stop_recording_pipeline(orchestrator: Any) -> Any:
@@ -89,6 +94,8 @@ def stop_recording_pipeline(orchestrator: Any) -> Any:
         raise
     bundle = orchestrator._recording_service.stop_session()
     orchestrator._recording_active = False
+    from app.services.setup_workflow.runtime_access import release_recording
+    release_recording(id(orchestrator))
     orchestrator._recording_paused = False
     orchestrator._recording_stopping = False
     orchestrator._propagate_session_id(None)

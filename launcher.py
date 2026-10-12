@@ -384,8 +384,9 @@ class LauncherWindow(QtWidgets.QMainWindow):
         try:
             # Import here to avoid circular imports
             from ui.setup.launcher_integration import launch_stereo_setup_window
-
-            self.stereo_setup_window = launch_stereo_setup_window(self, self._on_child_closed)
+            self.stereo_setup_window = launch_stereo_setup_window(
+                self, self._on_child_closed, config_path=self._config_path, backend=self._backend,
+            )
 
         except Exception as e:
             QtWidgets.QMessageBox.critical(
