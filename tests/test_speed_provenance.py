@@ -14,16 +14,20 @@ from contracts.measurements import SpeedMeasurement, independent_vision_speed
 from trajectory.contracts import FailureCode, TrajectoryDiagnostics, TrajectoryFitResult
 
 
-def test_override_keeps_separate_vision_result_and_location(monkeypatch):
+@pytest.mark.parametrize("external_source", ["manual_override", "radar"])
+@pytest.mark.parametrize("first_z,first_timestamp", [(8.0, 0), (4.0, 80_000_000)])
+def test_override_keeps_separate_vision_result_and_location(monkeypatch, external_source, first_z, first_timestamp):
     config = load_config(Path("configs/default.yaml"))
-    analyzer = PitchAnalyzer(config, lambda: 1.45, lambda: 75.0, lambda: "manual_override")
+    analyzer = PitchAnalyzer(config, lambda: 1.45, lambda: 75.0, lambda: external_source)
     observations = [
-        StereoObservation(i * 20_000_000, (0.0, 0.0), (0.0, 0.0), 0.0, 2.5, 8.0 - i * 1.76, 1.0, confidence=1.0)
+        StereoObservation(first_timestamp + i * 20_000_000, (0.0, 0.0), (0.0, 0.0),
+                          0.0, 2.5, first_z - i * 1.76, 1.0, confidence=1.0)
         for i in range(8)
     ]
     samples = [TrackSample(obs.t_ns, obs.X, obs.Y, obs.Z, 0.0, 0.0, -88.0) for obs in observations]
     fitted = TrajectoryFitResult(
-        "physics_drag", samples, (0.0, 2.5, 0.0), 90_000_000, None, 0.9, TrajectoryDiagnostics()
+        "physics_drag", samples, (0.0, 2.5, 0.0), first_timestamp + round(first_z / 88 * 1e9),
+        None, 0.9, TrajectoryDiagnostics()
     )
     requests = []
 
@@ -38,12 +42,14 @@ def test_override_keeps_separate_vision_result_and_location(monkeypatch):
     assert summary.vision_speed is not None
     assert summary.vision_speed.speed_mph == pytest.approx(60.0, abs=0.001)
     assert summary.vision_speed.reference == "first_observed_point"
-    assert summary.vision_speed.reference_z_ft == 8.0
+    assert summary.vision_speed.reference_z_ft == first_z
+    assert summary.vision_speed.timestamp_ns == first_timestamp
     assert summary.external_speed is not None and summary.external_speed.reference == "unspecified"
     assert pitch_summary_from_dict(asdict(summary)).vision_speed == summary.vision_speed
     manifest = create_pitch_manifest(summary, None)
-    assert manifest["vision_speed"]["reference_z_ft"] == 8.0
-    assert independent_vision_speed(summary.vision_speed, 8.0) == summary.vision_speed.speed_mph
+    assert manifest["vision_speed"]["reference_z_ft"] == first_z
+    assert manifest["external_speed"]["source"] == external_source
+    assert independent_vision_speed(summary.vision_speed, first_z) == summary.vision_speed.speed_mph
     with pytest.raises(ValueError, match="locations"):
         independent_vision_speed(summary.vision_speed, config.metrics.release_plane_z_ft)
     with pytest.raises(ValueError, match="independent"):

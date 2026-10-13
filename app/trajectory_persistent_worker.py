@@ -3,7 +3,9 @@
 import contextlib
 import io
 import json
+import os
 import sys
+import sysconfig
 from time import perf_counter
 
 
@@ -19,6 +21,8 @@ def main() -> None:
         capabilities = {
             "native": module is not None,
             "cuda": module is not None and bool(getattr(module, "cuda_available", False)),
+            "process_platform": sysconfig.get_platform(),
+            "worker_pid": os.getpid(),
         }
         if capabilities["cuda"]:
             from trajectory.gpu_qualification import environment

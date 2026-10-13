@@ -1,8 +1,11 @@
 # Measurement research acceptance ledger
 
-Baseline: `main` at `e8287a9`. This change adds desktop research tooling and
-addresses the eight October 5 software follow-ups. No issue is closed, physical
-dataset collected, approval activated, or signed release published by this work.
+Initial research baseline: `main` at `e8287a9`. Desktop research tooling and the
+eight October software follow-ups are implemented. Acceptance reconciliation
+against `6b4bdd5` is recorded in
+[the October 12 closeout](PLATFORM_AND_ISSUE_CLOSEOUT_2026_10_12.md).
+Physical collection, accuracy approval and signed release qualification remain
+separate from software issue completion.
 
 ## October software follow-ups
 
@@ -19,18 +22,19 @@ dataset collected, approval activated, or signed release published by this work.
 
 ## Existing correctness issues
 
-September/October fixes already implement these directions. Reconcile the
-original acceptance criteria against software and operator evidence separately.
+The original checklists have been reconciled against code, fresh regression
+checks and operator evidence requirements. Criterion numbers below refer to
+those original checklists; incomplete physical/conditional gates remain open.
 
 | Issue | Existing software evidence | Remaining acceptance |
 |---|---|---|
-| #34 timing | Capture/timing contracts distinguish receipt from acquisition | Optical semantics, skew and rig envelope |
-| #35 distortion | Stereo uncertainty/geometry regressions preserve calibrated pixels | Surveyed holdouts and location confirmation |
-| #36 drag | `test_trajectory_physics.py`; drag seed, weighting and fit eligibility | Original reproduction and field bias |
-| #37 swept strike | `test_strike_zone_accuracy.py`, `test_strike_uncertainty.py` | Independent boundary/gap/plate evidence |
-| #38 uncertainty | Stereo/strike uncertainty and fit failure tests | Physical error budget and operating envelope |
-| #39 speed | `test_speed_provenance.py`; separate vision/external records and exports | Independent matching-plane/time comparison |
-| #40 model limits | `test_trajectory_model_envelope.py`; plate error, noise, timing, prior sensitivity | Representative shadow and confirmation data |
+| #34 timing | Criteria 1–3/5; receipt/exposure, clock/uncertainty/epoch checks | 4/6: verified rig timing model, optical procedure and permitted skew |
+| #35 distortion | Criteria 1–4; raw/ideal coordinates, covariance and accepted-but-wrong old gate control | 5: physical pipeline/artifact revalidation under #10 |
+| #36 drag | Criteria 1/3–7; exact 60 mph reproduction, independent truth, whitening, seed/prior sweep and identifiability | 2: a declared physical model for any opt-in prior |
+| #37 swept strike | All six software criteria; phase/FPS/speed/radius/miss/gap/uncertainty checks | Closed as completed; physical location confirmation remains #10 |
+| #38 uncertainty | Criteria 1/2/4/5/7; unavailable prediction error, heuristic score, all failure gates | 3/6: physical uncertainty synthesis if introduced and empirical interval coverage |
+| #39 speed | All six provenance criteria; cropped/manual/radar, durable fields and independent matching-plane validation | Closed as completed; physical matched-plane comparison remains #10 |
+| #40 model limits | Criteria 1/2/4/6; lift/control/cropped-window bias, stereo default, unavailable RPM | 3/5/7: physical envelope/model, any future movement baseline and expanded-claim confirmation |
 
 The expanded synthetic model sweep is implemented; the old 12-case benchmark
 finding is historical. Synthetic success does not establish physical accuracy.

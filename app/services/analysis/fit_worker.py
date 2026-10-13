@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from app.services.analysis.gpu_dispatcher import GPUFitDispatcher
 
 from app.services.analysis.numerical_command import numerical_command
+from app.services.analysis.process_cleanup import terminate_worker
 from trajectory.contracts import FailureCode, TrajectoryDiagnostics, TrajectoryFitRequest, TrajectoryFitResult
 from trajectory.serialization import decode_result, encode_request
 
@@ -242,13 +243,7 @@ class PersistentFitWorker:
         process, self.process = self.process, None
         if process is None:
             return
-        if process.poll() is None:
-            process.terminate()
-        try:
-            process.wait(timeout=1)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=1)
+        terminate_worker(process)
         for reader in self._readers:
             reader.join(timeout=1)
         for pipe in (process.stdin, process.stdout, process.stderr):

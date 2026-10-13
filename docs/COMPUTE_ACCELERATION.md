@@ -1,6 +1,6 @@
 # Local fitting and evaluation
 
-Last reviewed: 2026-10-11
+Last reviewed: 2026-10-12
 
 The application remains Python, Qt, NumPy and SciPy. The optional C++ extension
 accelerates the stereo physics residual and its Jacobian; it does not replace
@@ -155,8 +155,9 @@ files, quick calibration or mismatches block replay rather than invent timing.
 python -m scripts.benchmark_fitting --repeats 5 --output research/fitting-benchmark.json
 ```
 
-On the development RTX Spark N1X host, **x64 CPython under Windows ARM64
-emulation**, a five-run synthetic 60-observation case measured:
+The checked-in historical benchmark used **x64 CPython under Windows ARM64
+emulation**. Its artifact identifies process architecture but not the physical
+host model. A five-run synthetic 60-observation case measured:
 
 | Path | Median | p95 |
 |---|---:|---:|
@@ -175,12 +176,15 @@ and primary publication below 500 ms on qualified representative workloads.
 `queue_and_analysis_ms` reports queue-to-publication preparation time separately
 from numerical fit and worker roundtrip time; it excludes later UI rendering.
 
-CUDA source and admission controls are implemented, but this host has no
-qualified CUDA toolchain/build or end-to-end GPU result. Native ARM64 and
-NVIDIA performance remain manual release gates. The local CPU measurements
-do not validate native ARM64. Native Windows ARM64 video processing also
-needs an OpenCV build. The numerical-only worker has a separate packaging
-recipe, but its native ARM64 wheel/executable still needs platform qualification.
+CUDA source and admission controls are implemented. The current qualification
+host has a Snapdragon CPU and Adreno GPU, with no NVIDIA device or CUDA
+toolchain; actual NVIDIA performance remains unqualified.
+The native ARM64 kernel and standalone numerical worker now pass checks on that
+host; see [the platform qualification record](review/PLATFORM_AND_ISSUE_CLOSEOUT_2026_10_12.md).
+Both x64 Python 3.13/3.14 clients passed 15-case fit parity, CPU fallback and
+bounded child-process cancellation/recovery. Ten native ARM64 repeats measured
+12.88 ms direct-fit median and 16.57 ms warm-worker p95. Production MSVC ARM64
+wheels and the native ARM64 OpenCV/GUI stack remain unqualified.
 The shared GPU scheduler is exercised with a CPU-backed CUDA test double,
 including independent optimizer parity and pre-objective rejection. Its actual
 CUDA throughput remains unqualified until the GPU build is tested on hardware.
@@ -191,7 +195,11 @@ Before enabling Auto on a platform, run the kernel/fit suite, qualification
 command, recorded-session throughput, cancellation/thermal/low-memory tests,
 and compare field-recording eligibility decisions without changing truth data.
 
-Validation for this change: the final Python 3.13 regression run passed 1,914
+The current committed baseline `6b4bdd5` passed
+[CI run 38322158037](https://github.com/berginj/PitchTracker/actions/runs/38322158037):
+both Python versions passed 1,943 tests with 33 skips and built the CPU kernel.
+The following counts are historical implementation evidence: the final Python
+3.13 regression run passed 1,914
 tests with 34 hardware/optional skips. The earlier full Python 3.14 run passed
 1,904 tests with 34 skips. Subsequent Python 3.14 checks passed the 19 video/review
 checks and 26 fitting/runtime/backend checks; the final seven shared-GPU tests

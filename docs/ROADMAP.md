@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-10-11
+**Last reviewed:** 2026-10-12
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -70,6 +70,24 @@ Complete software/build gates, then execute the
 [controlled pilot checklist](CONTROLLED_PILOT_CHECKLIST.md). Preserve production
 queue capacity and time-based pre-roll pending telemetry. The configurable
 stereo process limit is 15 seconds, not a response-time promise.
+
+The [October 12 acceptance reconciliation](review/PLATFORM_AND_ISSUE_CLOSEOUT_2026_10_12.md)
+maps every criterion in #34–#40 to evidence or a specific remaining gate.
+The deterministic strike-geometry and speed-provenance issues #37/#39 are
+closed as completed. Remaining criteria in #34–#36, #38 and #40 retain their original
+physical, prior-model, uncertainty or operating-envelope requirements.
+
+## Optional compute-platform qualification
+
+Native ARM64 numerical kernel and standalone-worker checks passed on a
+Snapdragon Windows ARM64 host, including cross-architecture clients and bounded
+process-tree cancellation/recovery. The full native GUI/video stack and MSVC
+production wheels still need qualification.
+
+CUDA qualification is blocked on this host's Adreno GPU. A CUDA-capable NVIDIA
+machine must run parity, end-to-end workload throughput and failure/recovery
+checks before Auto admission. Thermal/low-memory and representative recorded
+workload testing remain platform gates; synthetic timings do not establish them.
 
 ## Physical validation and tester feedback
 
@@ -161,7 +179,7 @@ and the pre-field hardware matrix.
 The [October 5 audit](review/REQUEST_AND_WORK_AUDIT_2026_10_05.md) records the
 historical eight follow-ups. Their implementations and regression coverage are
 now mapped in the research acceptance ledger. Physical/manual evidence and
-issue-specific acceptance reconciliation remain work.
+the remaining reconciled acceptance criteria remain work.
 
 - Keep the direct repository-wide mypy gate clean and keep test-only typing
   relaxations fixed through the suppression policy check.
@@ -217,6 +235,7 @@ confirmation, signing, and clean-machine lifecycle tests remain open.
 
 Historical month-by-month estimates, old version task lists, and partnership
 concept schedules remain useful context but are not the active backlog. The
-active queue includes physical gates #9–#11, acceptance reconciliation for
-#34–#40, and baseline-driven research improvements. Preserve regression coverage
+active queue includes physical gates #9–#11, remaining acceptance criteria in
+#34–#36/#38/#40, optional platform qualification and baseline-driven research
+improvements. Preserve regression coverage
 for the eight implemented October software follow-ups.
