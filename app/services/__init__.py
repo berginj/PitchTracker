@@ -13,19 +13,38 @@ Each service module contains:
 - implementation.py: Concrete implementation (to be added)
 """
 
-from .capture import CaptureService, FrameCallback, CameraStateCallback
-from .detection import DetectionService, ObservationCallback
-from .recording import RecordingService, RecordingCallback
-from .analysis import AnalysisService
-from .tooling import ToolingService, SubprocessToolingService, get_tooling_service
-from .rig_profile import (
-    CRITICAL,
-    PASS,
-    WARN,
-    RigProfile,
-    RigProfileService,
-    RigProfileValidation,
-)
+from importlib import import_module
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .capture import CaptureService, FrameCallback, CameraStateCallback
+    from .detection import DetectionService, ObservationCallback
+    from .recording import RecordingService, RecordingCallback
+    from .analysis import AnalysisService
+    from .tooling import ToolingService, SubprocessToolingService, get_tooling_service
+    from .rig_profile import CRITICAL, PASS, WARN, RigProfile, RigProfileService, RigProfileValidation
+
+_MODULE_BY_NAME = {
+    name: module for module, names in {
+        "capture": ("CaptureService", "FrameCallback", "CameraStateCallback"),
+        "detection": ("DetectionService", "ObservationCallback"),
+        "recording": ("RecordingService", "RecordingCallback"),
+        "analysis": ("AnalysisService",),
+        "tooling": ("ToolingService", "SubprocessToolingService", "get_tooling_service"),
+        "rig_profile": ("CRITICAL", "PASS", "WARN", "RigProfile", "RigProfileService", "RigProfileValidation"),
+    }.items() for name in names
+}
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve public exports without importing every concrete service."""
+    module = _MODULE_BY_NAME.get(name)
+    if module is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module(f".{module}", __name__), name)
+    globals()[name] = value
+    return value
+
 
 __all__ = [
     # Capture service

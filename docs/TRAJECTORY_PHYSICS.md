@@ -1,6 +1,6 @@
 # Trajectory model and measurement limits
 
-Updated 2026-09-08. This describes implementation, not physical accuracy.
+Updated 2026-10-12. This describes implementation, not physical accuracy.
 Independent confirmation remains required by
 [Physical Validation Protocol v2](PHYSICAL_VALIDATION_PROTOCOL_V2.md).
 
@@ -69,19 +69,23 @@ Neither model estimates spin or general transverse force. Independent
 windows, seed sensitivity, uncertain observations, and omitted transverse force.
 Passing these numerical cases does not establish a physical operating envelope.
 
-The fixed-seed noisy sweep (`python -m benchmarks.trajectory_model_envelope`)
-found all six zero-transverse-force cases eligible, with absolute speed error
-at most 0.133 mph in those synthetic inputs. Adding 30 ft/s² transverse force
-was detected as model mismatch in all three 0.3 s windows but not in the three
-0.1 s windows. This is direct evidence that a passing short-arc fit does not
-prove the force model is correct. Do not generalize these numbers into an
-accuracy bound: only 12 cases and one noise seed were evaluated.
+The current sweep (`python -m benchmarks.trajectory_model_envelope`) has 28
+declared independent ODE cases: gravity/drag controls, transverse force,
+30/60/90 mph, partial windows, multiple noise seeds, anisotropic covariance,
+timing jitter, frame cadence and opt-in prior perturbations. It records speed
+and plate bias even when a fit is rejected. A passing short arc still cannot
+prove that the force model is correct. This synthetic sweep does not establish
+a physical operating envelope or calibrated error bound; see
+[the acceptance reconciliation](review/PLATFORM_AND_ISSUE_CLOSEOUT_2026_10_12.md).
 
 ## Runtime limits
 
-The analyzer supervises one-shot children: default 15 seconds stereo and
-10 seconds per ray fit, including startup. Timeout kills/reaps the child and
-returns `DEADLINE_EXCEEDED`; valid stereo fallback may still be used.
-Offline direct fitter calls do not provide this process boundary. Queue wait
-is additional to service latency. Measure both on target hardware; historical
-millisecond latency and sub-inch accuracy claims were not established.
+Live analysis uses persistent supervised numerical workers. Default budgets are
+15 seconds for stereo and 10 seconds per ray fit; admission, pipe writes,
+execution and response decoding consume the fit deadline. Cancellation/timeout
+terminates and reaps the owned worker tree; a subsequent request starts a fresh
+generation. Comparisons have their own bounded queue and cannot replace a
+primary verdict. The one-shot worker remains a compatibility path.
+Offline direct fitter calls do not provide this process boundary. Measure full
+queue-to-publication and operator wait on the target rig; a warm numerical
+benchmark does not measure detection, recording or UI latency.

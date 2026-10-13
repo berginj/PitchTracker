@@ -11,7 +11,8 @@ from metrics.strike_zone import build_strike_zone, is_strike
 from stereo.calibrated_stereo import CalibratedStereoGeometry, CalibratedStereoMatcher, _fundamental_from_rt
 
 
-@pytest.mark.parametrize("distortion", [[0.0, 0.0, 0.0, 0.0, 0.0], [-0.2, 0.03, 0.001, -0.002, 0.0]])
+@pytest.mark.parametrize("distortion", [[0.0, 0.0, 0.0, 0.0, 0.0], [-0.2, 0.03, 0.0, 0.0, 0.0],
+                                        [-0.2, 0.03, 0.001, -0.002, 0.0]])
 @pytest.mark.parametrize("asymmetric", [False, True])
 def test_raw_distorted_pixels_reconstruct_independent_truth(distortion, asymmetric):
     left_k = np.array([[1200.0, 0.0, 640.0], [0.0, 1200.0, 360.0], [0.0, 0.0, 1.0]])
@@ -43,6 +44,12 @@ def test_raw_distorted_pixels_reconstruct_independent_truth(distortion, asymmetr
     assert match is not None
     observed = matcher.triangulate(match)
     np.testing.assert_allclose([observed.X, observed.Y, observed.Z], truth, atol=2e-5)
+    if any(distortion) and not asymmetric:
+        # The original gate accepts these raw pixels while ideal projection
+        # matrices reconstruct the wrong point unless distortion is removed.
+        assert matcher._symmetric_epipolar_error(*left, *right) < 3.0
+        old_xyz = matcher._triangulate_xyz_ft(left.reshape(2, 1), right.reshape(2, 1))
+        assert np.linalg.norm(old_xyz - truth) > 1.0
     assert observed.left == tuple(left)
     assert observed.right == tuple(right)
     assert observed.covariance is not None
