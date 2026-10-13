@@ -10,6 +10,8 @@ WORKER_MODULES = {
     "trajectory_fit": "app.trajectory_worker",
     "trajectory_fit_persistent": "app.trajectory_persistent_worker",
     "video_replay": "app.video_replay_worker",
+    "detector": "app.detector_worker",
+    "pipeline_comparison": "app.pipeline_comparison_worker",
     "health": "app.worker_entrypoint",
 }
 

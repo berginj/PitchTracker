@@ -39,6 +39,11 @@ class DetectionConfiguration:
         model_format: str,
     ) -> None:
         service = self._service
+        if model_format == "yolo_v11" or service._config.detector.model_format == "yolo_v11":
+            from app.services.analysis.comparison_qualification import admit_live_profile
+            if service._running or model_format != "yolo_v11" or service._config.detector.model_format != "yolo_v11" or model_path != service._config.detector.model_path or detector_type != service._config.detector.type:
+                raise ValueError("Select experimental detector profiles through rig setup while idle")
+            admit_live_profile(service._config)
         with service._lock:
             initializer = service._initializer
             initializer._detector_config = config
@@ -92,13 +97,15 @@ class DetectionConfiguration:
             detector_name = None if detector is None else f"{detector.__class__.__module__}.{detector.__class__.__name__}"
             model_path_raw = getattr(service._initializer, "_detector_model_path", None)
             model_path = None if not model_path_raw else Path(str(model_path_raw))
+            bundle = getattr(detector, "bundle", None)
             base = DecisionArtifactBindings(
                 config_sha256=hashlib.sha256(config_payload).hexdigest(),
                 calibration_sha256=_file_sha256(service._calibration_path),
                 roi_sha256=hashlib.sha256(roi_payload).hexdigest(),
                 detector_name=detector_name,
                 detector_version=str(getattr(detector, "version", "unknown")) if detector is not None else None,
-                model_sha256=_file_sha256(model_path),
+                model_sha256=bundle.model_sha256 if bundle is not None else _file_sha256(model_path),
+                model_bundle_sha256=bundle.bundle_sha256 if bundle is not None else None,
             )
             service._decision_bindings_cache = base
         return replace(base, algorithm_name=algorithm_name, algorithm_version=algorithm_version)

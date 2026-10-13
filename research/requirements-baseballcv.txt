@@ -1,0 +1,19 @@
+# Isolated Windows x64 Python 3.12 research/export environment, not app runtime.
+# Supply the pinned BaseballCV checkout separately; no model download occurs.
+numpy==1.26.4
+opencv-python==4.11.0.86
+ultralytics==8.3.116
+mediapipe==0.10.21
+pandas==2.2.3
+torch==2.7.1
+torchvision==0.22.1
+onnx==1.17.0
+supervision==0.26.1
+requests==2.32.4
+beautifulsoup4==4.13.4
+polars==1.27.1
+datasets==3.4.0
+coco-eval==0.0.4
+pytorch-lightning==2.5.0
+python-dotenv==1.1.0
+rfdetr==1.1.0

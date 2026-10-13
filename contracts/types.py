@@ -37,6 +37,12 @@ class Detection:
     association_eligible: bool = True
     rejection_reasons: Tuple[str, ...] = ()
     pixel_coordinate_space: str = "raw"
+    bbox_xyxy: Optional[Tuple[float, float, float, float]] = None
+    localization_method: str = "legacy"
+    radius_basis: str = "legacy"
+    pixel_covariance_px2: Optional[Tuple[Tuple[float, float], Tuple[float, float]]] = None
+    prediction_center_px: Optional[Tuple[float, float]] = None
+    prediction_covariance_px2: Optional[Tuple[Tuple[float, float], Tuple[float, float]]] = None
 
 
 @dataclass(frozen=True)

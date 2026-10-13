@@ -34,6 +34,7 @@ recordings/
 calibration/
 camera_tests/
 validation_output/
+research_output/
 
 # Benchmark results
 benchmarks/results_*.json

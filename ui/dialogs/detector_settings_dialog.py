@@ -101,6 +101,11 @@ class DetectorSettingsDialog(QtWidgets.QDialog):
         self._model_class_id.setValue(int(model_class_id))
 
         self._model_format = QtWidgets.QComboBox()
+        if model_format == "yolo_v11":
+            self._model_format.addItem("yolo_v11")
+            for control in (self._model_path, self._model_input_w, self._model_input_h, self._model_conf, self._model_class_id, self._model_browse):
+                control.setEnabled(False)
+            self._model_format.setEnabled(False)
         self._model_format.addItems(["yolo_v5"])
         self._model_format.setCurrentText(model_format or "yolo_v5")
 

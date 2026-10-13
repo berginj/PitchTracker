@@ -99,6 +99,12 @@ class QtPipelineService(QtCore.QObject):
         """Stop camera capture (delegates to underlying service)."""
         return self._service.stop_capture()
 
+    def start_detector_trial(self, bundle_path, variant, output, cancel=None):
+        return self._service.start_detector_trial(bundle_path, variant, output, cancel)
+
+    def stop_detector_trial(self):
+        return self._service.stop_detector_trial()
+
     def shutdown(self) -> None:
         """Stop all pipeline workers before the Qt object is destroyed."""
         self._service.shutdown()

@@ -207,6 +207,18 @@ class SetupWorkflowService:
             self._edit(candidate, set(CHECK_NAMES))
             self.images.clear()
 
+    def update_detector_profile(self, detector: dict[str, Any], association_mode: str) -> None:
+        """Save one explicit detector/stereo selection as a single setup generation."""
+        with self._lock:
+            payload = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
+            payload["detector"].update(detector)
+            payload["stereo"]["association_mode"] = association_mode
+            path = configuration_file(self.root, payload)
+            load_config(path)
+            candidate = self.state
+            candidate["config_file"] = path.name
+            self._edit(candidate, {"images"})
+
     def mark_focus_adjusted(self) -> None:
         candidate = self.state
         candidate["optics_revision"] = candidate.get("optics_revision", 0) + 1

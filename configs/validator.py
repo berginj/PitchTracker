@@ -48,7 +48,7 @@ CONFIG_SCHEMA = {
                 "max_jump_in": {"type": "number", "minimum": 1, "maximum": 100},
                 "association_mode": {
                     "type": "string",
-                    "enum": ["greedy_v1", "shadow_v2", "global_v2"],
+                    "enum": ["greedy_v1", "shadow_v2", "global_v2", "global_v3"],
                 },
             },
         },
@@ -158,6 +158,7 @@ CONFIG_SCHEMA = {
             "properties": {
                 "type": {"type": "string", "enum": ["classical", "ml"]},
                 "model_path": {"type": ["string", "null"]},
+                "qualification_path": {"type": ["string", "null"]},
                 "model_input_size": {
                     "type": "array",
                     "items": {"type": "integer", "minimum": 128, "maximum": 1024},
@@ -166,7 +167,7 @@ CONFIG_SCHEMA = {
                 },
                 "model_conf_threshold": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                 "model_class_id": {"type": "integer", "minimum": 0},
-                "model_format": {"type": "string", "enum": ["yolo_v5", "yolo_v8"]},
+                "model_format": {"type": "string", "enum": ["yolo_v5", "yolo_v8", "yolo_v11"]},
                 "mode": {"type": "string", "enum": ["MODE_A", "MODE_B"]},
                 "frame_diff_threshold": {"type": "number", "minimum": 0, "maximum": 255},
                 "bg_diff_threshold": {"type": "number", "minimum": 0, "maximum": 255},

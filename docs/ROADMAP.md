@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-10-12
+**Last reviewed:** 2026-10-13
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -28,6 +28,9 @@ review, signing, and clean-machine qualification retain their existing gates.
 - [x] Canonical content-addressed setup-system snapshot.
 - [x] Validated-pair-first camera recommendation with capability fallback.
 - [x] Compact operator health/actions with detailed diagnostics on demand.
+- [x] Optional local BaseballCV detector, twelve-cell stereo comparison,
+  separate monocular study, and rig-bound live qualification controls
+  ([workflow](BASEBALLCV_COMPARISON.md)).
 - [x] Clean Windows application and installer build from commit `40158c1`.
 - [x] Automated regression coverage for queue saturation, event metadata,
   setup observations, launcher closure, and camera-step re-entry.
@@ -188,6 +191,10 @@ the remaining reconciled acceptance criteria remain work.
 
 ## Branch review follow-ups
 
+The [October 13 branch and archive review](review/BRANCH_AND_ARCHIVE_REVIEW_2026_10_13.md)
+reconciles every local branch, records optional detector admission fixes, and
+proposes archival work for discussion. Archive candidates are not active removal tasks.
+
 The [October 6 final branch review](review/BRANCH_CONSOLIDATION_2026_10_06.md)
 records the meaningful PR #41 merge, already-incorporated work, rejected Python
 3.9 patches, and archive references for retired branch tips.
@@ -227,6 +234,9 @@ confirmation, signing, and clean-machine lifecycle tests remain open.
 
 - Promote ray trajectory modes only after separate confirmation evidence.
 - Expand ML defaults only after representative labeled data and regression gates.
+- Qualify optional BaseballCV profiles with supplied weights, the dedicated
+  six-session study and sustained recorded capture; retain the separate physical
+  confirmation gates ([workflow](BASEBALLCV_COMPARISON.md)).
 - Activate TAG/cloud integrations only after partnership scope, privacy review,
   and dedicated implementation issues.
 - Add new coaching dashboards only when pilot usage demonstrates a decision need.

@@ -35,6 +35,9 @@ def to_contract_detection(
         v=float(blob.centroid[1]),
         radius_px=float(radius_px),
         confidence=float(confidence),
+        bbox_xyxy=(float(blob.bbox[0]), float(blob.bbox[1]), float(blob.bbox[2]), float(blob.bbox[3])),
+        localization_method="classical_component",
+        radius_basis="component_area",
     )
 
 

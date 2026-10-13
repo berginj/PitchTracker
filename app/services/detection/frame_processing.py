@@ -6,6 +6,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, List
 
 from app.pipeline.detection.decision_ids import canonicalize_detection_ids
+from app.pipeline.detection.candidate_processing import CandidateProcessor
 from contracts import Detection, Frame
 from log_config.logger import get_logger
 
@@ -21,6 +22,7 @@ class DetectionFrameHandler:
 
     def __init__(self, service: DetectionServiceImpl) -> None:
         self._service = service
+        self._candidate_processor: CandidateProcessor | None = None
 
     def on_frame_captured(self, event: FrameCapturedEvent) -> None:
         try:
@@ -41,12 +43,20 @@ class DetectionFrameHandler:
     def on_stereo_result(self, camera_id: str, frame: Frame, detections: List[Detection]) -> None:
         service = self._service
         try:
-            if service._processor is None:
+            processor = service._processor
+            if processor is None:
                 return
-            enriched = self._enrich_detections(camera_id, detections)
+            service = self._service
+            with service._tracklet_lock:
+                if self._candidate_processor is None or self._candidate_processor.builder is not service._tracklet_builder:
+                    self._candidate_processor = CandidateProcessor(service._config, builder=service._tracklet_builder)
+                enriched = self._candidate_processor.enrich(frame, detections)
+                service._tracklet_builder = self._candidate_processor.builder
+                service._tracklet_updates += len(detections)
+                service._tracklet_starts += sum(d.tracklet_action == "START" for d in enriched)
             detections[:] = enriched
             eligible = [item for item in enriched if item.association_eligible]
-            service._processor.process_detection_result(camera_id, frame, eligible)
+            processor.process_detection_result(camera_id, frame, eligible)
         except Exception as exc:
             logger.error(f"Error processing stereo result: {exc}", exc_info=True)
             raise

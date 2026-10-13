@@ -72,11 +72,12 @@ def video_frames(video: Path, timestamps: Path, check, accounting=None) -> Gener
         capture.release()
 
 
-def replay(session, batch, check, accounting=None):
+def replay(session, batch, check, accounting=None, *, config_override=None, detector_factory=None,
+           frame_sink=None, association_sink=None):
     paths = (batch.config_path, batch.calibration_path, batch.roi_path, batch.field_transform_path)
     if any(path is None or not path.is_file() for path in paths):
         raise ValueError("Replay input files are missing")
-    config = load_config(batch.config_path)
+    config = config_override or load_config(batch.config_path)
     with np.load(batch.calibration_path, allow_pickle=False) as calibration:
         if "production_ready" not in calibration or not bool(calibration["production_ready"]):
             raise ValueError("Replay requires a full, production-ready stereo calibration")
@@ -131,7 +132,10 @@ def replay(session, batch, check, accounting=None):
         for label, camera_id in zip(("left", "right"), ids):
             points = lane_maps.get(camera_id)
             polygon = [(float(x), float(y)) for x, y in points] if points else None
-            detectors[label] = initializer.build_detectors(ids[0], ids[1], polygon)[label]
+            detectors[label] = (detector_factory(label, camera_id, polygon) if detector_factory else
+                                initializer.build_detectors(ids[0], ids[1], polygon)[label])
+        from app.pipeline.detection.candidate_processing import CandidateProcessor
+        candidates = CandidateProcessor(config)
         processor = DetectionProcessor(
             config,
             initializer.create_stereo_matcher(config, batch.calibration_path),
@@ -190,6 +194,8 @@ def replay(session, batch, check, accounting=None):
         processor.set_ray_observation_callback(rays)
         # Pairing diagnostics are carried with the derived job, never the source.
         processor.set_pairing_outcome_callback(pairing)
+        if association_sink is not None:
+            processor.set_association_outcome_callback(association_sink)
         heap = [(frame.t_capture_monotonic_ns, index, frame) for index, frame in enumerate(frames)]
         heapq.heapify(heap)
         last_ns = 0
@@ -199,7 +205,10 @@ def replay(session, batch, check, accounting=None):
             if (frame.width, frame.height) != (config.camera.width, config.camera.height):
                 raise ValueError("Recorded image dimensions do not match the replay configuration")
             label = ("left", "right")[index]
-            processor.process_detection_result(label, frame, detectors[label].detect(frame))
+            enriched = candidates.enrich(frame, detectors[label].detect(frame))
+            if frame_sink is not None:
+                frame_sink(frame, enriched)
+            processor.process_detection_result(label, frame, [d for d in enriched if d.association_eligible])
             provenance["frames_processed"] += 1
             last_ns = timestamp
             following = next(streams[index], None)
@@ -228,3 +237,7 @@ def replay(session, batch, check, accounting=None):
     finally:
         for stream in streams:
             stream.close()
+        for detector in locals().get("detectors", {}).values():
+            close = getattr(detector, "close", None)
+            if close:
+                close()

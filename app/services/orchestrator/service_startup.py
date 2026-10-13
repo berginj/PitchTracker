@@ -81,6 +81,11 @@ def load_and_validate_rig(
     )
     calibration_path = rig_service.calibration_path(profile)
     roi_path = rig_service.roi_path(profile)
+    if config.detector.type == "ml" and config.detector.model_format == "yolo_v11":
+        import json
+        from app.services.analysis.comparison_rig import admit_live_rig
+        admit_live_rig(applied_config, calibration_path, json.loads(roi_path.read_text(encoding="utf-8")),
+                       profile.field_transform, {"left": left_serial, "right": right_serial})
     config_file = (
         rig_service.effective_config_path(profile)
         if getattr(profile, "effective_config_file", "") else rig_service.config_path

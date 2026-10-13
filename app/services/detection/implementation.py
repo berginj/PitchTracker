@@ -105,6 +105,8 @@ class DetectionServiceImpl(DetectionService):
 
     def start_detection(self) -> None:
         """Build processing infrastructure and begin consuming frame events."""
+        from app.services.analysis.comparison_qualification import admit_live_profile
+        admit_live_profile(self._config)
         with self._lifecycle_lock:
             with self._lock:
                 if self._stopping:
@@ -151,6 +153,10 @@ class DetectionServiceImpl(DetectionService):
                 pool = self._thread_pool
                 processor = self._processor
             if pool is not None:
+                for detector in (self._left_detector, self._right_detector):
+                    close = getattr(detector, "close", None)
+                    if close:
+                        close()
                 pool.stop()
             if processor is not None:
                 processor.flush_pairing_buffers()
@@ -240,6 +246,10 @@ class DetectionServiceImpl(DetectionService):
     def update_config(self, config: AppConfig) -> None:
         """Update configuration for current and future processor work."""
         with self._lock:
+            experimental = any(c.detector.model_format == "yolo_v11" or c.stereo.association_mode == "global_v3"
+                               for c in (self._config, config))
+            if self._running and experimental and self._config != config:
+                raise ValueError("Edit experimental profiles through rig setup while idle")
             self._config = config
             self._decision_bindings_cache = None
             if self._processor is not None:
@@ -350,6 +360,9 @@ class DetectionServiceImpl(DetectionService):
 
     @staticmethod
     def _new_tracklet_builder(config: AppConfig) -> TrackletBuilder:
+        if config.stereo.association_mode == "global_v3":
+            from trajectory.tracklets_v2 import PredictiveTrackletBuilder
+            return PredictiveTrackletBuilder(max_speed_px_s=config.detector.filters.max_velocity or 5000.0)
         return TrackletBuilder(
             max_speed_px_s=config.detector.filters.max_velocity or 5000.0,
             max_gap_frames=2,
