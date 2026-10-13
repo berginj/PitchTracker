@@ -191,6 +191,10 @@ the remaining reconciled acceptance criteria remain work.
 
 ## Branch review follow-ups
 
+The [October 13 branch and archive review](review/BRANCH_AND_ARCHIVE_REVIEW_2026_10_13.md)
+reconciles every local branch, records optional detector admission fixes, and
+proposes archival work for discussion. Archive candidates are not active removal tasks.
+
 The [October 6 final branch review](review/BRANCH_CONSOLIDATION_2026_10_06.md)
 records the meaningful PR #41 merge, already-incorporated work, rejected Python
 3.9 patches, and archive references for retired branch tips.

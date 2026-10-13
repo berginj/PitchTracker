@@ -41,6 +41,8 @@ def quality_report(config_path):
         "target_error_ft": {"count": 24, "p95": 0.2},
         "surveyed_target_ids": [f"target-{i}" for i in range(12)],
         "false_stereo_matches": 0,
+        "false_candidates": 0,
+        "extra_attempts": [],
         "unverified_stereo_matches": 0,
         "stereo_recall": 0.98,
         "recall": 0.99,

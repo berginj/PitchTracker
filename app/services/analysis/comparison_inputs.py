@@ -21,7 +21,8 @@ def load_dataset(path: Path, output: Path, *, hash_inputs=True):
     data = json.loads(path.read_text(encoding="utf-8"))
     if data.get("schema_version") != "comparison_dataset.v1" or not data.get("sessions"):
         raise ValueError("A comparison_dataset.v1 with sessions is required")
-    sessions, identifiers = [], set()
+    sessions, identifiers, roots = [], set(), set()
+    video_splits: dict[str, str] = {}
     inputs = {str(path): file_hash(path)} if hash_inputs else {}
     for record in data["sessions"]:
         identity = str(record["id"])
@@ -29,6 +30,9 @@ def load_dataset(path: Path, output: Path, *, hash_inputs=True):
             raise ValueError("Study session identifiers must be distinct")
         identifiers.add(identity)
         root = (path.parent / record["root"]).resolve()
+        if root in roots:
+            raise ValueError("Study sessions must use distinct captured recordings")
+        roots.add(root)
         if output.resolve().is_relative_to(root) or root.is_relative_to(output.resolve()):
             raise ValueError("Research output cannot contain or be inside captured sessions")
         if record["split"] not in {"development", "evaluation"} or record["ball_type"] not in {"baseball", "softball"}:
@@ -83,6 +87,12 @@ def load_dataset(path: Path, output: Path, *, hash_inputs=True):
                 raise ValueError("Study inputs cannot be overwritten by research output")
             if hash_inputs:
                 inputs[str(source)] = file_hash(source)
+        if hash_inputs:
+            for label in ("left", "right"):
+                digest = inputs[str(paths[f"video_{label}"])]
+                if digest in video_splits and video_splits[digest] != record["split"]:
+                    raise ValueError("Development and evaluation videos must be disjoint, including copied recordings")
+                video_splits[digest] = record["split"]
         covariances = {key: covariance2(value) for key, value in record.get("pixel_covariances", {}).items()}
         from app.services.analysis.comparison_rig import rig_binding
 

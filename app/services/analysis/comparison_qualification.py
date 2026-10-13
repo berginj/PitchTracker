@@ -80,6 +80,10 @@ def assess_quality(report):
                         improved = True
                 if measured["false_stereo_matches"] > reference["false_stereo_matches"]:
                     reasons.append("FALSE_STEREO_MATCH_REGRESSION")
+                if measured["false_candidates"] > reference["false_candidates"]:
+                    reasons.append("FALSE_CANDIDATE_REGRESSION")
+                if len(measured["extra_attempts"]) > len(reference["extra_attempts"]):
+                    reasons.append("EXTRA_PITCH_REGRESSION")
                 if measured["unverified_stereo_matches"]:
                     reasons.append("UNVERIFIED_STEREO_MATCHES")
                 if (
@@ -221,13 +225,16 @@ def validate_timing_journal(timing):
     if len(identities) != len(set(identities)):
         raise ValueError("Timing opportunities were counted more than once")
     recorded = set()
+    recorded_cameras: set[str] = set()
     timestamp_hashes = {}
     for side in ("left", "right"):
         timestamps = Path(timing["source_session"]) / f"session_{side}_timestamps.csv"
         timestamp_hashes[str(timestamps.resolve())] = file_hash(timestamps)
         with timestamps.open(newline="", encoding="utf-8") as stream:
+            side_cameras = set()
             for row in csv.DictReader(stream):
                 if row.get("write_status") == "accepted":
+                    side_cameras.add(row["camera_id"])
                     recorded.add(
                         (
                             row["camera_id"],
@@ -236,6 +243,14 @@ def validate_timing_journal(timing):
                             int(row["t_capture_monotonic_ns"]),
                         )
                     )
+            if len(side_cameras) != 1 or recorded_cameras.intersection(side_cameras):
+                raise ValueError("Timing evidence requires two distinct recorded cameras")
+            recorded_cameras.update(side_cameras)
+    summary_cameras = [camera["camera_id"] for camera in timing["cameras"]]
+    if len(summary_cameras) != 2 or set(summary_cameras) != recorded_cameras:
+        raise ValueError("Timing summary must cover both distinct recorded cameras")
+    if {row["camera_id"] for row in rows} != recorded_cameras:
+        raise ValueError("Timing journal must cover both recorded cameras")
     if any(identity not in recorded for identity in identities):
         raise ValueError("Trial includes frames without recorded video mappings")
     for camera in timing["cameras"]:

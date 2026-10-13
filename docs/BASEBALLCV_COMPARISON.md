@@ -48,6 +48,10 @@ background, image-edge and occlusion conditions. Preserve each exact config,
 full calibration, ROI and field transform with both videos and their explicit
 encoded-frame timestamp mappings. Do not derive the opportunity denominator
 from pitches accepted by a detector.
+Sessions must use distinct recordings. Development and evaluation cannot reuse
+videos, including byte-identical copies in different directories. Stereo truth
+uses a shared target or pitch identity; two unassigned centers are unverified,
+and different surveyed targets cannot count as a correct match.
 
 Click ball centers using Review's existing annotation mode and export those
 points. Convert encoded indexes to source identities with:
@@ -136,8 +140,9 @@ speed or strike fields. Mirror clips stay local in the selected output directory
 ## Qualify and select live use
 
 Hold-out quality gates require center/target p95 error within five percent of
-classical A/greedy, coverage loss at most two percentage points, no false-match
-increase, complete required strata and at least ten percent improvement in a
+classical A/greedy, coverage loss at most two percentage points, no increase in
+false stereo matches, false candidates or extra pitch attempts, complete required
+strata and at least ten percent improvement in a
 measurement tail. Thirty positive labels, forty opportunities and twelve target
 placements are minimum software evidence gates, not physical sample-size claims.
 
@@ -147,7 +152,8 @@ pipeline. Warm up, record at least fifteen minutes at the existing camera mode,
 then stop and save the report. End recording before qualification. At least
 99% of opportunities must be processed and per-camera detector and complete
 shadow pipeline p95 must fit the frame period. A simulator or paced replay cannot qualify an actual live profile.
-The timing journal must reconcile with recorded video timestamp mappings.
+The timing journal must reconcile with recorded video timestamp mappings and
+cover both distinct recorded camera identities.
 
 ```powershell
 python -m scripts.qualify_detector_profile --report comparison.json --timing timing.json --config config.yaml --bundle bundle.json --variant baseballcv_box:global_v3 --output research_output/qualified.json

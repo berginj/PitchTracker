@@ -14,6 +14,12 @@ def distribution(values):
     }
 
 
+def label_identity(opportunity: str | None, target: str | None) -> tuple[str, str] | None:
+    if target:
+        return ("target", target)
+    return ("opportunity", opportunity) if opportunity else None
+
+
 class ComparisonAudit:
     def __init__(self, session):
         self.labels = {(r["camera_id"], r["frame_index"]): r for r in session["annotation"].get("frames", [])}
@@ -31,11 +37,16 @@ class ComparisonAudit:
         self.offered = self.labeled = 0
         self.transform = np.asarray(session["transform"]["matrix_4x4"], dtype=float)
         cameras = sorted({f["camera_id"] for f in self.labels.values()})
-        counts = [
-            sum(f["visibility"] == "visible" and f["camera_id"] == camera for f in self.labels.values())
-            for camera in cameras
-        ]
-        self.paired_positive = min(counts) if len(counts) == 2 else 0
+        groups: dict[tuple[str, str], dict[str, int]] = {}
+        for label in self.labels.values():
+            identity = label_identity(label.get("opportunity_id"), label.get("target_id"))
+            if label["visibility"] == "visible" and identity is not None:
+                counts = groups.setdefault(identity, {})
+                camera = label["camera_id"]
+                counts[camera] = counts.get(camera, 0) + 1
+        self.paired_positive = sum(
+            min(counts.get(camera, 0) for camera in cameras) for counts in groups.values()
+        ) if len(cameras) == 2 else 0
 
     def frame(self, frame, detections):
         self.offered += 1
@@ -109,9 +120,10 @@ class ComparisonAudit:
             edge = edges[observation.edge_id]
             left = self.truth.get(edge.left_candidate_id, (None, None, None, None))
             right = self.truth.get(edge.right_candidate_id, (None, None, None, None))
-            if left[0] is None or right[0] is None:
+            left_identity, right_identity = label_identity(left[2], left[3]), label_identity(right[2], right[3])
+            if left[0] is None or right[0] is None or (left[0] and right[0] and (left_identity is None or right_identity is None)):
                 self.unverified_matches += 1
-            elif left[0] and right[0] and left[2] == right[2]:
+            elif left[0] and right[0] and left_identity is not None and left_identity == right_identity:
                 self.correct_matches += 1
                 target = left[1] if left[1] is not None else right[1]
                 if target is not None:
