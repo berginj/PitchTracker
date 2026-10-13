@@ -2,6 +2,7 @@
 
 import tempfile
 import unittest
+import cv2
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -106,11 +107,11 @@ class TestCodecFallback(unittest.TestCase):
         self.assertIn("MP4V", str(context.exception))
         self.assertIn("MJPG", str(context.exception))
 
-        # Should have tried all 5 codecs
-        self.assertEqual(mock_writer_class.call_count, 5)
+        # Try five codecs through automatic selection and explicit FFmpeg.
+        self.assertEqual(mock_writer_class.call_count, 10)
 
         # Should have released all failed writers
-        self.assertEqual(failed_writer.release.call_count, 5)
+        self.assertEqual(failed_writer.release.call_count, 10)
 
     @patch("cv2.VideoWriter")
     @patch("cv2.VideoWriter_fourcc")
@@ -221,7 +222,7 @@ class TestCodecFallback(unittest.TestCase):
 
         # Check VideoWriter was called with correct params
         mock_writer_class.assert_called_with(
-            str(path), 12345, 60.0, (1920, 1080), True  # fourcc  # fps as float  # size  # isColor
+            str(path), cv2.CAP_FFMPEG, 12345, 60.0, (1920, 1080), True
         )
 
     @patch("cv2.VideoWriter")

@@ -36,8 +36,16 @@ their snapshot and append fresh preflight evidence.
 
 ## Compatibility and tests
 
-The previous ten-step registry and seven-step SetupWindow remain compatibility
-surfaces. All launcher routes use the five-stage factory through StereoSetupWindow.
+The previous ten-step registry and seven-step SetupWindow are retired under
+archive/retired/2026-10-13. StereoSetupWindow defaults to guided setup, including
+direct construction and GUI smoke tests. All launcher routes use this workflow.
+
+Start a discrete operator walkthrough with:
+
+    python launcher.py --setup --backend uvc
+
+See [Rig Validation Walkthrough](../../docs/RIG_VALIDATION_WALKTHROUGH.md) for
+calibration, holdouts, timing, repeatability and independent quality references.
 
 Run focused tests with QT_QPA_PLATFORM=offscreen:
 

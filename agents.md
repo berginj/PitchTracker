@@ -286,7 +286,10 @@ Before acting, agents must validate:
 
 The current preferred runtime entry point is `PipelineOrchestrator`, wrapped by `QtPipelineService` for UI usage. Agents should be instantiated through services and constructors already present in `app/services/` rather than by importing concrete lower-level classes from UI code.
 
-Legacy `InProcessPipelineService` remains a compatibility path. New work should prefer the service-based architecture unless explicitly maintaining legacy behavior.
+The older `InProcessPipelineService`, MainWindow and setup registries are retired
+under `archive/retired/2026-10-13`. Runtime and UI work uses PipelineOrchestrator,
+QtPipelineService and the guided SetupWorkflowService. Shared service contracts
+remain active; archived implementations are not runtime fallbacks.
 
 Guided setup uses SetupWorkflowService as the single owner of immediately saved
 working configuration, generations, quality checks and publication. UI stages

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import TYPE_CHECKING, List
 
 from app.pipeline.detection.decision_ids import canonicalize_detection_ids
@@ -46,7 +45,6 @@ class DetectionFrameHandler:
             processor = service._processor
             if processor is None:
                 return
-            service = self._service
             with service._tracklet_lock:
                 if self._candidate_processor is None or self._candidate_processor.builder is not service._tracklet_builder:
                     self._candidate_processor = CandidateProcessor(service._config, builder=service._tracklet_builder)
@@ -60,32 +58,3 @@ class DetectionFrameHandler:
         except Exception as exc:
             logger.error(f"Error processing stereo result: {exc}", exc_info=True)
             raise
-
-    def _enrich_detections(self, camera_id: str, detections: List[Detection]) -> List[Detection]:
-        service = self._service
-        with service._tracklet_lock:
-            previous_ids = {track.tracklet_id for track in service._tracklet_builder.active(camera_id)}
-            tracks, decisions = service._tracklet_builder.update_with_decisions(camera_id, detections)
-            current_ids = {track.tracklet_id for track in tracks}
-            service._tracklet_updates += len(detections)
-            service._tracklet_starts += len(current_ids - previous_ids)
-        min_length = max(1, int(service._config.detector.min_consecutive))
-        track_lengths = {track.tracklet_id: len(track.detections) for track in tracks}
-        decision_by_candidate = {decision.candidate_id: decision for decision in decisions}
-        return [
-            _enrich_detection(detection, decision_by_candidate, track_lengths, min_length)
-            for detection in detections
-        ]
-
-
-def _enrich_detection(detection, decision_by_candidate, track_lengths, min_length):
-    decision = decision_by_candidate.get(detection.candidate_id)
-    tracklet_id = None if decision is None else decision.tracklet_id
-    eligible = bool(tracklet_id is not None and track_lengths.get(tracklet_id, 0) >= min_length)
-    return replace(
-        detection,
-        tracklet_id=tracklet_id,
-        tracklet_action=None if decision is None else decision.action,
-        association_eligible=eligible,
-        rejection_reasons=() if eligible else ("TRACKLET_RAMP_UP",),
-    )

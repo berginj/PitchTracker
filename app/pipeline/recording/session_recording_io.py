@@ -17,18 +17,24 @@ CODEC_PREFERENCE = ["H264", "avc1", "XVID", "MP4V", "MJPG"]
 
 def open_video_writer(path: Path, width: int, height: int, fps: int) -> cv2.VideoWriter:
     """Open a video writer using the configured codec fallback order."""
-    for codec_name in CODEC_PREFERENCE:
-        fourcc = getattr(cv2, "VideoWriter_fourcc")(*codec_name)
-        writer = cv2.VideoWriter(str(path), fourcc, float(fps), (width, height), True)
-        if writer.isOpened():
-            logger.info(
-                "Video writer opened successfully: %s with %s codec",
-                path.name,
-                codec_name,
+    # Failed automatic H264 probes can leave a Windows backend holding the
+    # destination, preventing even supported fallback codecs from opening it.
+    # Prefer FFmpeg's file writer; retain automatic selection if unavailable.
+    for backend in (cv2.CAP_FFMPEG, None):
+        for codec_name in CODEC_PREFERENCE:
+            fourcc = getattr(cv2, "VideoWriter_fourcc")(*codec_name)
+            args = (str(path), fourcc, float(fps), (width, height), True)
+            writer = cv2.VideoWriter(*args) if backend is None else cv2.VideoWriter(
+                str(path), backend, fourcc, float(fps), (width, height), True,
             )
-            return writer
-        writer.release()
-        logger.debug("Codec %s failed for %s, trying next...", codec_name, path.name)
+            if writer.isOpened():
+                logger.info(
+                    "Video writer opened successfully: %s with %s codec backend=%s",
+                    path.name, codec_name, "automatic" if backend is None else "ffmpeg",
+                )
+                return writer
+            writer.release()
+            logger.debug("Codec %s failed for %s backend=%s, trying next...", codec_name, path.name, backend)
 
     publish_error(
         category=ErrorCategory.RECORDING,

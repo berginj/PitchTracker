@@ -1,29 +1,17 @@
 #!/usr/bin/env python
-"""Test launcher for Setup Wizard prototype."""
+"""Compatibility command for the canonical guided setup launcher."""
 
 import sys
 from pathlib import Path
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from PySide6 import QtWidgets  # noqa: E402
-
-from ui.setup import SetupWindow  # noqa: E402
+from launcher import main as launch  # noqa: E402
 
 
 def main():
-    """Launch setup wizard for testing."""
-    app = QtWidgets.QApplication(sys.argv)
-
-    # Set application style
-    app.setStyle("Fusion")
-
-    # Create and show wizard
-    wizard = SetupWindow(backend="uvc")
-    wizard.show()
-
-    sys.exit(app.exec())
+    launch(["--setup", *sys.argv[1:]])
 
 
 if __name__ == "__main__":

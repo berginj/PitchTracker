@@ -12,7 +12,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6 import QtWidgets  # noqa: E402
 
-from ui.setup.state_machine import DEFAULT_SETUP_SPEC, SetupStep  # noqa: E402
+from ui.setup.state_machine import GUIDED_SETUP_SPEC  # noqa: E402
+from contracts.setup_workflow import GuidedSetupStage  # noqa: E402
 from ui.setup.stereo_setup_window import StereoSetupWindow  # noqa: E402
 
 
@@ -22,17 +23,23 @@ def qapp():
     yield app
 
 
-def test_stereo_setup_window_starts_on_first_canonical_step(qapp):
-    window = StereoSetupWindow()
+@pytest.fixture
+def workflow(tmp_path):
+    from tests.test_guided_setup_workflow import _new_workflow
+    return _new_workflow(tmp_path)
+
+
+def test_stereo_setup_window_starts_on_first_canonical_step(qapp, workflow):
+    window = StereoSetupWindow(workflow=workflow)
     try:
-        assert window._content_stack.count() == 10
-        assert window._machine.current == DEFAULT_SETUP_SPEC[0].step
+        assert window._content_stack.count() == 5
+        assert window._machine.current == GUIDED_SETUP_SPEC[0].step
     finally:
         window.close()
 
 
-def test_stereo_setup_window_first_step_navigation_state(qapp):
-    window = StereoSetupWindow()
+def test_stereo_setup_window_first_step_navigation_state(qapp, workflow):
+    window = StereoSetupWindow(workflow=workflow)
     try:
         assert not window._back_button.isEnabled()
         assert not window._next_button.isHidden()
@@ -42,15 +49,11 @@ def test_stereo_setup_window_first_step_navigation_state(qapp):
         window.close()
 
 
-def test_stereo_setup_window_machine_reaches_final_step(qapp):
-    window = StereoSetupWindow()
+def test_stereo_setup_window_machine_reaches_final_step(qapp, workflow):
+    window = StereoSetupWindow(workflow=workflow)
     try:
         while True:
             step = window._machine.current
-            if step == SetupStep.CHARUCO_FINE_TUNE and window._machine.can_skip():
-                window._machine.skip()
-                continue
-
             window._widget_by_step[step].set_complete(True)
             window._machine.mark_complete(step, True)
             if window._machine.can_advance():
@@ -60,20 +63,17 @@ def test_stereo_setup_window_machine_reaches_final_step(qapp):
 
         window._show_current()
 
-        assert window._machine.current == SetupStep.QUALITY_REPORT
+        assert window._machine.current == GuidedSetupStage.READY
         assert window._machine.can_finish()
     finally:
         window.close()
 
 
-def test_stereo_setup_window_last_step_navigation_state(qapp):
-    window = StereoSetupWindow()
+def test_stereo_setup_window_last_step_navigation_state(qapp, workflow):
+    window = StereoSetupWindow(workflow=workflow)
     try:
-        for spec in DEFAULT_SETUP_SPEC:
+        for spec in GUIDED_SETUP_SPEC:
             step = spec.step
-            if step == SetupStep.CHARUCO_FINE_TUNE and window._machine.can_skip():
-                window._machine.skip()
-                continue
             window._widget_by_step[step].set_complete(True)
             window._machine.mark_complete(step, True)
             if window._machine.can_advance():
@@ -87,8 +87,8 @@ def test_stereo_setup_window_last_step_navigation_state(qapp):
         window.close()
 
 
-def test_stereo_setup_window_disables_navigation_while_step_is_busy(qapp):
-    window = StereoSetupWindow()
+def test_stereo_setup_window_disables_navigation_while_step_is_busy(qapp, workflow):
+    window = StereoSetupWindow(workflow=workflow)
     try:
         step = window._current_widget()
         step.set_busy(True)
@@ -104,8 +104,8 @@ def test_stereo_setup_window_disables_navigation_while_step_is_busy(qapp):
         window.close()
 
 
-def test_stereo_setup_window_restores_back_navigation_after_capture_stops(qapp):
-    window = StereoSetupWindow()
+def test_stereo_setup_window_restores_back_navigation_after_capture_stops(qapp, workflow):
+    window = StereoSetupWindow(workflow=workflow)
     try:
         first_step = window._machine.current
         window._widget_by_step[first_step].set_complete(True)
@@ -123,8 +123,8 @@ def test_stereo_setup_window_restores_back_navigation_after_capture_stops(qapp):
         window.close()
 
 
-def test_stereo_setup_window_cancels_busy_step_before_close(qapp):
-    window = StereoSetupWindow()
+def test_stereo_setup_window_cancels_busy_step_before_close(qapp, workflow):
+    window = StereoSetupWindow(workflow=workflow)
     step = window._current_widget()
     cancel_calls: list[bool] = []
 
@@ -147,11 +147,11 @@ def test_stereo_setup_window_cancels_busy_step_before_close(qapp):
     assert not window.isVisible()
 
 
-def test_stereo_setup_close_deadline_does_not_override_busy_ownership(qapp, monkeypatch):
+def test_stereo_setup_close_deadline_does_not_override_busy_ownership(qapp, workflow, monkeypatch):
     from unittest.mock import Mock
     from PySide6 import QtGui
 
-    window = StereoSetupWindow()
+    window = StereoSetupWindow(workflow=workflow)
     monkeypatch.setattr("ui.setup.stereo_setup_window.QtCore.QTimer.singleShot", lambda *args: None)
     for step in window._steps:
         step.on_exit = Mock()

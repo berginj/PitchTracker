@@ -227,10 +227,11 @@ class TestSetupViewportAndAccessibility:
     """UI-002 / UI-004: Setup wizard responsiveness and accessibility."""
 
     @requires_pytest_qt
-    def test_next_button_visible_at_1024x768(self, qtbot: "QtBot") -> None:
+    def test_next_button_visible_at_1024x768(self, qtbot: "QtBot", tmp_path) -> None:
         from ui.setup.stereo_setup_window import StereoSetupWindow
 
-        window = StereoSetupWindow()
+        from tests.test_guided_setup_workflow import _new_workflow
+        window = StereoSetupWindow(workflow=_new_workflow(tmp_path))
         qtbot.addWidget(window)
         window.resize(1024, 768)
         window.show()
@@ -241,10 +242,11 @@ class TestSetupViewportAndAccessibility:
         )
 
     @requires_pytest_qt
-    def test_accepts_800x600_with_scroll(self, qtbot: "QtBot") -> None:
+    def test_accepts_800x600_with_scroll(self, qtbot: "QtBot", tmp_path) -> None:
         from ui.setup.stereo_setup_window import StereoSetupWindow
 
-        window = StereoSetupWindow()
+        from tests.test_guided_setup_workflow import _new_workflow
+        window = StereoSetupWindow(workflow=_new_workflow(tmp_path))
         qtbot.addWidget(window)
         window.resize(800, 600)
         window.show()
@@ -260,10 +262,11 @@ class TestSetupViewportAndAccessibility:
         )
 
     @requires_pytest_qt
-    def test_nav_buttons_tab_reachable(self, qtbot: "QtBot") -> None:
+    def test_nav_buttons_tab_reachable(self, qtbot: "QtBot", tmp_path) -> None:
         from ui.setup.stereo_setup_window import StereoSetupWindow
 
-        window = StereoSetupWindow()
+        from tests.test_guided_setup_workflow import _new_workflow
+        window = StereoSetupWindow(workflow=_new_workflow(tmp_path))
         qtbot.addWidget(window)
 
         for attr in ("_back_button", "_next_button", "_skip_button"):
@@ -274,11 +277,12 @@ class TestSetupViewportAndAccessibility:
 
     @requires_pytest_qt
     def test_nav_buttons_have_unique_accessible_names(
-        self, qtbot: "QtBot"
+        self, qtbot: "QtBot", tmp_path
     ) -> None:
         from ui.setup.stereo_setup_window import StereoSetupWindow
 
-        window = StereoSetupWindow()
+        from tests.test_guided_setup_workflow import _new_workflow
+        window = StereoSetupWindow(workflow=_new_workflow(tmp_path))
         qtbot.addWidget(window)
 
         nav_names = [

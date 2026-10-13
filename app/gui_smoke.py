@@ -10,6 +10,7 @@ import tempfile
 import traceback
 
 from PySide6 import QtCore, QtWidgets
+from loguru import logger
 
 from app.runtime_paths import resource_root, seed_default_configs
 
@@ -32,16 +33,20 @@ def run_gui_smoke(report_path: Path) -> int:
             # Restore cwd before TemporaryDirectory removes its own scratch tree
             # (Windows refuses deletion of the process's current directory).
             with chdir(state):
-                report["workflows"] = _render_workflows(app, windows)
+                try:
+                    report["workflows"] = _render_workflows(app, windows, report)
+                finally:
+                    _close_windows(app, windows)
+                    # This terminal diagnostic owns its process. Flush and close
+                    # log sinks before Windows removes the isolated scratch tree.
+                    logger.complete()
+                    logger.remove()
             report["ok"] = True
     except Exception:
         report["ok"] = False
         report["error"] = traceback.format_exc()
     finally:
-        for owned_window in reversed(windows):
-            owned_window.close()
-            owned_window.deleteLater()
-        app.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
+        _close_windows(app, windows)
         app.setQuitOnLastWindowClosed(quit_on_close)
         os.chdir(original_cwd)
         report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,7 +54,15 @@ def run_gui_smoke(report_path: Path) -> int:
     return 0 if report["ok"] else 1
 
 
-def _render_workflows(app: QtWidgets.QApplication, windows: list[QtWidgets.QWidget]) -> list[str]:
+def _close_windows(app, windows):
+    for owned_window in reversed(windows):
+        owned_window.close()
+        owned_window.deleteLater()
+    windows.clear()
+    app.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
+
+
+def _render_workflows(app: QtWidgets.QApplication, windows: list[QtWidgets.QWidget], report: dict[str, object]) -> list[str]:
     from launcher import LauncherWindow
     from ui.coaching import CoachWindow
     from ui.review import ReviewWindow
@@ -58,10 +71,15 @@ def _render_workflows(app: QtWidgets.QApplication, windows: list[QtWidgets.QWidg
     workflows = []
     for factory in (
         lambda: LauncherWindow(backend="sim", background_tasks=False),
-        lambda: CoachWindow(backend="sim"), StereoSetupWindow, ReviewWindow,
+        lambda: CoachWindow(backend="sim"), lambda: StereoSetupWindow(backend="sim"), ReviewWindow,
     ):
         window = factory()
         windows.append(window)
+        if isinstance(window, StereoSetupWindow):
+            stages = [stage.value for stage in window._machine.steps]
+            if stages != ["cameras", "images", "calibration", "field", "ready"]:
+                raise RuntimeError("GUI smoke did not construct the guided setup workflow")
+            report["setup_stages"] = stages
         window.show()
         app.processEvents()
         if window.grab().isNull():

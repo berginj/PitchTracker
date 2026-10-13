@@ -310,7 +310,7 @@ def print_results(checks: List[ValidationCheck]):
         print()
         print("Next steps:")
         print(f"  1. Run Setup Wizard: {Colors.BLUE}python launcher.py{Colors.RESET}")
-        print(f"  2. Or run main app: {Colors.BLUE}python main_window.py{Colors.RESET}")
+        print(f"  2. Or run main app: {Colors.BLUE}python launcher.py{Colors.RESET}")
         print()
 
     print("=" * 70)

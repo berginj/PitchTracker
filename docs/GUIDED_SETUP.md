@@ -4,6 +4,10 @@ Setup is designed for repeated local rig research. Every visit follows five
 stages with saved values prefilled. Valid edits save immediately; there is no
 separate Save button. Changes mark their dependent checks incomplete.
 
+Start directly with `python launcher.py --setup --backend uvc`. The
+[rig validation walkthrough](RIG_VALIDATION_WALKTHROUGH.md) breaks calibration,
+physical qualification and independent reference collection into discrete steps.
+
 ## Operator workflow
 
 1. **Cameras:** choose a saved rig or unfinished setup. Discover devices,

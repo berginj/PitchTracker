@@ -1,6 +1,10 @@
 """Test script to verify hardening integration."""
 
 import sys
+from importlib import import_module
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 def test_imports():
@@ -8,21 +12,13 @@ def test_imports():
     print("Testing imports...")
 
     try:
-        print("  OK Error bus imported")
-
-        print("  OK Recovery manager imported")
-
-        print("  OK Resource monitor imported")
-
-        print("  OK Cleanup manager imported")
-
-        print("  OK Config validator imported")
-
-        print("  OK Resource limits imported")
-
-        print("  OK Error notification widgets imported")
-
-        print("  OK MainWindow imported")
+        for module in (
+            "app.events", "app.events.recovery", "app.monitoring", "app.lifecycle",
+            "app.validation", "app.config", "app.ui.error_notification",
+            "ui.coaching.coach_window", "ui.setup.stereo_setup_window", "ui.review.review_window",
+        ):
+            import_module(module)
+            print(f"  OK {module} imported")
 
         print("\nOK All imports successful!")
         return True

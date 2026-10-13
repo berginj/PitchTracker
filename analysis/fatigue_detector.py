@@ -20,7 +20,7 @@ from analysis.pattern_detection.utils import (
 )
 
 if TYPE_CHECKING:
-    from app.pipeline_service import PitchSummary
+    from app.contracts import PitchSummary
     from analysis.pattern_detection.pitcher_profile import ProfileMetrics
 
 

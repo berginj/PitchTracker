@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ui.setup.state_machine import DEFAULT_SETUP_SPEC, SetupStateMachine, StepSpec
+from ui.setup.state_machine import GUIDED_SETUP_SPEC, SetupStateMachine, StepSpec
 from ui.setup.steps.base_step import BaseStep
-from ui.setup.stereo_steps import build_stereo_step_widgets
 from ui.themes import (
     GlassButton,
     apply_standard_layout,
@@ -28,7 +28,10 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         parent: Optional[QtWidgets.QWidget] = None,
         *,
         widget_factory: Optional[Callable[[], Dict[Any, BaseStep]]] = None,
-        specs: tuple[StepSpec[Any], ...] = DEFAULT_SETUP_SPEC,
+        specs: tuple[StepSpec[Any], ...] = GUIDED_SETUP_SPEC,
+        config_path: Path | None = None,
+        backend: str = "uvc",
+        workflow=None,
     ):
         super().__init__(parent)
         self.setWindowTitle("PitchTracker Stereo Setup")
@@ -37,10 +40,20 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         self._style_manager = get_style_manager()
         self._style_manager.set_mode("setup")
 
-        factory = widget_factory or build_stereo_step_widgets
-        self._widget_by_step: Dict[Any, BaseStep] = factory()
+        if widget_factory is None:
+            from app.services.catalog.service import CameraCatalogService
+            from app.services.setup_workflow import SetupWorkflowService
+            from ui.setup.guided_steps import build_guided_setup_widgets
+            workflow = workflow or SetupWorkflowService(
+                config_path=config_path or Path("configs/default.yaml"), backend=backend,
+            )
+            catalog = CameraCatalogService()
+
+            def widget_factory():
+                return build_guided_setup_widgets(workflow, catalog)
+        self.workflow = workflow
+        self._widget_by_step: Dict[Any, BaseStep] = widget_factory()
         self._machine: SetupStateMachine[Any] = SetupStateMachine(specs)
-        self._guided = len(specs) == 5 and specs[0].step.value == "cameras"
         self._steps = [self._widget_by_step[spec.step] for spec in specs]
         self._closing_after_capture_cancel = False
         self._capture_close_deadline = 0.0
@@ -91,24 +104,14 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         self._style_manager.style_panel(header, "normal")
 
         layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(24, 22, 24, 22)
-        if self._guided:
-            layout.setContentsMargins(16, 12, 16, 12)
+        layout.setContentsMargins(16, 12, 16, 12)
 
-        eyebrow = QtWidgets.QLabel("Stereo setup")
-        self._style_manager.style_label(eyebrow, "eyebrow")
-        if not self._guided:
-            layout.addWidget(eyebrow)
-
-        title = QtWidgets.QLabel("Set up the rig" if self._guided else "Configure the stereo rig end to end")
+        title = QtWidgets.QLabel("Set up the rig")
         self._style_manager.style_label(title, "pageTitle")
         layout.addWidget(title)
 
         subtitle = QtWidgets.QLabel(
             "Changes save immediately. Complete each stage to check the saved rig."
-            if self._guided else
-            "Verify camera pairing, synchronization, optical alignment, field coordinates, "
-            "artifact persistence, and final calibration quality."
         )
         subtitle.setWordWrap(True)
         self._style_manager.style_label(subtitle, "muted")

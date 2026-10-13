@@ -23,6 +23,7 @@ def _smoke(executable: Path, tmp_path: Path, *, source: bool):
     assert payload["ok"], payload
     assert payload["backend"] == "sim"
     assert payload["workflows"] == ["LauncherWindow", "CoachWindow", "StereoSetupWindow", "ReviewWindow"]
+    assert payload["setup_stages"] == ["cameras", "images", "calibration", "field", "ready"]
 
 
 def test_source_gui_workflows_render_and_close(tmp_path):
