@@ -7,8 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_priority_hotspots_stay_within_line_limit() -> None:
     hotspots = [
-        ROOT / "app" / "pipeline_service.py",
-        ROOT / "ui" / "main_window.py",
+        ROOT / "app" / "services" / "orchestrator" / "pipeline_orchestrator.py",
+        ROOT / "ui" / "coaching" / "coach_window.py",
         ROOT / "ui" / "setup" / "steps" / "calibration_step.py",
     ]
 
