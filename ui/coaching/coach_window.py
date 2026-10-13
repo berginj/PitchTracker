@@ -172,6 +172,9 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._diagnostics_button.setToolTip("Open detailed capture, tracking, and correction evidence")
         self._style_manager.style_button(self._diagnostics_button, "ghost")
         self._diagnostics_button.clicked.connect(self._show_quality_diagnostics)
+        from ui.coaching.detector_trial_dialog import open_detector_trial
+        detector_trial = QtWidgets.QPushButton("Detector trial")
+        detector_trial.clicked.connect(lambda: open_detector_trial(self))
 
         sep1 = QtWidgets.QLabel("|")
         self._style_manager.style_label(sep1, "muted")
@@ -193,6 +196,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         layout.addStretch()
         layout.addWidget(self._quality_indicator)
         layout.addWidget(self._diagnostics_button)
+        layout.addWidget(detector_trial)
         layout.addWidget(self._recording_indicator)
 
         widget = QtWidgets.QWidget()

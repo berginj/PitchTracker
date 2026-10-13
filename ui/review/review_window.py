@@ -118,6 +118,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
     def _create_menu_bar(self) -> None:
         """Create menu bar with File, Playback, Tools, Export menus."""
+        from ui.review.pipeline_comparison_dialog import open_pipeline_comparison
         handlers: dict[str, Callable[..., object]] = {
             "open_session": self._session_ctrl.open_session_dialog,
             "review_all": self._session_ctrl.review_all_sessions,
@@ -133,6 +134,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
             "toggle_annotation": self._toggle_annotation_mode,
             "clear_annotations": self._clear_annotations,
             "measurement_validation": self._open_measurement_validation,
+            "compare_approaches": lambda: open_pipeline_comparison(self),
             "toggle_trajectory": self._toggle_trajectory_overlay,
             "export_config": lambda: self._export_ctrl.export_config(),
             "export_annotations": lambda: self._export_ctrl.export_annotations(),

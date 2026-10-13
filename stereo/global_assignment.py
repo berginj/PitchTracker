@@ -41,6 +41,9 @@ def evaluate_stereo_assignment(
 
     left_original = list(left_detections)
     right_original = list(right_detections)
+    if mode == "global_v3":
+        from stereo.experimental_assignment import evaluate
+        return evaluate(pair_id, left_original, right_original, matcher)
     left = sorted(left_original, key=detection_decision_id)
     right = sorted(right_original, key=detection_decision_id)
     match_by_edge: dict[str, StereoMatch] = {}

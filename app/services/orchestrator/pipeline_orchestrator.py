@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 from dataclasses import replace
 from pathlib import Path
-from typing import cast, Callable, Dict, List, Optional, Tuple, Type
+from typing import cast, Dict, List, Optional, Tuple
 
 from app.contracts import CalibrationProfile, SessionSummary
 from app.events.event_bus import EventBus
@@ -16,6 +16,7 @@ from app.services.analysis import AnalysisServiceImpl
 from app.services.capture import CaptureServiceImpl
 from app.services.detection import DetectionServiceImpl
 from app.services.orchestrator.event_coordination import EventCoordinator
+from app.services.orchestrator.detector_trials import DetectorTrialMethods
 from app.services.orchestrator.lifecycle import (
     shutdown_pipeline,
     pause_recording_pipeline,
@@ -46,7 +47,7 @@ from record.recorder import RecordingBundle
 logger = get_logger(__name__)
 
 
-class PipelineOrchestrator(PipelineService):
+class PipelineOrchestrator(DetectorTrialMethods, PipelineService):
     """Event-driven orchestrator coordinating services through EventBus."""
 
     def __init__(self, backend: str = "uvc"):
@@ -77,6 +78,7 @@ class PipelineOrchestrator(PipelineService):
         self._recording_active = False
         self._recording_paused = False
         self._recording_stopping = False
+        self._detector_trial = None
 
     def start_capture(
         self,
@@ -139,11 +141,13 @@ class PipelineOrchestrator(PipelineService):
 
     def stop_capture(self) -> None:
         """Stop capture on both cameras. Idempotent and thread-safe."""
+        self.stop_detector_trial()
         with self._lock:
             stop_capture_runtime(self)
 
     def shutdown(self) -> None:
         """Stop all active work before the UI object is destroyed."""
+        self.stop_detector_trial()
         shutdown_pipeline(self)
 
     def is_capturing(self) -> bool:
@@ -260,6 +264,7 @@ class PipelineOrchestrator(PipelineService):
 
     def stop_recording(self) -> RecordingBundle:
         """Stop recording and return the bundle."""
+        self.stop_detector_trial()
         with self._lock:
             return cast(RecordingBundle, stop_recording_pipeline(self))
 
@@ -449,6 +454,7 @@ class PipelineOrchestrator(PipelineService):
     def reload_config(self, config: AppConfig) -> None:
         """Reload configuration for future analysis and recording operations."""
         with self._lock:
+            self._check_experimental_config_edit(config)
             self._config = config
             self._event_coordinator.set_config(config)
             if self._analysis_service is not None:
@@ -483,17 +489,11 @@ class PipelineOrchestrator(PipelineService):
         with self._lock:
             if self._config is None:
                 return
-            self._config = replace(self._config, metrics=replace(self._config.metrics, release_plane_z_ft=distance_ft))
+            candidate = replace(self._config, metrics=replace(self._config.metrics, release_plane_z_ft=distance_ft))
+            self._check_experimental_config_edit(candidate)
+            self._config = candidate
             if self._analysis_service is not None:
                 self._analysis_service.update_config(self._config)
-
-    def subscribe_event(self, event_type: Type, handler: Callable) -> None:
-        """Register a public EventBus subscription."""
-        self._event_bus.subscribe(event_type, handler)
-
-    def unsubscribe_event(self, event_type: Type, handler: Callable) -> bool:
-        """Remove a public EventBus subscription."""
-        return self._event_bus.unsubscribe(event_type, handler)
 
     def _to_field_coordinates(self, obs: StereoObservation) -> StereoObservation:
         self._event_coordinator.set_rig_profile(self._active_rig_profile)

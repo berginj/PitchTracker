@@ -1,6 +1,6 @@
 # PitchTracker Current Status
 
-**Last updated:** 2026-10-12
+**Last updated:** 2026-10-13
 **Published release:** `v2.0.0` / internal app version `2.0.0`
 **Development status:** the October consolidation/remediation batch is implemented
 and validated in software. The October 5 software follow-ups have implementations
@@ -18,6 +18,14 @@ The guided setup change and its supported-runtime checks are recorded in
 [the setup validation record](review/GUIDED_SETUP_VALIDATION_2026_10_11.md).
 Native ARM64 numerical execution and issue acceptance are recorded in
 [the platform and closeout record](review/PLATFORM_AND_ISSUE_CLOSEOUT_2026_10_12.md).
+Optional BaseballCV integration adds twelve detector/stereo comparisons, a
+separate monocular study, supervised ONNX workers and explicit live qualification.
+Classical detection and stereo remain defaults. See
+[the comparison workflow](BASEBALLCV_COMPARISON.md) for model import, dedicated
+recording collection and admission gates. Supplied weights and field evidence
+have not yet qualified any experimental profile.
+Local tests and frozen-worker checks are recorded in
+[the integration validation record](review/BASEBALLCV_VALIDATION_2026_10_13.md).
 
 ## Summary
 

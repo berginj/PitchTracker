@@ -107,7 +107,9 @@ class CalibratedStereoMatcher(StereoMatcher):
         xyz_ft = self._triangulate_raw_xyz_ft(left_pt, right_pt)
         z_ft = float(xyz_ft[2])
         in_range = self._geometry.z_min_ft <= z_ft <= self._geometry.z_max_ft
-        covariance = self._estimate_covariance_ft2(left_pt, right_pt)
+        covariance = self._estimate_covariance_ft2(
+            left_pt, right_pt, (match.left.pixel_covariance_px2, match.right.pixel_covariance_px2),
+        )
         depth_sigma_ft = float(np.sqrt(covariance[2, 2]))
         quality = (
             quality_from_depth_sigma(depth_sigma_ft, self._geometry.max_full_confidence_depth_sigma_ft)
@@ -160,17 +162,17 @@ class CalibratedStereoMatcher(StereoMatcher):
             self._ideal_pixel(right_pt, left=False),
         )
 
-    def _estimate_covariance_ft2(self, left_pt: np.ndarray, right_pt: np.ndarray) -> np.ndarray:
+    def _estimate_covariance_ft2(self, left_pt: np.ndarray, right_pt: np.ndarray, pixel_covariances=None) -> np.ndarray:
         """Propagate raw pixel noise through undistortion and triangulation.
 
         This conditional covariance excludes calibration and acquisition timing
         uncertainty and must not be presented as physical prediction uncertainty.
         """
         pixel_sigma_px = float(getattr(self._geometry, "pixel_sigma_px", 0.0))
-        if pixel_sigma_px <= 0.0:
+        if pixel_sigma_px <= 0.0 and not any(c is not None for c in (pixel_covariances or ())):
             return np.zeros((3, 3))
         eps = 1.0
-        covariance = np.zeros((3, 3))
+        jacobian = np.zeros((3, 4))
         for point_index, coord_index in ((0, 0), (0, 1), (1, 0), (1, 1)):
             plus_left = left_pt.copy()
             minus_left = left_pt.copy()
@@ -185,8 +187,19 @@ class CalibratedStereoMatcher(StereoMatcher):
             xyz_plus = self._triangulate_raw_xyz_ft(plus_left, plus_right)
             xyz_minus = self._triangulate_raw_xyz_ft(minus_left, minus_right)
             derivative = (xyz_plus - xyz_minus) / (2.0 * eps)
-            covariance += np.outer(derivative, derivative) * pixel_sigma_px**2
-        return covariance
+            jacobian[:, point_index * 2 + coord_index] = derivative
+        pixels = np.eye(4) * pixel_sigma_px**2
+        if pixel_covariances:
+            for i, item in enumerate(pixel_covariances):
+                if item is not None:
+                    from contracts.model_bundle import covariance2
+                    pixels[i * 2:i * 2 + 2, i * 2:i * 2 + 2] = covariance2(item)
+        return jacobian @ pixels @ jacobian.T
+
+    def geometric_diagnostics(self, match: StereoMatch) -> dict:
+        """Return conditional localization diagnostics through a public boundary."""
+        from stereo.localization import geometry_diagnostics
+        return geometry_diagnostics(self._geometry, match)
 
     def pair_timestamp(self, left_ns: int, right_ns: int) -> Tuple[int, bool]:
         """Apply configured time sync offset (added to right timestamp) before averaging.

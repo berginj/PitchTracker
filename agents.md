@@ -54,6 +54,19 @@ Auto GPU admission requires implementation/hardware-bound numerical parity and
 at least 1.5x end-to-end throughput qualification. See
 [compute acceleration](docs/COMPUTE_ACCELERATION.md) for platform release gates.
 
+Optional detector research is owned by AnalysisAgent's pipeline-comparison
+service. It reuses DetectionAgent's candidate processing and records all
+independently labeled opportunities, including unavailable and rejected
+outcomes. YOLO11 bundles are local, hashed assets; neither upstream code nor
+weights are bundled. Experimental global_v3 stereo remains opt-in and uses
+conditional localization covariance, causal tracking and ambiguity rejection.
+Operator-requested detector timing trials observe an already-recording capture
+without publishing into primary analysis. Live model selection requires bound
+held-out and actual-capture operational evidence, is saved through
+SetupWorkflowService, and never grants physical accuracy approval. Monocular
+BaseballCV image-zone results are offline research, not stereo fallbacks. See
+[optional detector comparison](docs/BASEBALLCV_COMPARISON.md).
+
 Agents communicate through typed dataclasses, service interfaces, or explicit callbacks. Agents must not reach into another agent's private state except in tests.
 
 ## Agent Definitions

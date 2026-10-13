@@ -155,6 +155,7 @@ class DetectorConfig:
     crop_padding_px: int
     min_consecutive: int
     filters: DetectorFiltersConfig
+    qualification_path: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -311,6 +312,7 @@ def load_config(path: Path) -> AppConfig:
             crop_padding_px=data["detector"]["crop_padding_px"],
             min_consecutive=data["detector"]["min_consecutive"],
             filters=detector_filters,
+            qualification_path=data["detector"].get("qualification_path"),
         )
         strike_zone = StrikeZoneConfig(**data["strike_zone"])
         ball = BallConfig(**data["ball"])

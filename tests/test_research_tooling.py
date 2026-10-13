@@ -136,7 +136,8 @@ def test_recording_context_retains_independent_snapshot_copy(tmp_path, monkeypat
         roi_path=lambda *_args: tmp_path / "roi.json",
     )
     monkeypatch.setattr(service_startup, "build_calibration_report", lambda *_args: {})
-    result = service_startup.load_and_validate_rig(service, object(), "sim", "left", "right")
+    from configs.settings import load_config
+    result = service_startup.load_and_validate_rig(service, load_config(Path("configs/default.yaml")), "sim", "left", "right")
     snapshot["artifact_inventory"]["config"] = "b" * 64
     assert result.calibration_report["setup_snapshot"]["artifact_inventory"]["config"] == "a" * 64
     assert result.calibration_report["rig_profile_revision"] == 3

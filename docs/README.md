@@ -9,6 +9,7 @@ or validation documents before trying the simulator.
 - **I operate a camera rig:** [Operator runbook](OPERATOR_RUNBOOK.md)
 - **I am testing hardware:** [Testing Help Needed](TESTING_NEEDED.md)
 - **I am establishing a baseline:** [Desktop Measurement Research](MEASUREMENT_RESEARCH.md)
+- **I want to compare optional models and stereo:** [BaseballCV comparison](BASEBALLCV_COMPARISON.md)
 - **I want faster local fitting:** [Compute acceleration](COMPUTE_ACCELERATION.md)
 - **I need to understand a term:** [Glossary](GLOSSARY.md)
 - **I need help with a problem:** [Troubleshooting](user/TROUBLESHOOTING.md)

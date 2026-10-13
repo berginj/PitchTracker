@@ -39,6 +39,7 @@ class DecisionArtifactBindings:
     algorithm_name: Optional[str] = None
     algorithm_version: Optional[str] = None
     schema_version: str = DECISION_SCHEMA_VERSION
+    model_bundle_sha256: Optional[str] = None
 
     def to_payload(self) -> Dict[str, Any]:
         return dict(self.__dict__)

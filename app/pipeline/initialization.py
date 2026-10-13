@@ -376,6 +376,11 @@ class PipelineInitializer:
             Detector instance (ClassicalDetector or MlDetector)
         """
         if self._detector_type == "ml":
+            if self._detector_model_format == "yolo_v11":
+                from detect.supervised import SupervisedONNXDetector
+                if not self._detector_model_path:
+                    raise ValueError("YOLO11 requires a local model bundle manifest")
+                return SupervisedONNXDetector(Path(self._detector_model_path))
             return MlDetector(
                 model_path=self._detector_model_path,
                 input_size=self._detector_model_input_size,

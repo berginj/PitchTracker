@@ -147,30 +147,30 @@ class TestDiskSpaceMonitoring(unittest.TestCase):
         # No callback should have been called
         self.assertEqual(len(callback_called), 0)
 
-    @patch("time.sleep")
-    def test_monitoring_stops_on_stop_signal(self, mock_sleep):
+    @patch("shutil.disk_usage")
+    def test_monitoring_stops_on_stop_signal(self, mock_disk_usage):
         """Test that monitoring exits promptly when stop is requested."""
-
-        # Make sleep return immediately so loop iterates quickly
-        mock_sleep.return_value = None
-
-        # Start monitoring
-        self.recorder._monitoring_disk = True
         import threading
 
+        checked = threading.Event()
+
+        def healthy_disk(_path):
+            checked.set()
+            return Mock(free=100 * (1024**3))
+
+        # The stop contract must not depend on the host drive's capacity or
+        # whether the thread is scheduled before an immediate mocked sleep.
+        mock_disk_usage.side_effect = healthy_disk
+        self.recorder._monitoring_disk = True
         monitor_thread = threading.Thread(target=self.recorder._monitor_disk_space)
         monitor_thread.start()
-
-        # Thread should be alive
-        time.sleep(0.1)
-        self.assertTrue(monitor_thread.is_alive())
-
-        # Stop monitoring
-        self.recorder._monitoring_disk = False
-        self.recorder._disk_monitor_stop.set()
-        monitor_thread.join(timeout=2.0)
-
-        # Thread should be dead
+        try:
+            self.assertTrue(checked.wait(1.0))
+            self.assertTrue(monitor_thread.is_alive())
+        finally:
+            self.recorder._monitoring_disk = False
+            self.recorder._disk_monitor_stop.set()
+            monitor_thread.join(timeout=2.0)
         self.assertFalse(monitor_thread.is_alive())
 
     @patch("shutil.disk_usage")

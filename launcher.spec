@@ -26,6 +26,7 @@ block_cipher = None
 # .first_run_done are generated on an operator machine and must not ship in the
 # installer.
 datas = [
+    ('research/baseballcv_local_worker.py', 'research'),
     (str(identity_file), '.'),
     ('configs/default.yaml', 'defaults/configs'),
     ('configs/snapdragon.yaml', 'defaults/configs'),
@@ -151,6 +152,8 @@ worker_analysis = Analysis(
         'app.trajectory_worker',
         'app.trajectory_persistent_worker',
         'app.video_replay_worker',
+        'app.detector_worker',
+        'app.pipeline_comparison_worker',
     ],
     # Tooling imports plotting/report dependencies; they must remain available
     # even when the GUI does not use them directly.

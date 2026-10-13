@@ -59,6 +59,8 @@ def build_menu_bar(
 
     # --- Tools menu ---
     tools_menu = menubar.addMenu("&Tools")
+    if "compare_approaches" in handlers:
+        _add(tools_menu, "Compare approaches…", None, handlers["compare_approaches"])
     if "measurement_validation" in handlers:
         _add(tools_menu, "Measurement Validation…", None, handlers["measurement_validation"])
         tools_menu.addSeparator()
