@@ -82,7 +82,6 @@ excludes = [
     'docutils',
 
     # Unused stdlib modules
-    'pydoc',
     'pdb',
     'doctest',
     'profile',
