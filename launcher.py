@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """PitchTracker unified launcher - role selector entry point."""
 
-import argparse
 import sys
 from pathlib import Path
 
@@ -14,6 +13,7 @@ from PySide6 import QtCore, QtGui, QtWidgets  # noqa: E402
 
 from app.services.tooling import ToolingService, get_tooling_service  # noqa: E402
 from launcher_support import clear_python_cache, ensure_project_root_on_sys_path as _ensure_project_root_on_sys_path  # noqa: E402
+from launcher_support import parse_args  # noqa: E402
 from launcher_threads import StartupValidationThread  # noqa: E402
 from launcher_updates import LauncherUpdateController  # noqa: E402
 from startup_validator import create_required_directories  # noqa: E402
@@ -457,16 +457,6 @@ class LauncherWindow(QtWidgets.QMainWindow):
         dialog.exec()
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    """Parse launcher options while tolerating test-runner arguments."""
-    parser = argparse.ArgumentParser(description="PitchTracker role launcher.")
-    parser.add_argument("--backend", choices=("uvc", "opencv", "sim"), default="uvc")
-    parser.add_argument("--config", type=Path, default=None)
-    parser.add_argument("--gui-smoke-report", type=Path, default=None)
-    args, _unknown = parser.parse_known_args(argv)
-    return args
-
-
 def main(argv: list[str] | None = None):
     """Main entry point."""
     prepare_launcher_environment()
@@ -490,8 +480,10 @@ def main(argv: list[str] | None = None):
     app.setOrganizationName("PitchTracker")
 
     # Create and show launcher
-    launcher = LauncherWindow(backend=args.backend, config_path=args.config)
+    launcher = LauncherWindow(backend=args.backend, config_path=args.config, background_tasks=not args.setup)
     launcher.show()
+    if args.setup:
+        launcher._launch_stereo_setup()
 
     sys.exit(app.exec())
 

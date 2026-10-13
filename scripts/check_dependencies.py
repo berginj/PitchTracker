@@ -79,7 +79,7 @@ def main() -> int:
         print(f"\n[OK] All {len(installed)} required dependencies are installed!")
         print("\nYou can now run PitchTracker:")
         print("  python launcher.py       # Setup Wizard (first-time setup)")
-        print("  python main_window.py    # Main application")
+        print("  python launcher.py       # Main application")
         return 0
 
     print_dependency_error(missing)

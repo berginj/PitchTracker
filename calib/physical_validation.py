@@ -10,6 +10,7 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, Iterable, Optional
 
+from calib.residual_spread import case_residual_spread
 from contracts.physical_validation import (
     REPORT_SCHEMA,
     PhysicalValidationDatasetV2,
@@ -158,6 +159,11 @@ def evaluate_physical_validation(
         "max_reference_speed_uncertainty_mph": max(speed_uncertainties) if speed_uncertainties else None,
         "max_reference_plate_uncertainty_ft": max(plate_uncertainties) if plate_uncertainties else None,
         "stratum_reference_valid_counts": dict(sorted(counts.items())),
+        "residual_spread": case_residual_spread(dataset.cases),
+        "residual_spread_by_stratum": {
+            name: case_residual_spread([case for case in dataset.cases if case.stratum == name])
+            for name in sorted(set(protocol.planned_strata) | {case.stratum for case in dataset.cases})
+        },
     }
 
     checks = _threshold_checks(protocol, metrics)

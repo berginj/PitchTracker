@@ -9,18 +9,10 @@ from __future__ import annotations
 import pytest
 
 
-def test_main_window_import():
-    """Test that MainWindow can be imported from ui module."""
-    from ui import MainWindow
-
-    assert MainWindow is not None
-
-
-def test_main_window_direct_import():
-    """Test that MainWindow can be imported directly."""
-    from ui.main_window import MainWindow
-
-    assert MainWindow is not None
+def test_canonical_coaching_and_review_imports():
+    from ui.coaching import CoachWindow
+    from ui.review import ReviewWindow
+    assert CoachWindow is not None and ReviewWindow is not None
 
 
 def test_geometry_imports():
@@ -99,7 +91,6 @@ def test_all_dialogs_package_import():
     """Test that all dialogs can be imported from dialogs package."""
     from ui.dialogs import (
         CalibrationGuide,
-        CalibrationWizardDialog,
         ChecklistDialog,
         DetectorSettingsDialog,
         PlatePlaneDialog,
@@ -112,7 +103,6 @@ def test_all_dialogs_package_import():
 
     # Verify all dialog classes exist
     assert CalibrationGuide is not None
-    assert CalibrationWizardDialog is not None
     assert ChecklistDialog is not None
     assert DetectorSettingsDialog is not None
     assert PlatePlaneDialog is not None
@@ -144,11 +134,11 @@ def test_simple_dialogs_direct_import():
 
 def test_calibration_dialogs_direct_import():
     """Test that calibration dialogs can be imported directly."""
-    from ui.dialogs.calibration_wizard_dialog import CalibrationWizardDialog
+    from ui.dialogs.setup_doctor_dialog import SetupDoctorDialog
     from ui.dialogs.plate_plane_dialog import PlatePlaneDialog
     from ui.dialogs.quick_calibrate_dialog import QuickCalibrateDialog
 
-    assert CalibrationWizardDialog is not None
+    assert SetupDoctorDialog is not None
     assert PlatePlaneDialog is not None
     assert QuickCalibrateDialog is not None
 
@@ -164,11 +154,14 @@ def test_qt_app_entry_point():
 
 
 def test_no_circular_imports():
-    """Test that importing all modules doesn't cause circular import errors."""
-    # This will fail if there are circular imports
-
-    # If we got here without errors, no circular imports exist
-    assert True
+    """Exercise cold imports rather than accepting an empty assertion."""
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, "-c", "import ui.coaching; import ui.review; import ui.setup.stereo_setup_window"],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 if __name__ == "__main__":

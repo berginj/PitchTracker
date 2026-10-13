@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, Generic, List, Tuple, TypeVar, cast
 
+from contracts.setup_workflow import GuidedSetupStage
 from exceptions import PitchTrackerError
 from log_config.logger import get_logger
 
@@ -34,25 +35,7 @@ class SetupTransitionError(PitchTrackerError):
     """Raised when an illegal setup-state transition is requested."""
 
 
-class SetupStep(Enum):
-    """Canonical stereo-rig setup steps (target state machine).
-
-    Order of declaration is the order steps are presented to the operator.
-    """
-
-    SELECT_CAMERAS = "select_cameras"
-    PAIRED_PREVIEW = "paired_preview"
-    SYNC_CHECK = "sync_check"
-    FOCUS_EXPOSURE_LOCK = "focus_exposure_lock"
-    OVERLAP_VALIDATION = "overlap_validation"
-    COARSE_RECTIFY = "coarse_rectify"
-    CHARUCO_FINE_TUNE = "charuco_fine_tune"
-    FIELD_ALIGNMENT = "field_alignment"
-    PERSIST_PROFILE = "persist_profile"
-    QUALITY_REPORT = "quality_report"
-
-
-StepT = TypeVar("StepT", bound=Enum, default=SetupStep)
+StepT = TypeVar("StepT", bound=Enum, default=GuidedSetupStage)
 
 
 @dataclass(frozen=True)
@@ -74,49 +57,12 @@ class StepSpec(Generic[StepT]):
     prerequisites: Tuple[StepT, ...] = ()
 
 
-# Default evidence-gated stereo-rig setup specification. ChArUco fine-tuning is the only
-# optional step: a usable rig can be produced from the targetless coarse
-# rectification alone (see architecture note, decision round 1).
-DEFAULT_SETUP_SPEC: Tuple[StepSpec[SetupStep], ...] = (
-    StepSpec(SetupStep.SELECT_CAMERAS, "Select cameras"),
-    StepSpec(SetupStep.PAIRED_PREVIEW, "Paired preview", prerequisites=(SetupStep.SELECT_CAMERAS,)),
-    StepSpec(SetupStep.SYNC_CHECK, "Sync check", prerequisites=(SetupStep.PAIRED_PREVIEW,)),
-    StepSpec(
-        SetupStep.FOCUS_EXPOSURE_LOCK,
-        "Focus & exposure lock",
-        prerequisites=(SetupStep.PAIRED_PREVIEW,),
-    ),
-    StepSpec(
-        SetupStep.OVERLAP_VALIDATION,
-        "Overlap validation",
-        prerequisites=(SetupStep.FOCUS_EXPOSURE_LOCK,),
-    ),
-    StepSpec(
-        SetupStep.COARSE_RECTIFY,
-        "Coarse rectification",
-        prerequisites=(SetupStep.OVERLAP_VALIDATION,),
-    ),
-    StepSpec(
-        SetupStep.CHARUCO_FINE_TUNE,
-        "ChArUco fine-tune",
-        optional=True,
-        prerequisites=(SetupStep.COARSE_RECTIFY,),
-    ),
-    StepSpec(
-        SetupStep.FIELD_ALIGNMENT,
-        "Field alignment",
-        prerequisites=(SetupStep.COARSE_RECTIFY,),
-    ),
-    StepSpec(
-        SetupStep.PERSIST_PROFILE,
-        "Persist profile",
-        prerequisites=(SetupStep.FIELD_ALIGNMENT,),
-    ),
-    StepSpec(
-        SetupStep.QUALITY_REPORT,
-        "Quality report",
-        prerequisites=(SetupStep.PERSIST_PROFILE,),
-    ),
+GUIDED_SETUP_SPEC: Tuple[StepSpec[GuidedSetupStage], ...] = (
+    StepSpec(GuidedSetupStage.CAMERAS, "Cameras"),
+    StepSpec(GuidedSetupStage.IMAGES, "Image checks", prerequisites=(GuidedSetupStage.CAMERAS,)),
+    StepSpec(GuidedSetupStage.CALIBRATION, "Calibration", prerequisites=(GuidedSetupStage.IMAGES,)),
+    StepSpec(GuidedSetupStage.FIELD, "Field and regions", prerequisites=(GuidedSetupStage.CALIBRATION,)),
+    StepSpec(GuidedSetupStage.READY, "Ready", prerequisites=(GuidedSetupStage.FIELD,)),
 )
 
 
@@ -134,7 +80,7 @@ class SetupStateMachine(Generic[StepT]):
 
     specs: Tuple[StepSpec[StepT], ...] = cast(
         Tuple[StepSpec[StepT], ...],
-        DEFAULT_SETUP_SPEC,
+        GUIDED_SETUP_SPEC,
     )
     _index: int = 0
     _completed: set = field(default_factory=set)

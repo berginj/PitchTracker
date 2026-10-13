@@ -75,9 +75,9 @@ CaptureService → FrameCapturedEvent
 ```
 
 The preferred runtime entry point is `app.services.orchestrator.PipelineOrchestrator`,
-wrapped by `app.qt_pipeline_service.QtPipelineService` for Qt usage. The legacy
-`app/pipeline_service.py` (`InProcessPipelineService`) remains as a compatibility
-path only; new runtime work should use the service/EventBus architecture.
+wrapped by `app.qt_pipeline_service.QtPipelineService` for Qt usage. The older
+InProcessPipelineService and desktop/setup paths are retired under
+`archive/retired/2026-10-13`; use the service/EventBus architecture and guided setup.
 
 ### Key Modules
 

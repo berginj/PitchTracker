@@ -67,9 +67,9 @@ python scripts/test_coaching_app.py
 ```
 
 ### `test_setup_wizard.py`
-Test launcher for Setup Wizard.
-
-Validates the initial setup wizard flow.
+Compatibility launcher for the five-stage guided setup. Camera actions are
+explicit. Prefer `python launcher.py --setup --backend uvc`; use the
+[rig walkthrough](../docs/RIG_VALIDATION_WALKTHROUGH.md) for physical qualification.
 
 **Usage:**
 ```bash

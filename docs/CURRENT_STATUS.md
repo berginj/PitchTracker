@@ -67,6 +67,13 @@ must use this document and the roadmap below.
 
 ## Delivered software
 
+The older desktop/setup/pipeline paths are retired under
+`archive/retired/2026-10-13`. Guided setup is the default for launcher, direct
+construction and GUI smoke. The [rig walkthrough](RIG_VALIDATION_WALKTHROUGH.md)
+separates setup readiness, measured reference-residual spread and independent
+physical confirmation. Retirement validation belongs to the new code revision;
+older frozen artifacts do not establish it.
+
 The committed controlled-pilot changes address distorted-pixel geometry,
 continuous strike-volume intersection, explicit timing and speed provenance,
 weighted stereo fitting/eligibility, and dedicated deadline-bounded workers.

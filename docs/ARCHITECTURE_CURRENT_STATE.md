@@ -1,6 +1,6 @@
 # Current Architecture: Service-Oriented Event Pipeline
 
-**Last Updated:** 2026-06-26
+**Last Updated:** 2026-10-13
 **Applies To:** v2.0.0-stereo
 **Primary Entry Point:** `app.services.orchestrator.PipelineOrchestrator`
 
@@ -10,8 +10,8 @@
 
 PitchTracker now uses a service-oriented runtime coordinated by
 `PipelineOrchestrator` and an in-process `EventBus`. The older
-`InProcessPipelineService` still exists as a compatibility path, but it is not
-the preferred architecture for new work.
+InProcessPipelineService, MainWindow and setup registries are archived under
+`archive/retired/2026-10-13`. Guided setup owns the only supported setup workflow.
 
 The current architecture matches the agent boundaries in `agents.md`:
 
@@ -24,7 +24,6 @@ The current architecture matches the agent boundaries in `agents.md`:
 | Recording | `app/services/recording/implementation.py` | Session/pitch videos, observations, manifests |
 | Analysis | `app/services/analysis/implementation.py` | Pitch summaries, session summaries, trajectory analysis |
 | Qt adapter | `app/qt_pipeline_service.py` | Qt-safe signal bridge around `PipelineOrchestrator` |
-| Legacy compatibility | `app/pipeline_service.py` | Existing in-process API compatibility only |
 
 ---
 
@@ -168,8 +167,9 @@ can be considered fully complete:
    correlation/session/pitch/camera identifiers and schema versioning. Preserve
    this contract in new flows. Desktop research requests carry correlation IDs
    and execute inspection/evaluation through subprocess tooling services.
-3. `InProcessPipelineService` remains in the repo. Treat it as compatibility
-   code unless a maintenance task explicitly targets legacy behavior.
+3. Retired implementations are historical source. Follow
+   [the migration guide](architecture/legacy-paths.md); do not restore them as
+   runtime fallbacks. Shared contracts remain active.
 4. Some historical architecture and status reports remain in `archive/`; those
    files are retained for context and should not be read as current guidance.
 

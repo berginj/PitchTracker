@@ -1,7 +1,6 @@
 """UI dialogs module for PitchTracker."""
 
 from ui.dialogs.calibration_guide import CalibrationGuide
-from ui.dialogs.calibration_wizard_dialog import CalibrationWizardDialog
 from ui.dialogs.checklist_dialog import ChecklistDialog
 from ui.dialogs.detector_settings_dialog import DetectorSettingsDialog
 from ui.dialogs.pattern_analysis_dialog import PatternAnalysisDialog
@@ -15,7 +14,6 @@ from ui.dialogs.strike_zone_settings_dialog import StrikeZoneSettingsDialog
 
 __all__ = [
     "CalibrationGuide",
-    "CalibrationWizardDialog",
     "ChecklistDialog",
     "DetectorSettingsDialog",
     "PatternAnalysisDialog",

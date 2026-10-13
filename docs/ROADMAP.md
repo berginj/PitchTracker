@@ -191,6 +191,12 @@ the remaining reconciled acceptance criteria remain work.
 
 ## Branch review follow-ups
 
+The operator approved retirement of MainWindow, the older setup registries,
+InProcessPipelineService and direct pipeline CLI. Their source/tests are retained
+under archive/retired/2026-10-13; the private duplicate enrichment path is removed.
+Use [Rig Validation Walkthrough](RIG_VALIDATION_WALKTHROUGH.md) to qualify the rig
+and collect independent quality-reference evidence.
+
 The [October 13 branch and archive review](review/BRANCH_AND_ARCHIVE_REVIEW_2026_10_13.md)
 reconciles every local branch, records optional detector admission fixes, and
 proposes archival work for discussion. Archive candidates are not active removal tasks.

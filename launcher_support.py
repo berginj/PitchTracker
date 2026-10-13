@@ -2,11 +2,23 @@
 
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import shutil
 import sys
 from pathlib import Path
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse launcher options while tolerating test-runner arguments."""
+    parser = argparse.ArgumentParser(description="PitchTracker role launcher.")
+    parser.add_argument("--backend", choices=("uvc", "opencv", "sim"), default="uvc")
+    parser.add_argument("--config", type=Path, default=None)
+    parser.add_argument("--gui-smoke-report", type=Path, default=None)
+    parser.add_argument("--setup", action="store_true", help="Open guided setup; camera acquisition remains explicit")
+    args, _unknown = parser.parse_known_args(argv)
+    return args
 
 
 def ensure_project_root_on_sys_path(project_root: Path) -> None:

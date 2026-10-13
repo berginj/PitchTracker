@@ -74,11 +74,12 @@ class TestCodecFallbackIntegration(unittest.TestCase):
         call_count = [0]
         failed_codecs = []
 
-        def mock_video_writer(path, fourcc, fps, frameSize, isColor=True):
+        def mock_video_writer(*args, **kwargs):
             """Mock VideoWriter that fails for first N codecs."""
             call_count[0] += 1
 
             # Get codec name from fourcc
+            fourcc = args[2] if len(args) == 6 else args[1]
             codec_bytes = [(fourcc >> (8 * i)) & 0xFF for i in range(4)]
             codec_name = "".join([chr(b) for b in codec_bytes])
             failed_codecs.append(codec_name)
@@ -114,7 +115,7 @@ class TestCodecFallbackIntegration(unittest.TestCase):
         real_video_writer = cv2.VideoWriter
 
         # Mock VideoWriter to always fail
-        def mock_failed_writer(path, fourcc, fps, frameSize, isColor=True):
+        def mock_failed_writer(*args, **kwargs):
             mock_writer = Mock(spec=real_video_writer)
             mock_writer.isOpened.return_value = False
             mock_writer.release = Mock()
@@ -251,7 +252,7 @@ class TestCodecFallbackIntegration(unittest.TestCase):
         real_video_writer = cv2.VideoWriter
 
         # Mock to make all codecs fail
-        def mock_failed_writer(path, fourcc, fps, frameSize, isColor=True):
+        def mock_failed_writer(*args, **kwargs):
             mock_writer = Mock(spec=real_video_writer)
             mock_writer.isOpened.return_value = False
             mock_writer.release = Mock()

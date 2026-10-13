@@ -16,7 +16,7 @@ from analysis.trend_reports import build_baseline_comparison, build_trend_report
 from analysis.trend_statistics import aggregate_session
 
 if TYPE_CHECKING:
-    from app.pipeline_service import PitchSummary
+    from app.contracts import PitchSummary
 
 
 class TrendAnalyzer:

@@ -14,8 +14,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from contracts.catalog import SIDE_LEFT, SIDE_RIGHT, SIDE_UNASSIGNED  # noqa: E402
 from ui.setup.providers import (  # noqa: E402
     LiveSetupContext,
-    build_live_stereo_step_widgets,
-    simulated_paired_preview,
 )
 
 
@@ -57,23 +55,6 @@ def qapp():
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
     yield app
-
-
-def test_build_live_registry_wires_discovery(qapp):
-    from ui.setup.state_machine import DEFAULT_SETUP_SPEC, SetupStep
-    from ui.setup.steps import CameraSelectStep, PairedPreviewStep
-
-    catalog = _FakeCatalog(sides={"LEFTSER": SIDE_LEFT, "RIGHTSER": SIDE_RIGHT})
-    widgets = build_live_stereo_step_widgets(
-        catalog=catalog,
-        list_devices=_devices,
-        preview_provider=lambda: simulated_paired_preview(frames=2),
-    )
-    assert set(widgets) == {spec.step for spec in DEFAULT_SETUP_SPEC}
-    assert isinstance(widgets[SetupStep.SELECT_CAMERAS], CameraSelectStep)
-    assert isinstance(widgets[SetupStep.PAIRED_PREVIEW], PairedPreviewStep)
-    # The wired discovery provider should drive a real render on enter.
-    widgets[SetupStep.SELECT_CAMERAS].on_enter()
 
 
 def test_live_context_persists_assignment_and_reuses_it_for_capture(tmp_path):

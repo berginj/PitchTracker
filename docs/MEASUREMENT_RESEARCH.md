@@ -4,6 +4,11 @@ The current development priority is a repeatable speed and plate-location
 baseline using a local Windows rig and independent reference instruments.
 Setup, coaching capture, and Review remain the desktop entrypoints.
 
+Use [Rig Validation Walkthrough](RIG_VALIDATION_WALKTHROUGH.md) to establish the
+rig before field collection. Evaluator metrics include observed reference-residual
+sample variance and plate X/Y covariance, overall and by stratum. They retain
+reference noise and are not physical prediction uncertainty or a new approval.
+
 ## Desktop workflow
 
 1. Complete setup and explicitly start a shadow recording with the operator

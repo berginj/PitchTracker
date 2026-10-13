@@ -7,6 +7,7 @@ or validation documents before trying the simulator.
 
 - **I want to try the app without cameras:** [Quick Start](QUICK_START.md)
 - **I operate a camera rig:** [Operator runbook](OPERATOR_RUNBOOK.md)
+- **I am qualifying a rig and quality references:** [Rig validation walkthrough](RIG_VALIDATION_WALKTHROUGH.md)
 - **I am testing hardware:** [Testing Help Needed](TESTING_NEEDED.md)
 - **I am establishing a baseline:** [Desktop Measurement Research](MEASUREMENT_RESEARCH.md)
 - **I want to compare optional models and stereo:** [BaseballCV comparison](BASEBALLCV_COMPARISON.md)

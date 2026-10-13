@@ -2,15 +2,9 @@
 
 from app.services.setup_workflow import SetupWorkflowService
 from contracts.setup_workflow import GuidedSetupStage
-from ui.setup.state_machine import StepSpec
+from ui.setup.state_machine import GUIDED_SETUP_SPEC
 
-GUIDED_SETUP_SPEC = (
-    StepSpec(GuidedSetupStage.CAMERAS, "Cameras"),
-    StepSpec(GuidedSetupStage.IMAGES, "Image checks", prerequisites=(GuidedSetupStage.CAMERAS,)),
-    StepSpec(GuidedSetupStage.CALIBRATION, "Calibration", prerequisites=(GuidedSetupStage.IMAGES,)),
-    StepSpec(GuidedSetupStage.FIELD, "Field and regions", prerequisites=(GuidedSetupStage.CALIBRATION,)),
-    StepSpec(GuidedSetupStage.READY, "Ready", prerequisites=(GuidedSetupStage.FIELD,)),
-)
+__all__ = ["GUIDED_SETUP_SPEC", "build_guided_setup_widgets"]
 
 
 def build_guided_setup_widgets(workflow: SetupWorkflowService, catalog=None):
