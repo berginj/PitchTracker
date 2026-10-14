@@ -1,180 +1,150 @@
-"""Statistics panel widget for broadcast view mode."""
+"""Latest recorded pitch feedback and a stable recent-pitch list."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional
+from math import isclose, isfinite
+from typing import TYPE_CHECKING
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
-from ui.themes import apply_standard_layout, get_style_manager
+from app.contracts import measurement_is_usable
+from ui.themes import get_style_manager
 
 if TYPE_CHECKING:
     from app.contracts import PitchSummary
 
 
 class StatsPanelWidget(QtWidgets.QWidget):
-    """Statistics panel showing latest pitch data and recent pitch list.
-
-    Displays speed, break, result for latest pitch, plus scrollable list
-    of recent pitches.
-    """
-
-    def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
-        """Initialize stats panel widget.
-
-        Args:
-            parent: Parent widget
-        """
+    def __init__(self, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent)
         self._style_manager = get_style_manager()
-        self._build_ui()
-
-    def _build_ui(self) -> None:
-        """Build the widget UI."""
-        layout = QtWidgets.QVBoxLayout()
-        apply_standard_layout(layout)
-
-        # Title
-        title = QtWidgets.QLabel("Latest Pitch Stats")
-        title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._style_manager.style_label(title, "sectionTitle")
-        layout.addWidget(title)
-
-        # Speed display (large, prominent)
-        self._speed_label = QtWidgets.QLabel("Speed: -- mph")
-        self._speed_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._style_manager.style_label(self._speed_label, "metricAccent")
-        layout.addWidget(self._speed_label)
-
-        # H-break
-        self._h_break_label = QtWidgets.QLabel("H-Break: -- in")
-        self._h_break_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._style_manager.style_label(self._h_break_label, "muted")
-        layout.addWidget(self._h_break_label)
-
-        # V-break
-        self._v_break_label = QtWidgets.QLabel("V-Break: -- in")
-        self._v_break_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._style_manager.style_label(self._v_break_label, "muted")
-        layout.addWidget(self._v_break_label)
-
-        # Result
-        self._result_label = QtWidgets.QLabel("Result: --")
-        self._result_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self._style_manager.style_label(self._result_label, "sectionTitle")
-        layout.addWidget(self._result_label)
-
-        # Separator
-        separator = QtWidgets.QFrame()
-        separator.setFrameShape(QtWidgets.QFrame.Shape.HLine)
-        separator.setFrameShadow(QtWidgets.QFrame.Shadow.Sunken)
-        layout.addWidget(separator)
-
-        # Recent pitches title
-        recent_title = QtWidgets.QLabel("Recent Pitches")
-        self._style_manager.style_label(recent_title, "eyebrow")
-        layout.addWidget(recent_title)
-
-        # Recent pitches list
+        self._recent_signature: tuple = ()
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setSpacing(8)
+        self._title = self._label("Latest Pitch", "sectionTitle", layout)
+        self._speed_label = self._label("Speed: unavailable", "title", layout)
+        self._source_label = self._label("Source and reference appear with a recorded pitch.", "muted", layout)
+        self._result_label = self._label("Result: waiting for a pitch", "sectionTitle", layout)
+        self._quality_label = self._label("No pitch measured", "muted", layout)
+        self._location_label = self._label("Plate location: unavailable", "default", layout)
+        movement = QtWidgets.QHBoxLayout()
+        self._h_break_label = QtWidgets.QLabel("H-Break: unavailable")
+        self._v_break_label = QtWidgets.QLabel("V-Break: unavailable")
+        for label in (self._h_break_label, self._v_break_label):
+            label.setWordWrap(True)
+            self._style_manager.style_label(label, "muted")
+            movement.addWidget(label)
+        layout.addLayout(movement)
+        self._label("Recent pitches · newest first", "eyebrow", layout)
         self._recent_list = QtWidgets.QListWidget()
-        self._recent_list.setMaximumHeight(300)
+        self._recent_list.setAccessibleName("Recent recorded pitches")
+        self._recent_list.setMinimumHeight(70)
+        self._recent_list.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._recent_list.setWordWrap(True)
         layout.addWidget(self._recent_list, 1)
-
-        layout.addStretch()
-        self.setLayout(layout)
         self.setProperty("surface", "card")
         self._style_manager.polish(self)
 
-    def update_latest_pitch(self, pitch: "PitchSummary") -> None:
-        """Update display with latest pitch data.
+    def _label(self, text: str, variant: str, layout: QtWidgets.QVBoxLayout) -> QtWidgets.QLabel:
+        label = QtWidgets.QLabel(text)
+        label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        label.setWordWrap(True)
+        self._style_manager.style_label(label, variant)
+        layout.addWidget(label)
+        return label
 
-        Args:
-            pitch: Latest pitch summary
-        """
-        # Speed
-        if pitch.speed_mph is not None:
-            self._speed_label.setText(f"Speed: {pitch.speed_mph:.1f} mph")
-            measurement = pitch.external_speed or pitch.vision_speed
-            self._speed_label.setToolTip(
-                f"{measurement.source}: {measurement.reference.replace('_', ' ')}"
-                if measurement
-                else "Measurement source/location unavailable in this legacy result"
-            )
+    @staticmethod
+    def _status(pitch) -> str:
+        value = getattr(pitch, "measurement_status", "UNKNOWN")
+        return str(getattr(value, "value", value)).upper()
+
+    @staticmethod
+    def _speed(pitch) -> str:
+        speed = pitch.speed_mph
+        return f"{speed:.1f} mph" if measurement_is_usable(pitch) and speed is not None and isfinite(speed) and speed > 0 else "unavailable"
+
+    def update_latest_pitch(self, pitch: PitchSummary) -> None:
+        usable = measurement_is_usable(pitch)
+        status = self._status(pitch)
+        self._title.setText(f"Latest Pitch · {pitch.pitch_id}")
+        speed = self._speed(pitch)
+        self._speed_label.setText(f"Speed: {speed}")
+        source = getattr(pitch, "speed_source", None)
+        measurements = [value for value in (getattr(pitch, "external_speed", None), getattr(pitch, "vision_speed", None))
+                        if value and pitch.speed_mph is not None and isclose(value.speed_mph, pitch.speed_mph, abs_tol=1e-6)
+                        and (not source or value.source == source)]
+        if len(measurements) == 1:
+            measurement = measurements[0]
+            reference = measurement.reference.replace("_", " ")
+            if measurement.reference_z_ft is not None:
+                reference += f" · z {measurement.reference_z_ft:g} ft"
+            provenance = f"{measurement.source.replace('_', ' ')} · {reference}"
         else:
-            self._speed_label.setText("Speed: -- mph")
-            self._speed_label.setToolTip("")
-
-        # The legacy run/rise fields are raw endpoint displacement today, not
-        # validated induced break. Keep them in diagnostics but do not present
-        # them to a coach under a stronger physical label.
-        movement_validated = bool((pitch.quality_diagnostics or {}).get("movement_validated"))
-        if movement_validated:
-            h_break = pitch.run_in
-            v_break = pitch.rise_in
-            self._h_break_label.setText(f"H-Break: {h_break:+.1f} in")
-            self._v_break_label.setText(f"V-Break: {v_break:+.1f} in")
+            provenance = f"{source.replace('_', ' ') if source else 'Source not recorded'} · reference unavailable"
+        self._source_label.setText(provenance)
+        self._speed_label.setToolTip(provenance)
+        call_available = usable and getattr(pitch, "strike_call_available", True)
+        result = ("STRIKE" if pitch.is_strike else "BALL") if call_available else (status if not usable else "UNAVAILABLE")
+        self._result_label.setText(f"Result: {result}")
+        self._style_manager.style_status_indicator(self._result_label, "info" if call_available else "warning")
+        reasons = getattr(pitch, "observation_rejection_reasons", None) or getattr(pitch, "observation_warning_reasons", None) or []
+        reason = getattr(pitch, "strike_call_reason", None) or "; ".join(reasons)
+        short_reason = reason[:100] + ("…" if len(reason) > 100 else "")
+        self._quality_label.setAccessibleDescription(reason)
+        self._quality_label.setText(f"Recorded status: {status}" + (f" · {short_reason}" if reason else ""))
+        if not call_available and not reason:
+            self._quality_label.setText(f"Recorded status: {status} · No eligible strike/ball call or location marker.")
+        x, y = pitch.trajectory_plate_x_ft, pitch.trajectory_plate_y_ft
+        if usable and x is not None and y is not None and isfinite(x) and isfinite(y):
+            self._location_label.setText(f"Plate location: x {x:+.2f} ft · height {y:.2f} ft")
         else:
-            self._h_break_label.setText("H-Break: unavailable")
-            self._v_break_label.setText("V-Break: unavailable")
-            detail = "Raw endpoint displacement is available in Diagnostics; induced break is not validated."
-            self._h_break_label.setToolTip(detail)
-            self._v_break_label.setToolTip(detail)
+            self._location_label.setText("Plate location: unavailable")
+        validated = (usable and bool((pitch.quality_diagnostics or {}).get("movement_validated"))
+                     and isfinite(pitch.run_in) and isfinite(pitch.rise_in))
+        self._h_break_label.setText(f"H-Break: {pitch.run_in:+.1f} in" if validated else "H-Break: unavailable")
+        self._v_break_label.setText(f"V-Break: {pitch.rise_in:+.1f} in" if validated else "V-Break: unavailable")
+        detail = "Movement remains unavailable without validation. Raw displacement is available in Advanced Tools."
+        self._h_break_label.setToolTip(detail)
+        self._v_break_label.setToolTip(detail)
 
-        # Result (color-coded)
-        if pitch.measurement_status in {"REJECTED", "UNAVAILABLE"}:
-            self._result_label.setText("Result: UNAVAILABLE")
-            self._style_manager.style_status_indicator(self._result_label, "warning")
-        elif pitch.is_strike:
-            self._result_label.setText("Result: STRIKE")
-            self._style_manager.style_status_indicator(self._result_label, "success")
-        else:
-            self._result_label.setText("Result: BALL")
-            self._style_manager.style_status_indicator(self._result_label, "error")
-
-    def update_recent_list(self, recent_pitches: List["PitchSummary"]) -> None:
-        """Update recent pitches list.
-
-        Args:
-            recent_pitches: List of recent pitches (last 10 recommended)
-        """
+    def update_recent_list(self, recent_pitches: list[PitchSummary]) -> None:
+        rows = []
+        for index, pitch in list(enumerate(recent_pitches))[-10:][::-1]:
+            status = self._status(pitch)
+            usable = measurement_is_usable(pitch) and getattr(pitch, "strike_call_available", True)
+            verdict = ("STRIKE" if pitch.is_strike else "BALL") if usable else (status if not measurement_is_usable(pitch) else "UNAVAILABLE")
+            identity = getattr(pitch, "pitch_id", f"pitch_{index + 1}")
+            rows.append((identity, f"#{index + 1} · {self._speed(pitch)} · {verdict} · {status}"))
+        signature = tuple(rows)
+        if signature == self._recent_signature:
+            return
+        selected = self._recent_list.currentItem()
+        selected_id = selected.data(QtCore.Qt.ItemDataRole.UserRole) if selected else None
+        scroll = self._recent_list.verticalScrollBar().value()
         self._recent_list.clear()
-
-        # Show last 10 pitches, newest first
-        display_pitches = recent_pitches[-10:][::-1]
-
-        theme = self._style_manager.theme
-
-        for i, pitch in enumerate(display_pitches):
-            # Format: "#1: 85.3 mph - STRIKE"
-            pitch_num = len(recent_pitches) - i
-            speed_str = f"{pitch.speed_mph:.1f}" if pitch.speed_mph else "--"
-            if pitch.measurement_status in {"REJECTED", "UNAVAILABLE"}:
-                result_str = str(getattr(pitch.measurement_status, "value", pitch.measurement_status))
-            else:
-                result_str = "STRIKE" if pitch.is_strike else "BALL"
-
-            item_text = f"#{pitch_num}: {speed_str} mph - {result_str}"
-
-            # Color code by result using theme colors
-            item = QtWidgets.QListWidgetItem(item_text)
-            if pitch.is_strike:
-                item.setForeground(QtGui.QColor(theme.accent_success))
-            else:
-                item.setForeground(QtGui.QColor(theme.accent_error))
-
+        for identity, text in rows:
+            item = QtWidgets.QListWidgetItem(text)
+            item.setData(QtCore.Qt.ItemDataRole.UserRole, identity)
             self._recent_list.addItem(item)
+            if identity == selected_id:
+                self._recent_list.setCurrentItem(item)
+        self._recent_list.verticalScrollBar().setValue(scroll)
+        self._recent_signature = signature
 
     def clear(self) -> None:
-        """Clear all displays."""
-        self._speed_label.setText("Speed: -- mph")
+        self._title.setText("Latest Pitch")
+        self._speed_label.setText("Speed: unavailable")
+        self._source_label.setText("Source and reference appear with a recorded pitch.")
         self._speed_label.setToolTip("")
-        self._h_break_label.setText("H-Break: -- in")
-        self._v_break_label.setText("V-Break: -- in")
-        self._h_break_label.setToolTip("")
-        self._v_break_label.setToolTip("")
-        self._result_label.setText("Result: --")
-        self._style_manager.style_label(self._result_label, "sectionTitle")
+        self._result_label.setText("Result: waiting for a pitch")
+        self._quality_label.setText("No pitch measured")
+        self._quality_label.setAccessibleDescription("")
+        self._location_label.setText("Plate location: unavailable")
+        for label in (self._h_break_label, self._v_break_label):
+            label.setText("H-Break: unavailable" if label is self._h_break_label else "V-Break: unavailable")
         self._recent_list.clear()
+        self._recent_signature = ()
 
 
 __all__ = ["StatsPanelWidget"]

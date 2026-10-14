@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.qt_pipeline_service import QtPipelineService
 from app.services.rig_profile import RigProfileService
@@ -86,6 +86,8 @@ class CoachWindow(CoachingWorkspaceHost):
         self._service = service or QtPipelineService(backend=backend, parent=self)
         self._workspace_hosted = False
         self._session_prepared = False
+        self._advanced_actions: list[tuple[QtGui.QAction, QtWidgets.QPushButton]] = []
+        self._fatigue_dialog: QtWidgets.QDialog | None = None
 
         # Session state
         self._session_active = False
@@ -135,8 +137,10 @@ class CoachWindow(CoachingWorkspaceHost):
     def _build_ui(self) -> None:
         """Build coaching dashboard UI."""
         session_bar = self._build_session_bar()
+        self._session_bar = session_bar
         main_content = self._build_main_content()
         controls = self._build_controls()
+        self._controls_bar = controls
 
         self._status_label = QtWidgets.QLabel("Ready. Click 'Start Session' to begin.")
         self._style_manager.style_status_indicator(self._status_label, "info")

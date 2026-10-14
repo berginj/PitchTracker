@@ -60,6 +60,7 @@ class CameraViewWidget(QtWidgets.QWidget):
         self._camera_label.setProperty("surface", "preview")
         self._style_manager.polish(self._camera_label)
         self._camera_label.setScaledContents(False)  # Maintain aspect ratio
+        self._camera_label.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Ignored)
 
         # Strike zone overlay
         self._strike_zone = StrikeZoneOverlay(self._camera_label)
@@ -87,6 +88,10 @@ class CameraViewWidget(QtWidgets.QWidget):
         # Radio button group for exclusive selection
         self._left_radio = QtWidgets.QRadioButton("Left Camera")
         self._right_radio = QtWidgets.QRadioButton("Right Camera")
+        self._left_radio.setAccessibleName("Preview left camera")
+        self._right_radio.setAccessibleName("Preview right camera")
+        for radio in (self._left_radio, self._right_radio):
+            radio.setMinimumHeight(self._style_manager.theme.button_height_md)
 
         self._left_radio.setChecked(True)  # Default to left
 

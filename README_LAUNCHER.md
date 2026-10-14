@@ -56,6 +56,11 @@ on demand and in durable evidence.
 
 ### Sessions and Players
 
+Live offers **Latest Pitch**, **Session Trends** and **Games**. Latest-pitch
+speed, source/reference, recorded status and location stay beside a resizable
+preview. Drag its divider or focus it and use Left/Right keys. **Advanced Tools**
+contains diagnostics, recorded pitch details, detector trials and rig controls.
+
 The header owns the essential session controls on every page. Preparation opens
 preview only; **Start Recording** remains explicit. Pending commands show progress
 while navigation stays responsive. Failed operations preserve their last confirmed

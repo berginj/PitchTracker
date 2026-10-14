@@ -16,6 +16,7 @@ from ui.coaching.widgets.games.tic_tac_toe_game import TicTacToeGame
 from ui.coaching.widgets.mode_widgets.base_mode_widget import BaseModeWidget
 from ui.themes import get_style_manager
 from ui.themes.layout_helpers import apply_standard_layout
+from ui.coaching.live_layout import install_scrolling_layout
 
 if TYPE_CHECKING:
     from contracts import Frame
@@ -49,7 +50,7 @@ class GameModeWidget(BaseModeWidget):
 
     def _build_ui(self) -> None:
         """Build the widget UI."""
-        layout = QtWidgets.QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout(QtWidgets.QWidget(self))
 
         # Title and game selector
         selector_layout = QtWidgets.QHBoxLayout()
@@ -62,6 +63,7 @@ class GameModeWidget(BaseModeWidget):
 
         selector_layout.addWidget(QtWidgets.QLabel("Select Game:"))
         self._game_selector = QtWidgets.QComboBox()
+        self._game_selector.setAccessibleName("Choose coaching game")
         self._game_selector.addItems(["Tic-Tac-Toe", "Target Scoring", "Around the World", "Speed Challenge"])
         self._game_selector.currentIndexChanged.connect(self._on_game_selected)
         selector_layout.addWidget(self._game_selector)
@@ -86,7 +88,7 @@ class GameModeWidget(BaseModeWidget):
 
         apply_standard_layout(layout)
 
-        self.setLayout(layout)
+        install_scrolling_layout(self, layout)
 
     def _on_game_selected(self, index: int) -> None:
         """Handle game selection change.
@@ -153,7 +155,7 @@ class GameModeWidget(BaseModeWidget):
         Returns:
             Mode name
         """
-        return "Game Mode"
+        return "Games"
 
 
 __all__ = ["GameModeWidget"]

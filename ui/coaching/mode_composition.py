@@ -49,7 +49,7 @@ def build_mode_content(
     mode_toolbar = QtWidgets.QFrame()
     style_manager.style_panel(mode_toolbar, "subtle")
     mode_toolbar_layout = QtWidgets.QHBoxLayout()
-    mode_toolbar_layout.setContentsMargins(18, 14, 18, 14)
+    mode_toolbar_layout.setContentsMargins(12, 6, 12, 6)
 
     mode_label = QtWidgets.QLabel("View Mode:")
     style_manager.style_label(mode_label, "eyebrow")
@@ -58,7 +58,7 @@ def build_mode_content(
     mode_selector = QtWidgets.QComboBox()
     mode_selector.setAccessibleName("View Mode")
     style_manager.style_input(mode_selector)
-    mode_selector.addItems(["Broadcast View", "Session Progression", "Game Mode"])
+    mode_selector.addItems(["Latest Pitch", "Session Trends", "Games"])
     mode_toolbar_layout.addStretch()
     mode_toolbar.setLayout(mode_toolbar_layout)
 
@@ -68,6 +68,8 @@ def build_mode_content(
 
     # Mode stack
     mode_stack = QtWidgets.QStackedWidget()
+    mode_stack.setMinimumSize(0, 0)
+    mode_stack.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Ignored)
 
     broadcast_mode = BroadcastViewWidget(strike_zone_overlay_config)
     progression_mode = SessionProgressionWidget(session_tracker, strike_zone_overlay_config)
@@ -129,5 +131,5 @@ def on_mode_changed(
     state["last_coaching_mode"] = index
     save_state(state)
 
-    mode_names = ["Broadcast View", "Session Progression", "Game Mode"]
+    mode_names = ["Latest Pitch", "Session Trends", "Games"]
     logger.debug(f"Switched to {mode_names[index]}")

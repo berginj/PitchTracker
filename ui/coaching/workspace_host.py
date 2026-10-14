@@ -27,6 +27,8 @@ class CoachingWorkspaceHost(QtWidgets.QMainWindow):
             button.hide()  # The persistent shell owns essential session actions and help.
         h._status_label.hide()
         h._recording_indicator.hide()
+        from ui.coaching.live_layout import configure_live_workspace
+        configure_live_workspace(h)
         embed_window(h, parent, scroll_content=True)
         h.apply_runtime_status(h.pipeline_service.runtime_status())
 
@@ -59,6 +61,10 @@ class CoachingWorkspaceHost(QtWidgets.QMainWindow):
         h._settings_button.setEnabled(enabled and not status.owns_capture and not status.owns_recording)
         h._diagnostics_button.setEnabled(enabled)
         h._detector_trial_button.setEnabled(enabled)
+        for action, button in getattr(h, "_advanced_actions", []):
+            action.setEnabled(button.isEnabled())
+            reason = "Wait for session operation" if not enabled else "Preview only" if button is h._lane_button else "Stop preview first"
+            action.setText(str(action.data()) + (f" · {reason}" if not button.isEnabled() else ""))
 
     def polling_allowed(self) -> bool:
         h = cast("CoachWindow", self)

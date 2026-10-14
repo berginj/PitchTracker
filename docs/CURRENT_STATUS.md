@@ -76,7 +76,10 @@ software checks, synthetic screenshots and remaining manual qualification.
 Session commands now run in a retained worker, with shared progress, confirmed
 state and supported retry actions. See the
 [UX-03 implementation record](review/ux/UX_03_IMPLEMENTATION.md).
-Detailed page redesign continues under UX-04 through UX-08 in the roadmap.
+Live now uses Latest Pitch, Session Trends and Games, with a resizable preview,
+visible measurement provenance and Advanced Tools. See the
+[UX-04 implementation record](review/ux/UX_04_IMPLEMENTATION.md).
+Session/review and remaining experience work continues under UX-05 through UX-08.
 
 The older desktop/setup/pipeline paths are retired under
 `archive/retired/2026-10-13`. Guided setup is the default for launcher, direct
