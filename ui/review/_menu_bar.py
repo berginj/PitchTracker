@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from PySide6 import QtGui, QtWidgets
+if TYPE_CHECKING:
+    from ui.review.review_window import ReviewWindow
 
 
 @dataclass(frozen=True)
@@ -93,6 +96,31 @@ def build_menu_bar(
         annotation=annotation_action,
         trajectory=trajectory_action,
     )
+
+
+def initialize_review_menu(window: ReviewWindow) -> ReviewMenuActions:
+    from ui.review.pipeline_comparison_dialog import open_pipeline_comparison
+    handlers: dict[str, Callable[..., object]] = {
+        "open_session": window._session_ctrl.open_session_dialog,
+        "review_all": window._session_ctrl.review_all_sessions,
+        "prev_session": window._session_ctrl.previous_session,
+        "next_session": window._session_ctrl.next_session,
+        "delete_session": window._session_ctrl.delete_current_session,
+        "close_session": window._session_ctrl.close_session,
+        "play_pause": window._playback_ctrl.toggle_playback,
+        "step_forward": window._playback_ctrl.step_forward,
+        "step_backward": window._playback_ctrl.step_backward,
+        "seek_start": window._playback_ctrl.seek_to_start,
+        "seek_end": window._playback_ctrl.seek_to_end,
+        "toggle_annotation": window._toggle_annotation_mode,
+        "clear_annotations": window._clear_annotations,
+        "measurement_validation": window._open_measurement_validation,
+        "compare_approaches": lambda: open_pipeline_comparison(window),
+        "toggle_trajectory": window._toggle_trajectory_overlay,
+        "export_config": lambda: window._export_ctrl.export_config(),
+        "export_annotations": lambda: window._export_ctrl.export_annotations(),
+    }
+    return build_menu_bar(window, handlers)
 
 
 def _add(

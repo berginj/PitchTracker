@@ -7,6 +7,7 @@ import pytest
 from PySide6 import QtGui
 
 from app.events.event_types import PitchEndEvent, PitchStartEvent
+from app.services.orchestrator.runtime_status import RuntimeStatusEvent
 from app.qt_pipeline_service import QtPipelineService
 from exceptions import CameraConnectionError
 from ui.coaching.session_controller import SessionController
@@ -87,7 +88,7 @@ def test_qt_wrapper_retains_event_subscriptions_until_terminal_shutdown():
     service = Mock()
     service.shutdown.side_effect = [CameraConnectionError("reader still pending"), None]
     wrapper = SimpleNamespace(
-        _service=service, _on_pitch_start_event=Mock(), _on_pitch_end_event=Mock()
+        _service=service, _on_pitch_start_event=Mock(), _on_pitch_end_event=Mock(), _on_runtime_status_event=Mock()
     )
     with pytest.raises(CameraConnectionError, match="pending"):
         QtPipelineService.shutdown(wrapper)
@@ -95,6 +96,7 @@ def test_qt_wrapper_retains_event_subscriptions_until_terminal_shutdown():
 
     QtPipelineService.shutdown(wrapper)
 
-    assert service.unsubscribe_event.call_count == 2
+    assert service.unsubscribe_event.call_count == 3
+    service.unsubscribe_event.assert_any_call(RuntimeStatusEvent, wrapper._on_runtime_status_event)
     service.unsubscribe_event.assert_any_call(PitchStartEvent, wrapper._on_pitch_start_event)
     service.unsubscribe_event.assert_any_call(PitchEndEvent, wrapper._on_pitch_end_event)

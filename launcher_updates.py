@@ -90,6 +90,10 @@ class LauncherUpdateController(QtCore.QObject):
         """
         if self._closing or self._has_active_workers() or not self._pending_installer:
             return
+        admission = getattr(self._window, "may_install_update", None)
+        if callable(admission) and not admission():
+            logger.info("Auto-update ready; workspace still owns a workflow")
+            return
         if not self._window.isVisible():
             logger.info("Auto-update ready; deferring install until current workflow closes")
             return

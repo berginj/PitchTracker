@@ -22,11 +22,13 @@ from ui.coaching.session_controller import SessionController
 from ui.coaching.strike_zone_mapping import StrikeZoneOverlayConfig
 from ui.coaching.widgets import CompactFatigueIndicator
 from ui.themes import apply_standard_layout, get_style_manager
+from ui.workspace.contracts import SessionPreparation
+from ui.coaching.workspace_host import CoachingWorkspaceHost
 
 logger = logging.getLogger(__name__)
 
 
-class CoachWindow(QtWidgets.QMainWindow):
+class CoachWindow(CoachingWorkspaceHost):
     """Coaching dashboard for fast pitching session management.
 
     Designed for coaches to:
@@ -37,11 +39,19 @@ class CoachWindow(QtWidgets.QMainWindow):
     - Export for player review
     """
 
+    preparation_changed = QtCore.Signal(object)
+    session_operation_changed = QtCore.Signal()
+    configuration_available = True
+    review_requested = QtCore.Signal()
+    setup_requested = QtCore.Signal()
+    exit_requested = QtCore.Signal()
+
     def __init__(
         self,
         backend: str = "uvc",
         config_path: Optional[Path] = None,
         parent: Optional[QtWidgets.QWidget] = None,
+        *, service: QtPipelineService | None = None, warm_cameras: bool = True,
     ):
         super().__init__(parent)
         self.setWindowTitle("PitchTracker - Coaching Session")
@@ -73,7 +83,9 @@ class CoachWindow(QtWidgets.QMainWindow):
             )
 
         # Pipeline service
-        self._service = QtPipelineService(backend=backend, parent=self)
+        self._service = service or QtPipelineService(backend=backend, parent=self)
+        self._workspace_hosted = False
+        self._session_prepared = False
 
         # Session state
         self._session_active = False
@@ -100,11 +112,11 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._build_ui()
 
         # Timers
-        self._preview_timer = QtCore.QTimer()
+        self._preview_timer = QtCore.QTimer(self)
         self._preview_timer.timeout.connect(self._update_preview)
         self._preview_timer.start(33)
 
-        self._metrics_timer = QtCore.QTimer()
+        self._metrics_timer = QtCore.QTimer(self)
         self._metrics_timer.timeout.connect(self._update_metrics)
         self._metrics_timer.start(100)
 
@@ -113,7 +125,8 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._service.pitch_ended.connect(self._on_pitch_ended)
 
         # Warm camera cache
-        self._session_ctrl.warm_camera_cache_async()
+        if warm_cameras:
+            self._session_ctrl.warm_camera_cache_async()
 
     # ------------------------------------------------------------------
     # UI Construction
@@ -174,6 +187,7 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._diagnostics_button.clicked.connect(self._show_quality_diagnostics)
         from ui.coaching.detector_trial_dialog import open_detector_trial
         detector_trial = QtWidgets.QPushButton("Detector trial")
+        self._detector_trial_button = detector_trial
         detector_trial.clicked.connect(lambda: open_detector_trial(self))
 
         sep1 = QtWidgets.QLabel("|")
@@ -307,6 +321,45 @@ class CoachWindow(QtWidgets.QMainWindow):
         """Update the footer status indicator with a semantic tone."""
         self._status_label.setText(message)
         self._style_manager.style_status_indicator(self._status_label, tone)
+        self.notify_preparation_changed()
+
+    @property
+    def pipeline_service(self) -> QtPipelineService:
+        return self._service
+
+    def preparation(self) -> SessionPreparation:
+        return SessionPreparation(self._session_name, self._pitcher_name, self._session_prepared)
+
+    def notify_preparation_changed(self) -> None:
+        self.preparation_changed.emit(self.preparation())
+
+    def request_workspace_setup(self) -> bool:
+        if self._workspace_hosted:
+            self.setup_requested.emit()
+        return self._workspace_hosted
+
+    def stop_updates(self) -> None:
+        self._preview_timer.stop()
+        self._metrics_timer.stop()
+
+    def refresh_preparation_config(self) -> None:
+        """An explicit new preparation reads the latest saved rig; navigation never reloads it."""
+        if self._service.is_capturing():
+            return
+        from dataclasses import replace
+        config = load_config(self._config_path)
+        service = RigProfileService(config_path=self._config_path)
+        profile = service.load_active()
+        if profile is not None:
+            config = service.apply_profile_to_config(config, profile, preserve_camera_mode=False)
+        self._config = replace(config, trajectory=replace(
+            config.trajectory, compute_backend=self._config.trajectory.compute_backend))
+        self._camera_width, self._camera_height = config.camera.width, config.camera.height
+        self._camera_fps, self._camera_color_mode = config.camera.fps, config.camera.color_mode
+        self._strike_zone_overlay_config = StrikeZoneOverlayConfig.from_app_config(self._config)
+
+    def show_session_settings(self) -> None:
+        self._show_settings()
 
     # ------------------------------------------------------------------
     # Delegated action slots
@@ -344,6 +397,8 @@ class CoachWindow(QtWidgets.QMainWindow):
     # ------------------------------------------------------------------
 
     def _update_preview(self) -> None:
+        if getattr(self, "_workspace_hosted", False) and not self.polling_allowed():
+            return
         self._pitch_display.update_preview()
 
     def _on_pitch_started(self, pitch_index: int, pitch_data) -> None:
@@ -353,6 +408,8 @@ class CoachWindow(QtWidgets.QMainWindow):
         self._pitch_display.on_pitch_ended(pitch_data)
 
     def _update_metrics(self) -> None:
+        if getattr(self, "_workspace_hosted", False) and not self.polling_allowed():
+            return
         self._pitch_display.update_metrics()
 
     def _update_quality_health(self) -> None:
@@ -364,4 +421,8 @@ class CoachWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event) -> None:
         """Handle window close event."""
-        self._session_ctrl.handle_close_event(event)
+        if self._workspace_hosted:
+            event.ignore()
+            self.exit_requested.emit()
+        else:
+            self._session_ctrl.handle_close_event(event)

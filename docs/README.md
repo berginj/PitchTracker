@@ -50,6 +50,11 @@ with them, use these pages and open a documentation issue.
 
 ## Developer guides
 
+- [UX workspace plan](UX_WORKSPACE_PLAN.md) — assignable redesign work and acceptance criteria;
+  delivery status stays in [Roadmap](ROADMAP.md).
+- [UI agent instructions](../ui/AGENTS.md) — shared experience requirements and scoped ownership.
+- [Workspace implementation](review/ux/UX_02_IMPLEMENTATION.md) — persistent navigation and validation evidence.
+- [Session controls](review/ux/UX_03_IMPLEMENTATION.md) — responsive commands, state and recovery evidence.
 - [Requirements](../REQ.md)
 - [Contributing](../CONTRIBUTING.md)
 - [Testing and validation](TEST_SUITE_DOCUMENTATION.md)
@@ -89,4 +94,4 @@ When behavior changes:
 5. Move superseded point-in-time reports to the archive instead of leaving two
    competing status sources.
 
-Last reviewed: **2026-10-06**.
+Last reviewed: **2026-10-13**.

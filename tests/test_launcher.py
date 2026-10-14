@@ -107,8 +107,10 @@ def test_dependency_checker_loads_by_file_path() -> None:
     assert hasattr(checker, "check_dependencies")
 
 
+@pytest.mark.parametrize("argv", [[], ["--setup", "--backend", "sim", "--config", "configs/default.yaml"]])
 def test_main_shows_launcher_without_blocking_on_validation(
     monkeypatch: pytest.MonkeyPatch,
+    argv: list[str],
 ) -> None:
     class DummyApp:
         def setStyle(self, _style: str) -> None:
@@ -129,12 +131,17 @@ def test_main_shows_launcher_without_blocking_on_validation(
     class DummyLauncher:
         def __init__(self) -> None:
             self.shown = False
+            self.setup_opened = False
 
         def show(self) -> None:
             self.shown = True
 
+        def _launch_stereo_setup(self) -> None:
+            self.setup_opened = True
+
     app = DummyApp()
     created_windows: list[DummyLauncher] = []
+    forwarded_args = []
 
     monkeypatch.setattr(launcher, "create_required_directories", lambda: None)
     monkeypatch.setattr(launcher, "get_current_version", lambda: "1.0.0")
@@ -142,9 +149,11 @@ def test_main_shows_launcher_without_blocking_on_validation(
     def build_launcher(**_kwargs) -> DummyLauncher:
         window = DummyLauncher()
         created_windows.append(window)
+        forwarded_args.append(_kwargs)
         return window
 
-    monkeypatch.setattr(launcher, "LauncherWindow", build_launcher)
+    import ui.workspace.window as workspace
+    monkeypatch.setattr(workspace, "WorkspaceWindow", build_launcher)
     monkeypatch.setattr(
         launcher.sys,
         "exit",
@@ -157,8 +166,11 @@ def test_main_shows_launcher_without_blocking_on_validation(
     # QApplication.instance() on the stand-in and poisons every later test.
     with patch.object(launcher.QtWidgets, "QApplication", lambda _argv: app):
         with pytest.raises(SystemExit) as exc_info:
-            launcher.main()
+            launcher.main(argv)
 
     assert exc_info.value.code == 0
     assert len(created_windows) == 1
     assert created_windows[0].shown is True
+    assert created_windows[0].setup_opened == ("--setup" in argv)
+    assert forwarded_args[0]["backend"] == ("sim" if argv else "uvc")
+    assert forwarded_args[0]["config_path"] == (Path("configs/default.yaml") if argv else None)

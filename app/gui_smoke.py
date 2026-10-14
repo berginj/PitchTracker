@@ -7,6 +7,7 @@ import os
 from contextlib import chdir
 from pathlib import Path
 import tempfile
+import time
 import traceback
 
 from PySide6 import QtCore, QtWidgets
@@ -67,11 +68,13 @@ def _render_workflows(app: QtWidgets.QApplication, windows: list[QtWidgets.QWidg
     from ui.coaching import CoachWindow
     from ui.review import ReviewWindow
     from ui.setup.stereo_setup_window import StereoSetupWindow
+    from ui.workspace.window import WorkspaceWindow
 
     workflows = []
     for factory in (
         lambda: LauncherWindow(backend="sim", background_tasks=False),
         lambda: CoachWindow(backend="sim"), lambda: StereoSetupWindow(backend="sim"), ReviewWindow,
+        lambda: WorkspaceWindow(backend="sim", background_tasks=False),
     ):
         window = factory()
         windows.append(window)
@@ -85,7 +88,12 @@ def _render_workflows(app: QtWidgets.QApplication, windows: list[QtWidgets.QWidg
         if window.grab().isNull():
             raise RuntimeError(f"GUI render failed: {type(window).__name__}")
         if not window.close():
-            raise RuntimeError(f"GUI shutdown did not reach terminal state: {type(window).__name__}")
+            deadline = time.monotonic() + 5
+            while window.isVisible() and time.monotonic() < deadline:
+                app.processEvents()
+                time.sleep(.01)
+            if window.isVisible():
+                raise RuntimeError(f"GUI shutdown did not reach terminal state: {type(window).__name__}")
         app.processEvents()
         workflows.append(type(window).__name__)
     return workflows

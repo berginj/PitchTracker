@@ -73,6 +73,14 @@ class SessionController:
         from ui.coaching.dialogs import SessionStartDialog
 
         h = self._host
+        refresh = getattr(h, "refresh_preparation_config", None)
+        if callable(refresh):
+            try:
+                refresh()
+            except Exception as exc:
+                logger.exception("Unable to load session preparation settings")
+                show_message_dialog(h, "Session settings unavailable", str(exc), tone="error")
+                return
         dialog = SessionStartDialog(
             h._config,
             parent=h,
@@ -162,6 +170,7 @@ class SessionController:
         h._session_tracker.clear()
 
         h._setup_button.setEnabled(False)
+        h._session_prepared = True
         h._start_recording_button.setEnabled(True)
         h._end_button.setEnabled(True)
         h._set_status_message(
@@ -302,6 +311,7 @@ class SessionController:
             )
 
         h._session_label.setText("Session: <not started>")
+        h._session_prepared = False
         h._pitcher_label.setText("Pitcher: <not selected>")
         h._pitch_count_label.setText("Pitches: 0")
         h._recording_indicator.hide()
@@ -378,6 +388,7 @@ class SessionController:
         h._fatigue_indicator.reset()
         logger.info(f"Switched pitcher: {old_pitcher} -> {pitcher_name}")
         h._status_label.setText(f"Switched to pitcher: {pitcher_name}")
+        h.notify_preparation_changed()
 
     def handle_close_event(self, event) -> None:
         """Handle window close — stop capture and recording."""
@@ -428,6 +439,9 @@ class SessionController:
 
     def open_review_mode(self) -> None:
         """Open review mode window."""
+        if getattr(self._host, "_workspace_hosted", False):
+            self._host.review_requested.emit()
+            return
         from ui.review import ReviewWindow
 
         review_window = ReviewWindow(parent=self._host)

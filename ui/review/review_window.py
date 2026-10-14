@@ -12,14 +12,13 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from collections.abc import Callable
 from typing import Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.review import PitchScore, ReviewService
 from ui.review._export_controller import ExportController
-from ui.review._menu_bar import build_menu_bar
+from ui.review._menu_bar import initialize_review_menu
 from ui.review._playback_controller import PlaybackController
 from ui.review._session_controller import SessionController
 from ui.review._trajectory_controller import TrajectoryController
@@ -32,11 +31,13 @@ from ui.review.widgets import (
     VideoDisplayWidget,
 )
 from ui.themes import apply_standard_layout, get_style_manager
+from ui.workspace.contracts import ReviewSelection
+from ui.review.workspace_host import ReviewWorkspaceHost
 
 logger = logging.getLogger(__name__)
 
 
-class ReviewWindow(QtWidgets.QMainWindow):
+class ReviewWindow(ReviewWorkspaceHost):
     """Main window for review and training mode.
 
     Allows users to:
@@ -46,12 +47,11 @@ class ReviewWindow(QtWidgets.QMainWindow):
     - Annotate and score pitches
     - Export tuned configurations
 
-    Example:
-        >>> window = ReviewWindow()
-        >>> window.show()
     """
 
     closed = QtCore.Signal()
+    selection_changed = QtCore.Signal(object)
+    exit_requested = QtCore.Signal()
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
         """Initialize review window.
@@ -68,6 +68,9 @@ class ReviewWindow(QtWidgets.QMainWindow):
         self._service = ReviewService()
         self._measurement_dialog: QtWidgets.QDialog | None = None
         self._close_after_measurement = False
+        self._selected_pitch_id: str | None = None
+        self._workspace_hosted = False
+        self._workspace_shutdown = False
 
         # Status bar (needed by controllers)
         self._status_bar = QtWidgets.QStatusBar()
@@ -118,28 +121,7 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
     def _create_menu_bar(self) -> None:
         """Create menu bar with File, Playback, Tools, Export menus."""
-        from ui.review.pipeline_comparison_dialog import open_pipeline_comparison
-        handlers: dict[str, Callable[..., object]] = {
-            "open_session": self._session_ctrl.open_session_dialog,
-            "review_all": self._session_ctrl.review_all_sessions,
-            "prev_session": self._session_ctrl.previous_session,
-            "next_session": self._session_ctrl.next_session,
-            "delete_session": self._session_ctrl.delete_current_session,
-            "close_session": self._session_ctrl.close_session,
-            "play_pause": self._playback_ctrl.toggle_playback,
-            "step_forward": self._playback_ctrl.step_forward,
-            "step_backward": self._playback_ctrl.step_backward,
-            "seek_start": self._playback_ctrl.seek_to_start,
-            "seek_end": self._playback_ctrl.seek_to_end,
-            "toggle_annotation": self._toggle_annotation_mode,
-            "clear_annotations": self._clear_annotations,
-            "measurement_validation": self._open_measurement_validation,
-            "compare_approaches": lambda: open_pipeline_comparison(self),
-            "toggle_trajectory": self._toggle_trajectory_overlay,
-            "export_config": lambda: self._export_ctrl.export_config(),
-            "export_annotations": lambda: self._export_ctrl.export_annotations(),
-        }
-        actions = build_menu_bar(self, handlers)
+        actions = initialize_review_menu(self)
         self._menu_actions = actions
         self._prev_session_action = actions.prev_session
         self._next_session_action = actions.next_session
@@ -262,6 +244,8 @@ class ReviewWindow(QtWidgets.QMainWindow):
         session = self._service.session
         if session is None:
             return
+        self._selected_pitch_id = session.pitches[0].pitch_id if session.pitches else None
+        self.selection_changed.emit(self.selection())
         self.setWindowTitle(f"PitchTracker - Review Mode - {session.session_id}")
 
         self._timeline.set_total_frames(self._service.total_frames)
@@ -297,6 +281,8 @@ class ReviewWindow(QtWidgets.QMainWindow):
     def _on_session_closed(self) -> None:
         """Called by SessionController before service.close()."""
         self._playback_ctrl.stop_playback()
+        self._selected_pitch_id = None
+        self.selection_changed.emit(ReviewSelection())
         self._left_display.clear()
         self._right_display.clear()
         self._timeline.reset()
@@ -326,6 +312,8 @@ class ReviewWindow(QtWidgets.QMainWindow):
         session = self._service.session
         if session is None:
             return
+        self._selected_pitch_id = session.pitches[pitch_index].pitch_id
+        self.selection_changed.emit(self.selection())
         self._trajectory_ctrl.load_trajectory_for_pitch(pitch_index)
         self._trajectory_diagnostics_panel.load_pitch(
             session.pitches[pitch_index]
@@ -345,6 +333,10 @@ class ReviewWindow(QtWidgets.QMainWindow):
         session = self._service.session
         if session is None:
             return
+        if not 0 <= pitch_index < len(session.pitches):
+            return
+        self._selected_pitch_id = session.pitches[pitch_index].pitch_id
+        self.selection_changed.emit(self.selection())
         self._trajectory_ctrl.load_trajectory_for_pitch(pitch_index)
         self._show_trajectory_diagnostics(pitch_index)
         self._playback_ctrl.seek_to_pitch(pitch_index)
@@ -485,6 +477,10 @@ class ReviewWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         """Handle window close event."""
+        if self._workspace_hosted and not self._workspace_shutdown:
+            event.ignore()
+            self.exit_requested.emit()
+            return
         if self._measurement_dialog is not None:
             self._close_after_measurement = True
             self._measurement_dialog.reject()

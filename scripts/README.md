@@ -4,6 +4,43 @@ This directory contains standalone utility and validation scripts for PitchTrack
 
 ## Validation Scripts
 
+### UX evidence tools
+
+`capture_ux_baseline.py` renders real UI widgets with synthetic inputs, isolated
+configuration and display-only pipeline state. It never starts capture, reads
+private recordings or loads the local roster. Output is a gallery and geometry
+manifest under `docs/review/ux/baseline/`.
+
+`capture_workspace.py` renders the implemented workspace at three viewport sizes
+with synthetic Idle/Recording state on all four destinations. It opens guided
+setup only through an explicit fixture action in disposable local state. Its
+27 captures and geometry manifest live under `docs/review/ux/ux02/`; see the
+[UX-02 implementation record](../docs/review/ux/UX_02_IMPLEMENTATION.md).
+
+`capture_session_states.py` captures confirmed session states, pending commands
+and recovery actions in the implemented shell, using synthetic snapshots only.
+The 60 actual-widget captures live under `docs/review/ux/ux03/`; see the
+[UX-03 implementation record](../docs/review/ux/UX_03_IMPLEMENTATION.md).
+
+`render_ux_prototype.py` checks the local HTML workspace design with Qt WebEngine
+and creates target images through Chromium PDF output and Qt PDF rasterization.
+Its profile is in memory; it loads only the local prototype. The browser child
+may require execution outside a restricted filesystem sandbox. Qt WebEngine and
+Qt PDF are optional evidence-tool dependencies, not a new application frontend.
+
+Run from the repository root using the supported Python environment:
+
+```powershell
+python scripts/capture_ux_baseline.py
+python scripts/capture_workspace.py
+python scripts/capture_session_states.py
+python scripts/render_ux_prototype.py
+```
+
+See the [UX-01 specification](../docs/review/ux/UX_01_SPEC.md) for fixture limits,
+source identity and remaining physical-display/hardware checks. Target images
+describe a future PySide6 workspace; they do not prove its implementation.
+
 ### `check_public_docs.py`
 Check the public documentation entry points before opening a pull request.
 The check verifies required local Markdown links, prevents obsolete PyQt6 and

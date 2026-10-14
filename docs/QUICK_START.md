@@ -29,7 +29,8 @@ Do not download the older v1.5 pilot installer as though it were the current v2
 build. A refreshed installer will be published only after clean-machine smoke
 testing and checksum verification.
 
-Simulator startup skips camera checks. The standalone `setup_validator.py`
+Workspace startup skips camera acquisition/probes in both simulator and UVC modes.
+The standalone `setup_validator.py`
 opens physical cameras; it is not needed to try the simulator. The launcher
 still checks software dependencies and may check GitHub for updates.
 
@@ -60,7 +61,7 @@ the pair.
 ## Run the canonical setup
 
 For a camera-backed run, launch `python launcher.py --backend uvc`, choose
-**Setup & Calibration**, and complete the
+**Setup**, select **Open Guided Setup**, and complete the
 five-stage workflow (see [Guided Setup](GUIDED_SETUP.md)):
 
 1. Select cameras and save capture settings.
@@ -75,12 +76,12 @@ pitch-level evidence must all remain eligible.
 
 ## Start a controlled session
 
-1. Return to the launcher and choose **Coaching Sessions**.
+1. Select **Live** in the workspace. Navigation does not stop or start capture.
 2. Start capture and confirm both previews, achieved FPS, and health indicators.
 3. Resolve setup or synchronization blockers before recording.
 4. Start a named session and record controlled test pitches.
 5. Stop recording and capture cleanly before disconnecting cameras.
-6. Use **Review** to inspect the session, evidence, and detailed diagnostics.
+6. Use **Sessions** to inspect completed local recordings, evidence, and diagnostics.
 
 Recordings use the configured `recording.output_dir`; the default source-tree
 configuration uses `recordings/`. Rig profiles default to `calibration/rigs/`.

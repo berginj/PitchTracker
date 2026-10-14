@@ -33,9 +33,11 @@ class SessionStartDialog(QtWidgets.QDialog):
         *,
         backend: Optional[str] = None,
         config_path: Optional[Path] = None,
+        prepare_only: bool = False,
     ):
         super().__init__(parent)
-        self.setWindowTitle("Start New Session")
+        self._prepare_only = prepare_only
+        self.setWindowTitle("Prepare Session" if prepare_only else "Start New Session")
         self.resize(540, 560)
 
         self._style_manager = get_style_manager()
@@ -60,12 +62,13 @@ class SessionStartDialog(QtWidgets.QDialog):
 
     def _build_ui(self) -> None:
         """Build dialog UI."""
-        layout = QtWidgets.QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout(QtWidgets.QWidget(self)) if self._prepare_only else QtWidgets.QVBoxLayout()
         apply_standard_layout(layout)
         layout.addWidget(
             build_dialog_header(
-                "Start New Coaching Session",
-                "Choose a pitcher, confirm both cameras, and set quick session defaults before recording.",
+                "Prepare Session" if self._prepare_only else "Start New Coaching Session",
+                "Choose a pitcher and cameras. This prepares preview only; Start Recording remains a separate action."
+                if self._prepare_only else "Choose a pitcher, confirm both cameras, and set quick session defaults before recording.",
             )
         )
         layout.addWidget(self._build_pitcher_group())
@@ -86,6 +89,9 @@ class SessionStartDialog(QtWidgets.QDialog):
             ghost=(QtWidgets.QDialogButtonBox.StandardButton.Cancel,),
         )
         layout.addWidget(button_box)
+        if self._prepare_only:
+            from ui.coaching.dialogs.prepared_cameras import fit_preparation_dialog
+            layout = fit_preparation_dialog(self, layout, button_box)
 
         self.setLayout(layout)
         polish_form_controls(self)
@@ -170,6 +176,10 @@ class SessionStartDialog(QtWidgets.QDialog):
         right_label = QtWidgets.QLabel("Right Camera")
         self._right_camera_combo = QtWidgets.QComboBox()
         self._right_camera_combo.setAccessibleName("Right Camera")
+
+        if self._prepare_only:
+            from ui.coaching.dialogs.prepared_cameras import build_prepared_camera_group
+            return build_prepared_camera_group(self, group, left_label, right_label)
 
         active_profile = RigProfileService().load_active()
         if active_profile is not None and active_profile.left_serial and active_profile.right_serial:

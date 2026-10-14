@@ -1,6 +1,6 @@
 # PitchTracker Launcher Guide
 
-**Last reviewed:** 2026-10-06
+**Last reviewed:** 2026-10-14
 
 **Applies to:** v2.0.0 and current `main`
 
@@ -12,9 +12,10 @@ After installing source dependencies:
 python launcher.py
 ```
 
-For simulator use without camera validation, run `python launcher.py --backend sim`.
-The default UVC launch is an intentional camera-backed workflow. Update checks
-remain enabled by default in either mode.
+For simulator use, run `python launcher.py --backend sim`. The default UVC
+workspace also opens without acquiring or probing cameras. Prepare a session
+or explicitly request camera actions in Setup to access hardware. Software
+validation and update checks remain enabled in either mode.
 
 Or use the repository wrapper:
 
@@ -22,37 +23,57 @@ Or use the repository wrapper:
 .\run.ps1 -Backend uvc
 ```
 
-Both commands open the same role launcher. ``ui.qt_app`` is retained only as a
-compatibility import for older integrations.
+Both commands open the same persistent workspace. `python -m ui.qt_app` remains
+a compatibility entry point; `--setup` opens the Setup destination.
 
 The current public v2.0.0 release has no installer asset. See
 [README_INSTALL.md](README_INSTALL.md) before using or distributing a locally
 built package.
 
-## Launcher roles
+## Workspace destinations
 
-### Setup & Calibration
+Live, Sessions, Players and Setup share one window. Navigation preserves the
+active session and selected historical content. The header reports runtime
+recording status on every page; browsing history never changes the active pitcher.
 
-Use this role to select cameras, qualify capture and synchronization, calibrate
+### Setup
+
+Choose **Open Guided Setup** to select cameras, qualify capture and synchronization, calibrate
 the stereo rig, align it to the field fixture, persist a rig profile and setup
 snapshot, and review blockers. Long-running setup work belongs to tooling and
 setup services, not the runtime orchestrator.
 
-The canonical setup has ten steps. Completion alone does not grant physical
-`VALIDATED` status.
+The canonical setup has five stages: Cameras, Image checks, Calibration, Field
+and regions, and Ready. During runtime capture it is view-only; stop preview
+explicitly in Live before editing. Completion alone does not grant physical `VALIDATED` status.
 
-### Coaching Sessions
+### Live
 
-Use this role for controlled capture and recording after the active rig profile
+Use this page for controlled capture and recording after the active rig profile
 and preflight remain eligible. The operator view is intentionally compact;
 detailed capture, matching, correction, and error diagnostics remain available
 on demand and in durable evidence.
 
-### Review
+### Sessions and Players
+
+The header owns the essential session controls on every page. Preparation opens
+preview only; **Start Recording** remains explicit. Pending commands show progress
+while navigation stays responsive. Failed operations preserve their last confirmed
+state and expose a supported retry, including **Retry End Session**. After successful
+finalization, choose **Review Session** or **New Session**. Summary availability and
+measurement quality remain separate from recording state.
+
+Sessions hosts local review; Players hosts roster browsing and management.
+Choosing **View Sessions** records a browsing selection, not an active-pitcher
+change. Player-based history filtering and safe pitcher attribution are later UX work.
 
 Use review workflows to inspect recorded sessions, videos, pitch artifacts,
 summaries, and evidence. Offline replay can reconcile recorded decisions but
 does not convert synthetic or incomplete evidence into physical validation.
+
+Exit offers **End Session and Exit** or **Cancel** for an owned recording.
+The window stays open while workers and accepted work drain. If shutdown fails,
+**Retry Exit** retains the same service owner instead of abandoning artifacts.
 
 ## Data locations
 

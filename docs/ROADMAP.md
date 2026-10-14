@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-10-13
+**Last reviewed:** 2026-10-14
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -16,6 +16,32 @@ The eight October 5 software follow-ups now have focused implementations; see
 operator-run rig qualification and initial 100-attempt, three-session shadow
 baseline before selecting the next algorithm change. Confirmation, independent
 review, signing, and clean-machine qualification retain their existing gates.
+
+## UX: unified workspace first
+
+The [UX workspace plan](UX_WORKSPACE_PLAN.md) defines the approved direction,
+assignable work packages, acceptance criteria and implementation prompts.
+This checklist is the delivery-status source. UX-01 supplies a rendered synthetic
+baseline, target layouts and interface mapping. UX-02 delivers the persistent
+workspace shell. Detailed page redesign and real Windows display/hardware
+verification remain open. This work does not replace
+physical qualification or release gates.
+
+- [x] UX-01: Establish the shared experience specification and synthetic visual baseline
+  ([specification and evidence](review/ux/UX_01_SPEC.md)).
+- [x] UX-02: Introduce persistent Live, Sessions, Players and Setup navigation
+  ([implementation and evidence](review/ux/UX_02_IMPLEMENTATION.md)).
+- [x] UX-03: Clarify recording states and session controls
+  ([implementation and evidence](review/ux/UX_03_IMPLEMENTATION.md)).
+- [ ] UX-04: Prioritize latest-pitch feedback in live coaching.
+- [ ] UX-05: Connect session history, pitch selection and review.
+- [ ] UX-06: Align setup and player workflows within the workspace.
+- [ ] UX-07: Normalize analytics, dialogs, settings, help and visual presentation.
+- [ ] UX-08: Validate complete operator journeys and record manual evidence.
+
+Execute in ID order. Each package must pass its focused checks before the next
+starts; carry pending hardware evidence explicitly without claiming it passed.
+Completed audit fixes below remain completed unless a new regression is reproduced.
 
 ## Completed in software
 
@@ -245,7 +271,8 @@ confirmation, signing, and clean-machine lifecycle tests remain open.
   confirmation gates ([workflow](BASEBALLCV_COMPARISON.md)).
 - Activate TAG/cloud integrations only after partnership scope, privacy review,
   and dedicated implementation issues.
-- Add new coaching dashboards only when pilot usage demonstrates a decision need.
+- Add coaching capabilities beyond the UX workspace redesign only when pilot
+  usage demonstrates a decision need.
 
 ## Not current commitments
 
@@ -253,5 +280,5 @@ Historical month-by-month estimates, old version task lists, and partnership
 concept schedules remain useful context but are not the active backlog. The
 active queue includes physical gates #9–#11, remaining acceptance criteria in
 #34–#36/#38/#40, optional platform qualification and baseline-driven research
-improvements. Preserve regression coverage
+improvements, plus UX-01 through UX-08 above. Preserve regression coverage
 for the eight implemented October software follow-ups.

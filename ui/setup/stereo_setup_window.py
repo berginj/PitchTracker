@@ -23,6 +23,9 @@ from ui.themes import (
 class StereoSetupWindow(QtWidgets.QMainWindow):
     """Window hosting the genuine stereo setup wizard on SetupStateMachine."""
 
+    workspace_completed = QtCore.Signal()
+    operation_busy_changed = QtCore.Signal(bool)
+
     def __init__(
         self,
         parent: Optional[QtWidgets.QWidget] = None,
@@ -57,6 +60,7 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         self._steps = [self._widget_by_step[spec.step] for spec in specs]
         self._closing_after_capture_cancel = False
         self._capture_close_deadline = 0.0
+        self._workspace_hosted = False
         for step in self._steps:
             step.busy_changed.connect(self._on_step_busy_changed)
             if hasattr(step, "configuration_changed"):
@@ -64,6 +68,19 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
 
         self._build_ui()
         self._show_current()
+
+    def host_in_workspace(self, parent: QtWidgets.QWidget) -> None:
+        from ui.workspace.hosting import embed_window
+        self._workspace_hosted = True
+        embed_window(self, parent)
+
+    def operation_busy(self) -> bool:
+        return any(step.is_busy() for step in self._steps)
+
+    def shutdown_for_workspace(self) -> bool:
+        event = QtGui.QCloseEvent()
+        self.closeEvent(event)
+        return event.isAccepted()
 
     def _build_ui(self) -> None:
         """Build the wizard shell."""
@@ -245,6 +262,7 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         self._finish_button.setEnabled(not busy)
 
     def _on_step_busy_changed(self, _busy: bool) -> None:
+        self.operation_busy_changed.emit(self.operation_busy())
         self._update_navigation_buttons()
         if self._closing_after_capture_cancel and not any(step.is_busy() for step in self._steps):
             QtCore.QTimer.singleShot(0, self.close)
@@ -337,7 +355,10 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
             "Setup is complete. The rig is ready for research recording with estimated measurements.",
             tone="success",
         )
-        self.close()
+        if self._workspace_hosted:
+            self.workspace_completed.emit()
+        else:
+            self.close()
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         """Cancel and reap setup camera workers before hiding the wizard."""

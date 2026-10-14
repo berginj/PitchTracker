@@ -15,6 +15,7 @@ from PySide6 import QtCore
 
 from app.services.orchestrator import PipelineOrchestrator
 from app.events.event_types import PitchStartEvent, PitchEndEvent
+from app.services.orchestrator.runtime_status import RuntimeStatus, RuntimeStatusEvent
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class QtPipelineService(QtCore.QObject):
     # Define signals (these are thread-safe and handled on main thread)
     pitch_started = QtCore.Signal(int, object)  # (pitch_index, PitchData)
     pitch_ended = QtCore.Signal(object)  # (PitchData)
+    runtime_status_changed = QtCore.Signal(object)
 
     def __init__(self, backend: str = "uvc", parent: Optional[QtCore.QObject] = None):
         """Initialize Qt-safe pipeline service.
@@ -53,6 +55,7 @@ class QtPipelineService(QtCore.QObject):
         """Subscribe to EventBus events and convert to Qt signals."""
         self._service.subscribe_event(PitchStartEvent, self._on_pitch_start_event)
         self._service.subscribe_event(PitchEndEvent, self._on_pitch_end_event)
+        self._service.subscribe_event(RuntimeStatusEvent, self._on_runtime_status_event)
         logger.debug("QtPipelineService subscribed to pitch events")
 
     def _on_pitch_start_event(self, event: PitchStartEvent) -> None:
@@ -90,6 +93,12 @@ class QtPipelineService(QtCore.QObject):
         except Exception as e:
             logger.error(f"Error emitting pitch_ended signal: {e}", exc_info=True)
 
+    def runtime_status(self) -> RuntimeStatus:
+        return self._service.runtime_status()
+
+    def _on_runtime_status_event(self, event: RuntimeStatusEvent) -> None:
+        self.runtime_status_changed.emit(event.status)
+
     # Delegate all other methods to the underlying service
     def start_capture(self, config, left_serial: str, right_serial: str, config_path=None):
         """Start camera capture (delegates to underlying service)."""
@@ -110,6 +119,7 @@ class QtPipelineService(QtCore.QObject):
         self._service.shutdown()
         self._service.unsubscribe_event(PitchStartEvent, self._on_pitch_start_event)
         self._service.unsubscribe_event(PitchEndEvent, self._on_pitch_end_event)
+        self._service.unsubscribe_event(RuntimeStatusEvent, self._on_runtime_status_event)
 
     def is_capturing(self) -> bool:
         """Check if capturing (delegates to underlying service)."""

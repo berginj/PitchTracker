@@ -17,6 +17,7 @@ from app.services.capture import CaptureServiceImpl
 from app.services.detection import DetectionServiceImpl
 from app.services.orchestrator.event_coordination import EventCoordinator
 from app.services.orchestrator.detector_trials import DetectorTrialMethods
+from app.services.orchestrator.runtime_status import RuntimeStatusMethods, RuntimeStatusPublisher, runtime_command
 from app.services.orchestrator.lifecycle import (
     shutdown_pipeline,
     pause_recording_pipeline,
@@ -47,7 +48,7 @@ from record.recorder import RecordingBundle
 logger = get_logger(__name__)
 
 
-class PipelineOrchestrator(DetectorTrialMethods, PipelineService):
+class PipelineOrchestrator(RuntimeStatusMethods, DetectorTrialMethods, PipelineService):
     """Event-driven orchestrator coordinating services through EventBus."""
 
     def __init__(self, backend: str = "uvc"):
@@ -79,7 +80,9 @@ class PipelineOrchestrator(DetectorTrialMethods, PipelineService):
         self._recording_paused = False
         self._recording_stopping = False
         self._detector_trial = None
+        self._runtime = RuntimeStatusPublisher(self._event_bus)
 
+    @runtime_command("start_capture")
     def start_capture(
         self,
         config: AppConfig,
@@ -93,13 +96,11 @@ class PipelineOrchestrator(DetectorTrialMethods, PipelineService):
                 raise RuntimeError("Capture already started")
             if self._recording_active:
                 raise RuntimeError("Finish the owned recording session before restarting capture")
-
             self._left_serial = left_serial
             self._right_serial = right_serial
             self._rig_profile_service = RigProfileService(
                 config_path=Path(config_path) if config_path else Path("configs/default.yaml")
             )
-
             rig_result = load_and_validate_rig(
                 self._rig_profile_service, config, self._backend,
                 left_serial, right_serial,
@@ -111,7 +112,6 @@ class PipelineOrchestrator(DetectorTrialMethods, PipelineService):
             config = rig_result.config
             self._config = config
             self._config_path = rig_result.config_path or config_path
-
             (
                 self._capture_service,
                 self._detection_service,
@@ -136,15 +136,16 @@ class PipelineOrchestrator(DetectorTrialMethods, PipelineService):
                 on_pitch_start=self._event_coordinator.on_pitch_start,
                 on_pitch_end=self._event_coordinator.on_pitch_end,
             )
-
             start_capture_runtime(self, config, left_serial, right_serial)
 
+    @runtime_command("stop_capture")
     def stop_capture(self) -> None:
         """Stop capture on both cameras. Idempotent and thread-safe."""
         self.stop_detector_trial()
         with self._lock:
             stop_capture_runtime(self)
 
+    @runtime_command("shutdown")
     def shutdown(self) -> None:
         """Stop all active work before the UI object is destroyed."""
         self.stop_detector_trial()
@@ -162,6 +163,7 @@ class PipelineOrchestrator(DetectorTrialMethods, PipelineService):
                 raise RuntimeError("Capture not active")
             return self._capture_service.get_preview_frames()
 
+    @runtime_command("start_recording")
     def start_recording(
         self,
         pitch_id: Optional[str] = None,
@@ -262,12 +264,14 @@ class PipelineOrchestrator(DetectorTrialMethods, PipelineService):
             if self._recording_service is not None:
                 self._recording_service.set_manual_speed_mph(speed_mph)
 
+    @runtime_command("stop_recording")
     def stop_recording(self) -> RecordingBundle:
         """Stop recording and return the bundle."""
         self.stop_detector_trial()
         with self._lock:
             return cast(RecordingBundle, stop_recording_pipeline(self))
 
+    @runtime_command("pause_recording")
     def pause_recording(self) -> None:
         """Pause active session recording while keeping capture live."""
         with self._lock:
@@ -279,6 +283,7 @@ class PipelineOrchestrator(DetectorTrialMethods, PipelineService):
                 raise RuntimeError("Recording is still stopping; retry stop before pausing")
             pause_recording_pipeline(self)
 
+    @runtime_command("resume_recording")
     def resume_recording(self) -> None:
         """Resume a paused recording session."""
         with self._lock:
@@ -441,11 +446,6 @@ class PipelineOrchestrator(DetectorTrialMethods, PipelineService):
             self._capture_service.set_session_id(session_id)
         if self._detection_service is not None:
             self._detection_service.set_session_id(session_id)
-
-    def get_session_dir(self) -> Optional[Path]:
-        """Return the current session directory, or None if not recording."""
-        with self._lock:
-            return self._recording_service.get_session_dir() if self._recording_service else None
 
     def get_last_session_summary(self) -> SessionSummary:
         """Compatibility wrapper for legacy UI API."""

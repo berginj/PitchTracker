@@ -28,9 +28,11 @@ class SetupWorkflowService:
     def __init__(
         self, config_path: Path = Path("configs/default.yaml"),
         base_dir: Path = Path("calibration/rigs"), *, profile_id: str | None = None, backend: str = "uvc",
-        use_active: bool = True,
+        use_active: bool = True, preserve_runtime_capture: bool = False,
     ):
         self.rigs = RigProfileService(base_dir=base_dir, config_path=config_path)
+        self.preserve_runtime_capture = preserve_runtime_capture
+        self.assert_editable()
         profile = self.rigs.load(profile_id) if profile_id else (self.rigs.load_active() if use_active else None)
         if backend == "sim" and profile and profile.backend != "sim" and not profile_id:
             profile = None
@@ -118,7 +120,15 @@ class SetupWorkflowService:
             raise ValueError(f"Saved {name} artifact changed outside Setup")
         return path
 
+    def assert_editable(self) -> None:
+        """Workspace setup never stops another owner's preview implicitly."""
+        if self.preserve_runtime_capture:
+            from app.services.setup_workflow.runtime_access import admission_status
+            if not admission_status(self.rigs.base_dir).permits_edit:
+                raise RuntimeError("Stop runtime capture explicitly in Live before changing the rig")
+
     def _copy_file(self, source: Path) -> str:
+        self.assert_editable()
         data = source.read_bytes()
         name = hashlib.sha256(data).hexdigest() + source.suffix.lower()
         destination = contained(self.root, name)
@@ -129,6 +139,7 @@ class SetupWorkflowService:
         return name
 
     def _commit(self, candidate: dict[str, Any]) -> None:
+        self.assert_editable()
         candidate["updated_utc"] = datetime.now(timezone.utc).isoformat()
         try:
             save_state(self.root, candidate)
@@ -139,7 +150,7 @@ class SetupWorkflowService:
 
     def _edit(self, candidate: dict[str, Any], invalidated: set[str]) -> None:
         from app.services.setup_workflow.runtime_access import prepare_edit
-        with prepare_edit(self.rigs.base_dir):
+        with prepare_edit(self.rigs.base_dir, stop_preview=not self.preserve_runtime_capture):
             candidate["generation"] = self.generation + 1
             candidate["changed"] = True
             for name in invalidated:
@@ -170,6 +181,7 @@ class SetupWorkflowService:
         self._edit(candidate, {"calibration", "field", "regions"})
 
     def update_settings(self, section: str, updates: dict[str, Any]) -> None:
+        self.assert_editable()
         with self._lock:
             payload = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
             if section not in {"camera", "stereo", "tracking", "detector", "trajectory", "metrics"}:
@@ -208,6 +220,7 @@ class SetupWorkflowService:
             self.images.clear()
 
     def update_detector_profile(self, detector: dict[str, Any], association_mode: str) -> None:
+        self.assert_editable()
         """Save one explicit detector/stereo selection as a single setup generation."""
         with self._lock:
             payload = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
@@ -227,6 +240,7 @@ class SetupWorkflowService:
         self._edit(candidate, set(CHECK_NAMES))
 
     def update_board(self, pattern: str, square_mm: float) -> None:
+        self.assert_editable()
         from math import isfinite
         cols, rows = (int(value) for value in pattern.lower().split("x"))
         if min(cols, rows) < 3 or not isfinite(square_mm) or square_mm <= 0:
@@ -242,9 +256,10 @@ class SetupWorkflowService:
             self._edit(candidate, {"calibration", "field", "regions"})
 
     def select_rig(self, profile_id: str | None) -> None:
+        self.assert_editable()
         fresh = SetupWorkflowService(
             self.rigs.config_path, self.rigs.base_dir, profile_id=profile_id, backend=self.state["backend"],
-            use_active=False,
+            use_active=False, preserve_runtime_capture=self.preserve_runtime_capture,
         )
         with self._lock:
             self.root = fresh.root
@@ -303,7 +318,7 @@ class SetupWorkflowService:
             assignment_generation=self.generation,
         )
         from app.services.setup_workflow.runtime_access import begin_setup_capture
-        begin_setup_capture(id(self), self.rigs.base_dir)
+        begin_setup_capture(id(self), self.rigs.base_dir, stop_preview=not self.preserve_runtime_capture)
         return request
 
     def release_capture(self) -> None:

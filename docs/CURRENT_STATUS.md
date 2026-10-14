@@ -1,6 +1,6 @@
 # PitchTracker Current Status
 
-**Last updated:** 2026-10-13
+**Last updated:** 2026-10-14
 **Published release:** `v2.0.0` / internal app version `2.0.0`
 **Development status:** the October consolidation/remediation batch is implemented
 and validated in software. The October 5 software follow-ups have implementations
@@ -66,6 +66,17 @@ results. They are evidence archives, not current status. Current release work
 must use this document and the roadmap below.
 
 ## Delivered software
+
+The default launcher now opens one persistent workspace with Live, Sessions,
+Players and Setup. Global recording status and explicit session actions remain
+visible across pages; navigation preserves runtime ownership and historical
+selection. Startup does not probe cameras. The
+[UX-02 implementation record](review/ux/UX_02_IMPLEMENTATION.md) documents
+software checks, synthetic screenshots and remaining manual qualification.
+Session commands now run in a retained worker, with shared progress, confirmed
+state and supported retry actions. See the
+[UX-03 implementation record](review/ux/UX_03_IMPLEMENTATION.md).
+Detailed page redesign continues under UX-04 through UX-08 in the roadmap.
 
 The older desktop/setup/pipeline paths are retired under
 `archive/retired/2026-10-13`. Guided setup is the default for launcher, direct

@@ -89,8 +89,9 @@ class TeamManager(QtWidgets.QDialog):
 
     pitcher_selected = QtCore.Signal(str)
 
-    def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
+    def __init__(self, parent: Optional[QtWidgets.QWidget] = None, *, browse_only: bool = False) -> None:
         super().__init__(parent)
+        self._browse_only = browse_only
         self._style_manager = get_style_manager()
         self.setWindowTitle("Team Roster")
         self.setMinimumSize(480, 560)
@@ -163,6 +164,8 @@ class TeamManager(QtWidgets.QDialog):
         layout.addWidget(add_section)
 
         self._select_btn = QtWidgets.QPushButton("Select Pitcher")
+        if self._browse_only:
+            self._select_btn.setText("View Sessions")
         self._style_manager.style_button(self._select_btn, "primary")
         self._select_btn.setEnabled(False)
         self._select_btn.clicked.connect(self._on_select_clicked)
@@ -170,6 +173,7 @@ class TeamManager(QtWidgets.QDialog):
         self._cancel_btn = QtWidgets.QPushButton("Cancel")
         self._style_manager.style_button(self._cancel_btn, "ghost")
         self._cancel_btn.clicked.connect(self.reject)
+        self._cancel_btn.setVisible(not self._browse_only)
 
         button_layout = QtWidgets.QHBoxLayout()
         button_layout.addStretch()
@@ -298,7 +302,8 @@ class TeamManager(QtWidgets.QDialog):
         """Handle select button click."""
         if self._selected_pitcher:
             self.pitcher_selected.emit(self._selected_pitcher)
-            self.accept()
+            if not self._browse_only:
+                self.accept()
 
     def get_selected_pitcher(self) -> Optional[str]:
         """Return the currently selected pitcher."""

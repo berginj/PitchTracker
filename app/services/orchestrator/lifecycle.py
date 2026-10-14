@@ -37,11 +37,12 @@ def start_capture_runtime(orchestrator: Any, config: Any, left_serial: str, righ
     coordinator.set_config(config)
     coordinator.subscribe()
     try:
-        orchestrator._capture_service.start_capture(config, left_serial, right_serial)
-        orchestrator._capturing = True
+        # Reserve the rig before opening either camera, fencing setup admission.
         if hasattr(orchestrator, "_rig_profile_service"):
             from app.services.setup_workflow.runtime_access import register_capture
             register_capture(id(orchestrator), orchestrator._rig_profile_service.base_dir, orchestrator.stop_capture)
+        orchestrator._capture_service.start_capture(config, left_serial, right_serial)
+        orchestrator._capturing = True
         logger.info("Capture started")
     except Exception:
         rollback_failed = False
@@ -54,6 +55,9 @@ def start_capture_runtime(orchestrator: Any, config: Any, left_serial: str, righ
         orchestrator._detection_started = False
         orchestrator._capturing = rollback_failed
         orchestrator._capture_stopping = rollback_failed
+        if not rollback_failed:
+            from app.services.setup_workflow.runtime_access import release_capture
+            release_capture(id(orchestrator))
         orchestrator._propagate_session_id(None)
         raise
 

@@ -284,7 +284,7 @@ Before acting, agents must validate:
 
 ### Instantiation
 
-The current preferred runtime entry point is `PipelineOrchestrator`, wrapped by `QtPipelineService` for UI usage. Agents should be instantiated through services and constructors already present in `app/services/` rather than by importing concrete lower-level classes from UI code.
+The current preferred runtime entry point is `PipelineOrchestrator`, wrapped by `QtPipelineService` for UI usage. The default launcher hosts one persistent `WorkspaceWindow` with Live, Sessions, Players and Setup. Agents should be instantiated through services and constructors already present in `app/services/` rather than by importing concrete lower-level classes from UI code.
 
 The older `InProcessPipelineService`, MainWindow and setup registries are retired
 under `archive/retired/2026-10-13`. Runtime and UI work uses PipelineOrchestrator,
@@ -329,6 +329,41 @@ To add an agent:
 7. Preserve backward compatibility or document the migration path.
 
 New agents must have one primary owner for state. If an agent needs another agent's data, it should request it through a typed message, service interface, callback, or event.
+
+## Cross-experience UX maintenance
+
+These instructions apply to launcher, UI, service-contract and documentation
+changes that affect the operator experience. They extend UIAgent and
+MaintenanceAgent responsibilities; they do not create new runtime agents or
+authorize automatic delegation.
+
+- Follow the [UX workspace plan](docs/UX_WORKSPACE_PLAN.md) and
+  [shared UI instructions](ui/AGENTS.md). Scoped UI instructions add local
+  requirements; they do not override the ownership and safety rules here.
+- Use [Roadmap](docs/ROADMAP.md) for delivery status. The unified workspace is
+  delivered incrementally under UX-01 through UX-08. UX-02 delivers the shell
+  and UX-03 adds responsive session commands with shared progress and recovery;
+  later page redesign and qualification remain open.
+- Preserve PySide6, PipelineOrchestrator, QtPipelineService and
+  SetupWorkflowService ownership. Add narrow public typed interfaces where
+  screens need context; do not connect screens through private service state.
+- Keep page navigation separate from camera acquisition, recording commands,
+  rig edits and shutdown. Changing pages must not implicitly start or stop
+  capture/recording, finalize artifacts, or grant measurement approval.
+- Maintain one session lifecycle owner and a workspace-wide recording status.
+  Preserve cancellation, accepted-work draining and worker cleanup when moving
+  behavior out of existing window close handlers.
+- Preserve active CLI routes and their backend/config arguments during migration.
+  Archived entry points are not workspace fallbacks.
+- Keep measurement source, validity and unavailable states consistent across
+  live, review, analytics and exports. New presentation must not strengthen
+  physical claims or silently change historical data.
+- Review cross-screen journeys, keyboard access, viewport reachability and
+  error recovery alongside focused tests. Use synthetic screenshots; record
+  manual display and hardware evidence separately from automated checks.
+- For each UX change, identify the work-package ID, applicable instruction
+  files, changed public contracts, tests and remaining manual checks. Update
+  roadmap status only when the package's acceptance criteria have evidence.
 
 ## Maintenance Checklist
 

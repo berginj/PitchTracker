@@ -22,7 +22,7 @@ def _smoke(executable: Path, tmp_path: Path, *, source: bool):
     assert result.returncode == 0, f"{payload}\n{result.stderr or result.stdout}"
     assert payload["ok"], payload
     assert payload["backend"] == "sim"
-    assert payload["workflows"] == ["LauncherWindow", "CoachWindow", "StereoSetupWindow", "ReviewWindow"]
+    assert payload["workflows"] == ["LauncherWindow", "CoachWindow", "StereoSetupWindow", "ReviewWindow", "WorkspaceWindow"]
     assert payload["setup_stages"] == ["cameras", "images", "calibration", "field", "ready"]
 
 

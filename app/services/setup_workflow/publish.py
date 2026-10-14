@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 
 def finish_setup(service: SetupWorkflowService) -> str:
+    service.assert_editable()
     readiness = service.readiness()
     if not readiness.permits_recording:
         raise ValueError("; ".join(readiness.blockers))
@@ -43,7 +44,7 @@ def finish_setup(service: SetupWorkflowService) -> str:
         return base.profile_id
 
     from app.services.setup_workflow.runtime_access import prepare_edit
-    with prepare_edit(service.rigs.base_dir):
+    with prepare_edit(service.rigs.base_dir, stop_preview=not service.preserve_runtime_capture):
         profile_id = "rig_" + uuid4().hex
         directory = service.rigs.profile_dir(profile_id)
         directory.mkdir(parents=True, exist_ok=False)

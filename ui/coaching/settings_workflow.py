@@ -29,6 +29,9 @@ class SettingsWorkflow:
     def show(self) -> None:
         """Show settings dialog."""
         h = self._host
+        if getattr(h, "_workspace_hosted", False):
+            h.request_workspace_setup()
+            return
         if h._session_active:
             show_message_dialog(
                 h,

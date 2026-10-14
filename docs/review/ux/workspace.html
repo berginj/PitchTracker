@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PitchTracker UX-01 · Workspace design prototype</title>
+  <link rel="stylesheet" href="workspace.css">
+</head>
+<body>
+  <div class="inspector" aria-label="Prototype controls">
+    <strong>UX-01 · Design prototype</strong>
+    <span>Synthetic data · no cameras, recordings or saved changes</span>
+    <label>Example state <select id="fixture-state">
+      <option>Idle</option><option>Preview</option><option>Ready</option>
+      <option selected>Recording</option><option>Paused</option><option>Finalizing</option>
+      <option>Completed</option><option>Error</option>
+    </select></label>
+    <label>Example data <select id="fixture-data"><option>Populated</option><option>Empty</option><option>Unavailable</option><option>Rejected</option></select></label>
+    <label>Viewport <select id="viewport"><option>1366 × 768</option><option>1024 × 768</option><option>800 × 600</option></select></label>
+    <a href="UX_01_SPEC.md">Specification</a><a href="baseline/index.html">Current UI</a>
+  </div>
+  <div class="stage" id="stage">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">P</span><strong>PitchTracker</strong></div>
+      <p class="nav-caption">WORKSPACE</p>
+      <nav aria-label="Workspace"><button data-page="live" aria-current="page">Live</button><button data-page="sessions">Sessions</button><button data-page="players">Players</button><button data-page="setup">Setup</button></nav>
+      <div class="sidebar-bottom"><span class="rig-status">Rig · research ready</span><button data-dialog="settings">Settings</button><button data-dialog="help">Help</button></div>
+    </aside>
+    <div class="workspace">
+      <header class="session-header">
+        <div><div class="eyebrow" id="session-context">ACTIVE SESSION</div><strong id="active-session">Synthetic bullpen</strong><span id="active-player">Example Pitcher</span></div>
+        <div class="session-actions"><span class="badge" id="recording-state">Recording</span><button id="primary-action" class="primary">Pause</button><button id="end-action">End Session</button></div>
+        <p id="state-detail" role="status">Cameras live · recording pitches · estimated measurements</p>
+      </header>
+      <main id="page-content" tabindex="-1"></main>
+    </div>
+  </div>
+  <dialog id="task-dialog" aria-labelledby="dialog-title"><form method="dialog"><div class="eyebrow">DESIGN EXAMPLE</div><h2 id="dialog-title"></h2><div id="dialog-content"></div><div class="dialog-actions"><button value="cancel">Close</button></div></form></dialog>
+  <footer class="prototype-note">Local HTML explains the target PySide6 layout and interactions. It is not a replacement app. Choosing example states does not execute service commands.</footer>
+  <script src="workspace.js"></script>
+</body>
+</html>

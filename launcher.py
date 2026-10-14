@@ -479,8 +479,10 @@ def main(argv: list[str] | None = None):
     app.setApplicationVersion(get_current_version())
     app.setOrganizationName("PitchTracker")
 
-    # Create and show launcher
-    launcher = LauncherWindow(backend=args.backend, config_path=args.config, background_tasks=not args.setup)
+    # Keep script/module entry points on the same class graph.
+    sys.modules.setdefault("launcher", sys.modules[__name__])
+    from ui.workspace.window import WorkspaceWindow
+    launcher = WorkspaceWindow(backend=args.backend, config_path=args.config)
     launcher.show()
     if args.setup:
         launcher._launch_stereo_setup()
