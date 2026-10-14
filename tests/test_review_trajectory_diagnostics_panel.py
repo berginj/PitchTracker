@@ -171,6 +171,15 @@ class _FakeReviewService:
         self.current_frame_index = 0
         self.video_reader = _FakeVideoReader()
         self.detector_config = None
+        self.playback_available = True
+
+    @property
+    def pitch_scores(self):
+        return self._pitch_scores.copy()
+
+    def playback_for_pitch(self, index):
+        from app.review.playback_mapping import PitchPlayback
+        return PitchPlayback(self.session.pitches[index].pitch_id, index * 100)
 
     def load_session(self, _session_dir: Path):
         self.session = self._loaded_session
@@ -218,6 +227,7 @@ def _review_pitch(pitch_id: str, mode: str, t_start_ns: int):
 def _review_session():
     return SimpleNamespace(
         session_id="session_001",
+        session_dir=Path("synthetic/session_001"),
         pitches=[
             _review_pitch("pitch_001", "stereo_3d", 0),
             _review_pitch("pitch_002", "ray_graph", 1_000_000_000),

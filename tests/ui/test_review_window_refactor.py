@@ -26,6 +26,8 @@ def mock_review_service():
         svc._pitch_scores = {}
         svc.video_reader = MagicMock(fps=30.0)
         svc.detector_config = None
+        svc.playback_issue = ""
+        svc.playback_available = True
         svc.get_current_frames.return_value = (None, None)
         svc.run_detection_on_current_frame.return_value = ([], [])
         yield svc

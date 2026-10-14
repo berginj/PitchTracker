@@ -6,6 +6,7 @@ import logging
 from typing import List, Optional
 
 from app.review import ReviewService
+from app.review.recorded_metrics import recorded_metrics
 from visualization.trajectory_renderer import (
     RenderStyle,
     TrajectoryRenderConfig,
@@ -34,6 +35,10 @@ class TrajectoryController:
         self._overlay_enabled = value
 
     @property
+    def overlay_available(self) -> bool:
+        return self._renderer_left is not None and self._renderer_right is not None
+
+    @property
     def current_observations(self) -> List:
         return self._current_observations
 
@@ -44,26 +49,26 @@ class TrajectoryController:
             self._renderer_right = None
             return
 
+        if not self._service.session.calibration:
+            self._renderer_left = None
+            self._renderer_right = None
+            logger.info("Trajectory overlay unavailable: recorded calibration is missing")
+            return
+
         try:
             from stereo.simple_stereo import StereoGeometry
 
+            from math import isfinite
+            cal = self._service.session.calibration
+            required = ("focal_length_px", "baseline_ft", "cx", "cy")
+            if not isinstance(cal, dict) or any(key not in cal for key in required):
+                raise ValueError("Recorded projection calibration is incomplete")
+            if any(not isfinite(float(cal[key])) for key in required) or cal["baseline_ft"] <= 0 or cal["focal_length_px"] <= 0:
+                raise ValueError("Recorded projection calibration is invalid")
             geometry = StereoGeometry(
-                focal_length_px=1000.0,
-                baseline_ft=0.5,
-                cx=640.0,
-                cy=360.0,
-                epipolar_epsilon_px=3.0,
+                focal_length_px=cal["focal_length_px"], baseline_ft=cal["baseline_ft"],
+                cx=cal["cx"], cy=cal["cy"], epipolar_epsilon_px=cal.get("epipolar_epsilon_px", 3.0),
             )
-
-            if self._service.session.calibration:
-                cal = self._service.session.calibration
-                geometry = StereoGeometry(
-                    focal_length_px=cal.get("focal_length_px", 1000.0),
-                    baseline_ft=cal.get("baseline_ft", 0.5),
-                    cx=cal.get("cx", 640.0),
-                    cy=cal.get("cy", 360.0),
-                    epipolar_epsilon_px=cal.get("epipolar_epsilon_px", 3.0),
-                )
 
             config = TrajectoryRenderConfig(
                 style=RenderStyle.GRADIENT,
@@ -93,6 +98,10 @@ class TrajectoryController:
             return
 
         pitch = pitches[pitch_index]
+        raw = getattr(pitch, "manifest", {})
+        if recorded_metrics(raw if isinstance(raw, dict) else {}).status not in {"VALIDATED", "ESTIMATED", "DEGRADED"}:
+            self._current_observations = []
+            return
         if pitch.original_observations:
             self._current_observations = pitch.original_observations
             logger.debug(f"Loaded {len(self._current_observations)} trajectory observations")

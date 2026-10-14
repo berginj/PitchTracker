@@ -167,7 +167,7 @@ class WorkspaceWindow(LauncherWindow):
         self._live.host_in_workspace(self._stack)
         self._live.preparation_changed.connect(self._on_preparation_changed)
         self._live.session_operation_changed.connect(self._on_session_operation_changed)
-        self._live.review_requested.connect(lambda: self.navigate("sessions"))
+        self._live.review_requested.connect(self._review_finalized_session)
         self._live.setup_requested.connect(lambda: self.navigate("setup"))
         self._live.exit_requested.connect(self.close)
         self._pages["live"] = self._live
@@ -215,7 +215,9 @@ class WorkspaceWindow(LauncherWindow):
         if name not in self._pages:
             page: QtWidgets.QWidget
             if name == "sessions":
-                page = SessionsPage()
+                root = self._live.recordings_directory() if isinstance(self._live, CoachWindow) else Path("recordings")
+                page = SessionsPage(root)
+                page.update_runtime(self._runtime)
                 page.selection_changed.connect(self._on_review_selection)
                 page.exit_requested.connect(self.close)
             elif name == "players":
@@ -262,6 +264,9 @@ class WorkspaceWindow(LauncherWindow):
         self._on_session_operation_changed()
 
     def _on_session_operation_changed(self) -> None:
+        sessions = self._pages.get("sessions")
+        if isinstance(sessions, SessionsPage):
+            sessions.update_runtime(self._runtime)
         setup = self._pages.get("setup")
         if isinstance(setup, SetupPage):
             setup.update_runtime(self._runtime, command_pending=self._live.session_command_busy())
@@ -310,9 +315,19 @@ class WorkspaceWindow(LauncherWindow):
         if self._exit_failure:
             self.close()
         elif self._primary_action == "review":
-            self.navigate("sessions")
+            self._review_finalized_session()
         else:
             self._perform_session_action(self._primary_action)
+
+    def _review_finalized_session(self) -> None:
+        completed = self._runtime.finalized_session
+        if (completed is None or self._runtime.owns_recording or self._runtime.pending_operation
+                or self._runtime.failure or self._live.session_command_busy()):
+            return
+        if self.navigate("sessions"):
+            sessions = self._pages["sessions"]
+            assert isinstance(sessions, SessionsPage)
+            sessions.open_selection(ReviewSelection(completed.session_dir, completed.session_id))
 
     def _perform_session_action(self, action: str) -> None:
         setup = self._pages.get("setup")

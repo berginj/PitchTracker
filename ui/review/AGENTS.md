@@ -21,3 +21,15 @@ Inherits [shared UI instructions](../AGENTS.md). Primary package: UX-05 in the
 - Keep exports limited to explicitly selected artifacts. Navigation must not
   delete sessions or upload data. Test context handoff, missing assets, playback,
   cancellation and service-owned processing admission.
+- Session history uses the configured recording root; Open Local remains usable
+  without a default recordings folder. Use ReviewSelection for direct session
+  and pitch handoff, and retain the prior context on a failed load.
+- Row selection updates the full review context. Block list signals during load
+  and programmatic selection, stop old playback before replacement and avoid
+  event-loop re-entry while loading. Queued refreshes read the current selection.
+- Camera tabs and two-column playback controls keep the review reachable at
+  800x600. Secondary feedback and research tools scroll vertically. Research
+  panels start collapsed; browsing never runs frame detection automatically.
+- Use the [review-service instructions](../../app/review/AGENTS.md) for playback
+  mapping and degraded artifact semantics. Missing calibration disables projected
+  trajectory overlays rather than substituting a default camera model.

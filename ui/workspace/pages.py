@@ -11,6 +11,9 @@ from app.services.orchestrator.runtime_status import RuntimeStatus
 from app.services.setup_workflow.runtime_access import admission_status
 from ui.themes import get_style_manager, show_message_dialog
 from ui.setup.stereo_setup_window import StereoSetupWindow
+from ui.workspace.sessions_page import SessionsPage as SessionsPage
+
+__all__ = ["SetupPage", "SessionsPage", "PlayersPage"]
 
 
 class SetupPage(QtWidgets.QWidget):
@@ -101,39 +104,6 @@ class SetupPage(QtWidgets.QWidget):
         if self._shutdown_complete:
             return True
         self._shutdown_complete = self._wizard is None or self._wizard.shutdown_for_workspace()
-        return self._shutdown_complete
-
-
-class SessionsPage(QtWidgets.QWidget):
-    selection_changed = QtCore.Signal(object)
-    exit_requested = QtCore.Signal()
-
-    def __init__(self):
-        super().__init__()
-        from ui.review.review_window import ReviewWindow
-        self._shutdown_complete = False
-        self._selection_label = QtWidgets.QLabel("Historical selection is separate from the active session.")
-        self._selection_label.setWordWrap(True)
-        self._review = ReviewWindow()
-        self._review.host_in_workspace(self)
-        self._review.selection_changed.connect(self.selection_changed)
-        self._review.exit_requested.connect(self.exit_requested)
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self._selection_label)
-        layout.addWidget(self._review, 1)
-
-    @property
-    def review(self):
-        return self._review
-
-    def browse_player(self, player_name: str) -> None:
-        # Filtering and attribution migration belong to UX-06; do not guess from names.
-        self._selection_label.setText(f"Browsing player: {player_name}. Open a recorded session to review it.")
-
-    def shutdown_for_workspace(self) -> bool:
-        if not self._shutdown_complete:
-            self._shutdown_complete = self._review.shutdown_for_workspace()
         return self._shutdown_complete
 
 

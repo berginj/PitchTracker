@@ -40,6 +40,7 @@ class SessionController:
 
         self._session_list: List[Path] = []
         self._current_session_index: int = -1
+        self.recordings_root = Path("recordings")
 
     # ------------------------------------------------------------------
     # Properties
@@ -63,21 +64,11 @@ class SessionController:
 
     def open_session_dialog(self) -> None:
         """Show dialog to select and open a session."""
-        recordings_dir = Path("recordings")
-        if not recordings_dir.exists():
-            show_message_dialog(
-                self._parent,
-                "Recordings Not Found",
-                f"Recordings directory not found: {recordings_dir}\n\n"
-                "Please record at least one session before using Review Mode.",
-                tone="warning",
-            )
-            return
-
+        recordings_dir = self.recordings_root
         session_dir = QtWidgets.QFileDialog.getExistingDirectory(
             self._parent,
             "Select Session Directory",
-            str(recordings_dir),
+            str(recordings_dir if recordings_dir.exists() else Path.cwd()),
             QtWidgets.QFileDialog.Option.ShowDirsOnly,
         )
 
@@ -86,13 +77,11 @@ class SessionController:
 
         self.load_session(Path(session_dir))
 
-    def load_session(self, session_dir: Path) -> None:
+    def load_session(self, session_dir: Path) -> bool:
         """Load a session for review."""
         try:
             logger.info(f"Loading session: {session_dir}")
             self._status_bar.showMessage(f"Loading session: {session_dir.name}...")
-            QtWidgets.QApplication.processEvents()
-
             self._service.load_session(session_dir)
             self._on_session_loaded()
 
@@ -104,6 +93,7 @@ class SessionController:
                 f"({len(session.pitches)} pitches, {self._service.total_frames} frames)"
             )
             logger.info(f"Session loaded successfully: {session.session_id}")
+            return True
 
         except Exception as e:
             logger.exception(f"Failed to load session: {e}")
@@ -114,6 +104,7 @@ class SessionController:
                 tone="error",
             )
             self._status_bar.showMessage("Failed to load session")
+            return False
 
     def close_session(self) -> None:
         """Close the current session."""
@@ -124,7 +115,7 @@ class SessionController:
 
     def review_all_sessions(self) -> None:
         """Load all sessions for sequential review."""
-        recordings_dir = Path("recordings")
+        recordings_dir = self.recordings_root
         if not recordings_dir.exists():
             show_message_dialog(
                 self._parent,

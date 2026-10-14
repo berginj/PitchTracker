@@ -8,6 +8,7 @@ from typing import Optional, Protocol
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.review import PitchScore
+from app.review.recorded_metrics import recorded_metrics
 from ui.themes import get_style_manager
 from ui.themes.layout_helpers import apply_standard_layout
 
@@ -56,6 +57,7 @@ class PitchListWidget(QtWidgets.QWidget):
         """Build pitch list UI."""
         layout = QtWidgets.QVBoxLayout()
         apply_standard_layout(layout)
+        layout.setContentsMargins(8, 8, 8, 8)
 
         # Title
         title = QtWidgets.QLabel("Pitch List")
@@ -64,6 +66,9 @@ class PitchListWidget(QtWidgets.QWidget):
 
         # Pitch list (scrollable)
         self._pitch_list = QtWidgets.QListWidget()
+        self._pitch_list.setAccessibleName("Recorded pitches")
+        self._pitch_list.setMinimumHeight(110)
+        self._pitch_list.setWordWrap(True)
         self._pitch_list.setAlternatingRowColors(True)
         self._pitch_list.currentRowChanged.connect(self._on_pitch_selection_changed)
         layout.addWidget(self._pitch_list, 1)  # Takes most space
@@ -75,6 +80,8 @@ class PitchListWidget(QtWidgets.QWidget):
         # Statistics summary
         stats_group = self._build_statistics_panel()
         layout.addWidget(stats_group)
+        self._research_groups = (scoring_group, stats_group)
+        self.set_research_visible(False)
 
         # Navigation button
         nav_btn = QtWidgets.QPushButton("Go to Selected Pitch")
@@ -169,13 +176,14 @@ class PitchListWidget(QtWidgets.QWidget):
         self._pitch_scores = dict(pitch_scores)
 
         # Clear list
+        blocker = QtCore.QSignalBlocker(self._pitch_list)
         self._pitch_list.clear()
 
         # Add pitches
         for i, pitch in enumerate(pitches):
             # Get pitch info from manifest
             manifest = pitch.manifest
-            speed = manifest.get("measured_speed_mph", 0.0)
+            speed = recorded_metrics(manifest).speed
             pitch_id = manifest.get("pitch_id", f"pitch-{i+1:03d}")
 
             # Get score
@@ -183,7 +191,7 @@ class PitchListWidget(QtWidgets.QWidget):
             score_icon = self._get_score_icon(score)
 
             # Create list item
-            item_text = f"{score_icon} {pitch_id} - {speed:.1f} mph"
+            item_text = f"{score_icon} {pitch_id} · {speed} · {recorded_metrics(manifest).status}"
             item = QtWidgets.QListWidgetItem(item_text)
 
             # Color based on score
@@ -193,6 +201,18 @@ class PitchListWidget(QtWidgets.QWidget):
 
         # Update statistics
         self._update_statistics()
+        del blocker
+
+    def select_pitch(self, index: int) -> None:
+        blocker = QtCore.QSignalBlocker(self._pitch_list)
+        self._pitch_list.setCurrentRow(index)
+        del blocker
+        for button in (self._good_btn, self._partial_btn, self._missed_btn):
+            button.setEnabled(index >= 0)
+
+    def set_research_visible(self, visible: bool) -> None:
+        for group in self._research_groups:
+            group.setVisible(visible)
 
     def _get_score_icon(self, score: PitchScore) -> str:
         """Get icon for pitch score.
@@ -261,10 +281,10 @@ class PitchListWidget(QtWidgets.QWidget):
 
         # Update list item
         manifest = pitch.manifest
-        speed = manifest.get("measured_speed_mph", 0.0)
+        speed = recorded_metrics(manifest).speed
         pitch_id = manifest.get("pitch_id", f"pitch-{current_row+1:03d}")
         score_icon = self._get_score_icon(score)
-        item_text = f"{score_icon} {pitch_id} - {speed:.1f} mph"
+        item_text = f"{score_icon} {pitch_id} · {speed} · {recorded_metrics(manifest).status}"
 
         item = self._pitch_list.item(current_row)
         item.setText(item_text)
@@ -278,9 +298,6 @@ class PitchListWidget(QtWidgets.QWidget):
 
     def _update_statistics(self) -> None:
         """Update statistics display."""
-        if not self._pitch_scores:
-            return
-
         # Count scores
         good_count = sum(1 for s in self._pitch_scores.values() if s == PitchScore.GOOD)
         partial_count = sum(1 for s in self._pitch_scores.values() if s == PitchScore.PARTIAL)

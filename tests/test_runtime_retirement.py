@@ -57,7 +57,8 @@ def test_setup_launch_opens_the_canonical_workflow_without_background_validation
 
         def _launch_stereo_setup(self):
             opened.append("guided")
-    monkeypatch.setattr(launcher, "LauncherWindow", Window)
+    import ui.workspace.window as workspace
+    monkeypatch.setattr(workspace, "WorkspaceWindow", Window)
     monkeypatch.setattr(launcher, "prepare_launcher_environment", lambda: None)
     monkeypatch.setattr(launcher, "create_required_directories", lambda: None)
     monkeypatch.setattr(launcher.get_style_manager(), "apply_to_app", lambda app: None)

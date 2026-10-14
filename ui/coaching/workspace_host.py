@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
+from pathlib import Path
 
 from PySide6 import QtWidgets
 
@@ -37,6 +38,9 @@ class CoachingWorkspaceHost(QtWidgets.QMainWindow):
         if isinstance(h._session_ctrl, AsyncSessionController):
             return h._session_ctrl.operation()
         return SessionOperation()
+
+    def recordings_directory(self) -> Path:
+        return Path(cast("CoachWindow", self)._config.recording.output_dir)
 
     def session_command_busy(self) -> bool:
         h = cast("CoachWindow", self)

@@ -68,7 +68,16 @@ state and expose a supported retry, including **Retry End Session**. After succe
 finalization, choose **Review Session** or **New Session**. Summary availability and
 measurement quality remain separate from recording state.
 
-Sessions hosts local review; Players hosts roster browsing and management.
+Sessions lists local history from the configured recording directory. **Review
+Session** after successful finalization opens that session directly; **Open Local**
+still opens another local recording. Selecting a pitch row updates its video,
+recorded metrics and location together. Missing video or unverified timestamp
+mapping has an explicit unavailable state. **Browse full session video** leaves
+pitch association explicitly. Camera tabs select the recorded left/right view;
+research parameters, scoring and diagnostics expand under **Advanced research tools**.
+Browsing does not run detection or start offline processing.
+
+Players hosts roster browsing and management.
 Choosing **View Sessions** records a browsing selection, not an active-pitcher
 change. Player-based history filtering and safe pitcher attribution are later UX work.
 

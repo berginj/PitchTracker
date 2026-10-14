@@ -42,6 +42,7 @@ class TimelineWidget(QtWidgets.QWidget):
         self.setMaximumHeight(80)
         self.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self.setAccessibleName("Video Timeline")
+        self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
         self.setAccessibleDescription(
             "Timeline scrubber showing playback position. " "Click or drag to seek. Blue bar shows progress."
         )
@@ -54,6 +55,18 @@ class TimelineWidget(QtWidgets.QWidget):
         """
         self._current_frame = frame_index
         self.update()  # Trigger repaint
+
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
+        keys: dict[int, int] = {
+            QtCore.Qt.Key.Key_Left: self._current_frame - 1,
+            QtCore.Qt.Key.Key_Right: self._current_frame + 1,
+            QtCore.Qt.Key.Key_Home: 0, QtCore.Qt.Key.Key_End: self._total_frames - 1,
+        }
+        if self._total_frames and event.key() in keys:
+            self.seek_requested.emit(max(0, min(self._total_frames - 1, keys[event.key()])))
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
     def set_total_frames(self, total: int) -> None:
         """Set total frame count.
