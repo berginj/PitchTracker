@@ -56,3 +56,6 @@ class UnavailableLivePage(QtWidgets.QWidget):
 
     def perform_session_action(self, action: str) -> None:
         raise RuntimeError("Correct the selected configuration and restart before preparing Live capture")
+
+    def request_pitcher(self, name: str) -> None:
+        raise RuntimeError("Correct the selected configuration before changing the active pitcher")

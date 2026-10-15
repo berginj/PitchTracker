@@ -37,7 +37,8 @@ physical qualification or release gates.
   ([implementation and evidence](review/ux/UX_04_IMPLEMENTATION.md)).
 - [x] UX-05: Connect session history, pitch selection and review
   ([implementation and evidence](review/ux/UX_05_IMPLEMENTATION.md)).
-- [ ] UX-06: Align setup and player workflows within the workspace.
+- [x] UX-06: Align setup and player workflows within the workspace
+  ([implementation and evidence](review/ux/UX_06_IMPLEMENTATION.md)).
 - [ ] UX-07: Normalize analytics, dialogs, settings, help and visual presentation.
 - [ ] UX-08: Validate complete operator journeys and record manual evidence.
 

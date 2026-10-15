@@ -34,9 +34,11 @@ class SessionStartDialog(QtWidgets.QDialog):
         backend: Optional[str] = None,
         config_path: Optional[Path] = None,
         prepare_only: bool = False,
+        initial_pitcher: str | None = None,
     ):
         super().__init__(parent)
         self._prepare_only = prepare_only
+        self._roster_error = ""
         self.setWindowTitle("Prepare Session" if prepare_only else "Start New Session")
         self.resize(540, 560)
 
@@ -58,6 +60,10 @@ class SessionStartDialog(QtWidgets.QDialog):
         self.right_serial = ""
 
         self._build_ui()
+        if initial_pitcher:
+            if self._pitcher_combo.findText(initial_pitcher) < 0:
+                self._pitcher_combo.insertItem(1, initial_pitcher)
+            self._pitcher_combo.setCurrentText(initial_pitcher)
         self._generate_session_name()
 
     def _build_ui(self) -> None:
@@ -128,6 +134,10 @@ class SessionStartDialog(QtWidgets.QDialog):
         layout.addWidget(QtWidgets.QLabel("Select Pitcher"))
         layout.addWidget(self._pitcher_combo)
         layout.addWidget(self._new_pitcher_input)
+        if not saved_pitchers:
+            notice = QtWidgets.QLabel(self._roster_error or "No saved pitchers. Choose Add New Pitcher to create one.")
+            notice.setWordWrap(True)
+            layout.addWidget(notice)
         group.setLayout(layout)
         return group
 
@@ -386,17 +396,8 @@ class SessionStartDialog(QtWidgets.QDialog):
         return widget
 
     def _load_saved_pitchers(self) -> list[str]:
-        """Load saved pitchers from pitcher profiles directory."""
-        try:
-            from analysis.pattern_detection.pitcher_profile import PitcherProfileManager
-
-            profile_manager = PitcherProfileManager()
-            saved_pitchers = profile_manager.list_profiles()
-            if not saved_pitchers:
-                return ["John Doe", "Jane Smith", "Mike Johnson"]
-            return sorted(saved_pitchers)
-        except Exception:
-            return ["John Doe", "Jane Smith", "Mike Johnson"]
+        from ui.coaching.dialogs.session_roster import load_preparation_roster
+        return load_preparation_roster(self)
 
     def _generate_session_name(self) -> None:
         """Auto-generate session name with timestamp."""
@@ -435,15 +436,12 @@ class SessionStartDialog(QtWidgets.QDialog):
 
     def _accept(self) -> None:
         """Validate and accept dialog."""
-        if not self._pitcher_name:
-            show_message_dialog(
-                self,
-                "Missing Pitcher",
-                "Please select or enter a pitcher name.",
-                tone="warning",
-            )
+        from contracts.pitcher import validate_pitcher_name
+        try:
+            self._pitcher_name = validate_pitcher_name(self._pitcher_name)
+        except ValueError as exc:
+            show_message_dialog(self, "Pitcher required", str(exc), tone="warning")
             return
-
         if not self._session_name:
             show_message_dialog(
                 self,
@@ -487,6 +485,9 @@ class SessionStartDialog(QtWidgets.QDialog):
             ):
                 return
 
+        from ui.coaching.dialogs.session_roster import save_new_pitcher
+        if not save_new_pitcher(self):
+            return
         self.pitcher_name = self._pitcher_name
         self.session_name = self._session_name
         self.batter_height_in = self._batter_height_in

@@ -32,6 +32,11 @@ fixtures and an in-memory decoder. The 24 captures include missing-video,
 invalid-mapping and active-capture browsing states. See the
 [UX-05 implementation record](../docs/review/ux/UX_05_IMPLEMENTATION.md).
 
+`capture_setup_players.py` renders Players, filtered history and guided Setup
+with disposable configuration, roster and synthetic recorded artifacts. Its 30
+captures include pending pitch changes, capture conflicts and saved re-entry.
+See the [UX-06 implementation record](../docs/review/ux/UX_06_IMPLEMENTATION.md).
+
 `render_ux_prototype.py` checks the local HTML workspace design with Qt WebEngine
 and creates target images through Chromium PDF output and Qt PDF rasterization.
 Its profile is in memory; it loads only the local prototype. The browser child
@@ -46,6 +51,7 @@ python scripts/capture_workspace.py
 python scripts/capture_session_states.py
 python scripts/capture_live_experience.py
 python scripts/capture_session_review.py
+python scripts/capture_setup_players.py
 python scripts/render_ux_prototype.py
 ```
 

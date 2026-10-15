@@ -77,12 +77,15 @@ class SessionController:
 
         self.load_session(Path(session_dir))
 
-    def load_session(self, session_dir: Path) -> bool:
+    def load_session(self, session_dir: Path, *, pitcher_name: str | None = None) -> bool:
         """Load a session for review."""
         try:
             logger.info(f"Loading session: {session_dir}")
             self._status_bar.showMessage(f"Loading session: {session_dir.name}...")
-            self._service.load_session(session_dir)
+            if pitcher_name is None:
+                self._service.load_session(session_dir)
+            else:
+                self._service.load_session(session_dir, pitcher_name=pitcher_name)
             self._on_session_loaded()
 
             session = self._service.session

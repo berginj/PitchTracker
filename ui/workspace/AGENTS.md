@@ -29,3 +29,6 @@ UX-08 own subsequent behavior, page presentation and qualification.
 - Review Session hands off RuntimeStatus.finalized_session only after confirmed
   success; a pending/failed end cannot trigger it. Pass the exact active directory
   to ReviewService admission while browsing independent completed artifacts.
+- Players history passes an optional recorded label in ReviewSelection. Keep
+  that filter visible and clearable, and never infer it from the active pitcher.
+  The header shows confirmed active/pending pitcher context across destinations.

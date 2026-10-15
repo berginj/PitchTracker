@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -21,6 +21,7 @@ from app.review.review_detection import (
 from app.review.session_loader import LoadedSession, SessionLoader
 from app.review.video_reader import VideoReader
 from app.review.playback_mapping import PitchPlayback, pitch_playback
+from app.review.player_history import has_recorded_player, recorded_pitcher
 from app.services.orchestrator.runtime_status import RuntimeStatus
 from detect.classical_detector import ClassicalDetector
 from detect.config import Mode
@@ -68,15 +69,19 @@ class ReviewService:
         self._pitch_playback: tuple[PitchPlayback, ...] = ()
         self._playback_issue = ""
         self._playback_blocked = False
+        self.player_filter: str | None = None
         logger.debug("ReviewService initialized")
 
-    def load_session(self, session_dir: Path) -> LoadedSession:
+    def load_session(self, session_dir: Path, *, pitcher_name: str | None = None) -> LoadedSession:
         """Load a session, open its paired videos, and reset review state."""
         logger.info(f"Loading session for review: {session_dir}")
         if not self.can_open_session(session_dir):
             raise ValueError("This session is still being recorded or finalized. Wait for successful finalization.")
         session = SessionLoader.load_session(session_dir, require_video=False)
         self.close()
+        self.player_filter = pitcher_name
+        if pitcher_name is not None:
+            session = replace(session, pitches=[pitch for pitch in session.pitches if recorded_pitcher(pitch.manifest) == pitcher_name])
         self._session = session
         try:
             self._video_reader.open_videos(session.left_video_path, session.right_video_path)
@@ -152,8 +157,9 @@ class ReviewService:
             return False
         return self._runtime.pending_operation != "start_recording"
 
-    def available_sessions(self, root: Path) -> list[Path]:
-        return [path for path in SessionLoader.get_available_sessions(root) if self.can_open_session(path)]
+    def available_sessions(self, root: Path, *, pitcher_name: str | None = None) -> list[Path]:
+        return [path for path in SessionLoader.get_available_sessions(root)
+                if self.can_open_session(path) and (pitcher_name is None or has_recorded_player(path, pitcher_name))]
 
     def playback_for_pitch(self, index: int) -> PitchPlayback:
         if 0 <= index < len(self._pitch_playback):
@@ -328,6 +334,7 @@ class ReviewService:
         self._pitch_playback = ()
         self._playback_issue = ""
         self._playback_blocked = False
+        self.player_filter = None
         logger.info("Review service closed")
 
 

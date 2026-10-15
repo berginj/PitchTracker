@@ -46,6 +46,9 @@ setup services, not the runtime orchestrator.
 The canonical setup has five stages: Cameras, Image checks, Calibration, Field
 and regions, and Ready. During runtime capture it is view-only; stop preview
 explicitly in Live before editing. Completion alone does not grant physical `VALIDATED` status.
+The workspace shows the current stage, saved revision and readiness blockers.
+Valid edits save immediately and invalidate affected checks; failed saves remain
+visible. Reopening Setup retains these values. **Finish** publishes explicitly.
 
 ### Live
 
@@ -77,9 +80,14 @@ pitch association explicitly. Camera tabs select the recorded left/right view;
 research parameters, scoring and diagnostics expand under **Advanced research tools**.
 Browsing does not run detection or start offline processing.
 
-Players hosts roster browsing and management.
-Choosing **View Sessions** records a browsing selection, not an active-pitcher
-change. Player-based history filtering and safe pitcher attribution are later UX work.
+Players hosts the local roster. **View Sessions** filters history by the exact
+recorded player label; legacy pitches without attribution stay unknown. Use
+**Show all players** to clear the filter. **Use as active pitcher** requests an
+explicit service command. A change during ramp-up or an active pitch shows as
+pending until the pitch ends; the underway pitch retains its original label.
+Renaming or removing a roster entry preserves recordings and the active label.
+New recordings retain the selected label in pitch artifacts; earlier recordings
+are not rewritten, and labels do not imply stable player IDs.
 
 Use review workflows to inspect recorded sessions, videos, pitch artifacts,
 summaries, and evidence. Offline replay can reconcile recorded decisions but

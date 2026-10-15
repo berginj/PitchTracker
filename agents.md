@@ -344,6 +344,7 @@ authorize automatic delegation.
   delivered incrementally under UX-01 through UX-08. UX-02 delivers the shell
   and UX-03 adds responsive session commands with shared progress and recovery.
   UX-04 delivers live feedback and UX-05 connects completed-session/pitch review;
+  UX-06 aligns saved setup state, Players and pitch-boundary attribution;
   later setup/player alignment, secondary surfaces and qualification remain open.
 - Preserve PySide6, PipelineOrchestrator, QtPipelineService and
   SetupWorkflowService ownership. Add narrow public typed interfaces where

@@ -28,6 +28,7 @@ def mock_review_service():
         svc.detector_config = None
         svc.playback_issue = ""
         svc.playback_available = True
+        svc.player_filter = None
         svc.get_current_frames.return_value = (None, None)
         svc.run_detection_on_current_frame.return_value = ([], [])
         yield svc

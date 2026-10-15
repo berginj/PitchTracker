@@ -18,6 +18,7 @@ class SessionsPage(QtWidgets.QWidget):
         super().__init__()
         self._shutdown_complete = False
         self._runtime = RuntimeStatus()
+        self._player_filter: str | None = None
         self._recordings_root = recordings_root
         self._review = ReviewWindow()
         self._review.set_recordings_root(recordings_root)
@@ -50,7 +51,14 @@ class SessionsPage(QtWidgets.QWidget):
         raw.setAccessibleName("Browse session video without pitch association")
         get_style_manager().style_button(raw, "ghost")
         raw.clicked.connect(self._review.browse_session_video)
-        layout.addWidget(raw)
+        filter_row = QtWidgets.QHBoxLayout()
+        filter_row.addWidget(raw)
+        self._clear_player = QtWidgets.QPushButton("Show all players")
+        self._clear_player.setAccessibleName("Clear historical player filter")
+        self._clear_player.clicked.connect(lambda: self.browse_player(None))
+        filter_row.addWidget(self._clear_player)
+        self._clear_player.hide()
+        layout.addLayout(filter_row)
         layout.addWidget(self._review, 1)
         self.refresh()
 
@@ -61,7 +69,7 @@ class SessionsPage(QtWidgets.QWidget):
     def refresh(self) -> None:
         selected = self._sessions.currentData()
         self._sessions.clear()
-        for path in self._review.available_sessions(self._recordings_root):
+        for path in self._review.available_sessions(self._recordings_root, pitcher_name=self._player_filter):
             self._sessions.addItem(path.name, path)
         if self._sessions.count() == 0:
             self._sessions.addItem("No completed local sessions", None)
@@ -72,11 +80,15 @@ class SessionsPage(QtWidgets.QWidget):
     def _open_selected(self) -> None:
         path = self._sessions.currentData()
         if path is not None:
-            self.open_selection(ReviewSelection(path))
+            self.open_selection(ReviewSelection(path, pitcher_name=self._player_filter))
         else:
             self._selection_label.setText("No completed session found. Use Open Local or finish a recording, then Refresh.")
 
     def open_selection(self, selection: ReviewSelection) -> None:
+        if selection.pitcher_name != self._player_filter:
+            self._player_filter = selection.pitcher_name
+            self.refresh()
+        self._clear_player.setVisible(self._player_filter is not None)
         if not self._review.open_session(selection):
             self._selection_label.setText("Could not open the requested session or pitch. Check its local files and try again.")
 
@@ -90,8 +102,14 @@ class SessionsPage(QtWidgets.QWidget):
         self._runtime = status
         self._review.update_runtime(status)
 
-    def browse_player(self, player_name: str) -> None:
-        self._selection_label.setText(f"Browsing player: {player_name}. Choose a recorded session to review it.")
+    def browse_player(self, player_name: str | None) -> None:
+        self._review.close_session()
+        self._player_filter = player_name
+        self._clear_player.setVisible(player_name is not None)
+        self.refresh()
+        self._selection_label.setText(
+            f"History filter: {player_name}. Only explicitly attributed pitches match; legacy attribution stays unknown."
+            if player_name else "All players. Choose a completed recorded session.")
 
     def shutdown_for_workspace(self) -> bool:
         if not self._shutdown_complete:

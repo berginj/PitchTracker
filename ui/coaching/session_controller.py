@@ -146,6 +146,7 @@ class SessionController:
                 )
             else:
                 logger.info("Capture already running, skipping camera start")
+            h._service.change_pitcher(h._pitcher_name)
 
             state = load_state()
             state["last_left_camera"] = left_serial
@@ -373,7 +374,6 @@ class SessionController:
 
         h = self._host
         dialog = TeamManager(parent=h)
-        dialog.pitcher_selected.connect(self._on_pitcher_switched)
         if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
             selected = dialog.get_selected_pitcher()
             if selected:
@@ -382,12 +382,16 @@ class SessionController:
     def _on_pitcher_switched(self, pitcher_name: str) -> None:
         """Handle pitcher switch."""
         h = self._host
-        old_pitcher = h._pitcher_name
-        h._pitcher_name = pitcher_name
-        h._pitcher_label.setText(f"Pitcher: {pitcher_name}")
-        h._fatigue_indicator.reset()
-        logger.info(f"Switched pitcher: {old_pitcher} -> {pitcher_name}")
-        h._status_label.setText(f"Switched to pitcher: {pitcher_name}")
+        try:
+            selection = h._service.change_pitcher(pitcher_name)
+        except (ValueError, RuntimeError) as exc:
+            logger.exception("Pitcher change failed")
+            h._set_status_message(str(exc), "error")
+            return
+        if selection.active_name:
+            h._pitcher_name = selection.active_name
+            h._pitcher_label.setText(f"Pitcher: {selection.active_name}")
+        h._status_label.setText(f"Next pitch: {selection.pending_name}" if selection.pending_name else f"Pitcher: {selection.active_name}")
         h.notify_preparation_changed()
 
     def handle_close_event(self, event) -> None:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import threading
-from typing import Optional, TYPE_CHECKING
+from typing import Callable, Optional, TYPE_CHECKING
 
 from app.events.event_bus import EventBus
 from app.events.event_metadata import make_event_metadata
@@ -21,9 +21,12 @@ from app.events.event_types import (
     StereoFrameProcessedEvent,
 )
 from app.pipeline.pitch_tracking_v2 import PitchData, PitchStateMachineV2
+from app.pipeline.pitch_snapshot import PitchPhase
 from app.services.rig_profile import RigProfile
 from configs.settings import AppConfig
 from contracts import StereoObservation
+from contracts.pitcher import PitcherSelection
+from app.services.orchestrator.pitcher_attribution import PitcherAttribution
 from log_config.logger import get_logger
 
 if TYPE_CHECKING:
@@ -32,7 +35,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class EventCoordinator:
+class EventCoordinator(PitcherAttribution):
     """Routes observations to the pitch state machine and publishes lifecycle events.
 
     This collaborator is owned by ``PipelineOrchestrator`` and must not be used
@@ -52,11 +55,21 @@ class EventCoordinator:
         self._session_id: Optional[str] = None
         self._tracking_lock = threading.RLock()
         self._tracking_enabled = True
+        self._pitcher = PitcherSelection()
+        self._pitch_in_progress = False
+        self._pitcher_changed: Callable[[PitcherSelection], object] = lambda _selection: None
+
+    def set_pitcher_publisher(self, callback: Callable[[PitcherSelection], object]) -> None:
+        self._pitcher_changed = callback
 
     # --- Mutable state setters (called by orchestrator) ---
 
     def set_pitch_tracker(self, tracker: Optional[PitchStateMachineV2]) -> None:
         self._pitch_tracker = tracker
+
+    def wire_pitch_tracker(self, tracker: PitchStateMachineV2) -> None:
+        tracker.set_callbacks(on_pitch_start=self.on_pitch_start, on_pitch_end=self.on_pitch_end,
+                              on_pitch_rejected=self.on_pitch_rejected)
 
     def set_rig_profile(self, profile: Optional[RigProfile]) -> None:
         self._active_rig_profile = profile
@@ -65,7 +78,10 @@ class EventCoordinator:
         self._config = config
 
     def set_session_id(self, session_id: Optional[str]) -> None:
-        self._session_id = session_id
+        with self._tracking_lock:
+            if session_id != self._session_id:
+                self._end_pitch_attribution()
+            self._session_id = session_id
 
     def suspend_tracking(self) -> None:
         """Fence callbacks already copied by EventBus before finalizing a pitch."""
@@ -117,63 +133,72 @@ class EventCoordinator:
                     plate_count=event.plate_count,
                     obs_count=len(event.observations),
                 )
+                phase = self._pitch_tracker.get_phase()
+                self._pitch_in_progress = phase in {PitchPhase.RAMP_UP, PitchPhase.ACTIVE, PitchPhase.ENDING}
+                if not self._pitch_in_progress and (self._pitcher.pending_name or self._pitcher.pitch_id):
+                    self._end_pitch_attribution()
         except Exception as e:
             logger.error(f"Error handling stereo frame pair: {e}", exc_info=True)
 
     def on_pitch_start(self, pitch_index: int, pitch_data: PitchData) -> None:
         """Publish PitchStartEvent to EventBus."""
         try:
-            event = PitchStartEvent(
-                pitch_id=make_pitch_id(pitch_index),
-                pitch_index=pitch_index,
-                timestamp_ns=pitch_data.start_ns,
-                metadata=make_event_metadata(
-                    "PitchStartEvent",
-                    correlation_id=make_pitch_id(pitch_index),
-                    timestamp_ns=pitch_data.start_ns,
+            with self._tracking_lock:
+                event = PitchStartEvent(
                     pitch_id=make_pitch_id(pitch_index),
-                    session_id=self._session_id,
-                ),
-            )
-            self._event_bus.publish(event)
-            logger.info(f"Pitch started: {pitch_index}")
+                    pitch_index=pitch_index,
+                    timestamp_ns=pitch_data.start_ns,
+                    pitcher_name=self._begin_pitch_attribution(make_pitch_id(pitch_index)),
+                    metadata=make_event_metadata(
+                        "PitchStartEvent",
+                        correlation_id=make_pitch_id(pitch_index),
+                        timestamp_ns=pitch_data.start_ns,
+                        pitch_id=make_pitch_id(pitch_index),
+                        session_id=self._session_id,
+                    ),
+                )
+                self._event_bus.publish(event)
+                logger.info(f"Pitch started: {pitch_index}")
         except Exception as e:
             logger.error(f"Error handling pitch start: {e}", exc_info=True)
 
     def on_pitch_end(self, pitch_data: PitchData) -> None:
         """Publish PitchEndEvent to EventBus."""
         try:
-            pitch_id_str = make_pitch_id(pitch_data.pitch_index)
-            event = PitchEndEvent(
-                pitch_id=pitch_id_str,
-                observations=pitch_data.observations,
-                timestamp_ns=pitch_data.end_ns,
-                duration_ns=pitch_data.duration_ns(),
-                ray_observations=pitch_data.ray_observations,
-                coordinate_frame=(
-                    "field"
-                    if self._active_rig_profile
-                    and self._active_rig_profile.field_transform.get("matrix_4x4")
-                    else "camera"
-                ),
-                rig_profile_id=(
-                    self._active_rig_profile.profile_id
-                    if self._active_rig_profile
-                    else None
-                ),
-                metadata=make_event_metadata(
-                    "PitchEndEvent",
-                    correlation_id=pitch_id_str,
-                    timestamp_ns=pitch_data.end_ns,
+            with self._tracking_lock:
+                pitch_id_str = make_pitch_id(pitch_data.pitch_index)
+                event = PitchEndEvent(
                     pitch_id=pitch_id_str,
-                    session_id=self._session_id,
-                ),
-            )
-            self._event_bus.publish(event)
-            logger.info(
-                f"Pitch ended: {pitch_data.pitch_index}, "
-                f"{len(pitch_data.observations)} observations"
-            )
+                    observations=pitch_data.observations,
+                    timestamp_ns=pitch_data.end_ns,
+                    duration_ns=pitch_data.duration_ns(),
+                    pitcher_name=self._pitcher.active_name,
+                    ray_observations=pitch_data.ray_observations,
+                    coordinate_frame=(
+                        "field"
+                        if self._active_rig_profile
+                        and self._active_rig_profile.field_transform.get("matrix_4x4")
+                        else "camera"
+                    ),
+                    rig_profile_id=(
+                        self._active_rig_profile.profile_id
+                        if self._active_rig_profile
+                        else None
+                    ),
+                    metadata=make_event_metadata(
+                        "PitchEndEvent",
+                        correlation_id=pitch_id_str,
+                        timestamp_ns=pitch_data.end_ns,
+                        pitch_id=pitch_id_str,
+                        session_id=self._session_id,
+                    ),
+                )
+                self._event_bus.publish(event)
+                self._end_pitch_attribution()
+                logger.info(
+                    f"Pitch ended: {pitch_data.pitch_index}, "
+                    f"{len(pitch_data.observations)} observations"
+                )
         except Exception as e:
             logger.error(f"Error handling pitch end: {e}", exc_info=True)
 

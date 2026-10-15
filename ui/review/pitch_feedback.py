@@ -3,6 +3,7 @@
 from PySide6 import QtCore, QtWidgets
 
 from app.review.recorded_metrics import recorded_metrics
+from app.review.player_history import recorded_pitcher
 from ui.themes import get_style_manager
 
 
@@ -25,8 +26,10 @@ class PitchFeedback(QtWidgets.QWidget):
 
     def load_pitch(self, pitch, playback_reason: str = "") -> None:
         raw = getattr(pitch, "manifest", {})
+        raw = raw if isinstance(raw, dict) else {}
         metrics = recorded_metrics(raw if isinstance(raw, dict) else {})
         self.labels["identity"].setText(f"Selected pitch · {pitch.pitch_id}")
+        self.labels["identity"].setText(self.labels["identity"].text() + f" · {recorded_pitcher(raw) or 'Pitcher not recorded'}")
         self.labels["speed"].setText(f"Speed: {metrics.speed}")
         self.labels["source"].setText(metrics.provenance)
         self.labels["result"].setText(f"Recorded result: {metrics.result}")
