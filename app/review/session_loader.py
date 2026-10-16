@@ -93,11 +93,11 @@ class SessionLoader:
         return True, ""
 
     @staticmethod
-    def load_session(session_dir: Path) -> LoadedSession:
+    def load_session(session_dir: Path, *, require_video: bool = True) -> LoadedSession:
         """Load a complete session and its compatible pitch artifacts."""
         logger.info(f"Loading session from {session_dir}")
         is_valid, error_msg = SessionLoader.validate_session(session_dir)
-        if not is_valid:
+        if not is_valid and (require_video or error_msg != "Session videos not found (session_left.avi or session_right.avi)"):
             raise ValueError(f"Invalid session: {error_msg}")
         manifest_path = SessionLoader._find_existing_path(session_dir, SessionLoader._SESSION_MANIFEST_CANDIDATES)
         if manifest_path is None:

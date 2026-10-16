@@ -79,7 +79,10 @@ state and supported retry actions. See the
 Live now uses Latest Pitch, Session Trends and Games, with a resizable preview,
 visible measurement provenance and Advanced Tools. See the
 [UX-04 implementation record](review/ux/UX_04_IMPLEMENTATION.md).
-Session/review and remaining experience work continues under UX-05 through UX-08.
+Sessions now supports direct finalized-session review, configured local history,
+linked pitch/video/metric selection and explicit degraded playback states. See the
+[UX-05 implementation record](review/ux/UX_05_IMPLEMENTATION.md).
+Remaining experience work continues under UX-06 through UX-08.
 
 The older desktop/setup/pipeline paths are retired under
 `archive/retired/2026-10-13`. Guided setup is the default for launcher, direct

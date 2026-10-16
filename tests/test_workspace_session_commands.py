@@ -291,12 +291,14 @@ def test_command_runner_with_real_simulator_pipeline(monkeypatch, qtbot, tmp_pat
         assert runner.submit("prepare", prepared)
         qtbot.waitUntil(lambda: not runner.busy, timeout=20000)
         assert not results[-1].error and pipeline.runtime_status().capture_phase == "live"
+        assert config.recording.output_dir.is_dir()
         for operation, phase in (("record", "recording"), ("pause", "paused"), ("resume", "recording"), ("end", "completed")):
             assert runner.submit(operation, session_name="synthetic")
             qtbot.waitUntil(lambda: not runner.busy, timeout=20000)
             assert not results[-1].error
             assert pipeline.runtime_status().recording_phase == phase
         assert pipeline.runtime_status().finalized_session.session_dir.is_dir()
+        assert pipeline.runtime_status().finalized_session.session_dir.parent == config.recording.output_dir
         assert any(status.recording_phase == "finalizing" for status in statuses)
         assert runner.submit("stop_preview")
         qtbot.waitUntil(lambda: not runner.busy, timeout=20000)

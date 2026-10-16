@@ -65,7 +65,7 @@ class PlaybackControls(QtWidgets.QWidget):
         self._style_manager.style_button(self._seek_start_btn, "default")
 
         # Step backward button
-        self._step_back_btn = QtWidgets.QPushButton("Step Back")
+        self._step_back_btn = QtWidgets.QPushButton("Back")
         self._step_back_btn.setToolTip("Step backward one frame (Left Arrow)")
         self._step_back_btn.clicked.connect(self.step_backward_clicked.emit)
         self._step_back_btn.setMinimumHeight(self._style_manager.theme.button_height_md)
@@ -81,7 +81,7 @@ class PlaybackControls(QtWidgets.QWidget):
         self._style_manager.style_button(self._play_pause_btn, "success")
 
         # Step forward button
-        self._step_forward_btn = QtWidgets.QPushButton("Step Forward")
+        self._step_forward_btn = QtWidgets.QPushButton("Next frame")
         self._step_forward_btn.setToolTip("Step forward one frame (Right Arrow)")
         self._step_forward_btn.clicked.connect(self.step_forward_clicked.emit)
         self._step_forward_btn.setMinimumHeight(self._style_manager.theme.button_height_md)
@@ -121,42 +121,34 @@ class PlaybackControls(QtWidgets.QWidget):
         self._style_manager.style_button(self._loop_btn, "ghost")
 
         # Pitch navigation
-        self._prev_pitch_btn = QtWidgets.QPushButton("Prev Pitch")
+        self._prev_pitch_btn = QtWidgets.QPushButton("Prev pitch")
         self._prev_pitch_btn.setToolTip("Jump to previous pitch (PgUp)")
         self._prev_pitch_btn.clicked.connect(self.prev_pitch_clicked.emit)
         self._prev_pitch_btn.setMinimumHeight(self._style_manager.theme.button_height_sm)
         self._prev_pitch_btn.setAccessibleName("Previous Pitch")
         self._style_manager.style_button(self._prev_pitch_btn, "default")
 
-        self._next_pitch_btn = QtWidgets.QPushButton("Next Pitch")
+        self._next_pitch_btn = QtWidgets.QPushButton("Next pitch")
         self._next_pitch_btn.setToolTip("Jump to next pitch (PgDown)")
         self._next_pitch_btn.clicked.connect(self.next_pitch_clicked.emit)
         self._next_pitch_btn.setMinimumHeight(self._style_manager.theme.button_height_sm)
         self._next_pitch_btn.setAccessibleName("Next Pitch")
         self._style_manager.style_button(self._next_pitch_btn, "default")
 
-        # Top row: Frame controls
-        frame_layout = QtWidgets.QHBoxLayout()
-        frame_layout.addWidget(self._seek_start_btn)
-        frame_layout.addWidget(self._step_back_btn)
-        frame_layout.addWidget(self._play_pause_btn, 1)  # Play button takes more space
-        frame_layout.addWidget(self._step_forward_btn)
-        frame_layout.addWidget(self._seek_end_btn)
-
-        # Bottom row: Speed, loop, and pitch navigation
-        options_layout = QtWidgets.QHBoxLayout()
-        options_layout.addWidget(self._prev_pitch_btn)
-        options_layout.addWidget(self._next_pitch_btn)
-        options_layout.addStretch()
-        options_layout.addWidget(self._loop_btn)
-        options_layout.addWidget(speed_label)
-        options_layout.addWidget(self._speed_combo)
-
-        # Main layout
-        layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(20, 18, 20, 18)
-        layout.addLayout(frame_layout)
-        layout.addLayout(options_layout)
+        # Two-column controls stay reachable alongside feedback at 800x600.
+        layout = QtWidgets.QGridLayout()
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.addWidget(self._step_back_btn, 0, 0)
+        layout.addWidget(self._step_forward_btn, 0, 1)
+        layout.addWidget(self._play_pause_btn, 1, 0, 1, 2)
+        layout.addWidget(self._seek_start_btn, 2, 0)
+        layout.addWidget(self._seek_end_btn, 2, 1)
+        layout.addWidget(self._prev_pitch_btn, 3, 0)
+        layout.addWidget(self._next_pitch_btn, 3, 1)
+        layout.addWidget(self._loop_btn, 4, 0)
+        layout.addWidget(self._speed_combo, 4, 1)
+        self._speed_combo.setToolTip("Playback speed")
+        speed_label.hide()
 
         self.setLayout(layout)
         self.setProperty("surface", "card")

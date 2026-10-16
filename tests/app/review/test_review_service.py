@@ -36,14 +36,14 @@ def test_load_session_opens_paired_videos_and_resets_scores(tmp_path):
     assert service._pitch_scores == {"pitch_00001": PitchScore.UNSCORED}
 
 
-def test_seek_to_pitch_preserves_approximate_frame_semantics(tmp_path):
+def test_seek_to_pitch_rejects_unverified_frame_positions(tmp_path):
     service = ReviewService()
     service._session = _session(tmp_path)
     service._video_reader = MagicMock()
     service._video_reader.seek_to_frame.return_value = True
 
-    assert service.seek_to_pitch(0)
-    service._video_reader.seek_to_frame.assert_called_once_with(0)
+    assert not service.seek_to_pitch(0)
+    service._video_reader.seek_to_frame.assert_not_called()
     assert not service.seek_to_pitch(3)
 
 

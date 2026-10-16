@@ -20,6 +20,8 @@ from app.review.review_detection import (
 )
 from app.review.session_loader import LoadedSession, SessionLoader
 from app.review.video_reader import VideoReader
+from app.review.playback_mapping import PitchPlayback, pitch_playback
+from app.services.orchestrator.runtime_status import RuntimeStatus
 from detect.classical_detector import ClassicalDetector
 from detect.config import Mode
 from log_config.logger import get_logger
@@ -62,18 +64,31 @@ class ReviewService:
         self._annotations: dict[int, list[Annotation]] = {}
         self._pitch_scores: dict[str, PitchScore] = {}
         self._playback_speed = 1.0
+        self._runtime = RuntimeStatus()
+        self._pitch_playback: tuple[PitchPlayback, ...] = ()
+        self._playback_issue = ""
+        self._playback_blocked = False
         logger.debug("ReviewService initialized")
 
-    def load_session(self, session_dir: Path) -> LoadedSession:
+    def load_session(self, session_dir: Path, *, pitch_id: str | None = None) -> LoadedSession:
         """Load a session, open its paired videos, and reset review state."""
         logger.info(f"Loading session for review: {session_dir}")
-        session = SessionLoader.load_session(session_dir)
+        if not self.can_open_session(session_dir):
+            raise ValueError("This session is still being recorded or finalized. Wait for successful finalization.")
+        session = SessionLoader.load_session(session_dir, require_video=False)
+        if pitch_id is not None and not any(pitch.pitch_id == pitch_id for pitch in session.pitches):
+            raise ValueError(f"Requested pitch is not available in this session: {pitch_id}")
+        self.close()
         self._session = session
-        if not session.left_video_path.exists():
-            raise FileNotFoundError(f"Left video not found: {session.left_video_path}")
-        if not session.right_video_path.exists():
-            raise FileNotFoundError(f"Right video not found: {session.right_video_path}")
-        self._video_reader.open_videos(session.left_video_path, session.right_video_path)
+        try:
+            self._video_reader.open_videos(session.left_video_path, session.right_video_path)
+            left, right = self._video_reader.left_info, self._video_reader.right_info
+            self._pitch_playback = pitch_playback(session, left.total_frames, right.total_frames) if left and right else ()
+        except (OSError, ValueError) as exc:
+            logger.warning("Recorded video unavailable: %s", exc)
+            self._video_reader.close()
+            self._playback_issue = f"Video unavailable: {exc}"
+            self._pitch_playback = tuple(PitchPlayback(p.pitch_id, None, self._playback_issue) for p in session.pitches)
         self._set_session_detector_config(session)
         self._pitch_scores = {pitch.pitch_id: PitchScore.UNSCORED for pitch in session.pitches}
         self._annotations.clear()
@@ -99,36 +114,77 @@ class ReviewService:
         self,
     ) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         """Read the paired frames at the current reader position."""
+        if self._playback_blocked:
+            return None, None
         return self._video_reader.read_frames()
 
     def seek_to_frame(self, frame_index: int) -> bool:
         """Seek to a zero-based paired frame."""
+        if self._playback_blocked:
+            return False
         return self._video_reader.seek_to_frame(frame_index)
 
     def seek_to_pitch(self, pitch_index: int) -> bool:
-        """Seek to the existing approximate frame for a pitch index."""
+        """Seek only through verified encoded-frame timestamp mappings."""
         if not self._session or pitch_index < 0 or pitch_index >= len(self._session.pitches):
             logger.warning(f"Invalid pitch index: {pitch_index}")
             return False
         pitch = self._session.pitches[pitch_index]
         logger.info(f"Seeking to pitch {pitch.pitch_id}")
-        return self.seek_to_frame(pitch_index * 100)
+        mapping = self.playback_for_pitch(pitch_index)
+        self._playback_blocked = mapping.frame_index is None
+        return mapping.frame_index is not None and self.seek_to_frame(mapping.frame_index)
+
+    def browse_session_video(self) -> bool:
+        """Explicitly leave pitch association for raw session video playback."""
+        self._playback_blocked = False
+        return self.seek_to_start()
+
+    @property
+    def playback_available(self) -> bool:
+        return not self._playback_blocked and self.total_frames > 0
+
+    def update_runtime(self, status: RuntimeStatus) -> None:
+        if status.sequence >= self._runtime.sequence:
+            self._runtime = status
+
+    def can_open_session(self, path: Path) -> bool:
+        active = self._runtime.active_session_dir
+        if active is not None and path.resolve() == active.resolve():
+            return False
+        return True
+
+    def available_sessions(self, root: Path) -> list[Path]:
+        return [path for path in SessionLoader.get_available_sessions(root) if self.can_open_session(path)]
+
+    def playback_for_pitch(self, index: int) -> PitchPlayback:
+        if 0 <= index < len(self._pitch_playback):
+            return self._pitch_playback[index]
+        return PitchPlayback("", None, "Pitch playback mapping unavailable")
+
+    @property
+    def playback_issue(self) -> str:
+        return self._playback_issue
+
+    @property
+    def pitch_scores(self) -> dict[str, PitchScore]:
+        return dict(self._pitch_scores)
 
     def step_forward(self, num_frames: int = 1) -> bool:
         """Step the paired reader forward."""
-        return self._video_reader.step_forward(num_frames)
+        return not self._playback_blocked and self._video_reader.step_forward(num_frames)
 
     def step_backward(self, num_frames: int = 1) -> bool:
         """Step the paired reader backward."""
-        return self._video_reader.step_backward(num_frames)
+        return not self._playback_blocked and self._video_reader.step_backward(num_frames)
 
     def seek_to_start(self) -> bool:
         """Seek to the first paired frame."""
-        return self._video_reader.seek_to_start()
+        return not self._playback_blocked and self._video_reader.seek_to_start()
 
     def seek_to_end(self) -> bool:
         """Seek to the last paired frame."""
-        return self._video_reader.seek_to_end()
+        return not self._playback_blocked and self._video_reader.seek_to_end()
 
     def update_detector_config(
         self,
@@ -154,7 +210,8 @@ class ReviewService:
         )
         if mode is not None:
             self._detector_mode = mode
-        self._rebuild_detectors()
+        self._detector_left = None
+        self._detector_right = None
         logger.debug(f"Updated detector config: {self._detector_config}")
 
     def _rebuild_detectors(self) -> None:
@@ -165,6 +222,10 @@ class ReviewService:
 
     def run_detection_on_current_frame(self) -> tuple[list, list]:
         """Run independent detection on the current left and right frames."""
+        from app.services.setup_workflow.runtime_access import admission_status
+        access = admission_status(Path("calibration/rigs"))
+        if self._runtime.owns_capture or self._runtime.owns_recording or self._runtime.pending_operation or access.capture_owned or access.recording_owned:
+            raise RuntimeError("Stop runtime capture before running review detection")
         if not self._detector_left or not self._detector_right:
             self._rebuild_detectors()
         left_frame, right_frame = self.get_current_frames()
@@ -266,6 +327,9 @@ class ReviewService:
         self._session = None
         self._annotations.clear()
         self._pitch_scores.clear()
+        self._pitch_playback = ()
+        self._playback_issue = ""
+        self._playback_blocked = False
         logger.info("Review service closed")
 
 

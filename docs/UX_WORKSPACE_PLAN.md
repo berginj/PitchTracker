@@ -260,6 +260,9 @@ prominent velocity/location/result/quality; accessible recent pitches and advanc
 
 ### UX-05: Connect sessions and review
 
+**Software evidence:** [implementation record](review/ux/UX_05_IMPLEMENTATION.md).
+Manual display, codec and hardware qualification remains in later packages.
+
 **Owner:** UIAgent; AnalysisAgent owns any review-service interface changes.
 **Prerequisite:** UX-04. **Boundaries:** Sessions page, ReviewService and playback.
 

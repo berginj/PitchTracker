@@ -42,6 +42,7 @@ class RuntimeStatus:
     correlation_id: str = ""
     failure: RuntimeFailure | None = None
     finalized_session: FinalizedSession | None = None
+    active_session_dir: Path | None = None
 
     @property
     def owns_capture(self) -> bool:
@@ -139,6 +140,8 @@ def _publish_facts(owner: Any, operation: str, session_id: str | None,
             finalized = FinalizedSession(completed_id, result.session_dir)
     publisher.publish(capture_phase=capture, recording_phase=recording,
                       session_id=session_id if owner._recording_active else None,
+                      active_session_dir=(owner._recording_service.get_session_dir()
+                                          if owner._recording_active and owner._recording_service else None),
                       pending_operation=None, failure=failure, finalized_session=finalized)
 
 

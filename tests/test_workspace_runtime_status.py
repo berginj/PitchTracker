@@ -1,6 +1,7 @@
 """Status reads remain nonblocking while lifecycle work drains; failures retain ownership."""
 
 from pathlib import Path
+from types import SimpleNamespace
 from threading import Event, Thread
 import time
 
@@ -29,6 +30,7 @@ class LifecycleOwner(RuntimeStatusMethods):
         self.entered, self.release = Event(), Event()
         self.release.set()
         self.fail_stop = False
+        self._recording_service = SimpleNamespace(get_session_dir=lambda: Path("recordings/session"))
 
     @runtime_command("start_recording")
     def start_recording(self, pitch_id=None, session_name=None):
@@ -51,6 +53,7 @@ def test_status_is_nonblocking_and_completed_receipt_follows_drain():
     events = []
     owner.bus.subscribe(RuntimeStatusEvent, events.append)
     owner.start_recording(session_name="session-42")
+    assert owner.runtime_status().active_session_dir == Path("recordings/session")
     owner.release.clear()
     worker = Thread(target=owner.stop_recording)
     worker.start()
@@ -68,6 +71,7 @@ def test_status_is_nonblocking_and_completed_receipt_follows_drain():
     assert not worker.is_alive()
     status = owner.runtime_status()
     assert not status.owns_recording and status.recording_phase == "completed"
+    assert status.active_session_dir is None
     assert status.finalized_session.session_id == "session-42"
     assert events[-1].metadata.session_id == "session-42"
     assert all(e.metadata.correlation_id and e.metadata.timestamp_ns for e in events)

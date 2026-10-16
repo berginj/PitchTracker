@@ -71,6 +71,8 @@ class VideoReader:
         self._current_frame_index = 0
         self._total_frames = 0
         self._fps = 30.0
+        self._cached_index = -1
+        self._cached_frames: tuple[Optional[np.ndarray], Optional[np.ndarray]] = (None, None)
 
         self._playback_state = PlaybackState.STOPPED
 
@@ -178,6 +180,10 @@ class VideoReader:
         if not self.is_opened():
             return None, None
 
+        if self._cached_index == self._current_frame_index:
+            left, right = self._cached_frames
+            return left.copy() if left is not None else None, right.copy() if right is not None else None
+
         if self._current_frame_index >= self._total_frames:
             logger.debug("At end of video")
             return None, None
@@ -195,7 +201,9 @@ class VideoReader:
             logger.warning(f"Failed to read frame {self._current_frame_index}")
             return None, None
 
-        return left_frame, right_frame
+        self._cached_index = self._current_frame_index
+        self._cached_frames = (left_frame, right_frame)
+        return left_frame.copy(), right_frame.copy()
 
     def seek_to_frame(self, frame_index: int) -> bool:
         """Seek to specific frame index.
@@ -217,7 +225,7 @@ class VideoReader:
         # Clamp to valid range
         frame_index = max(0, min(frame_index, self._total_frames - 1))
 
-        if frame_index == self._current_frame_index:
+        if frame_index == self._current_frame_index and self._cached_index == frame_index:
             return True  # Already at target frame
 
         logger.debug(f"Seeking from frame {self._current_frame_index} to {frame_index}")
@@ -258,6 +266,8 @@ class VideoReader:
         Returns:
             True if step successful, False if at end of video
         """
+        if self._current_frame_index + num_frames >= self._total_frames:
+            return False
         return self.seek_to_frame(self._current_frame_index + num_frames)
 
     def step_backward(self, num_frames: int = 1) -> bool:
@@ -314,6 +324,8 @@ class VideoReader:
         self._right_info = None
         self._current_frame_index = 0
         self._total_frames = 0
+        self._cached_index = -1
+        self._cached_frames = (None, None)
         self._playback_state = PlaybackState.STOPPED
 
         logger.debug("Videos closed")

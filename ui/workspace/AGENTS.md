@@ -26,3 +26,6 @@ UX-08 own subsequent behavior, page presentation and qualification.
 - Validate navigation, historical context, command failures, setup conflicts,
   exit/cancel/retry, updater admission and source GUI smoke. Record synthetic
   captures separately from manual Windows DPI, accessibility and hardware checks.
+- Review Session hands off RuntimeStatus.finalized_session only after confirmed
+  success; a pending/failed end cannot trigger it. Pass the exact active directory
+  to ReviewService admission while browsing independent completed artifacts.

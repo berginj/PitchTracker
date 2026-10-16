@@ -50,7 +50,7 @@ class PlaybackController:
 
     def toggle_playback(self) -> None:
         """Toggle between play and pause."""
-        if not self._service.session:
+        if not self._service.session or not self._service.playback_available:
             return None
 
         if self._is_playing:
@@ -167,8 +167,8 @@ class PlaybackController:
         current_frame = self._service.current_frame_index
         current_pitch_idx = -1
         for i, _pitch in enumerate(pitches):
-            pitch_start_frame = i * 100
-            if pitch_start_frame <= current_frame:
+            pitch_start_frame = self._service.playback_for_pitch(i).frame_index
+            if pitch_start_frame is not None and pitch_start_frame <= current_frame:
                 current_pitch_idx = i
 
         target_idx = max(0, current_pitch_idx - 1)
@@ -186,8 +186,8 @@ class PlaybackController:
         current_frame = self._service.current_frame_index
         current_pitch_idx = -1
         for i, _pitch in enumerate(pitches):
-            pitch_start_frame = i * 100
-            if pitch_start_frame <= current_frame:
+            pitch_start_frame = self._service.playback_for_pitch(i).frame_index
+            if pitch_start_frame is not None and pitch_start_frame <= current_frame:
                 current_pitch_idx = i
 
         target_idx = min(len(pitches) - 1, current_pitch_idx + 1)
@@ -205,6 +205,8 @@ class PlaybackController:
 
     def _on_playback_tick(self) -> None:
         """Advance one frame on timer tick."""
+        if not self._is_playing:
+            return
         if not self._service.step_forward():
             if self._loop_enabled:
                 self._service.seek_to_start()

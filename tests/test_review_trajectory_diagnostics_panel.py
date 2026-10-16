@@ -171,6 +171,15 @@ class _FakeReviewService:
         self.current_frame_index = 0
         self.video_reader = _FakeVideoReader()
         self.detector_config = None
+        self.playback_available = True
+
+    @property
+    def pitch_scores(self):
+        return self._pitch_scores.copy()
+
+    def playback_for_pitch(self, index):
+        from app.review.playback_mapping import PitchPlayback
+        return PitchPlayback(self.session.pitches[index].pitch_id, index * 100)
 
     def load_session(self, _session_dir: Path):
         self.session = self._loaded_session

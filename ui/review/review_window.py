@@ -33,6 +33,7 @@ from ui.review.widgets import (
 from ui.themes import apply_standard_layout, get_style_manager
 from ui.workspace.contracts import ReviewSelection
 from ui.review.workspace_host import ReviewWorkspaceHost
+from ui.review.pitch_feedback import PitchFeedback
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,10 @@ class ReviewWindow(ReviewWorkspaceHost):
     closed = QtCore.Signal()
     selection_changed = QtCore.Signal(object)
     exit_requested = QtCore.Signal()
+    _feedback: PitchFeedback
+    _parameter_panel: ParameterPanel
+    _trajectory_diagnostics_panel: TrajectoryDiagnosticsPanel
+    _pitch_list: PitchListWidget
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
         """Initialize review window.
@@ -71,6 +76,7 @@ class ReviewWindow(ReviewWorkspaceHost):
         self._selected_pitch_id: str | None = None
         self._workspace_hosted = False
         self._workspace_shutdown = False
+        self._pitch_video_available = True
 
         # Status bar (needed by controllers)
         self._status_bar = QtWidgets.QStatusBar()
@@ -142,6 +148,7 @@ class ReviewWindow(ReviewWorkspaceHost):
 
         main_layout = QtWidgets.QHBoxLayout()
         apply_standard_layout(main_layout)
+        main_layout.setContentsMargins(8, 8, 8, 8)
         main_layout.addWidget(splitter)
 
         container = QtWidgets.QWidget()
@@ -150,32 +157,8 @@ class ReviewWindow(ReviewWorkspaceHost):
         return container
 
     def _build_right_panel(self) -> QtWidgets.QWidget:
-        """Build right panel with parameters, diagnostics, and pitch list."""
-        self._parameter_panel = ParameterPanel()
-        self._parameter_panel.parameter_changed.connect(self._on_parameters_changed)
-
-        self._trajectory_diagnostics_panel = TrajectoryDiagnosticsPanel()
-
-        self._pitch_list = PitchListWidget()
-        self._pitch_list.pitch_highlighted.connect(self._on_pitch_highlighted)
-        self._pitch_list.pitch_selected.connect(self._on_pitch_selected)
-        self._pitch_list.pitch_scored.connect(self._on_pitch_scored)
-
-        layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self._parameter_panel)
-        layout.addWidget(self._trajectory_diagnostics_panel)
-        layout.addWidget(self._pitch_list, 1)
-
-        inner = QtWidgets.QWidget()
-        inner.setLayout(layout)
-
-        scroll = QtWidgets.QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
-        scroll.setMinimumWidth(280)
-        scroll.setWidget(inner)
-        return scroll
+        from ui.review.experience_layout import build_pitch_panel
+        return build_pitch_panel(self)
 
     def _build_video_and_controls_section(self) -> QtWidgets.QWidget:
         """Build video displays, timeline, and playback controls."""
@@ -211,31 +194,19 @@ class ReviewWindow(ReviewWorkspaceHost):
 
     def _build_video_section(self) -> QtWidgets.QWidget:
         """Build dual video display section."""
-        left_group = QtWidgets.QGroupBox("Left Camera")
         self._left_display = VideoDisplayWidget()
         self._left_display.annotation_added.connect(
             lambda x, y: self._on_annotation_added("left", x, y)
         )
-        left_layout = QtWidgets.QVBoxLayout()
-        left_layout.addWidget(self._left_display)
-        left_group.setLayout(left_layout)
-
-        right_group = QtWidgets.QGroupBox("Right Camera")
         self._right_display = VideoDisplayWidget()
         self._right_display.annotation_added.connect(
             lambda x, y: self._on_annotation_added("right", x, y)
         )
-        right_layout = QtWidgets.QVBoxLayout()
-        right_layout.addWidget(self._right_display)
-        right_group.setLayout(right_layout)
-
-        layout = QtWidgets.QHBoxLayout()
-        layout.addWidget(left_group)
-        layout.addWidget(right_group)
-
-        container = QtWidgets.QWidget()
-        container.setLayout(layout)
-        return container
+        cameras = QtWidgets.QTabWidget()
+        cameras.setAccessibleName("Recorded camera view")
+        cameras.addTab(self._left_display, "Left Camera")
+        cameras.addTab(self._right_display, "Right Camera")
+        return cameras
 
     # Session lifecycle callbacks
 
@@ -244,8 +215,11 @@ class ReviewWindow(ReviewWorkspaceHost):
         session = self._service.session
         if session is None:
             return
-        self._selected_pitch_id = session.pitches[0].pitch_id if session.pitches else None
-        self.selection_changed.emit(self.selection())
+        self._playback_ctrl.stop_playback()
+        self._trajectory_ctrl.clear()
+        self._trajectory_action.setChecked(False)
+        self._pitch_video_available = True
+        self._selected_pitch_id = None
         self.setWindowTitle(f"PitchTracker - Review Mode - {session.session_id}")
 
         self._timeline.set_total_frames(self._service.total_frames)
@@ -255,6 +229,7 @@ class ReviewWindow(ReviewWorkspaceHost):
             cfg = self._service.detector_config
             from detect.config import Mode
 
+            parameter_blocker = QtCore.QSignalBlocker(self._parameter_panel)
             self._parameter_panel.load_parameters(
                 mode=Mode(cfg.mode),
                 frame_diff_threshold=cfg.frame_diff_threshold,
@@ -263,8 +238,9 @@ class ReviewWindow(ReviewWorkspaceHost):
                 max_area=cfg.filters.max_area or 500,
                 min_circularity=cfg.filters.min_circularity,
             )
+            parameter_blocker.unblock()
 
-        pitch_scores = self._service._pitch_scores
+        pitch_scores = self._service.pitch_scores
         self._pitch_list.load_pitches(session.pitches, pitch_scores)
         if session.pitches:
             self._trajectory_diagnostics_panel.load_pitch(session.pitches[0])
@@ -275,7 +251,14 @@ class ReviewWindow(ReviewWorkspaceHost):
         if session.pitches:
             self._trajectory_ctrl.load_trajectory_for_pitch(0)
 
-        self._update_video_displays()
+        if session.pitches:
+            self._navigate_to_pitch(0)
+        else:
+            self._feedback.clear()
+            self._feedback.labels["identity"].setText("This session has no recorded pitches")
+            self._feedback.labels["playback"].setText(self._service.playback_issue or "Full session video has no pitch association.")
+            self._update_video_displays()
+            self.selection_changed.emit(self.selection())
         self._update_ui_state()
 
     def _on_session_closed(self) -> None:
@@ -288,6 +271,8 @@ class ReviewWindow(ReviewWorkspaceHost):
         self._timeline.reset()
         self._pitch_list.clear()
         self._trajectory_diagnostics_panel.clear()
+        self._feedback.clear()
+        self._controls.setEnabled(False)
         self._trajectory_ctrl.clear()
         self._trajectory_action.setChecked(False)
         self.setWindowTitle("PitchTracker - Review Mode")
@@ -297,28 +282,40 @@ class ReviewWindow(ReviewWorkspaceHost):
 
     def _prev_pitch(self) -> None:
         """Navigate to previous pitch in session."""
-        target_idx = self._playback_ctrl.prev_pitch()
-        if target_idx is not None:
-            self._navigate_to_pitch(target_idx)
+        self._relative_pitch(-1)
 
     def _next_pitch(self) -> None:
         """Navigate to next pitch in session."""
-        target_idx = self._playback_ctrl.next_pitch()
-        if target_idx is not None:
-            self._navigate_to_pitch(target_idx)
+        self._relative_pitch(1)
+
+    def _relative_pitch(self, step: int) -> None:
+        session = self._service.session
+        if session and session.pitches:
+            index = next((i for i, p in enumerate(session.pitches) if p.pitch_id == self._selected_pitch_id), 0)
+            self._navigate_to_pitch(max(0, min(len(session.pitches) - 1, index + step)))
 
     def _navigate_to_pitch(self, pitch_index: int) -> None:
         """Seek to pitch and update trajectory/diagnostics."""
         session = self._service.session
-        if session is None:
+        if session is None or not 0 <= pitch_index < len(session.pitches):
             return
+        self._playback_ctrl.stop_playback()
         self._selected_pitch_id = session.pitches[pitch_index].pitch_id
-        self.selection_changed.emit(self.selection())
+        self._pitch_list.select_pitch(pitch_index)
+        self._left_display.clear_annotations()
+        self._right_display.clear_annotations()
         self._trajectory_ctrl.load_trajectory_for_pitch(pitch_index)
         self._trajectory_diagnostics_panel.load_pitch(
             session.pitches[pitch_index]
         )
-        self._playback_ctrl.seek_to_pitch(pitch_index)
+        self._pitch_video_available = bool(self._service.seek_to_pitch(pitch_index))
+        mapping = self._service.playback_for_pitch(pitch_index)
+        self._feedback.load_pitch(session.pitches[pitch_index], str(mapping.reason) if not self._pitch_video_available else "")
+        self._controls.setEnabled(self._pitch_video_available)
+        self._timeline.setEnabled(self._pitch_video_available)
+        self._timeline.set_current_frame(self._service.current_frame_index)
+        self._update_video_displays()
+        self.selection_changed.emit(self.selection())
         pitches = session.pitches
         self._status_bar.showMessage(
             f"Jumped to pitch {pitch_index + 1}/{len(pitches)}"
@@ -326,22 +323,11 @@ class ReviewWindow(ReviewWorkspaceHost):
 
     def _on_pitch_highlighted(self, pitch_index: int) -> None:
         """Preview diagnostics for highlighted pitch row."""
-        self._show_trajectory_diagnostics(pitch_index)
+        self._navigate_to_pitch(pitch_index)
 
     def _on_pitch_selected(self, pitch_index: int) -> None:
         """Handle pitch selection from list."""
-        session = self._service.session
-        if session is None:
-            return
-        if not 0 <= pitch_index < len(session.pitches):
-            return
-        self._selected_pitch_id = session.pitches[pitch_index].pitch_id
-        self.selection_changed.emit(self.selection())
-        self._trajectory_ctrl.load_trajectory_for_pitch(pitch_index)
-        self._show_trajectory_diagnostics(pitch_index)
-        self._playback_ctrl.seek_to_pitch(pitch_index)
-        pitch = session.pitches[pitch_index]
-        self._status_bar.showMessage(f"Navigated to pitch: {pitch.pitch_id}")
+        self._navigate_to_pitch(pitch_index)
 
     def _show_trajectory_diagnostics(self, pitch_index: int) -> None:
         """Load diagnostics panel for a pitch index."""
@@ -382,12 +368,19 @@ class ReviewWindow(ReviewWorkspaceHost):
 
     def _update_video_displays(self) -> None:
         """Update video displays with current frames and detections."""
+        if not self._pitch_video_available:
+            self._left_display.clear()
+            self._right_display.clear()
+            return
         left_frame, right_frame = self._service.get_current_frames()
         if left_frame is None or right_frame is None:
+            self._left_display.clear()
+            self._right_display.clear()
             return
 
         try:
-            left_det, right_det = self._service.run_detection_on_current_frame()
+            left_det: list = []
+            right_det: list = []
 
             if self._trajectory_ctrl.overlay_enabled and self._trajectory_ctrl.current_observations:
                 left_frame = self._trajectory_ctrl.apply_overlay(left_frame, "left")
@@ -407,6 +400,10 @@ class ReviewWindow(ReviewWorkspaceHost):
 
     # Annotations & tools
 
+    def _run_frame_detection(self) -> None:
+        from ui.review.experience_layout import run_frame_detection
+        run_frame_detection(self)
+
     def _toggle_annotation_mode(self, checked: bool) -> None:
         """Toggle annotation mode on/off."""
         self._left_display.set_annotation_mode(checked)
@@ -417,6 +414,10 @@ class ReviewWindow(ReviewWorkspaceHost):
 
     def _toggle_trajectory_overlay(self, checked: bool) -> None:
         """Toggle trajectory overlay on/off."""
+        if checked and not self._trajectory_ctrl.overlay_available:
+            self._trajectory_action.setChecked(False)
+            self._status_bar.showMessage("Trajectory overlay unavailable: recorded calibration is missing or invalid.")
+            return
         self._trajectory_ctrl.overlay_enabled = checked
         mode_str = "ON" if checked else "OFF"
         self._status_bar.showMessage(f"Trajectory overlay: {mode_str}")
@@ -445,6 +446,8 @@ class ReviewWindow(ReviewWorkspaceHost):
     def _update_ui_state(self) -> None:
         """Update navigation action enabled states."""
         has_session = self._service.session is not None
+        self._controls.setEnabled(has_session and self._pitch_video_available and self._service.playback_available)
+        self._timeline.setEnabled(self._controls.isEnabled())
         self._prev_session_action.setEnabled(self._session_ctrl.can_go_previous())
         self._next_session_action.setEnabled(self._session_ctrl.can_go_next())
         self._delete_session_action.setEnabled(has_session)

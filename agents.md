@@ -342,8 +342,9 @@ authorize automatic delegation.
   requirements; they do not override the ownership and safety rules here.
 - Use [Roadmap](docs/ROADMAP.md) for delivery status. The unified workspace is
   delivered incrementally under UX-01 through UX-08. UX-02 delivers the shell
-  and UX-03 adds responsive session commands with shared progress and recovery;
-  later page redesign and qualification remain open.
+  and UX-03 adds responsive session commands with shared progress and recovery.
+  UX-04 delivers live feedback and UX-05 connects completed-session/pitch review;
+  later setup/player alignment, secondary surfaces and qualification remain open.
 - Preserve PySide6, PipelineOrchestrator, QtPipelineService and
   SetupWorkflowService ownership. Add narrow public typed interfaces where
   screens need context; do not connect screens through private service state.
