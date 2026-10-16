@@ -54,7 +54,7 @@ compatible. ReviewWindow's public open handoff returns success and honors pitch
 identity. Coaching exposes the configured recording directory through a public
 adapter. No durable schema, recording output or numerical analysis changes.
 
-Applicable instructions: [root](../../../agents.md), [shared UI](../../../ui/AGENTS.md),
+Applicable instructions: [root](../../../AGENTS.md), [shared UI](../../../ui/AGENTS.md),
 [review UI](../../../ui/review/AGENTS.md), [workspace](../../../ui/workspace/AGENTS.md),
 [coaching](../../../ui/coaching/AGENTS.md), [themes](../../../ui/themes/AGENTS.md)
 and [review services](../../../app/review/AGENTS.md).

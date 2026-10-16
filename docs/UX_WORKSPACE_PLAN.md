@@ -8,7 +8,7 @@ This document specifies application work and its acceptance criteria. Creating
 the plan and agent instructions does not implement the redesign; the roadmap
 and package evidence distinguish delivered work from remaining work. UIAgent owns presentation work;
 MaintenanceAgent implements and verifies changes under the
-[root agent specification](../agents.md) and [UI instructions](../ui/AGENTS.md).
+[root agent specification](../AGENTS.md) and [UI instructions](../ui/AGENTS.md).
 Other existing agent roles own changes to their service boundaries. These role
 assignments do not require separate processes or automatic sub-agent delegation.
 

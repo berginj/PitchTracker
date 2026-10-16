@@ -1,10 +1,10 @@
 # Agent Instruction Review
 
-Reviewed active guidance: `agents.md`, `.github/copilot-instructions.md`, README contribution/build links, release automation guidance, and nested setup documentation. No agent-instruction file was changed.
+Reviewed active guidance: `AGENTS.md`, `.github/copilot-instructions.md`, README contribution/build links, release automation guidance, and nested setup documentation. No agent-instruction file was changed.
 
 ## AGT-001 — Ownership guidance is useful but partly aspirational
 
-- **Finding:** `agents.md` accurately describes desired service ownership, but its required message metadata is not consistently present in runtime event dataclasses.
+- **Finding:** `AGENTS.md` accurately describes desired service ownership, but its required message metadata is not consistently present in runtime event dataclasses.
 - **Evidence:** Frame and pitch events commonly omit `message_type`, `schema_version`, `correlation_id`, or `session_id`; the architecture's event-metadata audit records the same gap. `ConfigUpdateEvent` is explicitly reserved/unused.
 - **Impact:** Debugging and replay across asynchronous/durable boundaries cannot always correlate frame, pitch, session, and artifact decisions.
 - **Confidence:** High.

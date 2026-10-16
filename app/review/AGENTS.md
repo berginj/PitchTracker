@@ -1,6 +1,6 @@
 # Recorded-session service instructions
 
-Inherits the [root specification](../../agents.md). ReviewService owns local
+Inherits the [root specification](../../AGENTS.md). ReviewService owns local
 artifact access, playback admission and recorded pitch mapping for UX-05 in the
 [workspace plan](../../docs/UX_WORKSPACE_PLAN.md).
 

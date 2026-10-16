@@ -38,13 +38,13 @@
 | Integrations | `app/integrations/`, upload/update/radar paths | Cloud, Bluetooth, radar, updater | Staged, disabled, stubbed, or externally dependent |
 | Packaging/CI | installer scripts/specs, `.github/workflows/` | Windows packaging and required checks | Build automation exists; clean install unverified |
 | Tests/benchmarks | `tests/`, `benchmarks/`, `scripts/` | Automated confidence and developer gates | Broad tests; benchmark semantics defective |
-| Documentation | `README.md`, `docs/`, `agents.md`, `.github/copilot-instructions.md` | Product/developer/agent guidance | Active plus marked history/archive |
+| Documentation | `README.md`, `docs/`, `AGENTS.md`, `.github/copilot-instructions.md` | Product/developer/agent guidance | Active plus marked history/archive |
 
 ## Material workflow traces
 
 1. Setup: launcher → `StereoSetupWindow` → ten step providers/widgets → setup capture subprocess → camera/calibration/ROI quality results → rig-profile persistence. HEAD has no outer scroll wrapper; the worktree adds one but still computes a 1,998-pixel minimum width.
 2. Coaching: `CoachWindow` → `QtPipelineService` → `PipelineOrchestrator` → capture events → detection pool → stereo/ray observations → pitch state → recording and analysis → summaries/UI. Construction currently fails before this flow begins because game widgets call a missing style API.
-3. Review: session manifest/artifacts → `ReviewWindow` → replay/timeline/annotation → selected export or ML export. Durable data supports replay, but not all runtime metadata required by `agents.md` is present.
+3. Review: session manifest/artifacts → `ReviewWindow` → replay/timeline/annotation → selected export or ML export. Durable data supports replay, but not all runtime metadata required by `AGENTS.md` is present.
 4. Calibration/tooling: typed request → `SubprocessToolingService` → `worker_main` → calibration/validation script → typed result. `PipelineOrchestrator.run_calibration` itself remains intentionally unimplemented.
 5. Updating/installing: launcher/update configuration → release/update checks and installer scripts. Source paths exist; issue #11 correctly requires a clean-machine smoke test.
 6. Optional integrations: TAG/cloud and Bluetooth are feature-gated and skipped in tests; radar is a stub/manual-input boundary. They are not part of the proven default workflow.

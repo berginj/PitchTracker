@@ -21,8 +21,8 @@ Report suspected vulnerabilities privately as described in
 
 `main` is protected. **All changes reach `main` through a pull request** that must
 pass the required CI checks (`test (3.13)`, `test (3.14)`, `security`) and be up to
-date with `main`. The protected branch requires linear history and disallows
-force-pushing or deleting `main`; merged feature branches may be deleted.
+date with `main`. Use the current repository rules for exact protection settings. Do not force-push
+or delete main; retire other branches only when authorized.
 
 Repository admins are intentionally **not** forced through PRs (`enforce_admins`
 is off) so the owner can land emergency fixes directly — but the default, expected
@@ -45,17 +45,18 @@ python -m mypy . --no-incremental --show-error-codes # direct repository gate
 
 The repository has no recorded mypy backlog. Production code is checked without
 diagnostic suppression sections; tests use the fixed relaxation policy described
-in `docs/engineering/type-checking.md`. The `safety` dependency scan remains
-advisory.
+in `docs/engineering/type-checking.md`. The security job uses blocking pip-audit scans of resolved runtime/native-camera
+dependencies on Windows Python 3.13 and 3.14.
 
 > Note: full-style `flake8` is a **hard** gate (`flake8 . --count --statistics`
 > with no `continue-on-error`). It is *not* limited to `E9,F63,F7,F82`.
 
-## Conventions (see `.github/copilot-instructions.md` for the full list)
+## Conventions (see [AGENTS.md](AGENTS.md) for canonical maintenance rules)
 
 - **Files** max 500 lines (target 200–300); **functions** max 50 lines, max 5 params.
-- **Errors:** raise custom exceptions from `exceptions.py`; never bare `Exception`
-  or `RuntimeError`. Chain with `raise CustomError(...) from exc`.
+- **Errors:** use existing typed domain errors or failure codes. Deliberate
+  isolation boundaries may catch broadly when they log, clean up and preserve a
+  valid degraded state. Never silently swallow failures; chain translated errors.
 - **Logging:** use `from log_config.logger import get_logger`.
 - **UI:** PySide6 types stay in `ui/`; style only via `ui/themes/` tokens.
 - **Versioning:** bump `installer.iss` and `contracts/versioning.py` together.
@@ -75,4 +76,7 @@ same change that implements the decision.
 - Update requirements, traceability, and roadmap status in the same change when
   behavior or acceptance criteria change.
 
-Last reviewed: **2026-08-16**.
+For documentation changes, follow [the maintenance policy](docs/DOCUMENTATION.md)
+and run the documentation checker across all maintained Markdown.
+
+Last reviewed: **2026-10-16**.

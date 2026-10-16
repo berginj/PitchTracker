@@ -44,7 +44,7 @@ context. They do not own pipeline state. CoachWindow and ReviewWindow expose
 public hosting/action/selection adapters. Setup admission stays in services;
 workspace pages do not run camera, detection, calibration or fitting algorithms.
 
-Applicable instructions are the [root specification](../../../agents.md),
+Applicable instructions are the [root specification](../../../AGENTS.md),
 [shared UI instructions](../../../ui/AGENTS.md), and the scoped
 [coaching](../../../ui/coaching/AGENTS.md),
 [review](../../../ui/review/AGENTS.md), [setup](../../../ui/setup/AGENTS.md),
