@@ -229,6 +229,9 @@ explicit pending, failure and recovery feedback across the workspace.
 
 ### UX-04: Prioritize live pitch feedback
 
+**Software evidence:** [implementation record](review/ux/UX_04_IMPLEMENTATION.md).
+Manual hardware/display qualification remains in later packages.
+
 **Owner:** UIAgent. **Prerequisite:** UX-03.
 **Boundaries:** live modes, pitch display, shared metric/location components.
 

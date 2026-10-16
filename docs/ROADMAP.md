@@ -33,7 +33,8 @@ physical qualification or release gates.
   ([implementation and evidence](review/ux/UX_02_IMPLEMENTATION.md)).
 - [x] UX-03: Clarify recording states and session controls
   ([implementation and evidence](review/ux/UX_03_IMPLEMENTATION.md)).
-- [ ] UX-04: Prioritize latest-pitch feedback in live coaching.
+- [x] UX-04: Prioritize latest-pitch feedback in live coaching
+  ([implementation and evidence](review/ux/UX_04_IMPLEMENTATION.md)).
 - [ ] UX-05: Connect session history, pitch selection and review.
 - [ ] UX-06: Align setup and player workflows within the workspace.
 - [ ] UX-07: Normalize analytics, dialogs, settings, help and visual presentation.

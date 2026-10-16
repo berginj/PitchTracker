@@ -218,6 +218,7 @@ def _review_pitch(pitch_id: str, mode: str, t_start_ns: int):
 def _review_session():
     return SimpleNamespace(
         session_id="session_001",
+        session_dir=Path("synthetic/session_001"),
         pitches=[
             _review_pitch("pitch_001", "stereo_3d", 0),
             _review_pitch("pitch_002", "ray_graph", 1_000_000_000),

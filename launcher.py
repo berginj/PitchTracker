@@ -482,7 +482,7 @@ def main(argv: list[str] | None = None):
     # Keep script/module entry points on the same class graph.
     sys.modules.setdefault("launcher", sys.modules[__name__])
     from ui.workspace.window import WorkspaceWindow
-    launcher = WorkspaceWindow(backend=args.backend, config_path=args.config)
+    launcher = WorkspaceWindow(backend=args.backend, config_path=args.config, background_tasks=not args.setup)
     launcher.show()
     if args.setup:
         launcher._launch_stereo_setup()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from math import isfinite
 from typing import TYPE_CHECKING, List, Optional
 
 from PySide6 import QtWidgets
@@ -21,6 +22,7 @@ from ui.coaching.widgets.progression_charts_widget import (
     VelocityTrendChart,
 )
 from ui.themes import get_style_manager
+from ui.coaching.live_layout import install_scrolling_layout
 
 if TYPE_CHECKING:
     from contracts import Frame
@@ -64,7 +66,7 @@ class SessionProgressionWidget(BaseModeWidget):
         top_layout = QtWidgets.QHBoxLayout()
 
         # Camera view (smaller than broadcast mode)
-        self._camera_widget = CameraViewWidget(min_width=400, min_height=300)
+        self._camera_widget = CameraViewWidget(min_width=160, min_height=120)
         self._camera_widget.setMaximumWidth(500)
         top_layout.addWidget(self._camera_widget, 2)
 
@@ -108,14 +110,14 @@ class SessionProgressionWidget(BaseModeWidget):
         bottom_widget.setLayout(bottom_layout)
 
         # Main layout: Stack vertically
-        layout = QtWidgets.QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout(QtWidgets.QWidget(self))
         layout.addWidget(top_widget, 1)
         layout.addWidget(velocity_group, 1)
         layout.addWidget(bottom_widget, 1)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
 
-        self.setLayout(layout)
+        install_scrolling_layout(self, layout)
 
         # Connect camera selection changes
         self._camera_widget.camera_changed.connect(self._on_camera_changed)
@@ -174,8 +176,10 @@ class SessionProgressionWidget(BaseModeWidget):
 
         if (
             measurement_is_usable(latest_pitch)
+            and getattr(latest_pitch, "strike_call_available", True)
             and latest_pitch.trajectory_plate_x_ft is not None
             and latest_pitch.trajectory_plate_y_ft is not None
+            and isfinite(latest_pitch.trajectory_plate_x_ft) and isfinite(latest_pitch.trajectory_plate_y_ft)
         ):
             layout = calculate_overlay_layout(
                 self._overlay_config,
@@ -223,7 +227,7 @@ class SessionProgressionWidget(BaseModeWidget):
         Returns:
             Mode name
         """
-        return "Session Progression"
+        return "Session Trends"
 
     def set_camera_selection(self, camera: str) -> None:
         """Set camera selection.

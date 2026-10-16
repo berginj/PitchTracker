@@ -22,6 +22,11 @@ and recovery actions in the implemented shell, using synthetic snapshots only.
 The 60 actual-widget captures live under `docs/review/ux/ux03/`; see the
 [UX-03 implementation record](../docs/review/ux/UX_03_IMPLEMENTATION.md).
 
+`capture_live_experience.py` renders Latest Pitch, Session Trends and Games in
+six synthetic states and three viewport sizes. Its 54 captures and geometry
+manifest are under `docs/review/ux/ux04/`; see the
+[UX-04 implementation record](../docs/review/ux/UX_04_IMPLEMENTATION.md).
+
 `render_ux_prototype.py` checks the local HTML workspace design with Qt WebEngine
 and creates target images through Chromium PDF output and Qt PDF rasterization.
 Its profile is in memory; it loads only the local prototype. The browser child
@@ -34,6 +39,7 @@ Run from the repository root using the supported Python environment:
 python scripts/capture_ux_baseline.py
 python scripts/capture_workspace.py
 python scripts/capture_session_states.py
+python scripts/capture_live_experience.py
 python scripts/render_ux_prototype.py
 ```
 

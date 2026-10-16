@@ -55,6 +55,7 @@ with them, use these pages and open a documentation issue.
 - [UI agent instructions](../ui/AGENTS.md) — shared experience requirements and scoped ownership.
 - [Workspace implementation](review/ux/UX_02_IMPLEMENTATION.md) — persistent navigation and validation evidence.
 - [Session controls](review/ux/UX_03_IMPLEMENTATION.md) — responsive commands, state and recovery evidence.
+- [Live feedback](review/ux/UX_04_IMPLEMENTATION.md) — pitch hierarchy, preview resizing and measurement validity.
 - [Requirements](../REQ.md)
 - [Contributing](../CONTRIBUTING.md)
 - [Testing and validation](TEST_SUITE_DOCUMENTATION.md)

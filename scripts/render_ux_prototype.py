@@ -107,10 +107,10 @@ def main():
             result["device_pixel_ratio"] = view.devicePixelRatioF()
             # Native offscreen WebEngine grabs can miss compositor surfaces.
             # Print the layout to an in-memory vector page, then rasterize it.
-            paper = QtGui.QPageSize(QtCore.QSizeF(width * 25.4 / 96, height * 25.4 / 96),
-                                   QtGui.QPageSize.Unit.Millimeter)
-            layout = QtGui.QPageLayout(paper, QtGui.QPageLayout.Orientation.Portrait,
-                                      QtCore.QMarginsF(0, 0, 0, 0))
+            paper = QtGui.QPageSize(
+                QtCore.QSizeF(width * 25.4 / 96, height * 25.4 / 96), QtGui.QPageSize.Unit.Millimeter)
+            layout = QtGui.QPageLayout(
+                paper, QtGui.QPageLayout.Orientation.Portrait, QtCore.QMarginsF(0, 0, 0, 0))
 
             def printed(pdf_bytes):
                 nonlocal index
@@ -179,6 +179,7 @@ def main():
 
     page.loadFinished.connect(loaded)
     page.load(QtCore.QUrl.fromLocalFile(str(ROOT / "docs/review/ux/workspace.html")))
+
     def timed_out():
         print(f"Target renderer timed out after {index}/{len(SCENARIOS)} examples", file=sys.stderr)
         app.exit(2)

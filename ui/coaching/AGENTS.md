@@ -14,6 +14,12 @@ in the [workspace plan](../../docs/UX_WORKSPACE_PLAN.md); UX-02 changes hosting.
 - Keep source/reference information available for speed. Movement remains
   unavailable without existing validation evidence. Never convert rejected or
   unavailable locations into normal strike/ball markers.
+- Match speed provenance to the selected recorded measurement. Preserve known
+  provenance when a rejected value is suppressed; ambiguous legacy references
+  remain unavailable. Keep recent-pitch selection stable on incoming updates.
+- Latest Pitch uses a keyboard-resizable preview and scrollable feedback. Check
+  wrapped headline, units, provenance and location at 800x600; secondary view
+  minima must not enlarge the entire workspace.
 - Move detector trials and detailed diagnostics into advanced tools without
   removing research functionality or relaxing its admission requirements.
 - Navigation must preserve timers/subscriptions needed for an active session;

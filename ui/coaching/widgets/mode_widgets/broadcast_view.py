@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+from math import isfinite
 from typing import TYPE_CHECKING, List, Optional
 
-from PySide6 import QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from app.contracts import measurement_is_usable
 from ui.coaching.strike_zone_mapping import (
@@ -16,6 +17,7 @@ from ui.coaching.widgets.camera_view_widget import CameraViewWidget
 from ui.coaching.widgets.mode_widgets.base_mode_widget import BaseModeWidget
 from ui.coaching.widgets.stats_panel_widget import StatsPanelWidget
 from ui.themes import get_style_manager
+from ui.coaching.widgets.preview_splitter import PreviewSplitter
 
 if TYPE_CHECKING:
     from contracts import Frame
@@ -25,11 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class BroadcastViewWidget(BaseModeWidget):
-    """Mode 1: Broadcast View.
-
-    Large camera view (70-80%) with statistics panel on right (20-30%).
-    TV-style broadcast presentation with focus on live camera feed.
-    """
+    """Latest-pitch feedback with a resizable secondary camera preview."""
 
     def __init__(
         self,
@@ -49,17 +47,32 @@ class BroadcastViewWidget(BaseModeWidget):
 
     def _build_ui(self) -> None:
         """Build the widget UI."""
-        # Large camera view on left (70-80% of space)
-        self._camera_widget = CameraViewWidget(min_width=800, min_height=600)
+        # Preview can shrink without pushing the feedback off screen.
+        self._camera_widget = CameraViewWidget(min_width=160, min_height=120)
 
         # Stats panel on right (20-30% of space)
         self._stats_panel = StatsPanelWidget()
-        self._stats_panel.setMaximumWidth(400)
+        self._stats_panel.setMinimumSize(285, 380)
+        feedback = QtWidgets.QScrollArea(self)
+        feedback.setAccessibleName("Latest pitch feedback and recent pitches")
+        feedback.setWidgetResizable(True)
+        feedback.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        feedback.setMinimumWidth(304)
+        feedback.setMinimumHeight(0)
+        feedback.setSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Ignored)
+        feedback.setWidget(self._stats_panel)
 
         # Layout: [Camera (3 parts)] [Stats (1 part)]
         layout = QtWidgets.QHBoxLayout()
-        layout.addWidget(self._camera_widget, 3)
-        layout.addWidget(self._stats_panel, 1)
+        self._splitter = PreviewSplitter(QtCore.Qt.Orientation.Horizontal, self)
+        self._splitter.setAccessibleName("Resize pitch feedback and camera preview")
+        self._splitter.setChildrenCollapsible(False)
+        self._splitter.addWidget(feedback)
+        self._splitter.addWidget(self._camera_widget)
+        self._splitter.setStretchFactor(0, 2)
+        self._splitter.setStretchFactor(1, 3)
+        self._splitter.setSizes([360, 600])
+        layout.addWidget(self._splitter)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
 
@@ -90,6 +103,7 @@ class BroadcastViewWidget(BaseModeWidget):
             recent_pitches: List of recent pitch summaries
         """
         if not recent_pitches:
+            self.clear()
             return
 
         # Update stats panel with latest pitch
@@ -99,8 +113,10 @@ class BroadcastViewWidget(BaseModeWidget):
 
         if (
             measurement_is_usable(latest_pitch)
+            and getattr(latest_pitch, "strike_call_available", True)
             and latest_pitch.trajectory_plate_x_ft is not None
             and latest_pitch.trajectory_plate_y_ft is not None
+            and isfinite(latest_pitch.trajectory_plate_x_ft) and isfinite(latest_pitch.trajectory_plate_y_ft)
         ):
             layout = calculate_overlay_layout(
                 self._overlay_config,
@@ -138,7 +154,7 @@ class BroadcastViewWidget(BaseModeWidget):
         Returns:
             Mode name
         """
-        return "Broadcast View"
+        return "Latest Pitch"
 
     def set_camera_selection(self, camera: str) -> None:
         """Set camera selection.
