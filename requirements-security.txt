@@ -1,0 +1,2 @@
+# Shared auditor pin for development and the blocking CI security job.
+pip-audit==2.9.0
