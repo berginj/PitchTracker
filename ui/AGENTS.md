@@ -45,6 +45,11 @@ instructions for UIAgent and MaintenanceAgent, not additional runtime agents.
 
 - Keep algorithms, persistence and operation admission in existing services.
   Use public typed context handoffs; do not create cross-window private access.
+- Read active/pending pitcher context from RuntimeStatus.pitcher. A browsed
+  recorded label is separate from this context. Dispatch explicit changes through
+  change_pitcher; never relabel a pitch from the latest roster or UI selection.
+- Read saved setup context through SetupPresentation and its change signal.
+  Configuration saves, check invalidation and publication remain service commands.
 - Distinguish hiding a page from closing the application. Preserve in-flight
   operation ownership, cancellation, finalization and cleanup when refactoring.
 - Follow additional instructions in [coaching](coaching/AGENTS.md),

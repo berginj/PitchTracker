@@ -32,6 +32,7 @@ class SessionCommand:
     correlation_id: str
     preparation: PrepareSession | None = None
     session_name: str = ""
+    pitcher_name: str = ""
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,9 @@ class SessionCommandThread(QtCore.QThread):
                 else:
                     pipeline.start_capture(prepared.config, prepared.left_serial, prepared.right_serial,
                                            str(prepared.config_path))
+                pipeline.change_pitcher(prepared.pitcher_name)
+            elif command.operation == "pitcher":
+                pipeline.change_pitcher(command.pitcher_name)
             elif command.operation == "record":
                 notice = pipeline.start_recording(pitch_id="session", session_name=command.session_name,
                                                   mode="session")
@@ -120,10 +124,10 @@ class SessionCommandRunner(QtCore.QObject):
     def stop_admission(self) -> None:
         self._closing = True
 
-    def submit(self, operation: str, preparation: PrepareSession | None = None, session_name: str = "") -> bool:
+    def submit(self, operation: str, preparation: PrepareSession | None = None, session_name: str = "", pitcher_name: str = "") -> bool:
         if self.busy or self._closing or self._pipeline.runtime_status().pending_operation:
             return False
-        command = SessionCommand(operation, uuid4().hex, preparation, session_name)
+        command = SessionCommand(operation, uuid4().hex, preparation, session_name, pitcher_name)
         self.state = SessionOperation(pending=operation)
         worker = SessionCommandThread(self._pipeline, command, self)
         self._worker = worker

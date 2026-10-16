@@ -17,6 +17,9 @@ from record.recorder import RecordingBundle
 
 
 class PipelineService(ABC):
+    def change_pitcher(self, name: str):
+        raise NotImplementedError("Pitcher attribution requires the event-driven pipeline")
+
     @abstractmethod
     def start_capture(
         self,

@@ -232,6 +232,7 @@ class PitchStartEvent:
     pitch_index: int
     timestamp_ns: int
     metadata: EventMetadata = field(default_factory=EventMetadata)
+    pitcher_name: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "metadata", hydrate_metadata(
@@ -254,6 +255,7 @@ class PitchEndEvent:
     coordinate_frame: str = "camera"
     rig_profile_id: Optional[str] = None
     metadata: EventMetadata = field(default_factory=EventMetadata)
+    pitcher_name: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "metadata", hydrate_metadata(

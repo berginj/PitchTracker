@@ -91,6 +91,7 @@ class WorkflowStep(BaseStep):
             style_status_label(self.status, "error", str(exc))
             if edit:
                 self.workflow.note_unsaved_failure(str(exc))
+                self.configuration_changed.emit()
             self.set_complete(False)
             return None
 

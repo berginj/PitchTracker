@@ -30,10 +30,15 @@ class SetupPage(QtWidgets.QWidget):
         self._command_pending = False
         self._shutdown_complete = False
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setSpacing(6)
         self._notice = QtWidgets.QLabel()
         self._notice.setWordWrap(True)
         layout.addWidget(self._notice)
+        self._saved_status = QtWidgets.QLabel("Saved setup details appear when guided setup opens. Navigation does not publish a rig.")
+        self._saved_status.setWordWrap(True)
+        self._saved_status.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        layout.addWidget(self._saved_status)
         self._open = QtWidgets.QPushButton("Open Guided Setup")
         self._open.setAccessibleName("Open guided rig setup")
         get_style_manager().style_button(self._open, "primary")
@@ -69,7 +74,7 @@ class SetupPage(QtWidgets.QWidget):
             self._wizard.setEnabled(not blocked)
         self._notice.setText(
             "Runtime capture owns the rig. Setup is view-only; stop preview explicitly in Live before editing."
-            if blocked else "Valid edits save immediately. Recheck affected stages before recording."
+            if blocked else "Edits save immediately. Recheck changed stages, then Finish to publish the rig."
         )
 
     def open_guided_setup(self) -> None:
@@ -91,14 +96,26 @@ class SetupPage(QtWidgets.QWidget):
             wizard.host_in_workspace(self)
             wizard.workspace_completed.connect(self.completed)
             wizard.operation_busy_changed.connect(self.busy_changed)
+            wizard.presentation_changed.connect(self._refresh_saved_status)
             self._wizard = wizard
             self._content.addWidget(wizard)
             self._content.setCurrentWidget(wizard)
             self._open.hide()
+            self._refresh_saved_status()
         except Exception as exc:
             import logging
             logging.getLogger(__name__).exception("Workspace setup could not open")
             show_message_dialog(self, "Setup unavailable", str(exc), tone="warning")
+
+    def _refresh_saved_status(self) -> None:
+        if self._wizard is not None:
+            view = self._wizard.presentation()
+            blockers = view.blockers[0] if view.blockers else ""
+            if len(view.blockers) > 1:
+                blockers += f" (+{len(view.blockers) - 1} checks)"
+            self._saved_status.setText(f"{view.stage} · Saved revision {view.generation} · {view.readiness}"
+                                       + (f" · Next: {blockers}" if blockers else " · Estimated research readiness only."))
+            self._saved_status.setAccessibleDescription("; ".join(view.blockers))
 
     def shutdown_for_workspace(self) -> bool:
         if self._shutdown_complete:
@@ -109,6 +126,7 @@ class SetupPage(QtWidgets.QWidget):
 
 class PlayersPage(QtWidgets.QScrollArea):
     player_browsed = QtCore.Signal(str)
+    active_pitcher_requested = QtCore.Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -119,4 +137,9 @@ class PlayersPage(QtWidgets.QScrollArea):
         self._roster.setParent(self, QtCore.Qt.WindowType.Widget)
         self._roster.setMinimumSize(0, 0)
         self._roster.pitcher_selected.connect(self.player_browsed)
+        self._roster.active_pitcher_requested.connect(self.active_pitcher_requested)
         self.setWidget(self._roster)
+
+    def update_runtime(self, status: RuntimeStatus, *, command_pending: bool = False) -> None:
+        self._roster.set_active_context(status.pitcher, permitted=not command_pending and not status.pending_operation
+                                        and status.recording_phase != "finalizing")

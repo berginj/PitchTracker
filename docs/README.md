@@ -52,6 +52,8 @@ with them, use these pages and open a documentation issue.
 
 - [UX workspace plan](UX_WORKSPACE_PLAN.md) — assignable redesign work and acceptance criteria;
   [session review evidence](review/ux/UX_05_IMPLEMENTATION.md) documents UX-05 delivery.
+  [Setup and Players evidence](review/ux/UX_06_IMPLEMENTATION.md) documents UX-06
+  saved-state presentation and safe pitcher attribution.
   delivery status stays in [Roadmap](ROADMAP.md).
 - [UI agent instructions](../ui/AGENTS.md) — shared experience requirements and scoped ownership.
 - [Workspace implementation](review/ux/UX_02_IMPLEMENTATION.md) — persistent navigation and validation evidence.

@@ -21,3 +21,6 @@ Inherits [shared UI instructions](../AGENTS.md). Primary package: UX-06 in the
 - Make prerequisites, progress, recovery and final publication understandable
   at every viewport. Test edit/recheck/reopen, cancellation, busy navigation and
   capture conflicts using the guided setup group in the workspace plan.
+- Publish read-only SetupPresentation changes after saves, failed saves, stage
+  changes and busy transitions. Hosted and standalone views share one workflow;
+  hiding the duplicate hosted header must not hide saved-state or blocker context.

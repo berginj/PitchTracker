@@ -1,0 +1,7498 @@
+{
+  "schema_version": "ux06_captures.v1",
+  "source_commit": "5c1ce3d3c212d109f0fdcb1bf48220f9d16eb691",
+  "source_worktree_dirty": true,
+  "synthetic_only": true,
+  "renderer": "Actual Qt widgets / synthetic decoder / offscreen Windows fonts",
+  "limitations": [
+    "No acquisition, private artifacts, rig publication, offline processing or uploads",
+    "Not physical accuracy, hardware, Windows DPI or screen-reader qualification"
+  ],
+  "captures": [
+    {
+      "file": "players-empty-1366x768.png",
+      "page": "players",
+      "fixture_state": "empty",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        459,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 11,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            190,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            1229,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Add Pitcher",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            1214,
+            559,
+            101,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "View Sessions",
+          "accessible_name": "View selected player's recorded sessions",
+          "enabled": false,
+          "rect": [
+            1047,
+            627,
+            113,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Use as active pitcher",
+          "accessible_name": "Explicitly use selected player as active pitcher",
+          "enabled": false,
+          "rect": [
+            1176,
+            627,
+            154,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        244,
+        371,
+        0,
+        0,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "players-empty-1024x768.png",
+      "page": "players",
+      "fixture_state": "empty",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        427,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 11,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            887,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Add Pitcher",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            872,
+            559,
+            101,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "View Sessions",
+          "accessible_name": "View selected player's recorded sessions",
+          "enabled": false,
+          "rect": [
+            705,
+            627,
+            113,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Use as active pitcher",
+          "accessible_name": "Explicitly use selected player as active pitcher",
+          "enabled": false,
+          "rect": [
+            834,
+            627,
+            154,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        0,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "players-empty-800x600.png",
+      "page": "players",
+      "fixture_state": "empty",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        427,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 11,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            506,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            551,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            663,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Add Pitcher",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            636,
+            457,
+            101,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "View Sessions",
+          "accessible_name": "View selected player's recorded sessions",
+          "enabled": false,
+          "rect": [
+            469,
+            525,
+            113,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Use as active pitcher",
+          "accessible_name": "Explicitly use selected player as active pitcher",
+          "enabled": false,
+          "rect": [
+            598,
+            525,
+            154,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "players-populated-1366x768.png",
+      "page": "players",
+      "fixture_state": "populated",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        459,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 15,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            190,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            1229,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Example Pitcher",
+          "enabled": true,
+          "rect": [
+            1164,
+            369,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Example Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            1223,
+            369,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Next Pitcher",
+          "enabled": true,
+          "rect": [
+            1164,
+            436,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Next Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            1223,
+            436,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Add Pitcher",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            1214,
+            559,
+            101,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "View Sessions",
+          "accessible_name": "View selected player's recorded sessions",
+          "enabled": true,
+          "rect": [
+            1047,
+            627,
+            113,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Use as active pitcher",
+          "accessible_name": "Explicitly use selected player as active pitcher",
+          "enabled": true,
+          "rect": [
+            1176,
+            627,
+            154,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        0,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "players-populated-1024x768.png",
+      "page": "players",
+      "fixture_state": "populated",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        427,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 15,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            887,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Example Pitcher",
+          "enabled": true,
+          "rect": [
+            822,
+            369,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Example Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            881,
+            369,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Next Pitcher",
+          "enabled": true,
+          "rect": [
+            822,
+            436,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Next Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            881,
+            436,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Add Pitcher",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            872,
+            559,
+            101,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "View Sessions",
+          "accessible_name": "View selected player's recorded sessions",
+          "enabled": true,
+          "rect": [
+            705,
+            627,
+            113,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Use as active pitcher",
+          "accessible_name": "Explicitly use selected player as active pitcher",
+          "enabled": true,
+          "rect": [
+            834,
+            627,
+            154,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        0,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "players-populated-800x600.png",
+      "page": "players",
+      "fixture_state": "populated",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        427,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 15,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            506,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            551,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            663,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Example Pitcher",
+          "enabled": true,
+          "rect": [
+            574,
+            386,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Example Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            633,
+            386,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Next Pitcher",
+          "enabled": true,
+          "rect": [
+            574,
+            453,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Next Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            633,
+            453,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Add Pitcher",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            636,
+            457,
+            101,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "View Sessions",
+          "accessible_name": "View selected player's recorded sessions",
+          "enabled": true,
+          "rect": [
+            469,
+            525,
+            113,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Use as active pitcher",
+          "accessible_name": "Explicitly use selected player as active pitcher",
+          "enabled": true,
+          "rect": [
+            598,
+            525,
+            154,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "players-duplicate-name-1366x768.png",
+      "page": "players",
+      "fixture_state": "duplicate-name",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        459,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 15,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            190,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            1229,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Example Pitcher",
+          "enabled": true,
+          "rect": [
+            1164,
+            369,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Example Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            1223,
+            369,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Next Pitcher",
+          "enabled": true,
+          "rect": [
+            1164,
+            436,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Next Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            1223,
+            436,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Add Pitcher",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            1214,
+            559,
+            101,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "View Sessions",
+          "accessible_name": "View selected player's recorded sessions",
+          "enabled": true,
+          "rect": [
+            1047,
+            627,
+            113,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Use as active pitcher",
+          "accessible_name": "Explicitly use selected player as active pitcher",
+          "enabled": true,
+          "rect": [
+            1176,
+            627,
+            154,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        0,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "players-duplicate-name-1024x768.png",
+      "page": "players",
+      "fixture_state": "duplicate-name",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        427,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 15,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            887,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Example Pitcher",
+          "enabled": true,
+          "rect": [
+            822,
+            369,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Example Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            881,
+            369,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Next Pitcher",
+          "enabled": true,
+          "rect": [
+            822,
+            436,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Next Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            881,
+            436,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Add Pitcher",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            872,
+            559,
+            101,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "View Sessions",
+          "accessible_name": "View selected player's recorded sessions",
+          "enabled": true,
+          "rect": [
+            705,
+            627,
+            113,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Use as active pitcher",
+          "accessible_name": "Explicitly use selected player as active pitcher",
+          "enabled": true,
+          "rect": [
+            834,
+            627,
+            154,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        0,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "players-duplicate-name-800x600.png",
+      "page": "players",
+      "fixture_state": "duplicate-name",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        427,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 15,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            506,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            551,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            663,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Example Pitcher",
+          "enabled": true,
+          "rect": [
+            574,
+            386,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Example Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            633,
+            386,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Next Pitcher",
+          "enabled": true,
+          "rect": [
+            574,
+            453,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Next Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            633,
+            453,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Add Pitcher",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            636,
+            457,
+            101,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "View Sessions",
+          "accessible_name": "View selected player's recorded sessions",
+          "enabled": true,
+          "rect": [
+            469,
+            525,
+            113,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Use as active pitcher",
+          "accessible_name": "Explicitly use selected player as active pitcher",
+          "enabled": true,
+          "rect": [
+            598,
+            525,
+            154,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "players-pending-pitch-boundary-1366x768.png",
+      "page": "players",
+      "fixture_state": "pending-pitch-boundary",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        507,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 16,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Pause",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            190,
+            59,
+            66,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End Session",
+          "accessible_name": "End active workspace session",
+          "enabled": true,
+          "rect": [
+            262,
+            59,
+            102,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            1229,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Example Pitcher",
+          "enabled": true,
+          "rect": [
+            1164,
+            369,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Example Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            1223,
+            369,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Next Pitcher",
+          "enabled": true,
+          "rect": [
+            1164,
+            436,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Next Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            1223,
+            436,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Add Pitcher",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            1214,
+            559,
+            101,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "View Sessions",
+          "accessible_name": "View selected player's recorded sessions",
+          "enabled": true,
+          "rect": [
+            1047,
+            627,
+            113,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Use as active pitcher",
+          "accessible_name": "Explicitly use selected player as active pitcher",
+          "enabled": true,
+          "rect": [
+            1176,
+            627,
+            154,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        0,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "players-pending-pitch-boundary-1024x768.png",
+      "page": "players",
+      "fixture_state": "pending-pitch-boundary",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        475,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 16,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Pause",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            66,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End Session",
+          "accessible_name": "End active workspace session",
+          "enabled": true,
+          "rect": [
+            230,
+            59,
+            102,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            887,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Example Pitcher",
+          "enabled": true,
+          "rect": [
+            822,
+            369,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Example Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            881,
+            369,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Next Pitcher",
+          "enabled": true,
+          "rect": [
+            822,
+            436,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Next Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            881,
+            436,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Add Pitcher",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            872,
+            559,
+            101,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "View Sessions",
+          "accessible_name": "View selected player's recorded sessions",
+          "enabled": true,
+          "rect": [
+            705,
+            627,
+            113,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Use as active pitcher",
+          "accessible_name": "Explicitly use selected player as active pitcher",
+          "enabled": true,
+          "rect": [
+            834,
+            627,
+            154,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        0,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "players-pending-pitch-boundary-800x600.png",
+      "page": "players",
+      "fixture_state": "pending-pitch-boundary",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        475,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 16,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            506,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            551,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Pause",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            66,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End Session",
+          "accessible_name": "End active workspace session",
+          "enabled": true,
+          "rect": [
+            230,
+            59,
+            102,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            663,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Example Pitcher",
+          "enabled": true,
+          "rect": [
+            574,
+            386,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Example Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            633,
+            386,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Edit",
+          "accessible_name": "Edit pitcher Next Pitcher",
+          "enabled": true,
+          "rect": [
+            574,
+            453,
+            53,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove",
+          "accessible_name": "Remove pitcher Next Pitcher from roster",
+          "enabled": true,
+          "rect": [
+            633,
+            453,
+            79,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Add Pitcher",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            636,
+            457,
+            101,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "View Sessions",
+          "accessible_name": "View selected player's recorded sessions",
+          "enabled": true,
+          "rect": [
+            469,
+            525,
+            113,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Use as active pitcher",
+          "accessible_name": "Explicitly use selected player as active pitcher",
+          "enabled": true,
+          "rect": [
+            598,
+            525,
+            154,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "sessions-recorded-player-filter-1366x768.png",
+      "page": "sessions",
+      "fixture_state": "recorded-player-filter",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        507,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 24,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Pause",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            190,
+            59,
+            66,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End Session",
+          "accessible_name": "End active workspace session",
+          "enabled": true,
+          "rect": [
+            262,
+            59,
+            102,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            1229,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Go to Selected Pitch",
+          "accessible_name": "Go to Selected Pitch",
+          "enabled": true,
+          "rect": [
+            1050,
+            770,
+            256,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Advanced research tools",
+          "accessible_name": "Expand review research tools",
+          "enabled": true,
+          "rect": [
+            1042,
+            823,
+            272,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Back",
+          "accessible_name": "Step Backward",
+          "enabled": true,
+          "rect": [
+            204,
+            561,
+            410,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next frame",
+          "accessible_name": "Step Forward",
+          "enabled": true,
+          "rect": [
+            620,
+            561,
+            410,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Play",
+          "accessible_name": "Play or Pause",
+          "enabled": true,
+          "rect": [
+            204,
+            607,
+            826,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Start",
+          "accessible_name": "Seek to Start",
+          "enabled": true,
+          "rect": [
+            204,
+            653,
+            410,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End",
+          "accessible_name": "Seek to End",
+          "enabled": true,
+          "rect": [
+            620,
+            653,
+            410,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prev pitch",
+          "accessible_name": "Previous Pitch",
+          "enabled": true,
+          "rect": [
+            204,
+            699,
+            410,
+            32
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next pitch",
+          "accessible_name": "Next Pitch",
+          "enabled": true,
+          "rect": [
+            620,
+            699,
+            410,
+            32
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Loop",
+          "accessible_name": "Toggle Loop",
+          "enabled": true,
+          "rect": [
+            204,
+            737,
+            410,
+            36
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Review",
+          "accessible_name": "Review selected completed session",
+          "enabled": true,
+          "rect": [
+            1083,
+            163,
+            72,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Refresh",
+          "accessible_name": "Refresh local session history",
+          "enabled": true,
+          "rect": [
+            1159,
+            163,
+            75,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open Local\u2026",
+          "accessible_name": "Open a local session directory",
+          "enabled": true,
+          "rect": [
+            1238,
+            163,
+            108,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Browse full session video",
+          "accessible_name": "Browse session video without pitch association",
+          "enabled": true,
+          "rect": [
+            188,
+            206,
+            577,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Show all players",
+          "accessible_name": "Clear historical player filter",
+          "enabled": true,
+          "rect": [
+            769,
+            206,
+            577,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        59,
+        81
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "sessions-recorded-player-filter-1024x768.png",
+      "page": "sessions",
+      "fixture_state": "recorded-player-filter",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        475,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 24,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Pause",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            66,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End Session",
+          "accessible_name": "End active workspace session",
+          "enabled": true,
+          "rect": [
+            230,
+            59,
+            102,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            887,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Go to Selected Pitch",
+          "accessible_name": "Go to Selected Pitch",
+          "enabled": true,
+          "rect": [
+            708,
+            770,
+            256,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Advanced research tools",
+          "accessible_name": "Expand review research tools",
+          "enabled": true,
+          "rect": [
+            700,
+            823,
+            272,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Back",
+          "accessible_name": "Step Backward",
+          "enabled": true,
+          "rect": [
+            172,
+            561,
+            255,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next frame",
+          "accessible_name": "Step Forward",
+          "enabled": true,
+          "rect": [
+            433,
+            561,
+            255,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Play",
+          "accessible_name": "Play or Pause",
+          "enabled": true,
+          "rect": [
+            172,
+            607,
+            516,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Start",
+          "accessible_name": "Seek to Start",
+          "enabled": true,
+          "rect": [
+            172,
+            653,
+            255,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End",
+          "accessible_name": "Seek to End",
+          "enabled": true,
+          "rect": [
+            433,
+            653,
+            255,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prev pitch",
+          "accessible_name": "Previous Pitch",
+          "enabled": true,
+          "rect": [
+            172,
+            699,
+            255,
+            32
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next pitch",
+          "accessible_name": "Next Pitch",
+          "enabled": true,
+          "rect": [
+            433,
+            699,
+            255,
+            32
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Loop",
+          "accessible_name": "Toggle Loop",
+          "enabled": true,
+          "rect": [
+            172,
+            737,
+            255,
+            36
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Review",
+          "accessible_name": "Review selected completed session",
+          "enabled": true,
+          "rect": [
+            741,
+            163,
+            72,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Refresh",
+          "accessible_name": "Refresh local session history",
+          "enabled": true,
+          "rect": [
+            817,
+            163,
+            75,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open Local\u2026",
+          "accessible_name": "Open a local session directory",
+          "enabled": true,
+          "rect": [
+            896,
+            163,
+            108,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Browse full session video",
+          "accessible_name": "Browse session video without pitch association",
+          "enabled": true,
+          "rect": [
+            156,
+            206,
+            422,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Show all players",
+          "accessible_name": "Clear historical player filter",
+          "enabled": true,
+          "rect": [
+            582,
+            206,
+            422,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        59,
+        81
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "sessions-recorded-player-filter-800x600.png",
+      "page": "sessions",
+      "fixture_state": "recorded-player-filter",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        475,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 24,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            506,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            551,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Pause",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            66,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End Session",
+          "accessible_name": "End active workspace session",
+          "enabled": true,
+          "rect": [
+            230,
+            59,
+            102,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            663,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Go to Selected Pitch",
+          "accessible_name": "Go to Selected Pitch",
+          "enabled": true,
+          "rect": [
+            484,
+            770,
+            256,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Advanced research tools",
+          "accessible_name": "Expand review research tools",
+          "enabled": true,
+          "rect": [
+            476,
+            823,
+            272,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Back",
+          "accessible_name": "Step Backward",
+          "enabled": true,
+          "rect": [
+            172,
+            561,
+            143,
+            40
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next frame",
+          "accessible_name": "Step Forward",
+          "enabled": true,
+          "rect": [
+            321,
+            561,
+            143,
+            40
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Play",
+          "accessible_name": "Play or Pause",
+          "enabled": true,
+          "rect": [
+            172,
+            607,
+            292,
+            40
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Start",
+          "accessible_name": "Seek to Start",
+          "enabled": true,
+          "rect": [
+            172,
+            653,
+            143,
+            40
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End",
+          "accessible_name": "Seek to End",
+          "enabled": true,
+          "rect": [
+            321,
+            653,
+            143,
+            40
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prev pitch",
+          "accessible_name": "Previous Pitch",
+          "enabled": true,
+          "rect": [
+            172,
+            699,
+            143,
+            32
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next pitch",
+          "accessible_name": "Next Pitch",
+          "enabled": true,
+          "rect": [
+            321,
+            699,
+            143,
+            32
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Loop",
+          "accessible_name": "Toggle Loop",
+          "enabled": true,
+          "rect": [
+            172,
+            737,
+            143,
+            36
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Review",
+          "accessible_name": "Review selected completed session",
+          "enabled": true,
+          "rect": [
+            517,
+            163,
+            72,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Refresh",
+          "accessible_name": "Refresh local session history",
+          "enabled": true,
+          "rect": [
+            593,
+            163,
+            75,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open Local\u2026",
+          "accessible_name": "Open a local session directory",
+          "enabled": true,
+          "rect": [
+            672,
+            163,
+            108,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Browse full session video",
+          "accessible_name": "Browse session video without pitch association",
+          "enabled": true,
+          "rect": [
+            156,
+            206,
+            310,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Show all players",
+          "accessible_name": "Clear historical player filter",
+          "enabled": true,
+          "rect": [
+            470,
+            206,
+            310,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        227,
+        81
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "sessions-unknown-attribution-1366x768.png",
+      "page": "sessions",
+      "fixture_state": "unknown-attribution",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        507,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 24,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Pause",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            190,
+            59,
+            66,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End Session",
+          "accessible_name": "End active workspace session",
+          "enabled": true,
+          "rect": [
+            262,
+            59,
+            102,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            1229,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Go to Selected Pitch",
+          "accessible_name": "Go to Selected Pitch",
+          "enabled": true,
+          "rect": [
+            1050,
+            689,
+            268,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Advanced research tools",
+          "accessible_name": "Expand review research tools",
+          "enabled": true,
+          "rect": [
+            1042,
+            742,
+            284,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Back",
+          "accessible_name": "Step Backward",
+          "enabled": true,
+          "rect": [
+            204,
+            561,
+            410,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next frame",
+          "accessible_name": "Step Forward",
+          "enabled": true,
+          "rect": [
+            620,
+            561,
+            410,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Play",
+          "accessible_name": "Play or Pause",
+          "enabled": true,
+          "rect": [
+            204,
+            607,
+            826,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Start",
+          "accessible_name": "Seek to Start",
+          "enabled": true,
+          "rect": [
+            204,
+            653,
+            410,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End",
+          "accessible_name": "Seek to End",
+          "enabled": true,
+          "rect": [
+            620,
+            653,
+            410,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prev pitch",
+          "accessible_name": "Previous Pitch",
+          "enabled": true,
+          "rect": [
+            204,
+            699,
+            410,
+            32
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next pitch",
+          "accessible_name": "Next Pitch",
+          "enabled": true,
+          "rect": [
+            620,
+            699,
+            410,
+            32
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Loop",
+          "accessible_name": "Toggle Loop",
+          "enabled": true,
+          "rect": [
+            204,
+            737,
+            410,
+            36
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Review",
+          "accessible_name": "Review selected completed session",
+          "enabled": true,
+          "rect": [
+            1083,
+            163,
+            72,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Refresh",
+          "accessible_name": "Refresh local session history",
+          "enabled": true,
+          "rect": [
+            1159,
+            163,
+            75,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open Local\u2026",
+          "accessible_name": "Open a local session directory",
+          "enabled": true,
+          "rect": [
+            1238,
+            163,
+            108,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Browse full session video",
+          "accessible_name": "Browse session video without pitch association",
+          "enabled": true,
+          "rect": [
+            188,
+            206,
+            577,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Show all players",
+          "accessible_name": "Clear historical player filter",
+          "enabled": true,
+          "rect": [
+            769,
+            206,
+            577,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        59,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "sessions-unknown-attribution-1024x768.png",
+      "page": "sessions",
+      "fixture_state": "unknown-attribution",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        475,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 24,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Pause",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            66,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End Session",
+          "accessible_name": "End active workspace session",
+          "enabled": true,
+          "rect": [
+            230,
+            59,
+            102,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            887,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Go to Selected Pitch",
+          "accessible_name": "Go to Selected Pitch",
+          "enabled": true,
+          "rect": [
+            708,
+            689,
+            268,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Advanced research tools",
+          "accessible_name": "Expand review research tools",
+          "enabled": true,
+          "rect": [
+            700,
+            742,
+            284,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Back",
+          "accessible_name": "Step Backward",
+          "enabled": true,
+          "rect": [
+            172,
+            561,
+            255,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next frame",
+          "accessible_name": "Step Forward",
+          "enabled": true,
+          "rect": [
+            433,
+            561,
+            255,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Play",
+          "accessible_name": "Play or Pause",
+          "enabled": true,
+          "rect": [
+            172,
+            607,
+            516,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Start",
+          "accessible_name": "Seek to Start",
+          "enabled": true,
+          "rect": [
+            172,
+            653,
+            255,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End",
+          "accessible_name": "Seek to End",
+          "enabled": true,
+          "rect": [
+            433,
+            653,
+            255,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prev pitch",
+          "accessible_name": "Previous Pitch",
+          "enabled": true,
+          "rect": [
+            172,
+            699,
+            255,
+            32
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next pitch",
+          "accessible_name": "Next Pitch",
+          "enabled": true,
+          "rect": [
+            433,
+            699,
+            255,
+            32
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Loop",
+          "accessible_name": "Toggle Loop",
+          "enabled": true,
+          "rect": [
+            172,
+            737,
+            255,
+            36
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Review",
+          "accessible_name": "Review selected completed session",
+          "enabled": true,
+          "rect": [
+            741,
+            163,
+            72,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Refresh",
+          "accessible_name": "Refresh local session history",
+          "enabled": true,
+          "rect": [
+            817,
+            163,
+            75,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open Local\u2026",
+          "accessible_name": "Open a local session directory",
+          "enabled": true,
+          "rect": [
+            896,
+            163,
+            108,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Browse full session video",
+          "accessible_name": "Browse session video without pitch association",
+          "enabled": true,
+          "rect": [
+            156,
+            206,
+            422,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Show all players",
+          "accessible_name": "Clear historical player filter",
+          "enabled": true,
+          "rect": [
+            582,
+            206,
+            422,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        59,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "sessions-unknown-attribution-800x600.png",
+      "page": "sessions",
+      "fixture_state": "unknown-attribution",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        475,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 24,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            506,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            551,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Pause",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            66,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End Session",
+          "accessible_name": "End active workspace session",
+          "enabled": true,
+          "rect": [
+            230,
+            59,
+            102,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            663,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Go to Selected Pitch",
+          "accessible_name": "Go to Selected Pitch",
+          "enabled": true,
+          "rect": [
+            484,
+            706,
+            268,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Advanced research tools",
+          "accessible_name": "Expand review research tools",
+          "enabled": true,
+          "rect": [
+            476,
+            759,
+            284,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Back",
+          "accessible_name": "Step Backward",
+          "enabled": true,
+          "rect": [
+            172,
+            578,
+            143,
+            40
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next frame",
+          "accessible_name": "Step Forward",
+          "enabled": true,
+          "rect": [
+            321,
+            578,
+            143,
+            40
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Play",
+          "accessible_name": "Play or Pause",
+          "enabled": true,
+          "rect": [
+            172,
+            624,
+            292,
+            40
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Start",
+          "accessible_name": "Seek to Start",
+          "enabled": true,
+          "rect": [
+            172,
+            670,
+            143,
+            40
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End",
+          "accessible_name": "Seek to End",
+          "enabled": true,
+          "rect": [
+            321,
+            670,
+            143,
+            40
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prev pitch",
+          "accessible_name": "Previous Pitch",
+          "enabled": true,
+          "rect": [
+            172,
+            716,
+            143,
+            32
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next pitch",
+          "accessible_name": "Next Pitch",
+          "enabled": true,
+          "rect": [
+            321,
+            716,
+            143,
+            32
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Loop",
+          "accessible_name": "Toggle Loop",
+          "enabled": true,
+          "rect": [
+            172,
+            754,
+            143,
+            36
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Review",
+          "accessible_name": "Review selected completed session",
+          "enabled": true,
+          "rect": [
+            517,
+            180,
+            72,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Refresh",
+          "accessible_name": "Refresh local session history",
+          "enabled": true,
+          "rect": [
+            593,
+            180,
+            75,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open Local\u2026",
+          "accessible_name": "Open a local session directory",
+          "enabled": true,
+          "rect": [
+            672,
+            180,
+            108,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Browse full session video",
+          "accessible_name": "Browse session video without pitch association",
+          "enabled": true,
+          "rect": [
+            156,
+            223,
+            310,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Show all players",
+          "accessible_name": "Clear historical player filter",
+          "enabled": true,
+          "rect": [
+            470,
+            223,
+            310,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        244,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "setup-capture-owned-1366x768.png",
+      "page": "setup",
+      "fixture_state": "capture-owned",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        507,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 9,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Pause",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            190,
+            59,
+            66,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End Session",
+          "accessible_name": "End active workspace session",
+          "enabled": true,
+          "rect": [
+            262,
+            59,
+            102,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            1229,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        244,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "setup-capture-owned-1024x768.png",
+      "page": "setup",
+      "fixture_state": "capture-owned",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        475,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 9,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Pause",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            66,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End Session",
+          "accessible_name": "End active workspace session",
+          "enabled": true,
+          "rect": [
+            230,
+            59,
+            102,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            887,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        244,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "setup-capture-owned-800x600.png",
+      "page": "setup",
+      "fixture_state": "capture-owned",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        475,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 9,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            506,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            551,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Pause",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            66,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "End Session",
+          "accessible_name": "End active workspace session",
+          "enabled": true,
+          "rect": [
+            230,
+            59,
+            102,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            663,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        244,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "setup-overview-1366x768.png",
+      "page": "setup",
+      "fixture_state": "overview",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        459,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 9,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            190,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            1229,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open Guided Setup",
+          "accessible_name": "Open guided rig setup",
+          "enabled": true,
+          "rect": [
+            188,
+            188,
+            1158,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        244,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "setup-overview-1024x768.png",
+      "page": "setup",
+      "fixture_state": "overview",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        427,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 9,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            887,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open Guided Setup",
+          "accessible_name": "Open guided rig setup",
+          "enabled": true,
+          "rect": [
+            156,
+            188,
+            848,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        244,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "setup-overview-800x600.png",
+      "page": "setup",
+      "fixture_state": "overview",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        427,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 9,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            506,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            551,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            663,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open Guided Setup",
+          "accessible_name": "Open guided rig setup",
+          "enabled": true,
+          "rect": [
+            156,
+            188,
+            624,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        244,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "setup-saved-needs-checks-1366x768.png",
+      "page": "setup",
+      "fixture_state": "saved-needs-checks",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        459,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 19,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            190,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            1229,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Discover cameras",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            359,
+            1082,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Import existing local setup",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            1178,
+            1082,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Color capture",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            902,
+            1082,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Use observed locked white balance",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            996,
+            1082,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "I adjusted the lens / focus",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            1051,
+            1082,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Flip left 180\u00b0",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            1106,
+            1082,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Flip right 180\u00b0",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            1142,
+            1082,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Preview selected cameras",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            1349,
+            1082,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Details",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            1404,
+            1082,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "< Back",
+          "accessible_name": "Go to previous step",
+          "enabled": false,
+          "rect": [
+            196,
+            709,
+            100,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next >",
+          "accessible_name": "Go to next step",
+          "enabled": true,
+          "rect": [
+            1238,
+            709,
+            100,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        244,
+        0,
+        0,
+        766
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "setup-saved-needs-checks-1024x768.png",
+      "page": "setup",
+      "fixture_state": "saved-needs-checks",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        427,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 19,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            887,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Discover cameras",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            359,
+            772,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Import existing local setup",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1178,
+            772,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Color capture",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            902,
+            772,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Use observed locked white balance",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            996,
+            772,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "I adjusted the lens / focus",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1051,
+            772,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Flip left 180\u00b0",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1106,
+            772,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Flip right 180\u00b0",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1142,
+            772,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Preview selected cameras",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1349,
+            772,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Details",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1404,
+            772,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "< Back",
+          "accessible_name": "Go to previous step",
+          "enabled": false,
+          "rect": [
+            164,
+            709,
+            100,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next >",
+          "accessible_name": "Go to next step",
+          "enabled": true,
+          "rect": [
+            896,
+            709,
+            100,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        244,
+        0,
+        0,
+        766
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "setup-saved-needs-checks-800x600.png",
+      "page": "setup",
+      "fixture_state": "saved-needs-checks",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        427,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 19,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            506,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            551,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            663,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Discover cameras",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            376,
+            548,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Import existing local setup",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1195,
+            548,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Color capture",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            919,
+            548,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Use observed locked white balance",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1013,
+            548,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "I adjusted the lens / focus",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1068,
+            548,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Flip left 180\u00b0",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1123,
+            548,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Flip right 180\u00b0",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1159,
+            548,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Preview selected cameras",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1366,
+            548,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Details",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1421,
+            548,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "< Back",
+          "accessible_name": "Go to previous step",
+          "enabled": false,
+          "rect": [
+            164,
+            541,
+            100,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next >",
+          "accessible_name": "Go to next step",
+          "enabled": true,
+          "rect": [
+            672,
+            541,
+            100,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        66,
+        88,
+        244,
+        0,
+        0,
+        951
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "setup-saved-reentry-1366x768.png",
+      "page": "setup",
+      "fixture_state": "saved-reentry",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        459,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 19,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            148,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            148,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            190,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            1229,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Discover cameras",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            359,
+            1082,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Import existing local setup",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            1178,
+            1082,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Color capture",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            902,
+            1082,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Use observed locked white balance",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            996,
+            1082,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "I adjusted the lens / focus",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            1051,
+            1082,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Flip left 180\u00b0",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            1106,
+            1082,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Flip right 180\u00b0",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            1142,
+            1082,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Preview selected cameras",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            1349,
+            1082,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Details",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            220,
+            1404,
+            1082,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "< Back",
+          "accessible_name": "Go to previous step",
+          "enabled": false,
+          "rect": [
+            196,
+            709,
+            100,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next >",
+          "accessible_name": "Go to next step",
+          "enabled": true,
+          "rect": [
+            1238,
+            709,
+            100,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        244,
+        0,
+        66,
+        88,
+        0,
+        766
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "setup-saved-reentry-1024x768.png",
+      "page": "setup",
+      "fixture_state": "saved-reentry",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        427,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 19,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            674,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            719,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            887,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Discover cameras",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            359,
+            772,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Import existing local setup",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1178,
+            772,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Color capture",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            902,
+            772,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Use observed locked white balance",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            996,
+            772,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "I adjusted the lens / focus",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1051,
+            772,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Flip left 180\u00b0",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1106,
+            772,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Flip right 180\u00b0",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1142,
+            772,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Preview selected cameras",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1349,
+            772,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Details",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1404,
+            772,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "< Back",
+          "accessible_name": "Go to previous step",
+          "enabled": false,
+          "rect": [
+            164,
+            709,
+            100,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next >",
+          "accessible_name": "Go to next step",
+          "enabled": true,
+          "rect": [
+            896,
+            709,
+            100,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        244,
+        0,
+        66,
+        88,
+        0,
+        766
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "file": "setup-saved-reentry-800x600.png",
+      "page": "setup",
+      "fixture_state": "saved-reentry",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        427,
+        314
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 19,
+      "controls": [
+        {
+          "text": "Live",
+          "accessible_name": "Navigate to Live",
+          "enabled": true,
+          "rect": [
+            10,
+            36,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Sessions",
+          "accessible_name": "Navigate to Sessions",
+          "enabled": true,
+          "rect": [
+            10,
+            82,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Players",
+          "accessible_name": "Navigate to Players",
+          "enabled": true,
+          "rect": [
+            10,
+            128,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Setup",
+          "accessible_name": "Navigate to Setup",
+          "enabled": true,
+          "rect": [
+            10,
+            174,
+            116,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Settings",
+          "accessible_name": "Workspace settings",
+          "enabled": true,
+          "rect": [
+            10,
+            506,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Help",
+          "accessible_name": "Workspace help",
+          "enabled": true,
+          "rect": [
+            10,
+            551,
+            116,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Prepare Session",
+          "accessible_name": "Primary session action",
+          "enabled": true,
+          "rect": [
+            158,
+            59,
+            126,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Return to Live",
+          "accessible_name": "Return to active Live page",
+          "enabled": true,
+          "rect": [
+            663,
+            59,
+            115,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Discover cameras",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            376,
+            548,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Import existing local setup",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1195,
+            548,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Color capture",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            919,
+            548,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Use observed locked white balance",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1013,
+            548,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "I adjusted the lens / focus",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1068,
+            548,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Flip left 180\u00b0",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1123,
+            548,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Flip right 180\u00b0",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1159,
+            548,
+            20
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "Preview selected cameras",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1366,
+            548,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Details",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            188,
+            1421,
+            548,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "< Back",
+          "accessible_name": "Go to previous step",
+          "enabled": false,
+          "rect": [
+            164,
+            541,
+            100,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Next >",
+          "accessible_name": "Go to next step",
+          "enabled": true,
+          "rect": [
+            672,
+            541,
+            100,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        0,
+        232,
+        371,
+        0,
+        244,
+        0,
+        66,
+        88,
+        0,
+        951
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

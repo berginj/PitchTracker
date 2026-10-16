@@ -34,6 +34,10 @@ class DisplayPipeline(QtCore.QObject):
         self.status = replace(self.status, sequence=self.status.sequence + 1, **values)
         self.runtime_status_changed.emit(self.status)
 
+    def change_pitcher(self, name):
+        from contracts.pitcher import PitcherSelection
+        self.set_status(pitcher=PitcherSelection(active_name=name))
+
     def is_capturing(self):
         return self.status.owns_capture
 
@@ -45,6 +49,9 @@ class DisplayPipeline(QtCore.QObject):
 
     def get_recent_pitches(self):
         return []
+
+    def get_session_summary(self):
+        return None
 
     def get_stats(self):
         return {}
@@ -227,7 +234,10 @@ def test_missing_config_keeps_sessions_reachable(monkeypatch, qtbot, tmp_path):
     window.show()
     assert not window.page("live").configuration_available
     assert not window._primary.isEnabled()
-    assert window.navigate("sessions")
+    button = next(button for button in window.page("live").findChildren(QtWidgets.QPushButton)
+                  if button.text() == "Open Sessions")
+    button.click()
+    assert window.navigation_context.page == "sessions"
     assert window.pipeline_service is pipeline
     assert pipeline.status.capture_phase == "idle"
 

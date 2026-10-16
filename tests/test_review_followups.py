@@ -1,10 +1,13 @@
 """Regression journeys for recording roots and atomic historical pitch handoffs."""
 
 from dataclasses import replace
+import json
 
 import pytest
 
 from app.review.review_service import PitchScore, ReviewService
+from app.review.playback_mapping import pitch_playback, read_timestamps
+from app.review.session_loader import SessionLoader
 from app.services.orchestrator.runtime_status import RuntimeStatus
 from scripts.ux_review_fixtures import SyntheticReviewReader, write_session
 from tests import test_workspace_navigation as navigation
@@ -96,3 +99,42 @@ def test_missing_pitch_handoff_preserves_the_entire_review(workspace, monkeypatc
     assert review._service.current_frame_index == 2
     assert review._feedback.labels["speed"].text() == feedback
     assert "try again" in page._selection_label.text()
+
+
+def test_filtered_out_pitch_preserves_previous_player_and_review(workspace, monkeypatch, tmp_path):
+    window, _pipeline = workspace
+    previous = write_session(tmp_path / "previous")
+    candidate = write_session(tmp_path / "candidate")
+    for session, name in ((previous, "Previous Pitcher"), (candidate, "Other Pitcher")):
+        for index in (1, 2):
+            path = session / f"pitch_{index:05d}/manifest.json"
+            content = json.loads(path.read_text(encoding="utf-8"))
+            content["pitcher"] = {"schema_version": "pitcher_attribution.v1", "name": name}
+            path.write_text(json.dumps(content), encoding="utf-8")
+    assert window.navigate("sessions")
+    page = window.page("sessions")
+    page.open_selection(ReviewSelection(previous, pitch_id="pitch_00002", pitcher_name="Previous Pitcher"))
+    selected = page.review.selection()
+    service = page.review._service
+    old_session = service.session
+    monkeypatch.setattr("ui.review._session_controller.show_message_dialog", lambda *args, **kwargs: None)
+    page.open_selection(ReviewSelection(candidate, pitch_id="pitch_00002", pitcher_name="Previous Pitcher"))
+    assert service.session is old_session
+    assert service.player_filter == "Previous Pitcher"
+    assert page.review.selection() == window.navigation_context.review == selected
+    assert service.current_frame_index == 2
+    assert "73.6 mph" in page.review._feedback.labels["speed"].text()
+
+
+@pytest.mark.parametrize("left_count,right_count", [(4, 3), (3, 4)])
+def test_unequal_video_counts_reject_even_the_overlapping_pitch(tmp_path, left_count, right_count):
+    path = write_session(tmp_path)
+    session = SessionLoader.load_session(path, require_video=False)
+    for side, count in (("left", left_count), ("right", right_count)):
+        mapping = path / f"session_{side}_timestamps.csv"
+        lines = mapping.read_text(encoding="utf-8").splitlines(keepends=True)
+        mapping.write_text("".join(lines[:count + 1]), encoding="utf-8")
+        assert len(read_timestamps(mapping, count)) == count
+    mappings = pitch_playback(session, left_count, right_count)
+    assert len(mappings) == 2
+    assert all(mapping.frame_index is None and "unequal camera frame counts" in mapping.reason for mapping in mappings)

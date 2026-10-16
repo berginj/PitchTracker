@@ -24,7 +24,7 @@ SEMANTIC_COLUMNS = (
     *(f"{prefix}_{field}" for prefix in ("vision_speed", "external_speed") for field in _SPEED_FIELDS),
     "fit_quality_score", "fit_quality_basis", "physical_prediction_uncertainty",
     "strike_call_available", "strike_call_reason", "strike_call_basis", "strike_uncertainty_policy",
-    "csv_schema_version", "app_version",
+    "csv_schema_version", "app_version", "pitcher_name",
 )
 _DECIMALS = {
     "run_in": ".3f", "rise_in": ".3f", "speed_mph": ".3f", "rotation_rpm": ".3f",
@@ -60,6 +60,7 @@ def _pitch_row(pitch: Any) -> dict[str, Any]:
         strike_call_basis=quality.get("strike_call_basis", "legacy_recorded_geometry"),
         strike_uncertainty_policy=quality.get("strike_uncertainty_policy", "unknown"),
         csv_schema_version="session_summary.csv.v2", app_version=APP_VERSION,
+        pitcher_name=getattr(pitch, "pitcher_name", None) or "",
     )
     available = getattr(pitch, "strike_call_available", True)
     row["strike_call_available"] = int(available) if isinstance(available, bool) else ""

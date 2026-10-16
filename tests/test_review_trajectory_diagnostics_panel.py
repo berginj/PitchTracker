@@ -172,6 +172,7 @@ class _FakeReviewService:
         self.video_reader = _FakeVideoReader()
         self.detector_config = None
         self.playback_available = True
+        self.player_filter = None
 
     @property
     def pitch_scores(self):

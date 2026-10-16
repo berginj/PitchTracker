@@ -13,10 +13,12 @@ from uuid import uuid4
 from app.events.event_bus import EventBus
 from app.events.event_metadata import EventMetadata
 from record.recorder import RecordingBundle
+from contracts.pitcher import PitcherSelection
 
 Result = TypeVar("Result")
 if TYPE_CHECKING:
     from app.services.recording import RecordingServiceImpl
+    from app.services.orchestrator.event_coordination import EventCoordinator
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,7 @@ class RuntimeStatus:
     failure: RuntimeFailure | None = None
     finalized_session: FinalizedSession | None = None
     active_session_dir: Path | None = None
+    pitcher: PitcherSelection = PitcherSelection()
 
     @property
     def owns_capture(self) -> bool:
@@ -149,6 +152,14 @@ class RuntimeStatusMethods:
     _runtime: RuntimeStatusPublisher
     _lock: Lock
     _recording_service: RecordingServiceImpl | None
+    _event_coordinator: EventCoordinator
+
+    @runtime_command("change_pitcher")
+    def change_pitcher(self, name: str) -> PitcherSelection:
+        status = self.runtime_status()
+        if status.recording_phase == "finalizing" or status.capture_phase == "stopping":
+            raise RuntimeError("Finish the pending stop before changing pitchers")
+        return self._event_coordinator.request_pitcher(name)
 
     def runtime_status(self) -> RuntimeStatus:
         """Return a cached snapshot without waiting for capture/recording locks."""

@@ -25,6 +25,7 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
 
     workspace_completed = QtCore.Signal()
     operation_busy_changed = QtCore.Signal(bool)
+    presentation_changed = QtCore.Signal()
 
     def __init__(
         self,
@@ -73,9 +74,24 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         from ui.workspace.hosting import embed_window
         self._workspace_hosted = True
         embed_window(self, parent)
+        self._header.hide()
+        layout = self.centralWidget().layout()
+        assert layout is not None
+        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setSpacing(8)
+        for form in self.findChildren(QtWidgets.QFormLayout):
+            form.setRowWrapPolicy(QtWidgets.QFormLayout.RowWrapPolicy.WrapLongRows)
 
     def operation_busy(self) -> bool:
         return any(step.is_busy() for step in self._steps)
+
+    def presentation(self):
+        from ui.setup.presentation import SetupPresentation
+        if self.workflow is None:
+            return SetupPresentation(self._machine.title_for(self._machine.current), 0, False, "Checks unavailable", ())
+        readiness = self.workflow.readiness()
+        return SetupPresentation(self._machine.title_for(self._machine.current), self.workflow.generation,
+                                 bool(self.workflow.state["changed"]), readiness.status, readiness.blockers)
 
     def shutdown_for_workspace(self) -> bool:
         event = QtGui.QCloseEvent()
@@ -85,10 +101,12 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
     def _build_ui(self) -> None:
         """Build the wizard shell."""
         header = self._build_header()
+        self._header = header
         self._step_indicator = self._build_step_indicator()
 
         self._content_stack = QtWidgets.QStackedWidget()
         self._content_stack.setMinimumSize(0, 0)
+        self._content_stack.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Preferred)
         for step in self._steps:
             self._content_stack.addWidget(step)
 
@@ -229,6 +247,7 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
                 widget.set_complete(False)
                 self._machine.mark_complete(step, False)
         self._update_step_indicator()
+        self.presentation_changed.emit()
 
     def _show_current(self) -> None:
         """Render the machine's current step."""
@@ -238,6 +257,7 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         self._update_step_indicator()
         self._update_navigation_buttons()
         self.setWindowTitle(f"PitchTracker Stereo Setup - {current_widget.get_title()}")
+        self.presentation_changed.emit()
 
     def _update_step_indicator(self) -> None:
         """Update the step indicator to reflect current progress."""
@@ -264,6 +284,7 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
     def _on_step_busy_changed(self, _busy: bool) -> None:
         self.operation_busy_changed.emit(self.operation_busy())
         self._update_navigation_buttons()
+        self.presentation_changed.emit()
         if self._closing_after_capture_cancel and not any(step.is_busy() for step in self._steps):
             QtCore.QTimer.singleShot(0, self.close)
 
