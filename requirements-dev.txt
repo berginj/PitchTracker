@@ -15,7 +15,7 @@ py-spy==0.3.14
 memory-profiler==0.61.0
 
 # Security
-pip-audit==2.9.0
+-r requirements-security.txt
 
 # Test reliability (fail fast on hangs instead of blocking CI)
 pytest==9.0.3
