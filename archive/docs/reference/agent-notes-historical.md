@@ -1,3 +1,6 @@
+> Historical January 2026 notes. Not agent instructions or current readiness evidence.
+> Use [AGENTS.md](../../../AGENTS.md) for maintenance instructions.
+
 # PitchTracker Agent Notes
 
 ## 🎯 Project Summary
@@ -172,7 +175,7 @@ Contracts & Utilities (contracts, exceptions, logging)
 - **[REQ.md](./REQ.md)** - Architecture, data contract definitions, system constraints
 - **[REFACTORING_PROGRESS.md](./REFACTORING_PROGRESS.md)** - Complete UI refactoring log
 - **[IMPROVEMENTS_SUMMARY.md](./IMPROVEMENTS_SUMMARY.md)** - Technical improvements implemented
-- **[AGENTS.md](./AGENTS.md)** - This file (agent quick reference)
+- **[AGENTS.md](agent-notes-historical.md)** - This file (agent quick reference)
 
 ### Configuration
 - **[configs/default.yaml](./configs/default.yaml)** - Main configuration file

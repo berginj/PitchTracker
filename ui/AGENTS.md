@@ -1,6 +1,6 @@
 # Shared user experience instructions
 
-Applies throughout `ui/`. Read the [root specification](../agents.md) and
+Applies throughout `ui/`. Read the [root specification](../AGENTS.md) and
 [UX workspace plan](../docs/UX_WORKSPACE_PLAN.md). These are maintenance
 instructions for UIAgent and MaintenanceAgent, not additional runtime agents.
 [Roadmap](../docs/ROADMAP.md) owns status; target behavior is not shipped behavior.

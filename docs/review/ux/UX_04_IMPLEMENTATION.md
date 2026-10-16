@@ -36,7 +36,7 @@ Games retain their existing behavior and have deliberate scrolling layouts.
   recorded fields and raw displacement without upgrading their physical meaning.
   Service admission and pending-command guards remain enforced.
 
-Applicable instructions: [root specification](../../../agents.md),
+Applicable instructions: [root specification](../../../AGENTS.md),
 [shared UI](../../../ui/AGENTS.md), [coaching](../../../ui/coaching/AGENTS.md)
 and [themes](../../../ui/themes/AGENTS.md). Existing public widget class names,
 mode indexes, pitch contracts and service interfaces remain compatible. This

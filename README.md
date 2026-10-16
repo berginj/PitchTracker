@@ -140,5 +140,5 @@ private paths, or secrets.
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 
-Historical and exploratory material is retained under `archive/` and
-`docs/archive/`; it is not current product status.
+Historical and exploratory material is indexed in
+[the documentation archive](archive/docs/ARCHIVE_INDEX.md); use Current Status for current product claims.

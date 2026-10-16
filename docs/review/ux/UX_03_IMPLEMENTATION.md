@@ -49,7 +49,7 @@ uses AsyncSessionController.
 
 ## Instructions and public contracts
 
-Applicable instructions are the [root specification](../../../agents.md),
+Applicable instructions are the [root specification](../../../AGENTS.md),
 [shared UI instructions](../../../ui/AGENTS.md),
 [coaching](../../../ui/coaching/AGENTS.md) and
 [workspace](../../../ui/workspace/AGENTS.md) instructions. Existing setup, review

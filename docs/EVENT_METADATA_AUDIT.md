@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-06-23
 **Scope:** Runtime events in `app/events/event_types.py`
-**Reference:** `agents.md` Interaction Protocols
+**Reference:** `docs/architecture/agent-contracts.md` Interaction Protocols
 
 ---
 
@@ -10,7 +10,7 @@
 
 Runtime service events are typed dataclasses and carry the core domain payloads
 needed by the current in-process event bus. They are not yet a complete
-implementation of the durable/enveloped message schema in `agents.md`.
+implementation of the durable/enveloped message schema in `docs/architecture/agent-contracts.md`.
 
 This is acceptable for the current local runtime because the event bus does not
 persist these events directly. Durable artifacts already carry schema and app
@@ -21,7 +21,7 @@ exported, queued, or consumed cross-process, add an envelope before that change.
 
 ## Current Event Coverage
 
-| Event | Current Required Metadata | Gap Against `agents.md` | Pilot Impact |
+| Event | Current Required Metadata | Gap Against `docs/architecture/agent-contracts.md` | Pilot Impact |
 | --- | --- | --- | --- |
 | `FrameCapturedEvent` | `camera_id`, `timestamp_ns`, `frame` with frame metadata | No explicit `message_type`, `correlation_id`, `session_id`, or diagnostics field | Low for in-process runtime; required before persisted frame-event replay |
 | `ObservationDetectedEvent` | `timestamp_ns`, `confidence`, typed stereo observation | No explicit `message_type`, `correlation_id`, `session_id`, `pitch_id`, or diagnostics field | Medium; pitch/session linkage is inferred by orchestrator state |

@@ -1,6 +1,6 @@
 # PitchTracker Current Status
 
-**Last updated:** 2026-10-14
+**Last updated:** 2026-10-16
 **Published release:** `v2.0.0` / internal app version `2.0.0`
 **Development status:** the October consolidation/remediation batch is implemented
 and validated in software. The October 5 software follow-ups have implementations
@@ -48,7 +48,7 @@ approved.
 | Release installer asset | Not currently attached to the GitHub release |
 | Development baseline | `main`; use the checked-out commit for exact provenance |
 | Test collection | Full Python 3.13 and 3.14 suites run in CI; use current CI output for the exact count |
-| Latest committed CI validation | `6b4bdd5`: [CI run 38322158037](https://github.com/berginj/PitchTracker/actions/runs/38322158037) passed; Python 3.13 and 3.14 each passed 1,943 tests with 33 skips, including compiled CPU kernels |
+| Latest main CI validation | `3639247`: [CI run 38841574855](https://github.com/berginj/PitchTracker/actions/runs/38841574855) passed on Python 3.13/3.14, including native UVC and blocking dependency audits; use that run for exact counts and artifacts |
 | Platform/closeout local validation | Python 3.13 and 3.14 each passed 1,942 tests with 45 optional skips; native ARM64 numerical tests passed 39/39, and each x64 client passed all three packaged ARM64 worker tests; mypy passed 823 files |
 | Follow-up local validation | `b101740`: Python 3.13 and 3.14 each passed 1,833 tests with 34 skips; final `597c267` passed 30 focused tests on each runtime; static gates passed |
 | Frozen artifact validation | Application source `597c267`: six source/frozen GUI and worker smoke tests passed with isolated state and camera checking disabled; see the October remediation record below |

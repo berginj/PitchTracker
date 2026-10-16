@@ -13,7 +13,7 @@ PitchTracker now uses a service-oriented runtime coordinated by
 InProcessPipelineService, MainWindow and setup registries are archived under
 `archive/retired/2026-10-13`. Guided setup owns the only supported setup workflow.
 
-The current architecture matches the agent boundaries in `agents.md`:
+The current architecture matches the [runtime agent contracts](architecture/agent-contracts.md):
 
 | Runtime Role | Current Implementation | Owns |
 | --- | --- | --- |
@@ -203,4 +203,5 @@ threading, recording, and scipy-backed trajectory logic.
 - Keep UI logic behind `QtPipelineService` or narrow controller APIs.
 - Add or update typed contracts before changing durable data.
 - Do not let comparison trajectory failures erase primary stereo metrics.
-- Update this file and `agents.md` together when service boundaries change.
+- Update this file and [runtime agent contracts](architecture/agent-contracts.md)
+  together when service boundaries change. [AGENTS.md](../AGENTS.md) owns maintenance workflow.

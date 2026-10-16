@@ -55,6 +55,8 @@ with them, use these pages and open a documentation issue.
   [Setup and Players evidence](review/ux/UX_06_IMPLEMENTATION.md) documents UX-06
   saved-state presentation and safe pitcher attribution.
   delivery status stays in [Roadmap](ROADMAP.md).
+- [Maintenance instructions](../AGENTS.md) and [documentation policy](DOCUMENTATION.md).
+- [Runtime agent contracts](architecture/agent-contracts.md) and [pitch lifecycle](architecture/pitch-lifecycle.md).
 - [UI agent instructions](../ui/AGENTS.md) — shared experience requirements and scoped ownership.
 - [Workspace implementation](review/ux/UX_02_IMPLEMENTATION.md) — persistent navigation and validation evidence.
 - [Session controls](review/ux/UX_03_IMPLEMENTATION.md) — responsive commands, state and recovery evidence.
@@ -81,14 +83,16 @@ with them, use these pages and open a documentation issue.
   current backlog.
 - [Pilot program](PILOT_PROGRAM.md) is a pilot-design reference; launch status
   comes from [Current Status](CURRENT_STATUS.md).
-- TAG and cloud documents are concept specifications, not shipped capability.
-- [Archive](archive/) and [`../archive/`](../archive/) preserve historical
-  plans, investigations, and point-in-time reports. Do not use their metrics or
-  version numbers as current status.
+- [Optional integrations](OPTIONAL_INTEGRATIONS.md) owns the distinction between
+  implemented local research and deferred TAG/cloud proposals.
+- [The archive index](../archive/docs/ARCHIVE_INDEX.md) is the single entry point
+  for superseded plans and migration notes. Old docs/archive/ paths are pointers.
+- Dated [review evidence](review/) retains its original source revision and limits;
+  use Current Status and Roadmap for today's delivery state.
 
 ## Documentation maintenance
 
-When behavior changes:
+Follow [documentation maintenance](DOCUMENTATION.md). When behavior changes:
 
 1. Update the relevant contract or requirement.
 2. Update [Current Status](CURRENT_STATUS.md) and [Roadmap](ROADMAP.md) when
@@ -98,4 +102,4 @@ When behavior changes:
 5. Move superseded point-in-time reports to the archive instead of leaving two
    competing status sources.
 
-Last reviewed: **2026-10-13**.
+Last reviewed: **2026-10-16**.

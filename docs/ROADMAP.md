@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-10-14
+**Last reviewed:** 2026-10-16
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -264,6 +264,14 @@ updater shutdown, exact installer/config provenance, and CSV/strike uncertainty
 semantics. The [remediation validation record](review/REMEDIATION_VALIDATION_2026_10_03.md)
 tracks tests and artifact hashes. Physical qualification, independent accuracy
 confirmation, signing, and clean-machine lifecycle tests remain open.
+
+## Documentation maintenance
+
+- [x] Consolidate maintenance instructions in AGENTS.md, move detailed runtime
+  contracts to architecture reference, reconcile Copilot/contributor guidance,
+  index superseded plans in one archive with compatibility pointers, and check
+  all maintained Markdown. Follow the [documentation policy](DOCUMENTATION.md).
+  Dated evidence and physical-validation acceptance gates retain their scope.
 
 ## Later or conditional
 

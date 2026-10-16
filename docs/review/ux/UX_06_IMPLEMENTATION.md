@@ -57,7 +57,7 @@ player filtering. Guided setup exposes read-only `SetupPresentation` and a
 presentation-change signal. SetupWorkflowService retains configuration,
 generation, checks, publication and hardware admission ownership.
 
-Applicable instructions: [root](../../../agents.md), [shared UI](../../../ui/AGENTS.md),
+Applicable instructions: [root](../../../AGENTS.md), [shared UI](../../../ui/AGENTS.md),
 [workspace](../../../ui/workspace/AGENTS.md), [Players](../../../ui/team/AGENTS.md),
 [setup](../../../ui/setup/AGENTS.md), [coaching](../../../ui/coaching/AGENTS.md),
 [review UI](../../../ui/review/AGENTS.md), [review service](../../../app/review/AGENTS.md)
