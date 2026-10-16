@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-SCHEMA_VERSION = "1.2.0"
+SCHEMA_VERSION = "1.3.0"
 APP_VERSION = "2.0.0"
 
 

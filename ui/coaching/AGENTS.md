@@ -30,3 +30,7 @@ in the [workspace plan](../../docs/UX_WORKSPACE_PLAN.md); UX-02 changes hosting.
   worker. Keep dialogs and widgets on Qt, skip service polling while commands
   own lifecycle locks, and derive progress/retry from service facts. Preparation
   uses saved rig camera identity; discovery and assignment belong in guided Setup.
+- Preparation and pitcher dialogs use the local roster and shared validation.
+  Cancellation does not persist a new name or dispatch a selection. Only the
+  owning service's active/pending snapshot changes the displayed active pitcher;
+  delayed pitch summaries retain attribution captured by their own event.

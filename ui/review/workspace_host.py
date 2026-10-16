@@ -25,11 +25,14 @@ class ReviewWorkspaceHost(QtWidgets.QMainWindow):
 
     def selection(self) -> ReviewSelection:
         session = self._service.session
-        return ReviewSelection(session.session_dir, session.session_id, self._selected_pitch_id) if session else ReviewSelection()
+        return ReviewSelection(session.session_dir, session.session_id, self._selected_pitch_id,
+                               self._service.player_filter) if session else ReviewSelection()
 
     def open_session(self, selection: ReviewSelection) -> bool:
         if selection.session_dir is not None:
-            if not self._session_ctrl.load_session(selection.session_dir, pitch_id=selection.pitch_id):
+            if not self._session_ctrl.load_session(
+                selection.session_dir, pitcher_name=selection.pitcher_name, pitch_id=selection.pitch_id,
+            ):
                 return False
             if selection.pitch_id:
                 session = self._service.session
@@ -45,11 +48,14 @@ class ReviewWorkspaceHost(QtWidgets.QMainWindow):
     def update_runtime(self, status: RuntimeStatus) -> None:
         self._service.update_runtime(status)
 
-    def available_sessions(self, root: Path) -> list[Path]:
-        return self._service.available_sessions(root)
+    def available_sessions(self, root: Path, *, pitcher_name: str | None = None) -> list[Path]:
+        return self._service.available_sessions(root, pitcher_name=pitcher_name)
 
     def open_local_session(self) -> None:
         self._session_ctrl.open_session_dialog()
+
+    def close_session(self) -> None:
+        self._session_ctrl.close_session()
 
     def set_recordings_root(self, root: Path) -> None:
         self._session_ctrl.recordings_root = root

@@ -16,6 +16,7 @@ class ReviewSelection:
     session_dir: Path | None = None
     session_id: str | None = None
     pitch_id: str | None = None
+    pitcher_name: str | None = None
 
 
 @dataclass(frozen=True)

@@ -7,7 +7,8 @@ from typing import List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from configs.pitchers import add_pitcher, load_pitchers, save_pitchers
+from configs.pitchers import add_pitcher, load_pitchers, rename_pitcher, remove_pitcher
+from contracts.pitcher import PitcherSelection
 from ui.themes import (
     apply_standard_layout,
     ask_confirmation,
@@ -39,18 +40,24 @@ class PitcherCard(QtWidgets.QFrame):
         self._build_ui()
         self._apply_state_style()
         self.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
+        self.setAccessibleName(f"Select pitcher {pitcher_name}")
 
     def _build_ui(self) -> None:
         """Build the pitcher card UI."""
         self._name_label = QtWidgets.QLabel(self._pitcher_name)
+        self._name_label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        self._name_label.setWordWrap(True)
         self._style_manager.style_label(self._name_label, "sectionTitle")
 
         self._edit_btn = QtWidgets.QPushButton("Edit")
+        self._edit_btn.setAccessibleName(f"Edit pitcher {self._pitcher_name}")
         self._edit_btn.setMaximumWidth(64)
         self._style_manager.style_button(self._edit_btn, "ghost")
         self._edit_btn.clicked.connect(lambda: self.edit_requested.emit(self._pitcher_name))
 
         self._delete_btn = QtWidgets.QPushButton("Remove")
+        self._delete_btn.setAccessibleName(f"Remove pitcher {self._pitcher_name} from roster")
         self._delete_btn.setMaximumWidth(84)
         self._style_manager.style_button(self._delete_btn, "danger")
         self._delete_btn.clicked.connect(lambda: self.delete_requested.emit(self._pitcher_name))
@@ -83,11 +90,19 @@ class PitcherCard(QtWidgets.QFrame):
         self._selected = selected
         self._apply_state_style()
 
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
+        if event.key() in (QtCore.Qt.Key.Key_Space, QtCore.Qt.Key.Key_Return):
+            self.clicked.emit(self._pitcher_name)
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
 
 class TeamManager(QtWidgets.QDialog):
     """Dialog for managing team roster and pitcher profiles."""
 
     pitcher_selected = QtCore.Signal(str)
+    active_pitcher_requested = QtCore.Signal(str)
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None, *, browse_only: bool = False) -> None:
         super().__init__(parent)
@@ -98,6 +113,7 @@ class TeamManager(QtWidgets.QDialog):
 
         self._selected_pitcher: Optional[str] = None
         self._pitcher_cards: List[PitcherCard] = []
+        self._activation_permitted = True
 
         self._build_ui()
         self._load_roster()
@@ -109,14 +125,16 @@ class TeamManager(QtWidgets.QDialog):
 
         layout.addWidget(
             build_dialog_header(
-                "Team Roster",
-                "Select a pitcher for the next session or manage your roster.",
+                "Players" if self._browse_only else "Choose pitcher",
+                "Browse recorded history or explicitly choose the active pitcher. Roster edits preserve recorded history."
+                if self._browse_only else "Choose a pitcher. An underway pitch keeps its recorded attribution.",
                 eyebrow="Profiles",
             )
         )
 
         self._search_edit = QtWidgets.QLineEdit()
         self._search_edit.setPlaceholderText("Search pitchers...")
+        self._search_edit.setAccessibleName("Search saved pitchers")
         self._search_edit.textChanged.connect(self._filter_roster)
         self._style_manager.style_input(self._search_edit)
         layout.addWidget(self._search_edit)
@@ -152,6 +170,7 @@ class TeamManager(QtWidgets.QDialog):
 
         self._new_pitcher_edit = QtWidgets.QLineEdit()
         self._new_pitcher_edit.setPlaceholderText("New pitcher name...")
+        self._new_pitcher_edit.setAccessibleName("New pitcher name")
         self._new_pitcher_edit.returnPressed.connect(self._add_pitcher)
         self._style_manager.style_input(self._new_pitcher_edit)
 
@@ -168,24 +187,42 @@ class TeamManager(QtWidgets.QDialog):
             self._select_btn.setText("View Sessions")
         self._style_manager.style_button(self._select_btn, "primary")
         self._select_btn.setEnabled(False)
+        self._select_btn.setAccessibleName("View selected player's recorded sessions" if self._browse_only else "Confirm pitcher selection")
         self._select_btn.clicked.connect(self._on_select_clicked)
 
         self._cancel_btn = QtWidgets.QPushButton("Cancel")
         self._style_manager.style_button(self._cancel_btn, "ghost")
         self._cancel_btn.clicked.connect(self.reject)
         self._cancel_btn.setVisible(not self._browse_only)
+        self._active_btn = QtWidgets.QPushButton("Use as active pitcher")
+        self._active_btn.setAccessibleName("Explicitly use selected player as active pitcher")
+        self._active_btn.setEnabled(False)
+        self._active_btn.setVisible(self._browse_only)
+        self._active_btn.clicked.connect(lambda: self.active_pitcher_requested.emit(self._selected_pitcher) if self._selected_pitcher else None)
 
         button_layout = QtWidgets.QHBoxLayout()
         button_layout.addStretch()
         button_layout.addWidget(self._cancel_btn)
         button_layout.addWidget(self._select_btn)
+        button_layout.addWidget(self._active_btn)
         layout.addLayout(button_layout)
+        self._feedback = QtWidgets.QLabel("Browsing does not change the active pitcher." if self._browse_only else "Confirm a selection to change pitchers.")
+        self._feedback.setWordWrap(True)
+        self._feedback.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        layout.addWidget(self._feedback)
+        self._active_status = QtWidgets.QLabel()
+        self._active_status.setWordWrap(True)
+        self._active_status.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        layout.addWidget(self._active_status)
 
         polish_form_controls(self)
 
     def _load_roster(self) -> None:
         """Load pitcher roster from storage."""
-        self._update_roster_display(load_pitchers())
+        try:
+            self._update_roster_display(load_pitchers())
+        except (ValueError, OSError) as exc:
+            self._feedback.setText(f"Roster unavailable: {exc}. Restore the local roster file and reopen Players.")
 
     def _update_roster_display(self, pitchers: List[str]) -> None:
         """Update roster display with the current pitcher list."""
@@ -193,6 +230,8 @@ class TeamManager(QtWidgets.QDialog):
             self._roster_layout.removeWidget(card)
             card.deleteLater()
         self._pitcher_cards.clear()
+        if self._selected_pitcher not in pitchers:
+            self._selected_pitcher = None
 
         for name in sorted(pitchers):
             card = PitcherCard(name)
@@ -204,6 +243,7 @@ class TeamManager(QtWidgets.QDialog):
 
         self._empty_state.setVisible(not self._pitcher_cards)
         self._update_selection()
+        self._filter_roster(self._search_edit.text())
 
     def _filter_roster(self, text: str) -> None:
         """Filter roster by search text."""
@@ -226,15 +266,17 @@ class TeamManager(QtWidgets.QDialog):
     def _add_pitcher(self) -> None:
         """Add a new pitcher to the roster."""
         name = self._new_pitcher_edit.text().strip()
-        if not name:
+        try:
+            pitchers = add_pitcher(name)
+        except (ValueError, OSError) as exc:
+            self._feedback.setText(str(exc))
             return
-
-        pitchers = add_pitcher(name)
         self._update_roster_display(pitchers)
         self._new_pitcher_edit.clear()
 
         self._selected_pitcher = name
         self._update_selection()
+        self._feedback.setText("Pitcher saved. Browsing and active-pitcher changes remain separate actions.")
         logger.info("Added pitcher: %s", name)
 
     def _on_pitcher_clicked(self, name: str) -> None:
@@ -247,6 +289,17 @@ class TeamManager(QtWidgets.QDialog):
         for card in self._pitcher_cards:
             card.set_selected(card._pitcher_name == self._selected_pitcher)
         self._select_btn.setEnabled(self._selected_pitcher is not None)
+        self._active_btn.setEnabled(self._selected_pitcher is not None and self._activation_permitted)
+
+    def set_active_context(self, selection: PitcherSelection, *, permitted: bool = True) -> None:
+        self._activation_permitted = permitted
+        text = f"Active pitcher: {selection.active_name or 'not selected'}"
+        if selection.pending_name:
+            text += f" · Next pitch: {selection.pending_name}; current pitch keeps its attribution."
+        if not permitted:
+            text += " · Finish the pending session operation before changing pitchers."
+        self._active_status.setText(text)
+        self._update_selection()
 
     def _on_edit_pitcher(self, name: str) -> None:
         """Handle edit pitcher request."""
@@ -262,18 +315,15 @@ class TeamManager(QtWidgets.QDialog):
         if not new_name or new_name == name:
             return
 
-        pitchers = load_pitchers()
-        if name in pitchers:
-            pitchers.remove(name)
-            pitchers.append(new_name)
-            save_pitchers(pitchers)
-            self._update_roster_display(pitchers)
-
-            if self._selected_pitcher == name:
-                self._selected_pitcher = new_name
-                self._update_selection()
-
-            logger.info("Renamed pitcher: %s -> %s", name, new_name)
+        try:
+            pitchers = rename_pitcher(name, new_name)
+        except (ValueError, OSError) as exc:
+            self._feedback.setText(str(exc))
+            return
+        if self._selected_pitcher == name:
+            self._selected_pitcher = new_name
+        self._update_roster_display(pitchers)
+        self._feedback.setText("Roster name updated. Recorded history and the active pitcher remain unchanged.")
 
     def _on_delete_pitcher(self, name: str) -> None:
         """Handle delete pitcher request."""
@@ -286,17 +336,15 @@ class TeamManager(QtWidgets.QDialog):
         ):
             return
 
-        pitchers = load_pitchers()
-        if name in pitchers:
-            pitchers.remove(name)
-            save_pitchers(pitchers)
-            self._update_roster_display(pitchers)
-
-            if self._selected_pitcher == name:
-                self._selected_pitcher = None
-                self._update_selection()
-
-            logger.info("Deleted pitcher: %s", name)
+        try:
+            pitchers = remove_pitcher(name)
+        except (ValueError, OSError) as exc:
+            self._feedback.setText(str(exc))
+            return
+        if self._selected_pitcher == name:
+            self._selected_pitcher = None
+        self._update_roster_display(pitchers)
+        self._feedback.setText("Removed from the roster. Recordings and the active pitcher remain unchanged.")
 
     def _on_select_clicked(self) -> None:
         """Handle select button click."""

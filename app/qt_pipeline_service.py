@@ -125,6 +125,9 @@ class QtPipelineService(QtCore.QObject):
         """Check if capturing (delegates to underlying service)."""
         return self._service.is_capturing()
 
+    def change_pitcher(self, name: str):
+        return self._service.change_pitcher(name)
+
     def start_recording(
         self, pitch_id: Optional[str] = None, session_name: Optional[str] = None, mode: Optional[str] = None
     ) -> str:

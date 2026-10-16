@@ -291,6 +291,8 @@ playback/results first; expandable technical tools.
 
 ### UX-06: Align setup and player workflows
 
+**Software evidence:** [implementation record](review/ux/UX_06_IMPLEMENTATION.md).
+
 **Owner:** UIAgent; CalibrationToolingAgent owns setup-service changes and
 PipelineOrchestratorAgent owns active-pitcher command integration.
 **Prerequisite:** UX-05. **Boundaries:** guided setup, roster, session attribution.

@@ -99,6 +99,8 @@ def create_pitch_manifest(
     manifest.update(
         {
             "pitch_id": summary.pitch_id,
+            "pitcher": {"schema_version": "pitcher_attribution.v1", "name": getattr(summary, "pitcher_name", None),
+                        "basis": "operator_selected_at_pitch_start" if getattr(summary, "pitcher_name", None) else "unattributed"},
             "t_start_ns": summary.t_start_ns,
             "t_end_ns": summary.t_end_ns,
             "is_strike": summary.is_strike,

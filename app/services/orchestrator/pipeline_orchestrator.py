@@ -81,6 +81,7 @@ class PipelineOrchestrator(RuntimeStatusMethods, DetectorTrialMethods, PipelineS
         self._recording_stopping = False
         self._detector_trial = None
         self._runtime = RuntimeStatusPublisher(self._event_bus)
+        self._event_coordinator.set_pitcher_publisher(lambda selection: self._runtime.publish(pitcher=selection))
 
     @runtime_command("start_capture")
     def start_capture(
@@ -132,10 +133,7 @@ class PipelineOrchestrator(RuntimeStatusMethods, DetectorTrialMethods, PipelineS
                 frame_rate=float(config.camera.fps),
             )
             self._pitch_tracker = PitchStateMachineV2(self._pitch_config)
-            self._pitch_tracker.set_callbacks(
-                on_pitch_start=self._event_coordinator.on_pitch_start,
-                on_pitch_end=self._event_coordinator.on_pitch_end,
-            )
+            self._event_coordinator.wire_pitch_tracker(self._pitch_tracker)
             start_capture_runtime(self, config, left_serial, right_serial)
 
     @runtime_command("stop_capture")

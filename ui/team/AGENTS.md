@@ -17,3 +17,6 @@ Inherits [shared UI instructions](../AGENTS.md). Primary package: UX-06 in the
   removal must not delete recordings. Use synthetic names in screenshots.
 - Test roster selection, history filtering, cancellation and pitcher changes
   during a session, including attribution across the transition.
+- Use the shared configs.pitchers validation and atomic persistence for roster
+  edits and preparation dialogs. Report malformed data without overwriting it.
+  Confirm activation from RuntimeStatus.pitcher; show queued changes explicitly.

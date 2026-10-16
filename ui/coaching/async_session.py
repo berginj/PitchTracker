@@ -63,7 +63,7 @@ class AsyncSessionController(SessionController):
         try:
             h.refresh_preparation_config()
             dialog = SessionStartDialog(h._config, parent=h, backend=h._backend, config_path=h._config_path,
-                                        prepare_only=True)
+                                        prepare_only=True, initial_pitcher=h.pipeline_service.runtime_status().pitcher.active_name)
             self._dialog = dialog
             accepted = dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted
             self._dialog = None
@@ -89,6 +89,29 @@ class AsyncSessionController(SessionController):
         status = self._host.pipeline_service.runtime_status()
         if status.capture_phase == "live" and not status.owns_recording:
             self.runner.submit("record", session_name=self._host._session_name)
+
+    def request_pitcher(self, name: str) -> None:
+        if self._admitted() and self._host.pipeline_service.runtime_status().recording_phase != "finalizing":
+            self.runner.submit("pitcher", pitcher_name=name)
+
+    def switch_pitcher(self) -> None:
+        if not self._admitted():
+            return
+        from ui.team import TeamManager
+        self._dialog_operation = "choose_pitcher"
+        self._host.session_operation_changed.emit()
+        selected = None
+        try:
+            dialog = TeamManager(parent=self._host)
+            self._dialog = dialog
+            if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+                selected = dialog.get_selected_pitcher()
+        finally:
+            self._dialog = None
+            self._dialog_operation = None
+            self._host.session_operation_changed.emit()
+        if selected and not self._closing:
+            self.request_pitcher(selected)
 
     def pause_session(self) -> None:
         status = self._host.pipeline_service.runtime_status()

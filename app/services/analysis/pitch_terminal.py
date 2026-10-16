@@ -137,6 +137,7 @@ class PitchTerminalHandler:
 
     def _publish_terminal_summary(self, event: PitchEndEvent, summary: PitchSummary) -> bool:
         """Atomically aggregate and publish exactly one terminal event per pitch."""
+        summary = replace(summary, pitcher_name=event.pitcher_name)
         if self._submitted_ns:
             diagnostics = dict(summary.quality_diagnostics or {})
             diagnostics["queue_and_analysis_ms"] = (monotonic_ns() - self._submitted_ns) / 1e6

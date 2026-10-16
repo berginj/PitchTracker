@@ -54,7 +54,17 @@ class CoachingWorkspaceHost(QtWidgets.QMainWindow):
         h = cast("CoachWindow", self)
         h._session_active = status.owns_recording
         h._session_paused = status.recording_phase != "recording"
+        if status.pitcher.active_name is not None and status.pitcher.active_name != h._pitcher_name:
+            h._pitcher_name = status.pitcher.active_name
+            h._pitcher_label.setText(f"Pitcher: {h._pitcher_name}")
+            h._fatigue_indicator.reset()
+            h.notify_preparation_changed()
         h._refresh_session_controls()
+
+    def request_pitcher(self, name: str) -> None:
+        host = cast("CoachWindow", self)
+        if isinstance(host._session_ctrl, AsyncSessionController):
+            host._session_ctrl.request_pitcher(name)
 
     def _refresh_session_controls(self) -> None:
         h = cast("CoachWindow", self)

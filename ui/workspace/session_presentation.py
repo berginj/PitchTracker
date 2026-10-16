@@ -18,6 +18,7 @@ class SessionPresentation:
 
 
 OPERATIONS = {
+    "choose_pitcher": "Choosing pitcher", "pitcher": "Changing pitcher", "change_pitcher": "Changing pitcher",
     "prepare_details": "Choosing session details", "confirm_end": "Confirming End Session",
     "prepare": "Preparing cameras", "start_capture": "Preparing cameras",
     "record": "Starting recording", "start_recording": "Starting recording",

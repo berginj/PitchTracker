@@ -25,3 +25,6 @@ artifact access, playback admission and recorded pitch mapping for UX-05 in the
   public typed accessors rather than UI access to mutable service fields.
 - Validate mapping corruption, missing assets, active-path admission, decoder
   positions, selected metrics and session/pitch handoffs at their useful boundary.
+- Player filtering reads explicit recorded attribution only. Missing labels stay
+  unknown; folder names and the current roster are not identity evidence. Filter
+  loaded pitch collections without mutating artifacts or the live pitcher.

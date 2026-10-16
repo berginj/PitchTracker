@@ -62,6 +62,7 @@ class PitchSummary:
     external_speed: SpeedMeasurement | None = None
     strike_call_available: bool = True  # Legacy summaries retain their recorded call.
     strike_call_reason: str | None = None
+    pitcher_name: str | None = None
 
 
 @dataclass(frozen=True)

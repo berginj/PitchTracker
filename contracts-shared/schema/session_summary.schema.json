@@ -80,6 +80,7 @@
           "rise_in": { "type": "number" },
           "speed_mph": { "type": ["number", "null"] },
           "rotation_rpm": { "type": ["number", "null"] },
+          "pitcher_name": { "type": ["string", "null"], "description": "Operator-selected label captured at pitch start; null for unattributed or legacy pitches." },
           "sample_count": { "type": "integer", "minimum": 0 }
         }
       }

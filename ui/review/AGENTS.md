@@ -33,3 +33,6 @@ Inherits [shared UI instructions](../AGENTS.md). Primary package: UX-05 in the
 - Use the [review-service instructions](../../app/review/AGENTS.md) for playback
   mapping and degraded artifact semantics. Missing calibration disables projected
   trajectory overlays rather than substituting a default camera model.
+- Preserve an optional recorded-player filter in ReviewSelection. Show the
+  recorded pitcher or explicit missing attribution with selected-pitch feedback;
+  never substitute the workspace's active pitcher for historical identity.

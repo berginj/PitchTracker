@@ -82,7 +82,11 @@ visible measurement provenance and Advanced Tools. See the
 Sessions now supports direct finalized-session review, configured local history,
 linked pitch/video/metric selection and explicit degraded playback states. See the
 [UX-05 implementation record](review/ux/UX_05_IMPLEMENTATION.md).
-Remaining experience work continues under UX-06 through UX-08.
+Setup now presents saved revision/readiness, and Players separates historical
+browsing from service-confirmed active-pitcher changes. Attribution survives
+pitch boundaries and delayed analysis without rewriting older recordings. See the
+[UX-06 implementation record](review/ux/UX_06_IMPLEMENTATION.md).
+Remaining experience work continues under UX-07 and UX-08.
 
 The older desktop/setup/pipeline paths are retired under
 `archive/retired/2026-10-13`. Guided setup is the default for launcher, direct

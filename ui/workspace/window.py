@@ -167,7 +167,10 @@ class WorkspaceWindow(LauncherWindow):
         self._live.host_in_workspace(self._stack)
         self._live.preparation_changed.connect(self._on_preparation_changed)
         self._live.session_operation_changed.connect(self._on_session_operation_changed)
-        self._live.review_requested.connect(self._review_finalized_session)
+        if isinstance(self._live, UnavailableLivePage):
+            self._live.review_requested.connect(lambda: self.navigate("sessions"))
+        else:
+            self._live.review_requested.connect(self._review_finalized_session)
         self._live.setup_requested.connect(lambda: self.navigate("setup"))
         self._live.exit_requested.connect(self.close)
         self._pages["live"] = self._live
@@ -222,7 +225,9 @@ class WorkspaceWindow(LauncherWindow):
                 page.exit_requested.connect(self.close)
             elif name == "players":
                 page = PlayersPage()
+                page.update_runtime(self._runtime, command_pending=self._live.session_command_busy())
                 page.player_browsed.connect(self._on_player_browsed)
+                page.active_pitcher_requested.connect(self._request_active_pitcher)
             else:
                 page = SetupPage(self._config_path or Path("configs/default.yaml"), self._backend, self._setup_factory)
                 page.completed.connect(lambda: self.navigate("live"))
@@ -249,6 +254,13 @@ class WorkspaceWindow(LauncherWindow):
             assert isinstance(sessions, SessionsPage)
             sessions.browse_player(player)
 
+    def _request_active_pitcher(self, name: str) -> None:
+        setup = self._pages.get("setup")
+        if not self._live.configuration_available or isinstance(setup, SetupPage) and setup.operation_busy():
+            self._detail.setText("Finish setup and correct Live configuration before changing the active pitcher.")
+            return
+        self._live.request_pitcher(name)
+
     def _on_review_selection(self, selection: ReviewSelection) -> None:
         self._context = replace(self._context, review=selection)
 
@@ -264,6 +276,9 @@ class WorkspaceWindow(LauncherWindow):
         self._on_session_operation_changed()
 
     def _on_session_operation_changed(self) -> None:
+        players = self._pages.get("players")
+        if isinstance(players, PlayersPage):
+            players.update_runtime(self._runtime, command_pending=self._live.session_command_busy())
         sessions = self._pages.get("sessions")
         if isinstance(sessions, SessionsPage):
             sessions.update_runtime(self._runtime)
@@ -281,13 +296,15 @@ class WorkspaceWindow(LauncherWindow):
         self._primary_action = action
         self._primary.setText(presentation.primary)
         if runtime.session_id:
-            identity = f"Active: {runtime.session_id} · {self._preparation.pitcher_name}"
+            identity = f"Active: {runtime.session_id} · {runtime.pitcher.active_name or self._preparation.pitcher_name}"
         elif self._preparation.prepared:
             identity = f"Prepared: {self._preparation.session_name} · {self._preparation.pitcher_name}"
         elif runtime.finalized_session:
             identity = f"Last completed: {runtime.finalized_session.session_id}"
         else:
-            identity = "No active session"
+            identity = f"Selected pitcher: {runtime.pitcher.active_name}" if runtime.pitcher.active_name else "No active session"
+        if runtime.pitcher.pending_name:
+            identity += f" · Next pitch: {runtime.pitcher.pending_name} (waiting for pitch end)"
         self._identity.setText(identity)
         self._detail.setText(presentation.detail)
         setup = self._pages.get("setup")

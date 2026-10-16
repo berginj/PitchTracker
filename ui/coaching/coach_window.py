@@ -125,6 +125,9 @@ class CoachWindow(CoachingWorkspaceHost):
         # Signals
         self._service.pitch_started.connect(self._on_pitch_started)
         self._service.pitch_ended.connect(self._on_pitch_ended)
+        status_signal = getattr(self._service, "runtime_status_changed", None)
+        if status_signal is not None:
+            status_signal.connect(self.apply_runtime_status)
 
         # Warm camera cache
         if warm_cameras:
