@@ -68,9 +68,10 @@ class SessionCommandThread(QtCore.QThread):
                 status = pipeline.runtime_status()
                 if status.owns_recording:
                     raise RuntimeError("End the recording before preparing another session")
+                if status.owns_capture and status.capture_phase != "live":
+                    raise RuntimeError("Retry Stop Preview before preparing cameras")
+                pipeline.set_record_directory(Path(prepared.config.recording.output_dir))
                 if status.owns_capture:
-                    if status.capture_phase != "live":
-                        raise RuntimeError("Retry Stop Preview before preparing cameras")
                     pipeline.set_batter_height_in(prepared.config.strike_zone.batter_height_in)
                     pipeline.set_ball_type(prepared.config.ball.type)
                 else:

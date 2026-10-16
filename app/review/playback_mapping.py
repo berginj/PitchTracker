@@ -42,6 +42,8 @@ def read_timestamps(path: Path, frame_count: int) -> tuple[int, ...]:
 
 def pitch_playback(session: LoadedSession, left_count: int, right_count: int) -> tuple[PitchPlayback, ...]:
     try:
+        if left_count != right_count:
+            raise ValueError("Paired pitch playback is unavailable for unequal camera frame counts")
         left = read_timestamps(session.left_timestamps_path, left_count)
         right = read_timestamps(session.right_timestamps_path, right_count)
     except (OSError, ValueError, KeyError, TypeError) as exc:

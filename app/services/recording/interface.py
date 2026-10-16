@@ -153,10 +153,10 @@ class RecordingService(ABC):
         """Set base directory for all recordings.
 
         Args:
-            path: Base directory path, or None to use default
+            path: Base directory path (created if missing), or None to use default
 
         Raises:
-            FileWriteError: If directory does not exist or is not writable
+            OSError: If directory cannot be created or is not usable
 
         Note: Only affects future sessions, not current session.
         """

@@ -41,6 +41,9 @@ class DisplayPipeline(QtCore.QObject):
     def is_capturing(self):
         return self.status.owns_capture
 
+    def set_record_directory(self, path):
+        self.record_directory = path
+
     def get_preview_frames(self):
         return None, None
 
@@ -231,7 +234,10 @@ def test_missing_config_keeps_sessions_reachable(monkeypatch, qtbot, tmp_path):
     window.show()
     assert not window.page("live").configuration_available
     assert not window._primary.isEnabled()
-    assert window.navigate("sessions")
+    button = next(button for button in window.page("live").findChildren(QtWidgets.QPushButton)
+                  if button.text() == "Open Sessions")
+    button.click()
+    assert window.navigation_context.page == "sessions"
     assert window.pipeline_service is pipeline
     assert pipeline.status.capture_phase == "idle"
 

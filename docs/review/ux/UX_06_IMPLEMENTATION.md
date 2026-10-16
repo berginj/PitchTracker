@@ -105,3 +105,24 @@ cancellation/recovery, real pitch-boundary attribution, Windows DPI at
 real historical session playback. Setup readiness permits estimated research
 recording; neither these tests nor the screenshots grant physical accuracy
 approval. UX-07 covers remaining surfaces; UX-08 owns full journey qualification.
+
+## Review follow-up — 2026-10-15
+
+The unavailable-Live page's Open Sessions action now navigates directly to
+history without requiring a finalized Live recording. Paired pitch playback
+rejects unequal encoded camera frame counts, including pitches in their shared
+prefix; independently valid timestamp files do not establish paired support.
+
+The UX-05 review fixes are integrated. ReviewService and the public controller
+handoff accept both an optional recorded-player filter and requested pitch ID.
+The candidate is filtered and checked before replacing the prior session,
+decoder, player filter or UI selection. Failed handoffs keep their previous
+context and existing recovery message. Preparation and history share the
+configured recording root, and independent history remains available during
+recording startup while the active directory stays blocked.
+
+The focused workspace, review, player, attribution, mapping and session-command
+suite passed 92 tests on Python 3.13. Regressions exercise the actual fallback
+button, both unequal-count directions, and a requested pitch removed by the
+recorded-player filter. Existing synthetic galleries describe the unchanged
+layouts; the manual qualification requirements above remain pending.

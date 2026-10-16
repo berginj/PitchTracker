@@ -167,7 +167,10 @@ class WorkspaceWindow(LauncherWindow):
         self._live.host_in_workspace(self._stack)
         self._live.preparation_changed.connect(self._on_preparation_changed)
         self._live.session_operation_changed.connect(self._on_session_operation_changed)
-        self._live.review_requested.connect(self._review_finalized_session)
+        if isinstance(self._live, UnavailableLivePage):
+            self._live.review_requested.connect(lambda: self.navigate("sessions"))
+        else:
+            self._live.review_requested.connect(self._review_finalized_session)
         self._live.setup_requested.connect(lambda: self.navigate("setup"))
         self._live.exit_requested.connect(self.close)
         self._pages["live"] = self._live

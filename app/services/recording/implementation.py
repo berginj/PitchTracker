@@ -120,13 +120,12 @@ class RecordingServiceImpl(
             recorder.add_observation(obs)
 
     def set_record_directory(self, path: Optional[Path]) -> None:
-        """Set base directory for all recordings."""
+        """Create or select the operator-requested base directory for future recordings."""
         with self._lock:
             if path is not None:
-                if not path.exists():
-                    raise FileNotFoundError(f"Directory does not exist: {path}")
-                if not path.is_dir():
+                if path.exists() and not path.is_dir():
                     raise NotADirectoryError(f"Not a directory: {path}")
+                path.mkdir(parents=True, exist_ok=True)
             self._record_dir = path
             logger.info(f"Recording directory set to: {path}")
 
