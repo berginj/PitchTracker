@@ -45,8 +45,9 @@ class ImagesStage(WorkflowStep):
             for name, item in checks.items()
         ))
         passed, reason = self.validate()
-        style_status_label(self.status, "success" if passed else "warning",
-                           "Image checks passed" if passed else reason)
+        tone = "success" if passed else "warning" if check else "pending"
+        style_status_label(self.status, tone,
+                           "Image checks passed" if passed else reason if check else "Image checks pending — run the checks")
 
     def validate(self) -> tuple[bool, str]:
         check = self.workflow.state["checks"].get("images", {})

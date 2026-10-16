@@ -33,6 +33,14 @@ physical qualification and independent reference collection into discrete steps.
 Use Details for full evidence. Going backward displays saved state without
 opening cameras again. Cancellation and closure wait for workers to exit.
 
+The setup window keeps its five-stage progress rail and navigation visible.
+Cameras and Calibration use paired previews that preserve image proportions;
+the views and actions stack in a compact window. Capture mode, camera controls
+and saved-rig options expand when needed. Calibration shows collection progress
+separately from fit validation, with measured board dimensions available below
+the capture actions. Light and dark appearance apply to the setup window without
+changing rig settings. Appearance starts in light mode on each launch.
+
 ## Saved configuration and recovery
 
 Working state is stored under calibration/setups. Configuration and captured
