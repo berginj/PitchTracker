@@ -37,6 +37,9 @@ class DisplayPipeline(QtCore.QObject):
     def is_capturing(self):
         return self.status.owns_capture
 
+    def set_record_directory(self, path):
+        self.record_directory = path
+
     def get_preview_frames(self):
         return None, None
 

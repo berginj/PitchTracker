@@ -70,12 +70,14 @@ class ReviewService:
         self._playback_blocked = False
         logger.debug("ReviewService initialized")
 
-    def load_session(self, session_dir: Path) -> LoadedSession:
+    def load_session(self, session_dir: Path, *, pitch_id: str | None = None) -> LoadedSession:
         """Load a session, open its paired videos, and reset review state."""
         logger.info(f"Loading session for review: {session_dir}")
         if not self.can_open_session(session_dir):
             raise ValueError("This session is still being recorded or finalized. Wait for successful finalization.")
         session = SessionLoader.load_session(session_dir, require_video=False)
+        if pitch_id is not None and not any(pitch.pitch_id == pitch_id for pitch in session.pitches):
+            raise ValueError(f"Requested pitch is not available in this session: {pitch_id}")
         self.close()
         self._session = session
         try:
@@ -150,7 +152,7 @@ class ReviewService:
         active = self._runtime.active_session_dir
         if active is not None and path.resolve() == active.resolve():
             return False
-        return self._runtime.pending_operation != "start_recording"
+        return True
 
     def available_sessions(self, root: Path) -> list[Path]:
         return [path for path in SessionLoader.get_available_sessions(root) if self.can_open_session(path)]

@@ -99,3 +99,24 @@ codec behavior or physical speed/location accuracy. Unequal camera mappings are
 explicitly unsupported for pitch-associated playback; raw video remains available.
 
 UX-06 is next: setup/player workflow alignment and safe attribution integration.
+
+## Review follow-up — 2026-10-15
+
+Preparation now selects the configured recording root through the public pipeline
+command. RecordingService creates a missing requested directory; the real
+simulator journey verifies that finalized artifacts land in that same root.
+Independent completed history remains browsable during recording startup while
+the exact active directory remains blocked.
+
+ReviewService.load_session accepts an optional requested pitch ID and checks it
+before replacing the current session or decoder. The public UI/controller handoff
+forwards that ID. A stale ID leaves the previous selection, feedback, video
+position and scoring intact and shows the existing recovery message. Existing
+artifact formats and measurement semantics are unchanged.
+
+The focused review, mapping, command and recording-service regression group
+passed 79 tests on Python 3.13. New regressions include custom-root preparation,
+same-session and different-session stale IDs, retained service state, and
+independent history with known or unavailable startup directory identity.
+The existing synthetic gallery remains the layout reference; the manual codec,
+display, accessibility and physical-rig qualification gates above still apply.

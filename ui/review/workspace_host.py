@@ -29,7 +29,7 @@ class ReviewWorkspaceHost(QtWidgets.QMainWindow):
 
     def open_session(self, selection: ReviewSelection) -> bool:
         if selection.session_dir is not None:
-            if not self._session_ctrl.load_session(selection.session_dir):
+            if not self._session_ctrl.load_session(selection.session_dir, pitch_id=selection.pitch_id):
                 return False
             if selection.pitch_id:
                 session = self._service.session
@@ -38,7 +38,6 @@ class ReviewWorkspaceHost(QtWidgets.QMainWindow):
                     if index is not None:
                         cast("ReviewWindow", self)._on_pitch_selected(index)
                     else:
-                        self._session_ctrl.close_session()
                         return False
             return True
         return False
