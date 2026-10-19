@@ -24,6 +24,7 @@ from log_config.logger import get_logger
 from .camera_device import CameraDevice, CameraStats
 from .timeout_utils import RetryPolicy, retry_on_failure, run_with_timeout
 from .uvc_control_evidence import apply_controls, read_controls
+from .directshow_identity import resolve_directshow_index
 from .uvc_probe import (
     OpenCvDirectShowProbe,
     ProbeEvidence,
@@ -71,8 +72,9 @@ class UvcCamera(CameraDevice):
 
         OpenCV's DirectShow backend opens cameras by numeric index, while setup
         persists stable PnP hardware IDs. The setup worker supplies the exact
-        discovery snapshot used to translate both IDs without repeating the
-        comparatively slow PowerShell query for each camera.
+        discovery snapshot without repeating the comparatively slow PowerShell
+        query for each camera. Each identity is separately bound to its actual
+        DirectShow DevicePath before the numeric capture index is opened.
         """
         self._discovered_devices = tuple(dict(device) for device in devices)
 
@@ -461,8 +463,11 @@ class UvcCamera(CameraDevice):
                     camera_id=serial,
                 )
 
-            directshow_index, device = matches[0]
+            _pnp_index, device = matches[0]
+            directshow_index = resolve_directshow_index(str(device.get("instance_id") or ""))
             self._device_metadata = dict(device)
+            self._device_metadata["directshow_index"] = directshow_index
+            self._device_metadata["identity_binding"] = "directshow_device_path"
             friendly_name = str(device.get("friendly_name") or serial)
             self._friendly_name = friendly_name
             logger.debug(f"Resolved camera {serial} ({friendly_name}) to DirectShow index {directshow_index}")

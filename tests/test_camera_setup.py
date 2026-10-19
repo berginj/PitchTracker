@@ -73,7 +73,8 @@ class TestUVCCameraInitialization:
         camera = UvcCamera()
         assert camera is not None
 
-    def test_uvc_camera_api_sequence(self):
+    @patch("capture.uvc_backend.resolve_directshow_index", return_value=0)
+    def test_uvc_camera_api_sequence(self, _resolve):
         """Test correct API call sequence: create -> open -> set_mode -> read_frame."""
         with patch("capture.device_discovery.list_uvc_devices") as mock_list:
             # Mock device list
@@ -141,7 +142,8 @@ class TestCameraSetupWorkflow:
             assert left_frame.width == 640
             assert left_frame.height == 480
 
-    def test_uvc_backend_workflow(self):
+    @patch("capture.uvc_backend.resolve_directshow_index", side_effect=[0, 1])
+    def test_uvc_backend_workflow(self, _resolve):
         """Test setup wizard workflow with UVC backend."""
         with patch("capture.device_discovery.list_uvc_devices") as mock_list:
             mock_list.return_value = [
@@ -181,7 +183,8 @@ class TestCameraSetupWorkflow:
                 assert left_frame is not None
                 assert right_frame is not None
 
-    def test_uvc_stereo_pair_uses_distinct_directshow_indices_from_one_discovery_snapshot(self):
+    @patch("capture.uvc_backend.resolve_directshow_index", side_effect=[3, 1])
+    def test_uvc_stereo_pair_uses_distinct_directshow_indices_from_one_discovery_snapshot(self, resolve):
         devices = [
             {
                 "serial": "LEFT123",
@@ -205,7 +208,9 @@ class TestCameraSetupWorkflow:
             left_camera.open("LEFT123")
             right_camera.open("RIGHT456")
 
-        assert mock_cap.call_args_list[0].args == (0, cv2.CAP_DSHOW)
+        assert resolve.call_args_list[0].args == (devices[0]["instance_id"],)
+        assert resolve.call_args_list[1].args == (devices[1]["instance_id"],)
+        assert mock_cap.call_args_list[0].args == (3, cv2.CAP_DSHOW)
         assert mock_cap.call_args_list[1].args == (1, cv2.CAP_DSHOW)
 
 
