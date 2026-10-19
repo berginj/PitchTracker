@@ -28,6 +28,14 @@ Saved camera configuration accepts `MJPG` for the backend's existing MJPEG
 capture path. Choose a pixel format supported at the intended resolution/FPS
 on both devices, then verify negotiated mode and achieved cadence separately.
 
+For the pinned OpenCV DirectShow backend, FPS changes rebuild the stream, so the
+requested FourCC is reapplied afterward. Exposure writes use integer log2-second
+steps, focus readback uses DirectShow manual/auto flags, and white balance uses
+the backend's supported property. Current native exposure flags are queried
+after writes; missing flags keep setup unverified. Mode checks accept at most
+0.001 FPS of frame-interval rounding and retain the raw readback. Different
+nominal frame rates, format mismatches and cadence failures remain rejected.
+
 Every standard control has one status:
 
 | Status | Meaning |

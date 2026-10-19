@@ -25,8 +25,8 @@ class _Capture:
             cv2.CAP_PROP_FOURCC: float(int.from_bytes(b"MJPG", "little")),
             cv2.CAP_PROP_EXPOSURE: math.log2(0.002),
             cv2.CAP_PROP_GAIN: 2.0,
-            cv2.CAP_PROP_AUTOFOCUS: 0.0,
-            cv2.CAP_PROP_WB_TEMPERATURE: 4600.0,
+            cv2.CAP_PROP_AUTOFOCUS: 2.0,
+            cv2.CAP_PROP_WHITE_BALANCE_BLUE_U: 4600.0,
         }
 
     def get(self, prop: int) -> float:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isclose
 from typing import Iterable, Mapping
 
 import numpy as np
@@ -66,7 +67,7 @@ def qualify_capture(
         "pair_skew_p99_ms": _percentile(skew_ms, 99),
         "frame_drop_rate": drop_rate,
         "unmatched_frame_rate": unmatched_rate,
-        "mode_mismatch": 0.0 if dict(requested_mode) == dict(negotiated_mode) else 1.0,
+        "mode_mismatch": 0.0 if _same_mode(requested_mode, negotiated_mode) else 1.0,
         "controls_unverified": 0.0 if controls_verified else 1.0,
         "fps_shortfall_ratio_left": _shortfall_ratio(achieved_fps_left, requested_fps),
         "fps_shortfall_ratio_right": _shortfall_ratio(achieved_fps_right, requested_fps),
@@ -92,6 +93,22 @@ def qualify_capture(
         controls_verified=controls_verified,
         assessment=assessment,
     )
+
+
+def _same_mode(requested: Mapping[str, object], negotiated: Mapping[str, object]) -> bool:
+    """Allow 100-ns DirectShow frame-interval rounding, retaining raw readback."""
+    if requested.keys() != negotiated.keys():
+        return False
+    for key, expected in requested.items():
+        actual = negotiated[key]
+        if key == "fps":
+            if (isinstance(expected, bool) or isinstance(actual, bool)
+                    or not isinstance(expected, (int, float)) or not isinstance(actual, (int, float))
+                    or not isclose(expected, actual, rel_tol=0, abs_tol=0.001)):
+                return False
+        elif expected != actual:
+            return False
+    return True
 
 
 def _fps(timestamps: np.ndarray) -> float:
