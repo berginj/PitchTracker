@@ -92,6 +92,7 @@ class SettingsDialog(QtWidgets.QDialog):
         compute_row = QtWidgets.QHBoxLayout()
         compute_row.addWidget(QtWidgets.QLabel("Trajectory compute"))
         self._compute_combo = QtWidgets.QComboBox()
+        self._compute_combo.setAccessibleName("Trajectory compute backend")
         for label, backend in (("CPU", "cpu"), ("Auto", "auto"), ("NVIDIA GPU", "cuda")):
             self._compute_combo.addItem(label, backend)
         self._compute_combo.setCurrentIndex(max(0, self._compute_combo.findData(self.compute_backend)))
@@ -218,7 +219,9 @@ class SettingsDialog(QtWidgets.QDialog):
         swap_button = QtWidgets.QPushButton("Swap Left / Right")
         swap_button.setAccessibleName("Swap Cameras")
         swap_button.clicked.connect(self._swap_cameras)
-        swap_button.setToolTip("Quickly swap left and right camera assignments.")
+        swap_button.setEnabled(self._rig_profile is None)
+        swap_button.setToolTip("Change saved camera assignments in Setup." if self._rig_profile is not None
+                               else "Swap left and right camera assignments.")
         self._style_manager.style_button(swap_button, "ghost")
 
         layout = QtWidgets.QGridLayout()
@@ -270,7 +273,7 @@ class SettingsDialog(QtWidgets.QDialog):
 
         custom_label = QtWidgets.QLabel("Custom")
         self._custom_distance_spin = QtWidgets.QDoubleSpinBox()
-        self._custom_distance_spin.setAccessibleName("Custom Baseline Distance")
+        self._custom_distance_spin.setAccessibleName("Plate-to-mound distance in feet")
         self._custom_distance_spin.setRange(20.0, 100.0)
         self._custom_distance_spin.setValue(self._current_mound_distance)
         self._custom_distance_spin.setSuffix(" ft")

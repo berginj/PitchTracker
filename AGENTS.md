@@ -117,6 +117,8 @@ Never force push, reset, overwrite user work or remove branches without authoriz
 - For UX work, follow the [workspace plan](docs/UX_WORKSPACE_PLAN.md), scoped UI
   instructions and public service contracts. Preserve recording status across
   navigation; test recovery, keyboard access and viewport reachability.
+  UX-07 covers secondary surfaces and local Help; UX-08 retains complete journeys
+  and manual display/accessibility qualification. Roadmap owns delivery status.
 - Review correctness, compatibility, resource ownership, privacy and evidence
   limits. Validate changed behavior at the smallest useful boundary, including
   one message-flow integration check for new service ownership.

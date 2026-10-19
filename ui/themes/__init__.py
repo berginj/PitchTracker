@@ -1,4 +1,4 @@
-"""Glass theme system for Apple-style glassmorphism UI.
+"""Shared light-theme system for the PitchTracker desktop workspace.
 
 This module provides a centralized theme system with:
 - GlassTheme: Color palette and style generators
@@ -16,8 +16,7 @@ Usage:
     panel = GlassPanel(parent, intensity="normal")
     button = GlassButton("Click me", parent, variant="primary")
 
-    # Switch modes
-    sm.set_mode("setup")  # Bolder glass for Setup Doctor
+    # Semantic variants share one palette across all workspace pages.
 """
 
 from .glass_theme import GlassTheme, default_theme

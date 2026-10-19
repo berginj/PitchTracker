@@ -395,6 +395,8 @@ def polish_form_controls(root: QtWidgets.QWidget) -> None:
 
     for checkbox in root.findChildren(QtWidgets.QCheckBox):
         sm.style_checkbox(checkbox)
+        if not checkbox.accessibleName():
+            checkbox.setAccessibleName(checkbox.text().replace("&", ""))
 
     for slider in root.findChildren(QtWidgets.QSlider):
         sm.style_slider(slider)
@@ -405,6 +407,10 @@ def polish_form_controls(root: QtWidgets.QWidget) -> None:
     for button in root.findChildren(QtWidgets.QPushButton):
         if not button.property("variant"):
             sm.style_button(button, "default")
+        if not button.accessibleName():
+            button.setAccessibleName(button.text().replace("&", ""))
+        if not button.accessibleDescription() and button.toolTip():
+            button.setAccessibleDescription(button.toolTip())
 
 
 def build_loading_indicator(

@@ -54,7 +54,10 @@ with them, use these pages and open a documentation issue.
   [session review evidence](review/ux/UX_05_IMPLEMENTATION.md) documents UX-05 delivery.
   [Setup and Players evidence](review/ux/UX_06_IMPLEMENTATION.md) documents UX-06
   saved-state presentation and safe pitcher attribution.
-  delivery status stays in [Roadmap](ROADMAP.md).
+  [Secondary surface evidence](review/ux/UX_07_IMPLEMENTATION.md) documents UX-07
+  analytics, shared dialogs and local Help. Delivery status stays in [Roadmap](ROADMAP.md).
+  [Journey qualification](review/ux/UX_08_QUALIFICATION.md) tracks UX-08 automated
+  checks and the remaining manual display/accessibility and hardware evidence.
 - [Maintenance instructions](../AGENTS.md) and [documentation policy](DOCUMENTATION.md).
 - [Runtime agent contracts](architecture/agent-contracts.md) and [pitch lifecycle](architecture/pitch-lifecycle.md).
 - [UI agent instructions](../ui/AGENTS.md) — shared experience requirements and scoped ownership.

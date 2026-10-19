@@ -105,7 +105,9 @@ class SimulatedCamera(CameraDevice):
         # Generate image based on pixel format
         if self._pixfmt == "GRAY8":
             # Grayscale: 2D array (height, width)
-            image: np.ndarray = np.zeros((self._height, self._width), dtype=np.uint8)
+            # Match the nonzero neutral color surface so the normal frame-validity
+            # gate can admit grayscale simulator preview and recording as well.
+            image: np.ndarray = np.full((self._height, self._width), 30, dtype=np.uint8)
         elif self._pixfmt in ("YUYV", "MJPG"):
             # Color formats: 3D array (height, width, 3) in BGR format
             # Generate a simple color pattern for testing (dark blue-gray)
@@ -115,7 +117,7 @@ class SimulatedCamera(CameraDevice):
             image[:, :, 2] = 20  # Red channel
         else:
             # Unknown format, default to grayscale
-            image = np.zeros((self._height, self._width), dtype=np.uint8)
+            image = np.full((self._height, self._width), 30, dtype=np.uint8)
 
         # Apply 180° rotation if camera mounted upside down
         if self._flip_180:

@@ -100,9 +100,10 @@ def test_csv_export_keeps_stable_columns_and_values():
 
     assert rows[0] == (
         "Pitcher,Sessions,Total Pitches,Avg Velocity (mph),Max Velocity (mph),"
-        "Velocity Std,Strike %,Consistency %"
+        "Velocity Std,Strike %,Consistency %,Aggregation Basis,Speed Source / Reference,Eligible Call Denominator"
     )
-    assert rows[1] == "Pitcher One,2,40,72.5,76.0,1.25,62.5,80.0"
+    assert rows[1] == ("Pitcher One,2,40,72.5,76.0,1.25,62.5,80.0,"
+                       "Legacy session aggregates; session means have equal weight,Unavailable,Unavailable")
 
 
 def test_dashboard_export_reports_success_without_changing_data(qtbot):

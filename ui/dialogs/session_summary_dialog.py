@@ -8,6 +8,8 @@ from typing import Callable, Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from app.contracts import measurement_is_usable
+from ui.measurement_presentation import displayed_speed, speed_provenance
+from ui.themes.secondary_helpers import scrollable_content
 from ui.themes import (
     apply_standard_layout,
     build_dialog_header,
@@ -44,8 +46,9 @@ class SessionSummaryDialog(QtWidgets.QDialog):
 
     def _build_ui(self) -> None:
         """Build the session summary dialog UI."""
-        layout = QtWidgets.QVBoxLayout(self)
-        apply_standard_layout(layout)
+        outer = QtWidgets.QVBoxLayout(self)
+        apply_standard_layout(outer)
+        layout = scrollable_content(outer, "Recorded session summary content")
 
         layout.addWidget(
             build_dialog_header(
@@ -56,6 +59,9 @@ class SessionSummaryDialog(QtWidgets.QDialog):
         )
 
         layout.addLayout(self._build_metric_cards())
+        denominator = QtWidgets.QLabel("Strike rate uses available calls only; rejected and unavailable pitches remain unclassified.")
+        denominator.setWordWrap(True)
+        layout.addWidget(denominator)
 
         content_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
         content_splitter.addWidget(self._build_heatmap_panel())
@@ -63,9 +69,10 @@ class SessionSummaryDialog(QtWidgets.QDialog):
         content_splitter.setSizes([220, 420])
         layout.addWidget(content_splitter, 1)
 
-        export_row = QtWidgets.QHBoxLayout()
+        export_row = QtWidgets.QGridLayout()
 
         self._export_combo = QtWidgets.QComboBox()
+        self._export_combo.setAccessibleName("Selected session export format")
         self._export_combo.addItem("Session Summary (JSON)", "summary_json")
         self._export_combo.addItem("Session Summary (CSV)", "summary_csv")
         self._export_combo.addItem("Training Report (JSON)", "training_report")
@@ -88,20 +95,19 @@ class SessionSummaryDialog(QtWidgets.QDialog):
         self._style_manager.style_button(close_button, "ghost")
         close_button.clicked.connect(self.accept)
 
-        export_row.addWidget(self._export_combo, 1)
-        export_row.addWidget(save_button)
-        export_row.addWidget(upload_button)
-        export_row.addStretch()
-        export_row.addWidget(analyze_button)
-        export_row.addWidget(close_button)
-        layout.addLayout(export_row)
+        export_row.addWidget(self._export_combo, 0, 0, 1, 2)
+        export_row.addWidget(save_button, 0, 2)
+        export_row.addWidget(upload_button, 1, 0)
+        export_row.addWidget(analyze_button, 1, 1)
+        export_row.addWidget(close_button, 1, 2)
+        outer.addLayout(export_row)
 
         polish_form_controls(self)
 
     def _build_metric_cards(self) -> QtWidgets.QHBoxLayout:
         """Build top-line metric cards."""
         layout = QtWidgets.QHBoxLayout()
-        usable = [pitch for pitch in self._summary.pitches if measurement_is_usable(pitch)]
+        usable = [pitch for pitch in self._summary.pitches if measurement_is_usable(pitch) and pitch.strike_call_available]
         strikes = sum(1 for pitch in usable if pitch.is_strike)
         balls = len(usable) - strikes
         unclassified = len(self._summary.pitches) - len(usable)
@@ -140,8 +146,9 @@ class SessionSummaryDialog(QtWidgets.QDialog):
 
         heatmap = QtWidgets.QTableWidget(3, 3)
         style_data_table(heatmap, sortable=False, stretch_last=False, select_rows=False)
-        heatmap.setHorizontalHeaderLabels(["Inside", "Middle", "Outside"])
-        heatmap.setVerticalHeaderLabels(["Top", "Middle", "Bottom"])
+        heatmap.setAccessibleName("Usable recorded zone counts; zero-based rows from bottom to top")
+        heatmap.setHorizontalHeaderLabels(["Negative x", "Center", "Positive x"])
+        heatmap.setVerticalHeaderLabels(["Bottom · 0", "Middle · 1", "Top · 2"])
         heatmap.verticalHeader().setVisible(True)
         heatmap.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         heatmap.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
@@ -175,6 +182,7 @@ class SessionSummaryDialog(QtWidgets.QDialog):
                         int(cool.blue() + (hot.blue() - cool.blue()) * weight),
                     )
                     item.setBackground(color)
+                    item.setForeground(QtGui.QColor(theme.text_on_accent if weight > .6 else theme.text_primary))
                 heatmap.setItem(row, col, item)
 
         layout.addWidget(heatmap)
@@ -193,11 +201,12 @@ class SessionSummaryDialog(QtWidgets.QDialog):
 
         table = QtWidgets.QTableWidget(len(self._summary.pitches), 8)
         style_data_table(table)
+        table.setAccessibleName("Session pitch details and measurement provenance")
         table.setHorizontalHeaderLabels(
-            ["Pitch", "Strike", "Zone", "Raw ΔX (in)", "Raw ΔY (in)", "Speed", "Rotation", "Quality"]
+            ["Pitch", "Strike", "Zone", "Raw ΔX (in)", "Raw ΔY (in)", "Speed (mph)", "Source / reference", "Quality"]
         )
-        table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
-        table.setMinimumHeight(320)
+        table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        table.setMinimumHeight(120)
 
         for row, pitch in enumerate(self._summary.pitches):
             usable = measurement_is_usable(pitch)
@@ -207,12 +216,12 @@ class SessionSummaryDialog(QtWidgets.QDialog):
 
             values = [
                 pitch.pitch_id,
-                ("Yes" if pitch.is_strike else "No") if usable else "Unclassified",
+                ("Yes" if pitch.is_strike else "No") if usable and pitch.strike_call_available else "Unclassified",
                 zone,
                 f"{pitch.run_in:.2f}",
                 f"{pitch.rise_in:.2f}",
-                f"{pitch.speed_mph:.1f}" if pitch.speed_mph is not None else "-",
-                f"{pitch.rotation_rpm:.1f}" if pitch.rotation_rpm is not None else "-",
+                f"{displayed_speed(pitch):.1f}" if displayed_speed(pitch) is not None else "Unavailable",
+                speed_provenance(pitch),
                 getattr(pitch.measurement_status, "value", pitch.measurement_status),
             ]
 

@@ -104,7 +104,7 @@ class StyleManager:
     def style_input(self, widget: QWidget, track: bool = True) -> None:
         widget.setProperty("inputRole", "default")
         if isinstance(widget, (QtWidgets.QLineEdit, QtWidgets.QComboBox, QtWidgets.QAbstractSpinBox)):
-            widget.setMinimumHeight(max(widget.minimumHeight(), 36))
+            widget.setMinimumHeight(max(widget.minimumHeight(), self.theme.button_height_md))
         self.polish(widget)
         if track:
             self._track_widget(widget, "input", "default")

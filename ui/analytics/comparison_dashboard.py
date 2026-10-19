@@ -19,10 +19,11 @@ except ImportError:
 
 from analysis.trend_analyzer import TrendAnalyzer
 from log_config.logger import get_logger
-from ui.themes import apply_standard_layout, polish_form_controls, show_message_dialog
+from ui.themes import apply_standard_layout, polish_form_controls, show_message_dialog, style_data_table
 
-from .comparison_data import PitcherStats, export_comparison_csv, load_pitcher_stats
+from .comparison_data import PitcherStats, export_comparison_csv, load_pitcher_stats, format_metric
 from .comparison_presentation import ComparisonChartPresenter, PitcherComparisonCard
+from ui.themes.secondary_helpers import secondary_content
 
 logger = get_logger(__name__)
 
@@ -45,7 +46,8 @@ class ComparisonDashboard(QtWidgets.QWidget):
         self._apply_style()
 
     def _build_ui(self) -> None:
-        header = QtWidgets.QLabel("PITCHER COMPARISON")
+        header = QtWidgets.QLabel("Recorded player comparison")
+        self._style_manager.style_label(header, "pageTitle")
         header.setObjectName("comparison_header")
         header.setAccessibleName("Pitcher comparison dashboard")
 
@@ -66,10 +68,30 @@ class ComparisonDashboard(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(header)
         layout.addWidget(self._build_add_section())
+        self._notice = QtWidgets.QLabel("Select a player to compare local session aggregates. No active pitcher is changed.")
+        self._notice.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        self._notice.setWordWrap(True)
+        layout.addWidget(self._notice)
         layout.addWidget(cards_scroll)
-        layout.addWidget(self._build_charts_section(), 1)
+        tabs = QtWidgets.QTabWidget()
+        tabs.setAccessibleName("Player comparison views")
+        tabs.addTab(self._build_charts_section(), "Charts")
+        self._table = QtWidgets.QTableWidget(0, 7)
+        self._table.setAccessibleName("Player comparison chart values")
+        style_data_table(self._table, sortable=False)
+        self._table.setHorizontalHeaderLabels(
+            ["Player", "Sessions", "Pitches", "Mean speed (mph)", "Max speed (mph)", "Mean strike %", "Consistency %"])
+        self._table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        tabs.addTab(self._table, "Table")
+        layout.addWidget(tabs, 1)
+        provenance = QtWidgets.QLabel(
+            "Legacy session aggregates · session means have equal weight. Speed source/reference and "
+            "eligible-sample denominators are unavailable; these charts do not establish physical accuracy.")
+        provenance.setWordWrap(True)
+        layout.addWidget(provenance)
         layout.addWidget(self._build_export_section())
         apply_standard_layout(layout)
+        self._update_charts()
 
     def _build_add_section(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
@@ -85,6 +107,11 @@ class ComparisonDashboard(QtWidgets.QWidget):
         add_btn.setAccessibleName("Add selected pitcher to comparison")
         add_btn.clicked.connect(self._on_add_pitcher)
         self._style_manager.style_button(add_btn, "success")
+        self._add_btn = add_btn
+        add_btn.setEnabled(False)
+        add_btn.setToolTip("Select a recorded player before adding a comparison.")
+        self._pitcher_combo.currentIndexChanged.connect(
+            lambda: add_btn.setEnabled(bool(self._pitcher_combo.currentData())))
 
         layout = QtWidgets.QHBoxLayout(widget)
         layout.addWidget(self._pitcher_combo)
@@ -136,6 +163,11 @@ class ComparisonDashboard(QtWidgets.QWidget):
         figure.patch.set_facecolor(self._theme.chart_background)
         canvas = FigureCanvas(figure)
         canvas.setMinimumHeight(self._theme.button_height_lg * 4)
+        canvas.setMinimumWidth(0)
+        canvas.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Expanding)
+        canvas.setAccessibleName(accessible_name + "; equivalent values in Table")
+        self._style_manager.style_panel(frame)
+        self._style_manager.style_label(title, "sectionTitle")
 
         layout = QtWidgets.QVBoxLayout(frame)
         layout.addWidget(title)
@@ -158,10 +190,14 @@ class ComparisonDashboard(QtWidgets.QWidget):
         export_csv_btn.setAccessibleName("Export pitcher comparison as CSV")
         export_csv_btn.clicked.connect(self._on_export_csv)
         self._style_manager.style_button(export_csv_btn, "primary")
+        self._export_btn = export_csv_btn
+        export_csv_btn.setToolTip("Add at least one player before exporting comparison data.")
 
         clear_btn = QtWidgets.QPushButton("Clear All")
         clear_btn.setAccessibleName("Clear all compared pitchers")
         clear_btn.clicked.connect(self._on_clear_all)
+        self._clear_btn = clear_btn
+        clear_btn.setToolTip("Add at least one player before clearing the comparison.")
 
         layout = QtWidgets.QHBoxLayout(widget)
         layout.addStretch()
@@ -170,35 +206,6 @@ class ComparisonDashboard(QtWidgets.QWidget):
         return widget
 
     def _apply_style(self) -> None:
-        theme = self._theme
-        self.setStyleSheet(
-            f"""
-            ComparisonDashboard {{ background-color: {theme.background_dark}; }}
-            #comparison_header {{
-                font-size: {theme.font_size_subtitle}px;
-                font-weight: 700;
-                color: {theme.text_primary};
-            }}
-            #comparison_add_section {{
-                background-color: {theme.surface_glass};
-                border: {theme.border_width}px solid {theme.border_glass};
-                border-radius: {theme.border_radius_small}px;
-                padding: {theme.margin_tight}px;
-            }}
-            #comparison_cards_scroll {{ background-color: transparent; border: none; }}
-            #chart_container {{
-                background-color: {theme.surface_glass};
-                border: {theme.border_width}px solid {theme.border_glass};
-                border-radius: {theme.border_radius_small}px;
-            }}
-            #chart_title {{
-                font-size: {theme.font_size_caption}px;
-                font-weight: 700;
-                color: {theme.accent_primary};
-                padding-bottom: {theme.margin_tight // 2}px;
-            }}
-            """
-        )
         polish_form_controls(self)
 
     def set_available_pitchers(self, pitchers: List[Tuple[str, str]]) -> None:
@@ -236,7 +243,11 @@ class ComparisonDashboard(QtWidgets.QWidget):
         pitcher_id = self._pitcher_combo.currentData()
         if not pitcher_id:
             return
-        self.add_pitcher(self._load_pitcher_stats(pitcher_id))
+        try:
+            self.add_pitcher(self._load_pitcher_stats(pitcher_id))
+        except (OSError, ValueError, TypeError) as exc:
+            logger.exception("Could not load player comparison")
+            self._notice.setText(f"Comparison unavailable: {exc}. Choose another player or restore the summary files.")
 
     def _load_pitcher_stats(self, pitcher_id: str) -> PitcherStats:
         name = next(
@@ -259,6 +270,15 @@ class ComparisonDashboard(QtWidgets.QWidget):
     def _update_charts(self) -> None:
         if self._chart_presenter is not None:
             self._chart_presenter.update(self._pitcher_stats)
+        self._table.setRowCount(len(self._pitcher_stats))
+        for row, stats in enumerate(self._pitcher_stats.values()):
+            for col, value in enumerate((stats.display_name, str(stats.sessions_count), str(stats.total_pitches),
+                                         format_metric(stats.avg_velocity), format_metric(stats.max_velocity),
+                                         format_metric(stats.avg_strike_pct, scale=100),
+                                         format_metric(stats.avg_consistency, scale=100))):
+                self._table.setItem(row, col, QtWidgets.QTableWidgetItem(value))
+        self._export_btn.setEnabled(bool(self._pitcher_stats))
+        self._clear_btn.setEnabled(bool(self._pitcher_stats))
 
     def _on_export_csv(self) -> None:
         if not self._pitcher_stats:
@@ -303,17 +323,11 @@ class ComparisonDashboardDialog(QtWidgets.QDialog):
 
         theme = get_style_manager().theme
         self.setWindowTitle("Pitcher Comparison")
-        self.setMinimumSize(theme.dialog_width_large, theme.dialog_height_large)
+        self.resize(theme.dialog_width_large, theme.dialog_height_large)
         self._dashboard = ComparisonDashboard()
 
-        close_btn = QtWidgets.QPushButton("Close")
-        close_btn.setAccessibleName("Close pitcher comparison")
-        close_btn.clicked.connect(self.accept)
-
-        layout = QtWidgets.QVBoxLayout(self)
+        layout = secondary_content(self)
         layout.addWidget(self._dashboard, 1)
-        layout.addWidget(close_btn)
-        apply_standard_layout(layout)
         polish_form_controls(self)
 
     @property

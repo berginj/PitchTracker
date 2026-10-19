@@ -33,6 +33,10 @@ datas = [
     ('assets', 'assets'),
     ('README_LAUNCHER.md', '.'),
     ('LICENSE', '.'),
+    ('docs/OPERATOR_RUNBOOK.md', 'docs'),
+    ('docs/GUIDED_SETUP.md', 'docs'),
+    ('docs/MEASUREMENT_RESEARCH.md', 'docs'),
+    ('docs/user/TROUBLESHOOTING.md', 'docs/user'),
 ]
 
 # Hidden imports (needed but not auto-detected)

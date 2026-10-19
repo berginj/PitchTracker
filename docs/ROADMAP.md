@@ -39,8 +39,12 @@ physical qualification or release gates.
   ([implementation and evidence](review/ux/UX_05_IMPLEMENTATION.md)).
 - [x] UX-06: Align setup and player workflows within the workspace
   ([implementation and evidence](review/ux/UX_06_IMPLEMENTATION.md)).
-- [ ] UX-07: Normalize analytics, dialogs, settings, help and visual presentation.
-- [ ] UX-08: Validate complete operator journeys and record manual evidence.
+- [x] UX-07: Normalize analytics, dialogs, settings, help and visual presentation
+  ([implementation and evidence](review/ux/UX_07_IMPLEMENTATION.md)).
+- [ ] UX-08: Validate complete operator journeys and record manual evidence
+  ([qualification record and manual worksheet](review/ux/UX_08_QUALIFICATION.md)).
+  Automated simulator journeys and recovery-layout checks are implemented;
+  real Windows display/accessibility, packaged and hardware evidence remain pending.
 
 Execute in ID order. Each package must pass its focused checks before the next
 starts; carry pending hardware evidence explicitly without claiming it passed.

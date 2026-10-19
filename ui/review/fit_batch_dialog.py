@@ -8,6 +8,8 @@ from PySide6 import QtCore, QtWidgets
 from app.services.analysis.fit_batch import run_fit_batch
 from contracts.fit_jobs import FitBatchRequest
 from ui.tooling_task import ToolingTaskDialog
+from ui.themes import build_dialog_header
+from ui.themes.secondary_helpers import secondary_content, label_form_fields
 
 
 class FitBatchDialog(QtWidgets.QDialog):
@@ -17,8 +19,12 @@ class FitBatchDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.setWindowTitle("Batch trajectory refits")
         self.resize(780, 580)
-        layout = QtWidgets.QVBoxLayout(self)
+        layout = secondary_content(self)
+        layout.addWidget(build_dialog_header(
+            "Trajectory refits", "Local research · new work pauses while capture owns the rig."))
         self.sessions = QtWidgets.QListWidget()
+        self.sessions.setAccessibleName("Recorded sessions selected for refitting")
+        self.sessions.setMinimumHeight(90)
         if session_dir:
             self.sessions.addItem(str(session_dir))
         layout.addWidget(self.sessions)
@@ -31,6 +37,7 @@ class FitBatchDialog(QtWidgets.QDialog):
         form = QtWidgets.QFormLayout()
         layout.addLayout(form)
         self.output = QtWidgets.QLineEdit()
+        self.output.setAccessibleName("Derived research output folder")
         output_button = QtWidgets.QPushButton("Choose output folder")
         output_button.clicked.connect(self._choose_output)
         form.addRow(output_button, self.output)
@@ -67,9 +74,13 @@ class FitBatchDialog(QtWidgets.QDialog):
         layout.addWidget(self.start_button)
         self.results = QtWidgets.QPlainTextEdit()
         self.results.setReadOnly(True)
+        self.results.setAccessibleName("Refit results and failures")
+        self.results.setPlainText("No refits run. Select completed sessions and a separate output folder.")
+        self.results.setMinimumHeight(100)
         layout.addWidget(self.results)
         self.progress_received.connect(self._progress)
         self.task = None
+        label_form_fields(self)
 
     def _add_session(self):
         folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Recorded session")

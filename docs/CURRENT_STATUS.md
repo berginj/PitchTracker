@@ -86,7 +86,12 @@ Setup now presents saved revision/readiness, and Players separates historical
 browsing from service-confirmed active-pitcher changes. Attribution survives
 pitch boundaries and delayed analysis without rewriting older recordings. See the
 [UX-06 implementation record](review/ux/UX_06_IMPLEMENTATION.md).
-Remaining experience work continues under UX-07 and UX-08.
+Analytics and secondary dialogs now retain missing outcomes, provide chart/table
+equivalents and share accessible controls. Help opens maintained local guidance.
+See the [UX-07 implementation record](review/ux/UX_07_IMPLEMENTATION.md).
+Complete journey and manual display/accessibility qualification remains in UX-08.
+Its [qualification record](review/ux/UX_08_QUALIFICATION.md) now includes a complete
+workspace simulator journey, recovery-layout fixes and the pending manual worksheet.
 
 The older desktop/setup/pipeline paths are retired under
 `archive/retired/2026-10-13`. Guided setup is the default for launcher, direct
