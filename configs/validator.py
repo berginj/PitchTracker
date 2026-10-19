@@ -29,7 +29,7 @@ CONFIG_SCHEMA = {
                 "exposure_us": {"type": "integer", "minimum": 100, "maximum": 33000},
                 "gain": {"type": "number", "minimum": 0.0, "maximum": 30.0},
                 "wb_mode": {"type": ["string", "null"]},
-                "wb": {"type": ["array", "null"]},
+                "wb": {"type": ["integer", "null"], "minimum": 1},
                 "queue_depth": {"type": "integer", "minimum": 1, "maximum": 30},
             },
         },

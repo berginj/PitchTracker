@@ -50,6 +50,10 @@ Zero, `-1`, NaN, an invalid FOURCC, and a successful write without matching
 readback are not treated as proof of support. Requested and negotiated modes
 remain separate in the setup snapshot.
 
+Saved `camera.wb` is a positive integer temperature in Kelvin, or `null` for
+sample-and-lock. Guided Setup can pin the verified observed value; this saves
+the value and requires fresh image checks before readiness can be granted.
+
 Source installations can add the native provider with:
 
 ```powershell
