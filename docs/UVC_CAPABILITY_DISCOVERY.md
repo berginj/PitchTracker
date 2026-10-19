@@ -54,6 +54,10 @@ Saved `camera.wb` is a positive integer temperature in Kelvin, or `null` for
 sample-and-lock. Guided Setup can pin the verified observed value; this saves
 the value and requires fresh image checks before readiness can be granted.
 
+Guided image checks compute capture skew from timestamp pairs within the
+configured tolerance. Unmatched frames stay in the qualification denominator;
+equal frame counts alone do not establish pairing or exposure synchronization.
+
 Source installations can add the native provider with:
 
 ```powershell
