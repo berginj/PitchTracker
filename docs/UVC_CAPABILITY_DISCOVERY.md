@@ -24,6 +24,10 @@ PnP metadata properties are queried in one batch within the existing bounded,
 cancellable discovery operation. Installed PowerShell 7 is preferred, with
 Windows PowerShell retained as the fallback.
 
+Saved camera configuration accepts `MJPG` for the backend's existing MJPEG
+capture path. Choose a pixel format supported at the intended resolution/FPS
+on both devices, then verify negotiated mode and achieved cadence separately.
+
 Every standard control has one status:
 
 | Status | Meaning |
