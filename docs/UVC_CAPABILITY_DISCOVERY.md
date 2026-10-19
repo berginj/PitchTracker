@@ -1,5 +1,7 @@
 # UVC Capability Evidence
 
+Current reference. Last reviewed: 2026-10-19.
+
 PitchTracker records what each selected camera and backend actually report. A
 capability observation is setup evidence, not proof of image quality or tracking
 accuracy.
@@ -11,6 +13,16 @@ DirectShow query for camera controls and advertised stream modes. If the
 optional native provider is unavailable or a query fails, validated OpenCV
 DirectShow readback supplies only the facts it can verify. Discovery never
 changes a control merely to learn whether it exists.
+
+Stable UVC assignments bind the selected PnP instance identity to the actual
+DirectShow `DevicePath` before opening its numeric capture index. PnP list order
+and matching model names cannot establish that binding. Missing or ambiguous
+paths reject the open with refresh/install guidance. The optional Windows-native
+dependencies below are required for this stable identity path; explicit numeric
+assignments remain available but must be rechecked after device-list changes.
+PnP metadata properties are queried in one batch within the existing bounded,
+cancellable discovery operation. Installed PowerShell 7 is preferred, with
+Windows PowerShell retained as the fallback.
 
 Every standard control has one status:
 
