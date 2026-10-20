@@ -1,0 +1,248 @@
+{
+  "schema_version": "ux08_desktop_observations.v1",
+  "created_utc": "2026-10-20T01:28:40.090571+00:00",
+  "source_base": "51142340cd7a0dc38c5cbd3d1a161299f14b6112",
+  "source_worktree_dirty": true,
+  "platform": "windows",
+  "windows_build": "10.0.29683",
+  "screen": "LP150UD171878",
+  "device_pixel_ratio": 2.0,
+  "synthetic_only": true,
+  "captures": [
+    {
+      "file": "before-dark-palette.png",
+      "caption": "Before: dark native palette behind light-theme text",
+      "sha256": "873a279e221df28e07118f1bfbfcd5fd470bc5b65281f349ba843203e12a2c7f"
+    },
+    {
+      "file": "keyboard-fixed-start.png",
+      "caption": "After: readable Live page at 1366\u00d7768 logical pixels",
+      "sha256": "770afae818e6e12d090ec13bea78165e2c10c222677e2d5bbd99307771b4cd7a"
+    },
+    {
+      "file": "final-recovery-800.png",
+      "caption": "After: recovery actions at 800\u00d7600 logical pixels",
+      "sha256": "77ca07b0d49c3d4b511ddd403fc896ba3005624bb6dd987fab0233029ae7bd25"
+    }
+  ],
+  "native_tab_space": [
+    {
+      "expected_page": "sessions",
+      "actual_page": "sessions",
+      "focused_name": "Navigate to Sessions",
+      "passed": true,
+      "capture_owned": false
+    },
+    {
+      "expected_page": "players",
+      "actual_page": "players",
+      "focused_name": "Navigate to Players",
+      "passed": true,
+      "capture_owned": false
+    },
+    {
+      "expected_page": "setup",
+      "actual_page": "setup",
+      "focused_name": "Navigate to Setup",
+      "passed": true,
+      "capture_owned": false
+    }
+  ],
+  "viewports": [
+    {
+      "page": "live",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "capture_owned": false
+    },
+    {
+      "page": "sessions",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "capture_owned": false
+    },
+    {
+      "page": "players",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "capture_owned": false
+    },
+    {
+      "page": "setup",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "capture_owned": false
+    },
+    {
+      "page": "sessions",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "capture_owned": false
+    },
+    {
+      "page": "live",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "capture_owned": false
+    },
+    {
+      "page": "sessions",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "capture_owned": false
+    },
+    {
+      "page": "players",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "capture_owned": false
+    },
+    {
+      "page": "setup",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "capture_owned": false
+    },
+    {
+      "page": "sessions",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "capture_owned": false
+    },
+    {
+      "page": "live",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "capture_owned": false
+    },
+    {
+      "page": "sessions",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "capture_owned": false
+    },
+    {
+      "page": "players",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "capture_owned": false
+    },
+    {
+      "page": "setup",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "capture_owned": false
+    },
+    {
+      "page": "sessions",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "capture_owned": false
+    }
+  ],
+  "operator_observations": {
+    "date_local": "2026-10-19",
+    "source": "Operator replies in the task conversation",
+    "fixture": "Synthetic source-run desktop window; source base 5114234 plus follow-up changes",
+    "readability_windows_scale_percent": [125, 150, 200],
+    "keyboard_at_200_percent": "Tab/Shift+Tab/Space page navigation works",
+    "narrator": "Navigation buttons and main session action labels are clear",
+    "evidence_type": "Operator-reported; intermediate settings and spoken output not recorded"
+  },
+  "limits": [
+    "Full keyboard-only recording journey and remaining screen-reader surfaces not qualified",
+    "Screenshots and automated native probes use Windows 200%; other scale observations are operator-reported",
+    "Enter alone did not activate navigation buttons; Tab/Space was used",
+    "No physical capture, operator data, packaged build or hardware qualification"
+  ]
+}

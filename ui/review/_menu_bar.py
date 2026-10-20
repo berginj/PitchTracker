@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from PySide6 import QtGui, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 if TYPE_CHECKING:
     from ui.review.review_window import ReviewWindow
 
@@ -88,8 +88,15 @@ def build_menu_bar(
     _add(export_menu, "Export &Config...", None, handlers["export_config"])
     _add(export_menu, "Export &Annotations...", None, handlers["export_annotations"])
 
+    menus = (file_menu, playback_menu, tools_menu, export_menu)
+    for menu in menus:
+        for action in menu.actions():
+            if not action.shortcut().isEmpty():
+                action.setShortcutContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+                window.addAction(action)
+
     return ReviewMenuActions(
-        menus=(file_menu, playback_menu, tools_menu, export_menu),
+        menus=menus,
         prev_session=prev_action,
         next_session=next_action,
         delete_session=delete_action,

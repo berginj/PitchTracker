@@ -100,7 +100,7 @@ python scripts/check_public_docs.py
 python scripts/check_file_length.py
 ```
 
-## Manual qualification worksheet — not performed
+## Manual qualification worksheet — partial evidence
 
 ### Reconciliation validation — 2026-10-19
 
@@ -126,6 +126,63 @@ Lint, typing policy, schema, documentation and file-length gates passed using a
 clean source snapshot, excluding ignored workstation environments from source
 analysis. Synthetic evidence and all physical/manual limits remain unchanged.
 
+### Camera-free desktop follow-up — 2026-10-19
+
+Scope: UX-08 qualification, the empty-setup journey, and simulator lifecycle.
+The source baseline is `5114234`; follow-up changes fix the application palette,
+scope Review shortcuts to its own widget tree, and explain disabled preparation
+when a physical camera pair is unassigned. Public service contracts are unchanged.
+Applicable instructions are the root, shared UI, workspace, themes, coaching,
+Review, Players and guided-setup instructions linked above and below.
+
+The Windows platform plugin ran on the LP150UD171878 display at device-pixel ratio
+2.0 (the current 200% desktop setting). Fifteen synthetic page/recovery captures
+matched 1366x768, 1024x768 and 800x600 logical viewports without capture ownership.
+The [desktop gallery](ux08/desktop-2026-10-19/index.html) contains representative
+window-only evidence and its provenance. Captures and native key probes are
+automated observations; the operator confirmations below are recorded separately.
+
+On 2026-10-19 the operator confirmed readable text and Tab/Shift+Tab/Space page
+navigation at 200%. The operator then reported readable text at actual Windows
+125% and 150% settings and clear Narrator announcements for navigation buttons
+and the main session action. These are operator-reported observations of the
+synthetic source-run window; intermediate display settings and spoken output
+were not instrumented or recorded. They do not cover a complete keyboard-only
+recording journey or every changing status, chart and recovery announcement.
+
+The desktop check exposed dark native palette surfaces underneath light-theme
+text. Explicit shared palette roles correct the rendered contrast; the regression
+checks actual rendered surface contrast after starting with a dark system palette.
+The initial native keyboard probe also reproduced a cross-page defect: Review's
+Space shortcut intercepted navigation after Sessions opened. A regression failed
+before the fix; both navigation activation and Review-local playback pass after
+scoping its actions. A subsequent guarded Windows Tab/Space probe activated
+Sessions, Players and Setup with no capture ownership. Enter alone did not activate
+the navigation buttons; this observation is retained rather than called a pass.
+
+Focused evidence:
+
+- Shared theme, viewport, accessibility and recovery group: 30 passed.
+- Empty setup, workspace navigation, Players and Review group: 46 passed.
+- Unassigned preparation and session-command admission group: 19 passed.
+- Shortcut regression: one failed/one passed before; two passed after correction.
+- Real-service simulator journey, frame formats and analysis-failure durability:
+  eight passed. Setup publication, player selection, prepare/preview, recording,
+  navigation, pause/resume, finalization, Review and capture shutdown are exercised.
+  Synthetic recording manifests and a complete evidence journal were retained
+  locally; no physical camera assignment or operator recording was used.
+
+Controlled offscreen Qt scale-factor runs at 1.25 and 1.5 each passed 15 viewport
+and recovery cases. They simulate Qt scaling and do not qualify the actual Windows
+125%/150% settings. Changed-source lint and canonical Python 3.13 typing passed
+three modules; documentation, schema mirror and file-length checks passed.
+
+These counts name focused runs, not unique tests or full-suite totals. Original
+failures and all local logs remain in ignored qualification output. Full regression
+validation is tracked by the follow-up pull request's required CI checks.
+Complete operator journeys, the remaining assistive-technology surfaces and
+packaged/hardware gates remain pending. UX-08 remains open.
+
 Record the tested revision, application build, Windows version, display model,
 effective viewport, scaling, operator and date with each result. Use synthetic
 sessions for shared screenshots; keep private recordings and athlete names local.
@@ -133,9 +190,9 @@ sessions for shared screenshots; keep private recordings and athlete names local
 | Check | Procedure | Status |
 |---|---|---|
 | Display matrix | At 1366x768 and 1024x768, verify every page and its essential controls; repeat the reachable 800x600 layout | Pending |
-| Scaling | Repeat relevant journeys on actual Windows displays at 125%, 150% and 200%; inspect clipping, text, dialogs and error recovery | Pending |
-| Keyboard | Use Tab/Shift+Tab, Enter/Space, Escape and arrow keys to prepare, record, navigate, pause/resume, finalize and review; verify focus remains visible and safe | Pending |
-| Screen reader | With Narrator or the target reader, verify current page, recording status, changing command labels, disabled prerequisites, chart tables and complete recovery text | Pending |
+| Scaling | Repeat relevant journeys on actual Windows displays at 125%, 150% and 200%; inspect clipping, text, dialogs and error recovery | Operator confirmed readability at all three scales; complete journeys/dialogs pending |
+| Keyboard | Use Tab/Shift+Tab, Enter/Space, Escape and arrow keys to prepare, record, navigate, pause/resume, finalize and review; verify focus remains visible and safe | Operator confirmed Tab/Shift+Tab/Space page navigation at 200%; complete recording journey pending |
+| Screen reader | With Narrator or the target reader, verify current page, recording status, changing command labels, disabled prerequisites, chart tables and complete recovery text | Operator confirmed navigation and main session action labels; other surfaces pending |
 | Setup / runtime ownership | Complete five-stage setup, cancel/re-enter busy work, publish explicitly, and attempt competing edits while capture owns the rig | Pending |
 | Hardware recovery | Disconnect/reconnect the qualified pair, reject a command, interrupt a writer safely, and verify ownership, retry and accepted-work draining | Pending |
 | Frozen application | Check local Help, roster persistence, video playback, close/cancel and recovery in the installed build on a clean machine | Pending |

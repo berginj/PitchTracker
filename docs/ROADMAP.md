@@ -44,7 +44,12 @@ physical qualification or release gates.
 - [ ] UX-08: Validate complete operator journeys and record manual evidence
   ([qualification record and manual worksheet](review/ux/UX_08_QUALIFICATION.md)).
   Automated simulator journeys and recovery-layout checks are implemented;
-  real Windows display/accessibility, packaged and hardware evidence remain pending.
+  complete operator journeys, packaged and hardware evidence remain pending.
+  The 2026-10-19 camera-free follow-up adds native 200% desktop observations,
+  fixes light-palette and cross-page shortcut defects, and verifies empty-setup
+  navigation and real-service simulator recording. The operator confirmed
+  readability at Windows 125%/150%/200%, keyboard page navigation and Narrator
+  control labels; remaining manual coverage is listed in the qualification record.
 
 Execute in ID order. Each package must pass its focused checks before the next
 starts; carry pending hardware evidence explicitly without claiming it passed.
