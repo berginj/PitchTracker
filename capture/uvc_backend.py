@@ -23,12 +23,12 @@ from log_config.logger import get_logger
 
 from .camera_device import CameraDevice, CameraStats
 from .timeout_utils import RetryPolicy, retry_on_failure, run_with_timeout
-from .uvc_control_evidence import apply_controls, read_controls
+from .uvc_control_evidence import apply_controls, read_controls, refresh_native_controls
+from .directshow_identity import resolve_directshow_index
 from .uvc_probe import (
     OpenCvDirectShowProbe,
     ProbeEvidence,
     compose_observation,
-    load_native_probe,
 )
 
 logger = get_logger(__name__)
@@ -71,8 +71,9 @@ class UvcCamera(CameraDevice):
 
         OpenCV's DirectShow backend opens cameras by numeric index, while setup
         persists stable PnP hardware IDs. The setup worker supplies the exact
-        discovery snapshot used to translate both IDs without repeating the
-        comparatively slow PowerShell query for each camera.
+        discovery snapshot without repeating the comparatively slow PowerShell
+        query for each camera. Each identity is separately bound to its actual
+        DirectShow DevicePath before the numeric capture index is opened.
         """
         self._discovered_devices = tuple(dict(device) for device in devices)
 
@@ -103,24 +104,8 @@ class UvcCamera(CameraDevice):
             target = self._resolve_device(serial_str)
             self._friendly_name = self._friendly_name or target
             self._directshow_index = int(target) if target.isdigit() else -1
-            self._native_probe_evidence = None
-            native_probe = load_native_probe()
-            if native_probe is not None and self._directshow_index >= 0:
-                try:
-                    self._native_probe_evidence = native_probe.probe(
-                        camera_id=serial_str,
-                        device_index=self._directshow_index,
-                        friendly_name=self._friendly_name,
-                    )
-                except Exception as exc:  # noqa: BLE001 - optional evidence must not block capture
-                    self._native_probe_evidence = ProbeEvidence(
-                        provider="native_directshow",
-                        device_metadata={
-                            "native_probe_available": False,
-                            "native_probe_error": str(exc),
-                        },
-                        note=f"Optional native DirectShow probe failed: {exc}",
-                    )
+            self._native_probe_evidence = refresh_native_controls(
+                serial_str, self._directshow_index, self._friendly_name)
 
             def _open_camera() -> Any:
                 """Inner function for timeout wrapper."""
@@ -205,6 +190,9 @@ class UvcCamera(CameraDevice):
             self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
             self._capture.set(cv2.CAP_PROP_FPS, fps)
+            # DirectShow's FPS setter rebuilds the stream without its prior FourCC.
+            if fourcc_name:
+                self._capture.set(cv2.CAP_PROP_FOURCC, fourcc_value)
 
             # Verify settings were applied
             actual_width = self._capture.get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -259,7 +247,10 @@ class UvcCamera(CameraDevice):
     def get_controls(self) -> Optional[dict[str, Any]]:
         if self._capture is None:
             return None
-        return read_controls(self._capture, self._pixfmt, self._control_state)
+        self._native_probe_evidence = refresh_native_controls(
+            self._serial or "", self._directshow_index, self._friendly_name or "")
+        native = self._native_probe_evidence
+        return read_controls(self._capture, self._pixfmt, self._control_state, native.results if native else None)
 
     def get_capability_observation(self) -> Optional[CapabilityObservation]:
         """Build typed capability observation from native and OpenCV evidence."""
@@ -461,8 +452,11 @@ class UvcCamera(CameraDevice):
                     camera_id=serial,
                 )
 
-            directshow_index, device = matches[0]
+            _pnp_index, device = matches[0]
+            directshow_index = resolve_directshow_index(str(device.get("instance_id") or ""))
             self._device_metadata = dict(device)
+            self._device_metadata["directshow_index"] = directshow_index
+            self._device_metadata["identity_binding"] = "directshow_device_path"
             friendly_name = str(device.get("friendly_name") or serial)
             self._friendly_name = friendly_name
             logger.debug(f"Resolved camera {serial} ({friendly_name}) to DirectShow index {directshow_index}")

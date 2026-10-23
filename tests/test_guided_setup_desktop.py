@@ -44,6 +44,25 @@ def test_camera_setting_saves_on_finished_edit(qtbot, workflow):
     assert workflow.state["changed"]
 
 
+def test_native_gain_edit_survives_reopening(qtbot, workflow):
+    from app.services.setup_workflow import SetupWorkflowService
+    from ui.setup.guided_cameras import CamerasStage
+    stage = CamerasStage(workflow)
+    qtbot.addWidget(stage)
+    stage.refresh()
+    gain = stage.widgets["gain"]
+    gain.setValue(168)
+    gain.editingFinished.emit()
+
+    reopened = SetupWorkflowService(workflow.rigs.config_path, workflow.rigs.base_dir, backend="sim")
+    reopened_stage = CamerasStage(reopened)
+    qtbot.addWidget(reopened_stage)
+    reopened_stage.refresh()
+    assert reopened.config.camera.gain == 168
+    assert reopened_stage.widgets["gain"].value() == 168
+    assert not reopened.readiness().permits_recording
+
+
 def test_current_paired_clicks_and_coordinate_edits_save_targets(qtbot, workflow, tmp_path):
     from ui.setup.guided_field import FieldStage
     workflow.assign("left", "right")

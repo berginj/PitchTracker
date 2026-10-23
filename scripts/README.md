@@ -60,11 +60,13 @@ source identity and remaining physical-display/hardware checks. Target images
 describe a future PySide6 workspace; they do not prove its implementation.
 
 ### `check_public_docs.py`
-Check the public documentation entry points before opening a pull request.
-The check verifies required local Markdown links, prevents obsolete PyQt6 and
-Python-version wording in the README, and checks that each dated public page has
-a valid review date that is not in the future. Review dates are independent;
-the check does not require them to match `docs/CURRENT_STATUS.md` or assess freshness.
+Check all maintained Markdown and required entry points before opening a PR.
+The check discovers tracked/new unignored files, verifies local links with exact
+filename case, validates review dates, and checks root instruction discovery.
+Historical archive and dated review bodies are excluded; the archive index is
+checked. It also checks issue templates and obsolete README terminology.
+Review dates do not prove freshness; anchors and external URLs still need review.
+See [documentation maintenance](../docs/DOCUMENTATION.md).
 
 **Usage:**
 ```bash

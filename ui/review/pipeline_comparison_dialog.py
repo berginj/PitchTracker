@@ -10,6 +10,8 @@ from app.services.analysis.comparison_selection import select_qualified_profile,
 from app.services.setup_workflow import SetupWorkflowService
 from contracts.pipeline_comparison import PipelineComparisonRequest
 from ui.tooling_task import ToolingTaskDialog
+from ui.themes import build_dialog_header, style_data_table
+from ui.themes.secondary_helpers import secondary_content, label_form_fields
 
 
 class PipelineComparisonDialog(QtWidgets.QDialog):
@@ -21,12 +23,9 @@ class PipelineComparisonDialog(QtWidgets.QDialog):
         self.resize(980, 680)
         self.task = None
         self.close_pending = False
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.addWidget(
-            QtWidgets.QLabel(
-                "Compare optional detectors on recorded inputs. Physical accuracy requires independent confirmation."
-            )
-        )
+        layout = secondary_content(self)
+        layout.addWidget(build_dialog_header(
+            "Compare approaches", "Recorded-input research · physical accuracy requires independent confirmation."))
         form = QtWidgets.QFormLayout()
         layout.addLayout(form)
         self.fields = {}
@@ -39,25 +38,31 @@ class PipelineComparisonDialog(QtWidgets.QDialog):
             ("repository", "Pinned BaseballCV checkout", True),
         ):
             field = QtWidgets.QLineEdit()
+            field.setAccessibleName(label)
             button = QtWidgets.QPushButton("Choose…")
+            button.setAccessibleName(f"Choose {label.lower()}")
             button.clicked.connect(lambda checked=False, f=field, d=folder: self._browse(f, d))
             row = QtWidgets.QHBoxLayout()
             row.addWidget(field)
             row.addWidget(button)
             form.addRow(label, row)
             self.fields[key] = field
-        actions = QtWidgets.QHBoxLayout()
+        actions = QtWidgets.QGridLayout()
         layout.addLayout(actions)
-        for label, callback in (
+        for index, (label, callback) in enumerate((
             ("Run comparison", self._run),
             ("Open report", self._open),
             ("Review labels", self._labels),
             ("Select qualified profile", self._select),
             ("Restore classical profile", self._classical),
-        ):
+        )):
             button = QtWidgets.QPushButton(label)
             button.clicked.connect(callback)
-            actions.addWidget(button)
+            actions.addWidget(button, index // 2, index % 2)
+            if label == "Select qualified profile":
+                button.setEnabled(False)
+                button.setToolTip("Choose an optional ONNX bundle, then supply its live qualification receipt.")
+                self.fields["bundle"].textChanged.connect(lambda text, b=button: b.setEnabled(bool(text.strip())))
         self.table = QtWidgets.QTableWidget(0, 8)
         self.table.setHorizontalHeaderLabels(
             [
@@ -71,12 +76,18 @@ class PipelineComparisonDialog(QtWidgets.QDialog):
                 "Detector p95 ms",
             ]
         )
-        self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        style_data_table(self.table, sortable=False)
+        self.table.setAccessibleName("Detector comparison outcomes, denominators and timing")
+        self.table.setMinimumHeight(150)
         layout.addWidget(self.table)
         self.details = QtWidgets.QPlainTextEdit()
         self.details.setReadOnly(True)
+        self.details.setAccessibleName("Comparison provenance and failure details")
+        self.details.setPlainText("No report loaded. Run a comparison or open a local report; unavailable results remain visible.")
+        self.details.setMinimumHeight(100)
         layout.addWidget(self.details)
         self.progress_received.connect(self._progress)
+        label_form_fields(self)
 
     def _browse(self, field, directory=False):
         path = (
@@ -183,6 +194,7 @@ class PipelineComparisonDialog(QtWidgets.QDialog):
             )
         )
         text = QtWidgets.QPlainTextEdit(Path(path).read_text(encoding="utf-8"))
+        text.setAccessibleName("Raw pixel labels and opportunity windows JSON")
         layout.addWidget(text)
         reviewed = QtWidgets.QCheckBox("I have reviewed these labels")
         layout.addWidget(reviewed)
@@ -214,6 +226,7 @@ class PipelineComparisonDialog(QtWidgets.QDialog):
                 QtWidgets.QMessageBox.warning(dialog, "Labels not saved", str(exc))
 
         save.clicked.connect(save_labels)
+        label_form_fields(dialog)
         dialog.exec()
 
     def _select(self):

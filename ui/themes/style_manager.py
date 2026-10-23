@@ -46,6 +46,7 @@ class StyleManager:
 
         self.theme.mode = mode
         if self._app is not None and hasattr(self._app, "setStyleSheet"):
+            self._apply_palette(self._app)
             self._app.setStyleSheet(self.theme.get_app_stylesheet())
         self._refresh_all_widgets()
 
@@ -61,6 +62,7 @@ class StyleManager:
     def apply_to_app(self, app: QApplication) -> None:
         self._app = app
         app.setStyle("Fusion")
+        self._apply_palette(app)
         if hasattr(app, "font") and hasattr(app, "setFont"):
             font = app.font()
             font.setFamily("Segoe UI Variable Text")
@@ -68,6 +70,32 @@ class StyleManager:
             app.setFont(font)
         if hasattr(app, "setStyleSheet"):
             app.setStyleSheet(self.theme.get_app_stylesheet())
+
+    def _apply_palette(self, app: QApplication) -> None:
+        """Keep native surfaces and transparent hosted pages on the light theme."""
+        palette = QtGui.QPalette(QtGui.QColor(self.theme.background_dark))
+        roles = QtGui.QPalette.ColorRole
+        colors = {
+            roles.Window: self.theme.background_dark,
+            roles.WindowText: self.theme.text_primary,
+            roles.Base: self.theme.input_background,
+            roles.AlternateBase: self.theme.surface_muted,
+            roles.Text: self.theme.text_primary,
+            roles.Button: self.theme.surface_base,
+            roles.ButtonText: self.theme.text_primary,
+            roles.ToolTipBase: self.theme.surface_base,
+            roles.ToolTipText: self.theme.text_primary,
+            roles.Highlight: self.theme.accent_primary,
+            roles.HighlightedText: self.theme.text_on_accent,
+            roles.PlaceholderText: self.theme.text_muted,
+            roles.Link: self.theme.accent_primary,
+            roles.LinkVisited: self.theme.accent_primary,
+        }
+        for role, color in colors.items():
+            palette.setColor(role, QtGui.QColor(color))
+        for role in (roles.WindowText, roles.Text, roles.ButtonText):
+            palette.setColor(QtGui.QPalette.ColorGroup.Disabled, role, QtGui.QColor(self.theme.text_secondary))
+        app.setPalette(palette)
 
     def polish(self, widget: QtWidgets.QWidget) -> None:
         """Re-polish a widget after dynamic property changes."""
@@ -104,7 +132,7 @@ class StyleManager:
     def style_input(self, widget: QWidget, track: bool = True) -> None:
         widget.setProperty("inputRole", "default")
         if isinstance(widget, (QtWidgets.QLineEdit, QtWidgets.QComboBox, QtWidgets.QAbstractSpinBox)):
-            widget.setMinimumHeight(max(widget.minimumHeight(), 36))
+            widget.setMinimumHeight(max(widget.minimumHeight(), self.theme.button_height_md))
         self.polish(widget)
         if track:
             self._track_widget(widget, "input", "default")

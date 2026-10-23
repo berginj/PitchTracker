@@ -1,0 +1,2879 @@
+{
+  "schema_version": "ux07_captures.v1",
+  "source_commit": "0ea6d7c85540b5946fbbd46c780e2987d5f336a2",
+  "source_worktree_dirty": true,
+  "synthetic_only": true,
+  "renderer": "Actual PySide6 widgets / offscreen Qt / Windows fonts",
+  "before_evidence": "../baseline/index.html",
+  "limitations": [
+    "No cameras, private artifacts, worker jobs or uploads",
+    "Synthetic captures do not qualify Windows DPI or screen readers"
+  ],
+  "captures": [
+    {
+      "file": "analytics-empty-1366x768.png",
+      "page": "analytics",
+      "fixture_state": "empty",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        355,
+        533
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 0,
+      "controls": [],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "analytics-empty-1024x768.png",
+      "page": "analytics",
+      "fixture_state": "empty",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        355,
+        533
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 0,
+      "controls": [],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "analytics-empty-800x600.png",
+      "page": "analytics",
+      "fixture_state": "empty",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        355,
+        533
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 0,
+      "controls": [],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "analytics-partial-speeds-1366x768.png",
+      "page": "analytics",
+      "fixture_state": "partial-speeds",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        355,
+        533
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 0,
+      "controls": [],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "analytics-partial-speeds-1024x768.png",
+      "page": "analytics",
+      "fixture_state": "partial-speeds",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        355,
+        533
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 0,
+      "controls": [],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "analytics-partial-speeds-800x600.png",
+      "page": "analytics",
+      "fixture_state": "partial-speeds",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        355,
+        533
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 0,
+      "controls": [],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "analytics-partial-table-1366x768.png",
+      "page": "analytics",
+      "fixture_state": "partial-table",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        355,
+        533
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 0,
+      "controls": [],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "analytics-partial-table-1024x768.png",
+      "page": "analytics",
+      "fixture_state": "partial-table",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        355,
+        533
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 0,
+      "controls": [],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "analytics-partial-table-800x600.png",
+      "page": "analytics",
+      "fixture_state": "partial-table",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        355,
+        533
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 0,
+      "controls": [],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "analytics-zone-counts-1366x768.png",
+      "page": "analytics",
+      "fixture_state": "zone-counts",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        355,
+        533
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 1,
+      "controls": [
+        {
+          "text": "",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            13,
+            399,
+            122,
+            42
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "analytics-zone-counts-1024x768.png",
+      "page": "analytics",
+      "fixture_state": "zone-counts",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        355,
+        533
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 1,
+      "controls": [
+        {
+          "text": "",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            13,
+            399,
+            122,
+            42
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "analytics-zone-counts-800x600.png",
+      "page": "analytics",
+      "fixture_state": "zone-counts",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        355,
+        533
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 1,
+      "controls": [
+        {
+          "text": "",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            13,
+            399,
+            122,
+            42
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "comparison-history-unavailable-1366x768.png",
+      "page": "comparison",
+      "fixture_state": "history-unavailable",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        112,
+        167
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 5,
+      "controls": [
+        {
+          "text": "Add to Comparison",
+          "accessible_name": "Add selected pitcher to comparison",
+          "enabled": false,
+          "rect": [
+            255,
+            103,
+            149,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "X",
+          "accessible_name": "Remove Missing recorded history from comparison",
+          "enabled": true,
+          "rect": [
+            1250,
+            219,
+            38,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Clear All",
+          "accessible_name": "Clear all compared pitchers",
+          "enabled": true,
+          "rect": [
+            1114,
+            877,
+            79,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Export CSV",
+          "accessible_name": "Export pitcher comparison as CSV",
+          "enabled": true,
+          "rect": [
+            1199,
+            877,
+            98,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close Pitcher Comparison",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            1318,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        260,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0
+      ]
+    },
+    {
+      "file": "comparison-history-unavailable-1024x768.png",
+      "page": "comparison",
+      "fixture_state": "history-unavailable",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        112,
+        167
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 5,
+      "controls": [
+        {
+          "text": "Add to Comparison",
+          "accessible_name": "Add selected pitcher to comparison",
+          "enabled": false,
+          "rect": [
+            255,
+            103,
+            149,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "X",
+          "accessible_name": "Remove Missing recorded history from comparison",
+          "enabled": true,
+          "rect": [
+            908,
+            219,
+            38,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Clear All",
+          "accessible_name": "Clear all compared pitchers",
+          "enabled": true,
+          "rect": [
+            772,
+            894,
+            79,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Export CSV",
+          "accessible_name": "Export pitcher comparison as CSV",
+          "enabled": true,
+          "rect": [
+            857,
+            894,
+            98,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close Pitcher Comparison",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            976,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        277,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0
+      ]
+    },
+    {
+      "file": "comparison-history-unavailable-800x600.png",
+      "page": "comparison",
+      "fixture_state": "history-unavailable",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        112,
+        167
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 5,
+      "controls": [
+        {
+          "text": "Add to Comparison",
+          "accessible_name": "Add selected pitcher to comparison",
+          "enabled": false,
+          "rect": [
+            255,
+            103,
+            149,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "X",
+          "accessible_name": "Remove Missing recorded history from comparison",
+          "enabled": true,
+          "rect": [
+            684,
+            219,
+            38,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Clear All",
+          "accessible_name": "Clear all compared pitchers",
+          "enabled": true,
+          "rect": [
+            548,
+            894,
+            79,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Export CSV",
+          "accessible_name": "Export pitcher comparison as CSV",
+          "enabled": true,
+          "rect": [
+            633,
+            894,
+            98,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close Pitcher Comparison",
+          "enabled": true,
+          "rect": [
+            24,
+            537,
+            752,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        445,
+        0
+      ],
+      "horizontal_scroll_ranges": [
+        0,
+        0
+      ]
+    },
+    {
+      "file": "settings-idle-1366x768.png",
+      "page": "settings",
+      "fixture_state": "idle",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        410,
+        356
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 4,
+      "controls": [
+        {
+          "text": "Install updates automatically",
+          "accessible_name": "Install updates automatically",
+          "enabled": true,
+          "rect": [
+            33,
+            150,
+            193,
+            20
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "About PitchTracker",
+          "accessible_name": "About PitchTracker",
+          "enabled": true,
+          "rect": [
+            1188,
+            140,
+            145,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open Rig Setup",
+          "accessible_name": "Open rig setup from settings",
+          "enabled": true,
+          "rect": [
+            24,
+            205,
+            1318,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close workspace settings",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            1318,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "settings-idle-1024x768.png",
+      "page": "settings",
+      "fixture_state": "idle",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        410,
+        356
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 4,
+      "controls": [
+        {
+          "text": "Install updates automatically",
+          "accessible_name": "Install updates automatically",
+          "enabled": true,
+          "rect": [
+            33,
+            150,
+            193,
+            20
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "About PitchTracker",
+          "accessible_name": "About PitchTracker",
+          "enabled": true,
+          "rect": [
+            846,
+            140,
+            145,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open Rig Setup",
+          "accessible_name": "Open rig setup from settings",
+          "enabled": true,
+          "rect": [
+            24,
+            205,
+            976,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close workspace settings",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            976,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "settings-idle-800x600.png",
+      "page": "settings",
+      "fixture_state": "idle",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        410,
+        356
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 4,
+      "controls": [
+        {
+          "text": "Install updates automatically",
+          "accessible_name": "Install updates automatically",
+          "enabled": true,
+          "rect": [
+            33,
+            150,
+            193,
+            20
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 0
+        },
+        {
+          "text": "About PitchTracker",
+          "accessible_name": "About PitchTracker",
+          "enabled": true,
+          "rect": [
+            622,
+            140,
+            145,
+            40
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open Rig Setup",
+          "accessible_name": "Open rig setup from settings",
+          "enabled": true,
+          "rect": [
+            24,
+            205,
+            752,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close workspace settings",
+          "enabled": true,
+          "rect": [
+            24,
+            537,
+            752,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "help-setup-guide-1366x768.png",
+      "page": "help",
+      "fixture_state": "setup-guide",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        282,
+        356
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 1,
+      "controls": [
+        {
+          "text": "Close",
+          "accessible_name": "Close operator help",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            1318,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "help-setup-guide-1024x768.png",
+      "page": "help",
+      "fixture_state": "setup-guide",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        282,
+        356
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 1,
+      "controls": [
+        {
+          "text": "Close",
+          "accessible_name": "Close operator help",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            976,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "help-setup-guide-800x600.png",
+      "page": "help",
+      "fixture_state": "setup-guide",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        282,
+        356
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 1,
+      "controls": [
+        {
+          "text": "Close",
+          "accessible_name": "Close operator help",
+          "enabled": true,
+          "rect": [
+            24,
+            537,
+            752,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "help-guide-unavailable-1366x768.png",
+      "page": "help",
+      "fixture_state": "guide-unavailable",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        282,
+        356
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 1,
+      "controls": [
+        {
+          "text": "Close",
+          "accessible_name": "Close operator help",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            1318,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "help-guide-unavailable-1024x768.png",
+      "page": "help",
+      "fixture_state": "guide-unavailable",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        282,
+        356
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 1,
+      "controls": [
+        {
+          "text": "Close",
+          "accessible_name": "Close operator help",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            976,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "help-guide-unavailable-800x600.png",
+      "page": "help",
+      "fixture_state": "guide-unavailable",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        282,
+        356
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 1,
+      "controls": [
+        {
+          "text": "Close",
+          "accessible_name": "Close operator help",
+          "enabled": true,
+          "rect": [
+            24,
+            537,
+            752,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "recording-dialog-defaults-1366x768.png",
+      "page": "recording-dialog",
+      "fixture_state": "defaults",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        313,
+        354
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 3,
+      "controls": [
+        {
+          "text": "Browse...",
+          "accessible_name": "Browse output directory",
+          "enabled": true,
+          "rect": [
+            1259,
+            417,
+            83,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Apply",
+          "accessible_name": "Apply recording settings",
+          "enabled": true,
+          "rect": [
+            1202,
+            705,
+            65,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Cancel",
+          "accessible_name": "Cancel recording settings",
+          "enabled": true,
+          "rect": [
+            1273,
+            705,
+            69,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "recording-dialog-defaults-1024x768.png",
+      "page": "recording-dialog",
+      "fixture_state": "defaults",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        313,
+        354
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 3,
+      "controls": [
+        {
+          "text": "Browse...",
+          "accessible_name": "Browse output directory",
+          "enabled": true,
+          "rect": [
+            917,
+            417,
+            83,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Apply",
+          "accessible_name": "Apply recording settings",
+          "enabled": true,
+          "rect": [
+            860,
+            705,
+            65,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Cancel",
+          "accessible_name": "Cancel recording settings",
+          "enabled": true,
+          "rect": [
+            931,
+            705,
+            69,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "recording-dialog-defaults-800x600.png",
+      "page": "recording-dialog",
+      "fixture_state": "defaults",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        313,
+        354
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 3,
+      "controls": [
+        {
+          "text": "Browse...",
+          "accessible_name": "Browse output directory",
+          "enabled": true,
+          "rect": [
+            693,
+            333,
+            83,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Apply",
+          "accessible_name": "Apply recording settings",
+          "enabled": true,
+          "rect": [
+            636,
+            537,
+            65,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Cancel",
+          "accessible_name": "Cancel recording settings",
+          "enabled": true,
+          "rect": [
+            707,
+            537,
+            69,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [],
+      "horizontal_scroll_ranges": []
+    },
+    {
+      "file": "summary-dialog-partial-results-1366x768.png",
+      "page": "summary-dialog",
+      "fixture_state": "partial-results",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        441,
+        223
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 5,
+      "controls": [
+        {
+          "text": "",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            40,
+            312,
+            95,
+            42
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Save Session",
+          "accessible_name": "Save Session",
+          "enabled": true,
+          "rect": [
+            913,
+            649,
+            429,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Upload Session",
+          "accessible_name": "Upload Session",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            429,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Analyze Patterns",
+          "accessible_name": "Analyze Patterns",
+          "enabled": true,
+          "rect": [
+            469,
+            705,
+            428,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close",
+          "enabled": true,
+          "rect": [
+            913,
+            705,
+            429,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        131
+      ],
+      "horizontal_scroll_ranges": [
+        0
+      ]
+    },
+    {
+      "file": "summary-dialog-partial-results-1024x768.png",
+      "page": "summary-dialog",
+      "fixture_state": "partial-results",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        441,
+        223
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 5,
+      "controls": [
+        {
+          "text": "",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            40,
+            312,
+            95,
+            42
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Save Session",
+          "accessible_name": "Save Session",
+          "enabled": true,
+          "rect": [
+            685,
+            649,
+            315,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Upload Session",
+          "accessible_name": "Upload Session",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            315,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Analyze Patterns",
+          "accessible_name": "Analyze Patterns",
+          "enabled": true,
+          "rect": [
+            355,
+            705,
+            314,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close",
+          "enabled": true,
+          "rect": [
+            685,
+            705,
+            315,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        131
+      ],
+      "horizontal_scroll_ranges": [
+        0
+      ]
+    },
+    {
+      "file": "summary-dialog-partial-results-800x600.png",
+      "page": "summary-dialog",
+      "fixture_state": "partial-results",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        441,
+        223
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 5,
+      "controls": [
+        {
+          "text": "",
+          "accessible_name": "",
+          "enabled": true,
+          "rect": [
+            40,
+            312,
+            95,
+            42
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Save Session",
+          "accessible_name": "Save Session",
+          "enabled": true,
+          "rect": [
+            536,
+            481,
+            240,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Upload Session",
+          "accessible_name": "Upload Session",
+          "enabled": true,
+          "rect": [
+            24,
+            537,
+            240,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Analyze Patterns",
+          "accessible_name": "Analyze Patterns",
+          "enabled": true,
+          "rect": [
+            280,
+            537,
+            240,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close",
+          "enabled": true,
+          "rect": [
+            536,
+            537,
+            240,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        299
+      ],
+      "horizontal_scroll_ranges": [
+        0
+      ]
+    },
+    {
+      "file": "advanced-comparison-no-report-1366x768.png",
+      "page": "advanced-comparison",
+      "fixture_state": "no-report",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        112,
+        167
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 12,
+      "controls": [
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose study manifest",
+          "enabled": true,
+          "rect": [
+            1244,
+            131,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose research output",
+          "enabled": true,
+          "rect": [
+            1244,
+            187,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose optional onnx bundle",
+          "enabled": true,
+          "rect": [
+            1244,
+            243,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose optional 2d research assets",
+          "enabled": true,
+          "rect": [
+            1244,
+            299,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose isolated research python",
+          "enabled": true,
+          "rect": [
+            1244,
+            355,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose pinned baseballcv checkout",
+          "enabled": true,
+          "rect": [
+            1244,
+            411,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Run comparison",
+          "accessible_name": "Run comparison",
+          "enabled": true,
+          "rect": [
+            24,
+            467,
+            645,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open report",
+          "accessible_name": "Open report",
+          "enabled": true,
+          "rect": [
+            685,
+            467,
+            645,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Review labels",
+          "accessible_name": "Review labels",
+          "enabled": true,
+          "rect": [
+            24,
+            522,
+            645,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Select qualified profile",
+          "accessible_name": "Select qualified profile",
+          "enabled": false,
+          "rect": [
+            685,
+            522,
+            645,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Restore classical profile",
+          "accessible_name": "Restore classical profile",
+          "enabled": true,
+          "rect": [
+            24,
+            577,
+            645,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close Compare approaches",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            1318,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        343
+      ],
+      "horizontal_scroll_ranges": [
+        0
+      ]
+    },
+    {
+      "file": "advanced-comparison-no-report-1024x768.png",
+      "page": "advanced-comparison",
+      "fixture_state": "no-report",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        112,
+        167
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 12,
+      "controls": [
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose study manifest",
+          "enabled": true,
+          "rect": [
+            902,
+            131,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose research output",
+          "enabled": true,
+          "rect": [
+            902,
+            187,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose optional onnx bundle",
+          "enabled": true,
+          "rect": [
+            902,
+            243,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose optional 2d research assets",
+          "enabled": true,
+          "rect": [
+            902,
+            299,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose isolated research python",
+          "enabled": true,
+          "rect": [
+            902,
+            355,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose pinned baseballcv checkout",
+          "enabled": true,
+          "rect": [
+            902,
+            411,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Run comparison",
+          "accessible_name": "Run comparison",
+          "enabled": true,
+          "rect": [
+            24,
+            467,
+            474,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open report",
+          "accessible_name": "Open report",
+          "enabled": true,
+          "rect": [
+            514,
+            467,
+            474,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Review labels",
+          "accessible_name": "Review labels",
+          "enabled": true,
+          "rect": [
+            24,
+            522,
+            474,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Select qualified profile",
+          "accessible_name": "Select qualified profile",
+          "enabled": false,
+          "rect": [
+            514,
+            522,
+            474,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Restore classical profile",
+          "accessible_name": "Restore classical profile",
+          "enabled": true,
+          "rect": [
+            24,
+            577,
+            474,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close Compare approaches",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            976,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        343
+      ],
+      "horizontal_scroll_ranges": [
+        0
+      ]
+    },
+    {
+      "file": "advanced-comparison-no-report-800x600.png",
+      "page": "advanced-comparison",
+      "fixture_state": "no-report",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        112,
+        167
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 12,
+      "controls": [
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose study manifest",
+          "enabled": true,
+          "rect": [
+            678,
+            131,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose research output",
+          "enabled": true,
+          "rect": [
+            678,
+            187,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose optional onnx bundle",
+          "enabled": true,
+          "rect": [
+            678,
+            243,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose optional 2d research assets",
+          "enabled": true,
+          "rect": [
+            678,
+            299,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose isolated research python",
+          "enabled": true,
+          "rect": [
+            678,
+            355,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose pinned baseballcv checkout",
+          "enabled": true,
+          "rect": [
+            678,
+            411,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Run comparison",
+          "accessible_name": "Run comparison",
+          "enabled": true,
+          "rect": [
+            24,
+            467,
+            362,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open report",
+          "accessible_name": "Open report",
+          "enabled": true,
+          "rect": [
+            402,
+            467,
+            362,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Review labels",
+          "accessible_name": "Review labels",
+          "enabled": true,
+          "rect": [
+            24,
+            522,
+            362,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Select qualified profile",
+          "accessible_name": "Select qualified profile",
+          "enabled": false,
+          "rect": [
+            402,
+            522,
+            362,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Restore classical profile",
+          "accessible_name": "Restore classical profile",
+          "enabled": true,
+          "rect": [
+            24,
+            577,
+            362,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close Compare approaches",
+          "enabled": true,
+          "rect": [
+            24,
+            537,
+            752,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        511
+      ],
+      "horizontal_scroll_ranges": [
+        0
+      ]
+    },
+    {
+      "file": "advanced-comparison-failed-opportunities-1366x768.png",
+      "page": "advanced-comparison",
+      "fixture_state": "failed-opportunities",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        112,
+        167
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 12,
+      "controls": [
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose study manifest",
+          "enabled": true,
+          "rect": [
+            1244,
+            -91,
+            86,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose research output",
+          "enabled": true,
+          "rect": [
+            1244,
+            -35,
+            86,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose optional onnx bundle",
+          "enabled": true,
+          "rect": [
+            1244,
+            21,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose optional 2d research assets",
+          "enabled": true,
+          "rect": [
+            1244,
+            77,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose isolated research python",
+          "enabled": true,
+          "rect": [
+            1244,
+            133,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose pinned baseballcv checkout",
+          "enabled": true,
+          "rect": [
+            1244,
+            189,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Run comparison",
+          "accessible_name": "Run comparison",
+          "enabled": true,
+          "rect": [
+            24,
+            245,
+            645,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open report",
+          "accessible_name": "Open report",
+          "enabled": true,
+          "rect": [
+            685,
+            245,
+            645,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Review labels",
+          "accessible_name": "Review labels",
+          "enabled": true,
+          "rect": [
+            24,
+            300,
+            645,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Select qualified profile",
+          "accessible_name": "Select qualified profile",
+          "enabled": false,
+          "rect": [
+            685,
+            300,
+            645,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Restore classical profile",
+          "accessible_name": "Restore classical profile",
+          "enabled": true,
+          "rect": [
+            24,
+            355,
+            645,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close Compare approaches",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            1318,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        343
+      ],
+      "horizontal_scroll_ranges": [
+        0
+      ]
+    },
+    {
+      "file": "advanced-comparison-failed-opportunities-1024x768.png",
+      "page": "advanced-comparison",
+      "fixture_state": "failed-opportunities",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        112,
+        167
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 12,
+      "controls": [
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose study manifest",
+          "enabled": true,
+          "rect": [
+            902,
+            -91,
+            86,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose research output",
+          "enabled": true,
+          "rect": [
+            902,
+            -35,
+            86,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose optional onnx bundle",
+          "enabled": true,
+          "rect": [
+            902,
+            21,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose optional 2d research assets",
+          "enabled": true,
+          "rect": [
+            902,
+            77,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose isolated research python",
+          "enabled": true,
+          "rect": [
+            902,
+            133,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose pinned baseballcv checkout",
+          "enabled": true,
+          "rect": [
+            902,
+            189,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Run comparison",
+          "accessible_name": "Run comparison",
+          "enabled": true,
+          "rect": [
+            24,
+            245,
+            474,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open report",
+          "accessible_name": "Open report",
+          "enabled": true,
+          "rect": [
+            514,
+            245,
+            474,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Review labels",
+          "accessible_name": "Review labels",
+          "enabled": true,
+          "rect": [
+            24,
+            300,
+            474,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Select qualified profile",
+          "accessible_name": "Select qualified profile",
+          "enabled": false,
+          "rect": [
+            514,
+            300,
+            474,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Restore classical profile",
+          "accessible_name": "Restore classical profile",
+          "enabled": true,
+          "rect": [
+            24,
+            355,
+            474,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close Compare approaches",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            976,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        343
+      ],
+      "horizontal_scroll_ranges": [
+        0
+      ]
+    },
+    {
+      "file": "advanced-comparison-failed-opportunities-800x600.png",
+      "page": "advanced-comparison",
+      "fixture_state": "failed-opportunities",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        112,
+        167
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 12,
+      "controls": [
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose study manifest",
+          "enabled": true,
+          "rect": [
+            678,
+            -259,
+            86,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose research output",
+          "enabled": true,
+          "rect": [
+            678,
+            -203,
+            86,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose optional onnx bundle",
+          "enabled": true,
+          "rect": [
+            678,
+            -147,
+            86,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose optional 2d research assets",
+          "enabled": true,
+          "rect": [
+            678,
+            -91,
+            86,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose isolated research python",
+          "enabled": true,
+          "rect": [
+            678,
+            -35,
+            86,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose\u2026",
+          "accessible_name": "Choose pinned baseballcv checkout",
+          "enabled": true,
+          "rect": [
+            678,
+            21,
+            86,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Run comparison",
+          "accessible_name": "Run comparison",
+          "enabled": true,
+          "rect": [
+            24,
+            77,
+            362,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Open report",
+          "accessible_name": "Open report",
+          "enabled": true,
+          "rect": [
+            402,
+            77,
+            362,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Review labels",
+          "accessible_name": "Review labels",
+          "enabled": true,
+          "rect": [
+            24,
+            132,
+            362,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Select qualified profile",
+          "accessible_name": "Select qualified profile",
+          "enabled": false,
+          "rect": [
+            402,
+            132,
+            362,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Restore classical profile",
+          "accessible_name": "Restore classical profile",
+          "enabled": true,
+          "rect": [
+            24,
+            187,
+            362,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close Compare approaches",
+          "enabled": true,
+          "rect": [
+            24,
+            537,
+            752,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        511
+      ],
+      "horizontal_scroll_ranges": [
+        0
+      ]
+    },
+    {
+      "file": "advanced-refits-no-jobs-1366x768.png",
+      "page": "advanced-refits",
+      "fixture_state": "no-jobs",
+      "requested_size": [
+        1366,
+        768
+      ],
+      "actual_size": [
+        1366,
+        768
+      ],
+      "minimum_size_hint": [
+        112,
+        167
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 5,
+      "controls": [
+        {
+          "text": "Add session",
+          "accessible_name": "Add session",
+          "enabled": true,
+          "rect": [
+            24,
+            339,
+            645,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove session",
+          "accessible_name": "Remove session",
+          "enabled": true,
+          "rect": [
+            685,
+            339,
+            645,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose output folder",
+          "accessible_name": "Choose output folder",
+          "enabled": true,
+          "rect": [
+            24,
+            394,
+            160,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Run / resume refits",
+          "accessible_name": "Run / resume refits",
+          "enabled": true,
+          "rect": [
+            24,
+            950,
+            1306,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close Batch trajectory refits",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            1318,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        508
+      ],
+      "horizontal_scroll_ranges": [
+        0
+      ]
+    },
+    {
+      "file": "advanced-refits-no-jobs-1024x768.png",
+      "page": "advanced-refits",
+      "fixture_state": "no-jobs",
+      "requested_size": [
+        1024,
+        768
+      ],
+      "actual_size": [
+        1024,
+        768
+      ],
+      "minimum_size_hint": [
+        112,
+        167
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 5,
+      "controls": [
+        {
+          "text": "Add session",
+          "accessible_name": "Add session",
+          "enabled": true,
+          "rect": [
+            24,
+            339,
+            474,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove session",
+          "accessible_name": "Remove session",
+          "enabled": true,
+          "rect": [
+            514,
+            339,
+            474,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose output folder",
+          "accessible_name": "Choose output folder",
+          "enabled": true,
+          "rect": [
+            24,
+            394,
+            160,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Run / resume refits",
+          "accessible_name": "Run / resume refits",
+          "enabled": true,
+          "rect": [
+            24,
+            950,
+            964,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close Batch trajectory refits",
+          "enabled": true,
+          "rect": [
+            24,
+            705,
+            976,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        508
+      ],
+      "horizontal_scroll_ranges": [
+        0
+      ]
+    },
+    {
+      "file": "advanced-refits-no-jobs-800x600.png",
+      "page": "advanced-refits",
+      "fixture_state": "no-jobs",
+      "requested_size": [
+        800,
+        600
+      ],
+      "actual_size": [
+        800,
+        600
+      ],
+      "minimum_size_hint": [
+        112,
+        167
+      ],
+      "device_pixel_ratio": 1.0,
+      "visible_button_count": 5,
+      "controls": [
+        {
+          "text": "Add session",
+          "accessible_name": "Add session",
+          "enabled": true,
+          "rect": [
+            24,
+            339,
+            362,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Remove session",
+          "accessible_name": "Remove session",
+          "enabled": true,
+          "rect": [
+            402,
+            339,
+            362,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Choose output folder",
+          "accessible_name": "Choose output folder",
+          "enabled": true,
+          "rect": [
+            24,
+            394,
+            160,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Run / resume refits",
+          "accessible_name": "Run / resume refits",
+          "enabled": true,
+          "rect": [
+            24,
+            950,
+            740,
+            39
+          ],
+          "inside_requested_bounds": false,
+          "connected_click_receivers": 1
+        },
+        {
+          "text": "Close",
+          "accessible_name": "Close Batch trajectory refits",
+          "enabled": true,
+          "rect": [
+            24,
+            537,
+            752,
+            39
+          ],
+          "inside_requested_bounds": true,
+          "connected_click_receivers": 1
+        }
+      ],
+      "vertical_scroll_ranges": [
+        676
+      ],
+      "horizontal_scroll_ranges": [
+        0
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-10-14
+**Last reviewed:** 2026-10-23
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -39,8 +39,22 @@ physical qualification or release gates.
   ([implementation and evidence](review/ux/UX_05_IMPLEMENTATION.md)).
 - [x] UX-06: Align setup and player workflows within the workspace
   ([implementation and evidence](review/ux/UX_06_IMPLEMENTATION.md)).
-- [ ] UX-07: Normalize analytics, dialogs, settings, help and visual presentation.
-- [ ] UX-08: Validate complete operator journeys and record manual evidence.
+- [x] UX-07: Normalize analytics, dialogs, settings, help and visual presentation
+  ([implementation and evidence](review/ux/UX_07_IMPLEMENTATION.md)).
+- [ ] UX-08: Validate complete operator journeys and record manual evidence
+  ([qualification record and manual worksheet](review/ux/UX_08_QUALIFICATION.md)).
+  Automated simulator journeys and recovery-layout checks are implemented;
+  complete operator journeys, packaged and hardware evidence remain pending.
+  The 2026-10-19 camera-free follow-up adds native 200% desktop observations,
+  fixes light-palette and cross-page shortcut defects, and verifies empty-setup
+  navigation and real-service simulator recording. The operator confirmed
+  readability at Windows 125%/150%/200%, keyboard page navigation and Narrator
+  control labels; remaining manual coverage is listed in the qualification record.
+  The October 23 integration adds responsive setup previews and supervised
+  manual focus, including keyboard target selection and stale-frame recovery.
+  Manual lens direction, disconnect recovery, actual display scaling and frozen
+  serial-based camera capture remain qualification gates; no physical approval
+  follows from synthetic focus scores or collection progress.
 
 Execute in ID order. Each package must pass its focused checks before the next
 starts; carry pending hardware evidence explicitly without claiming it passed.
@@ -264,6 +278,14 @@ updater shutdown, exact installer/config provenance, and CSV/strike uncertainty
 semantics. The [remediation validation record](review/REMEDIATION_VALIDATION_2026_10_03.md)
 tracks tests and artifact hashes. Physical qualification, independent accuracy
 confirmation, signing, and clean-machine lifecycle tests remain open.
+
+## Documentation maintenance
+
+- [x] Consolidate maintenance instructions in AGENTS.md, move detailed runtime
+  contracts to architecture reference, reconcile Copilot/contributor guidance,
+  index superseded plans in one archive with compatibility pointers, and check
+  all maintained Markdown. Follow the [documentation policy](DOCUMENTATION.md).
+  Dated evidence and physical-validation acceptance gates retain their scope.
 
 ## Later or conditional
 

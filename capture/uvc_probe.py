@@ -178,7 +178,7 @@ class OpenCvDirectShowProbe:
         exposure = _property_read(capture, cv2.CAP_PROP_EXPOSURE)
         gain = _property_read(capture, cv2.CAP_PROP_GAIN)
         autofocus = _property_read(capture, cv2.CAP_PROP_AUTOFOCUS)
-        wb = _property_read(capture, cv2.CAP_PROP_WB_TEMPERATURE)
+        wb = _property_read(capture, cv2.CAP_PROP_WHITE_BALANCE_BLUE_U)
 
         actual_width = int(width.value or 0)
         actual_height = int(height.value or 0)
@@ -240,7 +240,7 @@ class OpenCvDirectShowProbe:
                 requested=0,
                 verified=bool(control_state.get("autofocus_set"))
                 and autofocus.value is not None
-                and abs(autofocus.value) <= 0.1,
+                and autofocus.value == 2,
                 reason="Autofocus-disable write/readback was not verified.",
             ),
             CONTROL_WHITE_BALANCE: _result_from_read(

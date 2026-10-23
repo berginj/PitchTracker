@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import threading
 import time
@@ -116,12 +117,18 @@ def _query_pnp_devices(
         List of device dictionaries
     """
     command = (
-        "Get-PnpDevice -Class "
+        "$devices = @(Get-PnpDevice -Class "
         + device_class
-        + " | Where-Object { $_.Present -eq $true -and ($_.Status -eq 'OK' -or $_.Status -eq $null) } "
-        + "| ForEach-Object { "
+        + " | Where-Object { $_.Present -eq $true -and ($_.Status -eq 'OK' -or $_.Status -eq $null) }); "
+        + "if ($devices.Count -eq 0) { '[]'; exit }; "
+        + "$allProps = @(Get-PnpDeviceProperty -InstanceId $devices.InstanceId -KeyName "
+        + "DEVPKEY_Device_SerialNumber,DEVPKEY_Device_Manufacturer,DEVPKEY_Device_DeviceDesc,"
+        + "DEVPKEY_Device_HardwareIds,DEVPKEY_Device_DriverVersion,DEVPKEY_Device_DriverProvider,"
+        + "DEVPKEY_Device_LocationPaths,DEVPKEY_Device_Parent -ErrorAction SilentlyContinue); "
+        + "$byDevice = @{}; if ($allProps.Count) { $byDevice = $allProps | Group-Object -Property InstanceId -AsHashTable }; "
+        + "$devices | ForEach-Object { "
         + "$dev = $_; "
-        + "$props = Get-PnpDeviceProperty -InstanceId $dev.InstanceId -ErrorAction SilentlyContinue; "
+        + "$props = $byDevice[$dev.InstanceId]; "
         + "$serial = ($props | Where-Object { $_.KeyName -eq 'DEVPKEY_Device_SerialNumber' } | Select-Object -First 1).Data; "
         + "$mfg = ($props | Where-Object { $_.KeyName -eq 'DEVPKEY_Device_Manufacturer' } | Select-Object -First 1).Data; "
         + "$desc = ($props | Where-Object { $_.KeyName -eq 'DEVPKEY_Device_DeviceDesc' } | Select-Object -First 1).Data; "
@@ -151,7 +158,7 @@ def _query_pnp_devices(
         return []
     try:
         process = subprocess.Popen(
-            ["powershell", "-NoProfile", "-Command", command],
+            [shutil.which("pwsh") or "powershell", "-NoProfile", "-Command", command],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

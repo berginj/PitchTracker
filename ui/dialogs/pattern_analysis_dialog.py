@@ -95,27 +95,30 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
         self._style_manager.style_button(self.open_html_button, "ghost")
         self.open_html_button.clicked.connect(self._open_html_report)
         self.open_html_button.setEnabled(False)
+        self.open_html_button.setToolTip("Run analysis successfully before opening its HTML report.")
 
         self.export_json_button = QtWidgets.QPushButton("Export JSON")
         self._style_manager.style_button(self.export_json_button, "ghost")
         self.export_json_button.clicked.connect(self._export_json)
         self.export_json_button.setEnabled(False)
+        self.export_json_button.setToolTip("Run analysis successfully before exporting its results.")
 
         self.create_profile_button = QtWidgets.QPushButton("Create Pitcher Profile")
         self._style_manager.style_button(self.create_profile_button, "success")
         self.create_profile_button.clicked.connect(self._create_profile)
         self.create_profile_button.setEnabled(False)
+        self.create_profile_button.setToolTip("Run analysis successfully before creating a profile from its results.")
 
         close_button = QtWidgets.QPushButton("Close")
         self._style_manager.style_button(close_button, "ghost")
         close_button.clicked.connect(self.accept)
 
-        button_row.addWidget(self.analyze_button)
-        button_row.addWidget(self.open_html_button)
-        button_row.addWidget(self.export_json_button)
-        button_row.addWidget(self.create_profile_button)
-        button_row.addStretch()
-        button_row.addWidget(close_button)
+        # Two rows retain every action at the 800x600 viewport.
+        actions = QtWidgets.QGridLayout()
+        for index, button in enumerate((self.analyze_button, self.open_html_button, self.export_json_button,
+                                       self.create_profile_button, close_button)):
+            actions.addWidget(button, index // 3, index % 3)
+        button_row.addLayout(actions)
         layout.addLayout(button_row)
 
         self.status_label = QtWidgets.QLabel("Ready to analyze.")
@@ -123,6 +126,10 @@ class PatternAnalysisDialog(QtWidgets.QDialog):
         layout.addWidget(self.status_label)
 
         polish_form_controls(self)
+        for widget, name in ((self.summary_text, "Pattern analysis summary"), (self.anomalies_table, "Pattern anomalies"),
+                             (self.classification_table, "Research pitch classifications"),
+                             (self.baseline_text, "Recorded baseline comparison"), (self.tabs, "Pattern analysis views")):
+            widget.setAccessibleName(name)
 
     def _set_status(self, text: str, tone: str = "info") -> None:
         """Update analysis status."""

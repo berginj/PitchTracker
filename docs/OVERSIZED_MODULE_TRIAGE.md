@@ -12,7 +12,7 @@ grandfathers inherited debt. A passing gate therefore means no new size debt;
 it does not mean every module meets the current limit.
 
 Priorities below combine runtime criticality, one-year commit count, current
-line count, and ownership boundaries from `agents.md`. Tests should normally be
+line count, and ownership boundaries from `AGENTS.md`. Tests should normally be
 split with the source boundary they characterize rather than receiving
 standalone extraction projects.
 

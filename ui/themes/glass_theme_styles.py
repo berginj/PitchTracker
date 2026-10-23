@@ -17,6 +17,7 @@ class ThemeTokens(Protocol):
     preview_surface: str
     border_glass: str
     border_glass_hover: str
+    control_border: str
     accent_primary: str
     accent_primary_dim: str
     accent_success: str
@@ -159,7 +160,7 @@ QGroupBox::title {{
 def _build_button_and_input_styles(t: ThemeTokens) -> str:
     return f"""
 QPushButton {{
-    background-color: {t.surface_base}; border: 1px solid {t.border_glass};
+    background-color: {t.surface_base}; border: 1px solid {t.control_border};
     border-radius: {t.border_radius_small}px; color: {t.text_primary};
     padding: 10px 14px; font-size: {t.font_size_medium}px; font-weight: 600;
 }}
@@ -169,7 +170,7 @@ QPushButton:hover {{
 QPushButton:pressed {{
     background-color: {t.surface_glass_active}; border-color: {t.border_glass_hover};
 }}
-QPushButton:disabled {{ background-color: #F3F5F8; border-color: #E2E8F0; color: #98A2B3; }}
+QPushButton:disabled {{ background-color: {t.surface_muted}; border-color: {t.border_glass}; color: {t.text_secondary}; }}
 QPushButton[variant="primary"] {{
     background-color: {t.accent_primary}; border-color: {t.accent_primary}; color: {t.text_on_accent};
 }}
@@ -207,13 +208,14 @@ QPushButton[variant="role-card"][accent="primary"] {{ border-color: #BED4FF; }}
 QPushButton[variant="role-card"][accent="success"] {{ border-color: #CDE5D3; }}
 QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QDateEdit,
 QTimeEdit, QDateTimeEdit, QComboBox {{
-    background-color: {t.input_background}; border: 1px solid {t.border_glass};
+    background-color: {t.input_background}; border: 1px solid {t.control_border};
     border-radius: {t.border_radius_small}px; color: {t.text_primary}; padding: 9px 12px;
     selection-background-color: {t.accent_primary_dim}; selection-color: {t.text_primary};
 }}
 QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QSpinBox:focus,
 QDoubleSpinBox:focus, QDateEdit:focus, QTimeEdit:focus, QDateTimeEdit:focus,
 QComboBox:focus {{ border-color: {t.accent_primary}; }}
+QAbstractItemView:focus, QTextBrowser:focus {{ border: 2px solid {t.accent_primary}; }}
 QPushButton:focus, QToolButton:focus {{ border: 2px solid {t.accent_primary}; }}
 QCheckBox:focus, QRadioButton:focus {{
     outline: 2px solid {t.accent_primary}; outline-offset: 2px;
@@ -224,6 +226,12 @@ QComboBox::down-arrow {{
     image: none; width: 0px; height: 0px; border-left: 5px solid transparent;
     border-right: 5px solid transparent; border-top: 6px solid {t.text_muted};
     margin-right: 10px;
+}}
+QPushButton[variant]:disabled {{
+    background-color: {t.surface_muted}; border-color: {t.border_glass}; color: {t.text_secondary};
+}}
+QComboBox:disabled, QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {{
+    background-color: {t.surface_muted}; color: {t.text_secondary};
 }}
 """
 
@@ -293,7 +301,7 @@ QProgressBar[variant="warning"]::chunk {{ background-color: {t.accent_warning}; 
 QProgressBar[variant="danger"]::chunk {{ background-color: {t.accent_error}; }}
 QCheckBox {{ color: {t.text_primary}; spacing: 8px; }}
 QCheckBox::indicator {{
-    width: 18px; height: 18px; border: 1px solid {t.border_glass_hover};
+    width: 18px; height: 18px; border: 1px solid {t.control_border};
     border-radius: 6px; background-color: {t.surface_base};
 }}
 QCheckBox::indicator:checked {{
@@ -301,7 +309,7 @@ QCheckBox::indicator:checked {{
 }}
 QRadioButton {{ color: {t.text_primary}; spacing: 8px; }}
 QRadioButton::indicator {{
-    width: 18px; height: 18px; border: 1px solid {t.border_glass_hover};
+    width: 18px; height: 18px; border: 1px solid {t.control_border};
     border-radius: 9px; background-color: {t.surface_base};
 }}
 QRadioButton::indicator:checked {{
@@ -361,7 +369,7 @@ def build_panel_style(t: ThemeTokens, intensity: str) -> str:
 
 def build_button_style(t: ThemeTokens, variant: str) -> str:
     variants = {
-        "default": (t.surface_base, t.border_glass, t.text_primary),
+        "default": (t.surface_base, t.control_border, t.text_primary),
         "primary": (t.accent_primary, t.accent_primary, t.text_on_accent),
         "success": (t.accent_success, t.accent_success, t.text_on_accent),
         "danger": (t.accent_error, t.accent_error, t.text_on_accent),
@@ -377,7 +385,7 @@ def build_button_style(t: ThemeTokens, variant: str) -> str:
 
 def build_input_style(t: ThemeTokens) -> str:
     return (
-        f"background-color: {t.input_background};border: {t.border_width}px solid {t.border_glass};"
+        f"background-color: {t.input_background};border: {t.border_width}px solid {t.control_border};"
         f"border-radius: {t.border_radius_small}px;padding: 9px 12px;color: {t.text_primary};"
     )
 

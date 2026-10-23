@@ -3,9 +3,30 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from typing import Any, Optional
 
 import cv2
+
+from contracts.capability_observation import CONTROL_EXPOSURE, CONTROL_FOCUS, ControlQueryResult, ControlQueryStatus
+from log_config.logger import get_logger
+from .uvc_probe import ProbeEvidence, load_native_probe
+
+logger = get_logger(__name__)
+
+
+def refresh_native_controls(camera_id: str, device_index: int, friendly_name: str) -> ProbeEvidence | None:
+    """Query current native flags after writes; pre-write capability flags are stale."""
+    if device_index < 0:
+        return None
+    probe = load_native_probe()
+    if probe is None:
+        return None
+    try:
+        return probe.probe(camera_id=camera_id, device_index=device_index, friendly_name=friendly_name)
+    except Exception as exc:  # noqa: BLE001 - unavailable native evidence must keep controls unverified
+        logger.warning("Current DirectShow control query failed for camera {}: {}", camera_id, exc)
+        return None
 
 
 def _safe_set(capture: cv2.VideoCapture, prop: int, value: float) -> bool:
@@ -52,10 +73,10 @@ def apply_controls(
         "wb_mode": wb_mode,
         "wb": wb,
     }
-    auto_exposure_set = _safe_set(capture, cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+    auto_exposure_set = _safe_set(capture, cv2.CAP_PROP_AUTO_EXPOSURE, 0)
     exposure_set = False
     if exposure_us > 0:
-        backend_exposure = math.log2(float(exposure_us) / 1_000_000.0)
+        backend_exposure = round(math.log2(float(exposure_us) / 1_000_000.0))
         exposure_set = _safe_set(capture, cv2.CAP_PROP_EXPOSURE, backend_exposure)
     gain_set = _safe_set(capture, cv2.CAP_PROP_GAIN, gain)
 
@@ -69,7 +90,7 @@ def apply_controls(
             _safe_set(capture, cv2.CAP_PROP_AUTO_WB, 1)
             auto_wb_raw = _safe_get(capture, cv2.CAP_PROP_AUTO_WB)
         if auto_wb_raw is not None and abs(auto_wb_raw) > 0.1:
-            sampled_wb = _safe_get(capture, cv2.CAP_PROP_WB_TEMPERATURE)
+            sampled_wb = _safe_get(capture, cv2.CAP_PROP_WHITE_BALANCE_BLUE_U)
             if sampled_wb is not None and sampled_wb > 0:
                 resolved_wb = sampled_wb
                 wb_source = "auto_sampled_then_locked"
@@ -82,7 +103,7 @@ def apply_controls(
     if wb_mode is None:
         auto_wb_set = _safe_set(capture, cv2.CAP_PROP_AUTO_WB, 0)
         if resolved_wb is not None:
-            wb_set = _safe_set(capture, cv2.CAP_PROP_WB_TEMPERATURE, float(resolved_wb))
+            wb_set = _safe_set(capture, cv2.CAP_PROP_WHITE_BALANCE_BLUE_U, float(resolved_wb))
 
     return {
         "requested": requested,
@@ -102,6 +123,7 @@ def read_controls(
     capture: cv2.VideoCapture,
     pixfmt: str,
     state: dict[str, Any],
+    native_results: Mapping[str, ControlQueryResult] | None = None,
 ) -> dict[str, Any]:
     """Read controls back and distinguish requested values from observations."""
     requested = dict(state.get("requested", {}))
@@ -110,20 +132,20 @@ def read_controls(
         None if exposure_raw is None else _directshow_exposure_us(exposure_raw)
     )
     gain_readback = _safe_get(capture, cv2.CAP_PROP_GAIN)
-    wb_readback = _safe_get(capture, cv2.CAP_PROP_WB_TEMPERATURE)
+    wb_readback = _safe_get(capture, cv2.CAP_PROP_WHITE_BALANCE_BLUE_U)
     auto_exposure_raw = _safe_get(capture, cv2.CAP_PROP_AUTO_EXPOSURE)
     auto_wb_raw = _safe_get(capture, cv2.CAP_PROP_AUTO_WB)
     autofocus_raw = _safe_get(capture, cv2.CAP_PROP_AUTOFOCUS)
-    auto_exposure_disabled = (
-        auto_exposure_raw is not None
-        and bool(state.get("auto_exposure_set"))
-        and (
-            abs(auto_exposure_raw - 0.25) <= 0.1
-            or abs(auto_exposure_raw) <= 0.1
-        )
-    )
+    native_exposure = (native_results or {}).get(CONTROL_EXPOSURE)
+    exposure_state = (native_exposure.observed_value if native_exposure
+                      and native_exposure.status == ControlQueryStatus.SUPPORTED else None)
+    exposure_flags = exposure_state.get("current_flags") if isinstance(exposure_state, Mapping) else None
+    auto_exposure_disabled = exposure_flags == 2 and bool(state.get("auto_exposure_set"))
     auto_wb_disabled = auto_wb_raw is not None and abs(auto_wb_raw) <= 0.1
-    autofocus_disabled = autofocus_raw is not None and abs(autofocus_raw) <= 0.1
+    native_focus = (native_results or {}).get(CONTROL_FOCUS)
+    focus_absent = bool(native_focus and native_focus.status == ControlQueryStatus.UNSUPPORTED
+                        and autofocus_raw in (None, -1.0))
+    autofocus_disabled = autofocus_raw == 2 or focus_absent
     exposure_ok = exposure_readback_us is not None and bool(state.get("exposure_set")) and _relative_close(
         exposure_readback_us, float(requested.get("exposure_us") or 0.0), 0.25
     )
@@ -170,12 +192,16 @@ def read_controls(
         "wb_source": wb_source,
         "auto_wb_sampled_while_enabled": bool(state.get("auto_wb_sampled_while_enabled")),
         "auto_exposure_readback_raw": auto_exposure_raw,
+        "exposure_current_flags": exposure_flags,
+        "exposure_flags_source": "native_directshow" if exposure_flags is not None else "unavailable",
         "auto_white_balance_readback_raw": auto_wb_raw,
         "autofocus_readback_raw": autofocus_raw,
         "auto_exposure_disabled": auto_exposure_disabled,
         "auto_white_balance_disabled": auto_wb_disabled,
         "autofocus_disable_write_succeeded": bool(state.get("autofocus_set")),
         "autofocus_disabled": autofocus_disabled,
+        "autofocus_absent": focus_absent,
+        "autofocus_flags_source": "native_directshow_unsupported" if focus_absent else "opencv_directshow",
         "exposure_readback_verified": exposure_ok,
         "gain_readback_verified": gain_ok,
         "color_white_balance_verified": wb_ok if color_capture else None,

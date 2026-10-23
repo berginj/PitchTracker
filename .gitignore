@@ -36,6 +36,9 @@ camera_tests/
 validation_output/
 research_output/
 
+# Local historical assets; source checks already exclude archive/.
+/archive/local/
+
 # Benchmark results
 benchmarks/results_*.json
 

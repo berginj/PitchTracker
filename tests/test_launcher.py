@@ -113,6 +113,11 @@ def test_main_shows_launcher_without_blocking_on_validation(
     argv: list[str],
 ) -> None:
     class DummyApp:
+        palette_applied = False
+
+        def setPalette(self, _palette: object) -> None:
+            self.palette_applied = True
+
         def setStyle(self, _style: str) -> None:
             pass
 
@@ -169,6 +174,7 @@ def test_main_shows_launcher_without_blocking_on_validation(
             launcher.main(argv)
 
     assert exc_info.value.code == 0
+    assert app.palette_applied
     assert len(created_windows) == 1
     assert created_windows[0].shown is True
     assert created_windows[0].setup_opened == ("--setup" in argv)

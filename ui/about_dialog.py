@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PySide6 import QtCore, QtWidgets
 
-from ui.themes import get_style_manager
+from ui.themes import get_style_manager, polish_form_controls
 from updater import get_current_version
 
 
@@ -41,7 +41,7 @@ class AboutDialog(QtWidgets.QDialog):
             "• Stereo calibration and 3D trajectory reconstruction\n"
             "• Strike zone analysis\n"
             "• Session recording and metrics\n"
-            "• Role-based interfaces (Setup Wizard + Coaching App)"
+            "• One workspace: Live, Sessions, Players and Setup"
         )
         description.setWordWrap(True)
         sm.style_label(description, "muted")
@@ -49,8 +49,8 @@ class AboutDialog(QtWidgets.QDialog):
 
         components = QtWidgets.QLabel(
             "Key Components:\n"
-            "• Setup Wizard - Guided system configuration\n"
-            "• Coaching App - Real-time session management\n"
+            "• Guided Setup - Five-stage rig configuration\n"
+            "• Live and Sessions - Recording and local review\n"
             "• Pipeline Service - Detection and tracking engine\n"
             "• Calibration Tools - Stereo camera calibration"
         )
@@ -66,6 +66,7 @@ class AboutDialog(QtWidgets.QDialog):
         layout.addWidget(close_button)
 
         self.setLayout(layout)
+        polish_form_controls(self)
 
 
 __all__ = ["AboutDialog"]

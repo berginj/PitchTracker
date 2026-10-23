@@ -14,11 +14,11 @@
 
 - [ ] `flake8 .` is clean (**hard CI gate** — any error blocks merge)
 - [ ] `python -m pytest` passes locally
-- [ ] `python scripts/check_file_length.py` passes (no file over 500 lines)
+- [ ] `python scripts/check_file_length.py` passes (active Python files stay within 500 lines)
 - [ ] `python scripts/sync_schema.py --check` passes (schema mirror in sync)
-- [ ] `python scripts/check_public_docs.py` passes when public docs or links changed
+- [ ] `python scripts/check_public_docs.py` passes for maintained Markdown and entry points
 - [ ] Typing policy and `python -m mypy . --no-incremental --show-error-codes` pass
-- [ ] New errors raise custom exceptions from `exceptions.py` (no bare `Exception`/`RuntimeError`)
+- [ ] Expected failures use typed errors/codes; isolation catches log, clean up and preserve valid state
 - [ ] No unrelated files or generated artifacts included
 - [ ] Public behavior/status claims and linked documentation remain accurate
 - [ ] No secrets, private media, raw hardware identities, or unreviewed logs included

@@ -1,7 +1,7 @@
 # Workspace shell instructions
 
 Inherits [shared UI instructions](../AGENTS.md) and the
-[root specification](../../agents.md). UX-02 establishes hosting; UX-03 through
+[root specification](../../AGENTS.md). UX-02 establishes hosting; UX-03 through
 UX-08 own subsequent behavior, page presentation and qualification.
 
 - Keep one QtPipelineService and one retained instance of each destination.

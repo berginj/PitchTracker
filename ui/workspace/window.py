@@ -20,6 +20,7 @@ from ui.workspace.pages import PlayersPage, SessionsPage, SetupPage
 from ui.workspace.shutdown import PipelineShutdownThread
 from ui.workspace.unavailable_live import UnavailableLivePage
 from ui.workspace.session_presentation import session_presentation
+from ui.workspace.header_layout import RuntimeDetail, arrange_actions
 from exceptions import ConfigError
 
 
@@ -111,7 +112,12 @@ class WorkspaceWindow(LauncherWindow):
         self._status.setWordWrap(True)
         identity.addWidget(self._status)
         header.addLayout(identity)
-        actions = QtWidgets.QHBoxLayout()
+        action_bar = QtWidgets.QWidget(self._header)
+        action_bar.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Preferred)
+        actions = QtWidgets.QGridLayout(action_bar)
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSizeConstraint(QtWidgets.QLayout.SizeConstraint.SetNoConstraint)
+        self._session_actions = actions
         self._primary = QtWidgets.QPushButton("Prepare Session")
         self._primary.setAccessibleName("Primary session action")
         self._primary.setMinimumHeight(get_style_manager().theme.button_height_md)
@@ -129,16 +135,13 @@ class WorkspaceWindow(LauncherWindow):
         self._return_live = QtWidgets.QPushButton("Return to Live")
         self._return_live.setAccessibleName("Return to active Live page")
         self._return_live.clicked.connect(lambda: self.navigate("live"))
-        actions.addWidget(self._primary)
-        actions.addWidget(self._end)
-        actions.addWidget(self._stop_preview)
-        actions.addWidget(self._new_session)
-        actions.addStretch()
-        actions.addWidget(self._return_live)
-        header.addLayout(actions)
-        self._detail = QtWidgets.QLabel()
-        self._detail.setTextFormat(QtCore.Qt.TextFormat.PlainText)
-        self._detail.setWordWrap(True)
+        # Parent all controls before runtime visibility is applied; a newly added
+        # widget is otherwise hidden by Qt's reparenting during the first layout.
+        for index, button in enumerate((self._primary, self._end, self._stop_preview, self._new_session, self._return_live)):
+            actions.addWidget(button, 0, index)
+            button.show()
+        header.addWidget(action_bar)
+        self._detail = RuntimeDetail()
         header.addWidget(self._detail)
         self._progress = QtWidgets.QProgressBar()
         self._progress.setAccessibleName("Session operation in progress")
@@ -246,6 +249,7 @@ class WorkspaceWindow(LauncherWindow):
             button.setChecked(name == self._context.page)
             get_style_manager().style_button(button, "primary" if name == self._context.page else "ghost")
         self._return_live.setVisible(self._context.page != "live")
+        self._arrange_session_actions()
 
     def _on_player_browsed(self, player: str) -> None:
         self._context = replace(self._context, browsed_player=player)
@@ -327,6 +331,12 @@ class WorkspaceWindow(LauncherWindow):
             self._primary.setText("Retry Exit")
             self._primary.setEnabled(self._shutdown_worker is None)
             self._detail.setText(f"Shutdown incomplete; ownership retained. {self._exit_failure}")
+        self._primary.setAccessibleName(self._primary.text().replace("…", ""))
+        self._arrange_session_actions()
+
+    def _arrange_session_actions(self) -> None:
+        arrange_actions(self._session_actions, (self._primary, self._end, self._stop_preview,
+                                                self._new_session, self._return_live), compact=self.width() <= 1024)
 
     def _perform_primary_action(self) -> None:
         if self._exit_failure:
@@ -359,31 +369,16 @@ class WorkspaceWindow(LauncherWindow):
             show_message_dialog(self, "Session action failed", str(exc), tone="error")
 
     def _show_settings(self) -> None:
-        # Rig settings stay in Setup; update preferences retain their existing persistence.
-        dialog = QtWidgets.QDialog(self)
-        dialog.setWindowTitle("Workspace settings")
-        layout = QtWidgets.QVBoxLayout(dialog)
-        layout.addWidget(self._build_footer())
-        rig = QtWidgets.QPushButton("Open Rig Setup")
-        rig.setAccessibleName("Open rig setup from settings")
-
-        def open_setup() -> None:
-            dialog.accept()
-            self.navigate("setup")
-        rig.clicked.connect(open_setup)
-        layout.addWidget(rig)
-        close = QtWidgets.QPushButton("Close")
-        close.setAccessibleName("Close workspace settings")
-        close.clicked.connect(dialog.accept)
-        layout.addWidget(close)
+        from ui.workspace.secondary import WorkspaceSettingsDialog
+        dialog = WorkspaceSettingsDialog(self, self._build_footer(), lambda: self.navigate("setup"))
         dialog.exec()
+        dialog.deleteLater()
 
     def _show_help(self) -> None:
-        show_message_dialog(self, "Workspace help",
-                            "Live: explicitly prepare and record a session.\n"
-                            "Sessions: open completed local recordings. Players: browse the roster.\n"
-                            "Setup: stop preview before editing the rig; camera actions are explicit.\n"
-                            "Operator guide: docs/OPERATOR_RUNBOOK.md", tone="info")
+        from ui.workspace.secondary import WorkspaceHelpDialog
+        dialog = WorkspaceHelpDialog(self, page=self._context.page)
+        dialog.exec()
+        dialog.deleteLater()
 
     def may_install_update(self) -> bool:
         # A persistent workspace is visible even when a workflow owns resources.
@@ -399,6 +394,7 @@ class WorkspaceWindow(LauncherWindow):
     def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
         if hasattr(self, "_rail"):
             self._rail.setFixedWidth(136 if event.size().width() <= 1024 else 168)
+            self._arrange_session_actions()
         super().resizeEvent(event)
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:

@@ -22,6 +22,7 @@ from typing import Any
 import numpy as np
 
 from capture.camera_device import CameraDevice
+from app.services.capture.setup_devices import setup_camera_type
 from contracts.setup_capture import (
     SetupCaptureFailureCode,
     SetupCapturePurpose,
@@ -62,17 +63,7 @@ def _file_sha256(path: Path) -> str:
 
 
 def _camera_factory(backend: str) -> type[CameraDevice]:
-    if backend == "sim":
-        from capture.simulated_camera import SimulatedCamera
-
-        return SimulatedCamera
-    if backend == "opencv":
-        from capture.opencv_backend import OpenCVCamera
-
-        return OpenCVCamera
-    from capture.uvc_backend import UvcCamera
-
-    return UvcCamera
+    return setup_camera_type(backend)
 
 
 def _record(frame: Frame, image_path: Path | None = None) -> SetupFrameRecord:

@@ -8,6 +8,7 @@ from threading import Event
 from typing import Any, Callable
 
 from PySide6 import QtCore, QtGui, QtWidgets
+from ui.themes import apply_standard_layout, polish_form_controls, style_progress_bar
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +39,17 @@ class ToolingTaskDialog(QtWidgets.QDialog):
         self.setWindowTitle(title)
         self.setWindowModality(QtCore.Qt.WindowModality.ApplicationModal)
         layout = QtWidgets.QVBoxLayout(self)
+        apply_standard_layout(layout)
         self.label = QtWidgets.QLabel(f"{title}…", self)
+        self.label.setWordWrap(True)
         layout.addWidget(self.label)
         progress = QtWidgets.QProgressBar(self)
         progress.setRange(0, 0)
+        progress.setAccessibleName(f"{title} progress")
+        style_progress_bar(progress)
         layout.addWidget(progress)
         self.cancel_button = QtWidgets.QPushButton("Cancel", self)
+        self.cancel_button.setAccessibleName(f"Cancel {title}")
         layout.addWidget(self.cancel_button)
         self.worker = ToolingThread(operation, self)
         self.cancel_button.clicked.connect(self.reject)
@@ -51,6 +57,7 @@ class ToolingTaskDialog(QtWidgets.QDialog):
         self._terminal_received = False
         self._parent_close_pending = False
         parent.installEventFilter(self)
+        polish_form_controls(self)
 
     def eventFilter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:
         if watched is self.parent() and event.type() == QtCore.QEvent.Type.Close and self.busy:

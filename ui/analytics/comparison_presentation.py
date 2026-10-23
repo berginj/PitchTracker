@@ -7,7 +7,8 @@ from typing import Mapping, Optional, Protocol
 import numpy as np
 from PySide6 import QtCore, QtWidgets
 
-from .comparison_data import PitcherStats
+from .comparison_data import PitcherStats, format_metric
+from ui.themes import get_style_manager, polish_form_controls
 
 
 class ChartCanvas(Protocol):
@@ -35,13 +36,15 @@ class PitcherComparisonCard(QtWidgets.QFrame):
     def _build_ui(self) -> None:
         header_layout = QtWidgets.QHBoxLayout()
         name_label = QtWidgets.QLabel(self._stats.display_name)
+        name_label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         name_label.setObjectName("comparison_card_name")
 
         remove_btn = QtWidgets.QPushButton("X")
         remove_btn.setObjectName("comparison_card_remove")
         remove_btn.setAccessibleName(f"Remove {self._stats.display_name} from comparison")
         remove_btn.setToolTip(f"Remove {self._stats.display_name}")
-        remove_btn.setFixedSize(self._theme.button_height_sm, self._theme.button_height_sm)
+        remove_btn.setMinimumSize(self._theme.button_height_sm, self._theme.button_height_sm)
+        remove_btn.setAccessibleDescription("Remove this player from the browsed comparison only.")
         remove_btn.clicked.connect(lambda: self.remove_requested.emit(self._stats.pitcher_id))
 
         header_layout.addWidget(name_label)
@@ -50,10 +53,10 @@ class PitcherComparisonCard(QtWidgets.QFrame):
 
         stats_layout = QtWidgets.QGridLayout()
         rows = (
-            ("Avg Velocity:", f"{self._stats.avg_velocity:.1f} mph"),
-            ("Max Velocity:", f"{self._stats.max_velocity:.1f} mph"),
-            ("Strike %:", f"{self._stats.avg_strike_pct * 100:.1f}%"),
-            ("Consistency:", f"{self._stats.avg_consistency * 100:.0f}%"),
+            ("Session mean speed (mph):", format_metric(self._stats.avg_velocity)),
+            ("Maximum speed (mph):", format_metric(self._stats.max_velocity)),
+            ("Session mean strike %:", format_metric(self._stats.avg_strike_pct, scale=100)),
+            ("Recorded consistency %:", format_metric(self._stats.avg_consistency, scale=100)),
             ("Sessions:", f"{self._stats.sessions_count}"),
             ("Total Pitches:", f"{self._stats.total_pitches}"),
         )
@@ -86,38 +89,11 @@ class PitcherComparisonCard(QtWidgets.QFrame):
         return label
 
     def _apply_style(self) -> None:
-        theme = self._theme
-        self.setStyleSheet(
-            f"""
-            PitcherComparisonCard {{
-                background-color: {theme.surface_glass};
-                border: {theme.border_width}px solid {theme.border_glass};
-                border-radius: {theme.border_radius_small}px;
-            }}
-            #comparison_card_name {{
-                font-size: {theme.font_size_body}px;
-                font-weight: 700;
-                color: {theme.text_primary};
-            }}
-            #comparison_card_remove {{
-                background-color: transparent;
-                border: {theme.border_width}px solid {theme.accent_error_dim};
-                border-radius: {theme.border_radius_tiny}px;
-                color: {theme.accent_error};
-                font-size: {theme.font_size_caption}px;
-            }}
-            #comparison_card_remove:hover {{ background-color: {theme.accent_error_dim}; }}
-            #comparison_stat_label {{
-                font-size: {theme.font_size_caption}px;
-                color: {theme.text_muted};
-            }}
-            #comparison_stat_value {{
-                font-size: {theme.font_size_caption}px;
-                font-weight: 700;
-                color: {theme.text_secondary};
-            }}
-            """
-        )
+        sm = get_style_manager()
+        sm.style_panel(self)
+        for label in self.findChildren(QtWidgets.QLabel):
+            sm.style_label(label, "sectionTitle" if label.objectName() == "comparison_card_name" else "muted")
+        polish_form_controls(self)
 
     @property
     def stats(self) -> PitcherStats:
@@ -179,7 +155,7 @@ class ComparisonChartPresenter:
         width = 0.35
         axis.bar(
             positions - width / 2,
-            [item.avg_velocity for item in stats],
+            [item.avg_velocity if item.avg_velocity is not None else np.nan for item in stats],
             width,
             label="Avg",
             color=self._theme.chart_blue,
@@ -187,13 +163,16 @@ class ComparisonChartPresenter:
         )
         axis.bar(
             positions + width / 2,
-            [item.max_velocity for item in stats],
+            [item.max_velocity if item.max_velocity is not None else np.nan for item in stats],
             width,
             label="Max",
             color=self._theme.chart_green,
             alpha=0.8,
         )
         self._finish_axis(axis, names, "Velocity (mph)")
+        for position, item in enumerate(stats):
+            if item.avg_velocity is None and item.max_velocity is None:
+                axis.text(position, .05, "Unavailable", transform=axis.get_xaxis_transform(), ha="center", fontsize=9)
         axis.legend(loc="upper right", fontsize=self._theme.font_size_caption)
         self._velocity_figure.tight_layout()
         self._velocity_canvas.draw()
@@ -203,12 +182,14 @@ class ComparisonChartPresenter:
         if not stats:
             return
         names = [item.display_name for item in stats]
-        strike_pcts = [item.avg_strike_pct * 100 for item in stats]
+        strike_pcts = [item.avg_strike_pct * 100 if item.avg_strike_pct is not None else np.nan for item in stats]
         colors = [self._accuracy_color(percent) for percent in strike_pcts]
         positions = np.arange(len(names))
         axis.bar(positions, strike_pcts, color=colors, alpha=0.8)
-        self._finish_axis(axis, names, "Strike %")
-        axis.axhline(y=60, color=self._theme.border_glass, linestyle="--", linewidth=1)
+        self._finish_axis(axis, names, "Session mean strike %")
+        for position, item in enumerate(stats):
+            if item.avg_strike_pct is None:
+                axis.text(position, .05, "Unavailable", transform=axis.get_xaxis_transform(), ha="center", fontsize=9)
         self._accuracy_figure.tight_layout()
         self._accuracy_canvas.draw()
 
@@ -224,8 +205,4 @@ class ComparisonChartPresenter:
         )
 
     def _accuracy_color(self, percent: float) -> str:
-        if percent >= 65:
-            return str(self._theme.chart_green)
-        if percent >= 55:
-            return str(self._theme.chart_orange)
-        return str(self._theme.chart_red)
+        return str(self._theme.chart_blue)

@@ -22,7 +22,7 @@ class CameraConfig:
     fps: int
     pixfmt: str
     exposure_us: int
-    gain: float
+    gain: float  # Native device units; verified against control readback.
     wb_mode: Optional[str]
     wb: Optional[int]
     queue_depth: int

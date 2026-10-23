@@ -8,7 +8,7 @@ This document specifies application work and its acceptance criteria. Creating
 the plan and agent instructions does not implement the redesign; the roadmap
 and package evidence distinguish delivered work from remaining work. UIAgent owns presentation work;
 MaintenanceAgent implements and verifies changes under the
-[root agent specification](../agents.md) and [UI instructions](../ui/AGENTS.md).
+[root agent specification](../AGENTS.md) and [UI instructions](../ui/AGENTS.md).
 Other existing agent roles own changes to their service boundaries. These role
 assignments do not require separate processes or automatic sub-agent delegation.
 
@@ -324,6 +324,9 @@ PipelineOrchestratorAgent owns active-pitcher command integration.
 
 ### UX-07: Normalize remaining surfaces
 
+**Software evidence:** [implementation record](review/ux/UX_07_IMPLEMENTATION.md).
+Manual display/accessibility qualification remains in UX-08.
+
 **Owner:** UIAgent. **Prerequisite:** UX-06.
 **Boundaries:** themes, analytics, dialogs, settings, help and secondary tools.
 
@@ -350,6 +353,9 @@ PipelineOrchestratorAgent owns active-pitcher command integration.
 > preserve research semantics. Include focused tests and synthetic visual evidence.
 
 ### UX-08: Validate complete operator journeys
+
+**Qualification in progress:** [automated evidence and manual worksheet](review/ux/UX_08_QUALIFICATION.md).
+Required real-display, accessibility, packaged and hardware results remain pending.
 
 **Owner:** MaintenanceAgent with UIAgent; operator supplies real-display/hardware evidence.
 **Prerequisite:** UX-07. **Boundaries:** complete workspace journeys and release handoff.

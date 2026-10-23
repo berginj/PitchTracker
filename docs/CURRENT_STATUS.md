@@ -1,6 +1,6 @@
 # PitchTracker Current Status
 
-**Last updated:** 2026-10-14
+**Last updated:** 2026-10-23
 **Published release:** `v2.0.0` / internal app version `2.0.0`
 **Development status:** the October consolidation/remediation batch is implemented
 and validated in software. The October 5 software follow-ups have implementations
@@ -48,7 +48,7 @@ approved.
 | Release installer asset | Not currently attached to the GitHub release |
 | Development baseline | `main`; use the checked-out commit for exact provenance |
 | Test collection | Full Python 3.13 and 3.14 suites run in CI; use current CI output for the exact count |
-| Latest committed CI validation | `6b4bdd5`: [CI run 38322158037](https://github.com/berginj/PitchTracker/actions/runs/38322158037) passed; Python 3.13 and 3.14 each passed 1,943 tests with 33 skips, including compiled CPU kernels |
+| Latest main CI validation | `3639247`: [CI run 38841574855](https://github.com/berginj/PitchTracker/actions/runs/38841574855) passed on Python 3.13/3.14, including native UVC and blocking dependency audits; use that run for exact counts and artifacts |
 | Platform/closeout local validation | Python 3.13 and 3.14 each passed 1,942 tests with 45 optional skips; native ARM64 numerical tests passed 39/39, and each x64 client passed all three packaged ARM64 worker tests; mypy passed 823 files |
 | Follow-up local validation | `b101740`: Python 3.13 and 3.14 each passed 1,833 tests with 34 skips; final `597c267` passed 30 focused tests on each runtime; static gates passed |
 | Frozen artifact validation | Application source `597c267`: six source/frozen GUI and worker smoke tests passed with isolated state and camera checking disabled; see the October remediation record below |
@@ -86,7 +86,22 @@ Setup now presents saved revision/readiness, and Players separates historical
 browsing from service-confirmed active-pitcher changes. Attribution survives
 pitch boundaries and delayed analysis without rewriting older recordings. See the
 [UX-06 implementation record](review/ux/UX_06_IMPLEMENTATION.md).
-Remaining experience work continues under UX-07 and UX-08.
+Analytics and secondary dialogs now retain missing outcomes, provide chart/table
+equivalents and share accessible controls. Help opens maintained local guidance.
+See the [UX-07 implementation record](review/ux/UX_07_IMPLEMENTATION.md).
+Complete journey and manual display/accessibility qualification remains in UX-08.
+Its [qualification record](review/ux/UX_08_QUALIFICATION.md) now includes a complete
+workspace simulator journey, recovery-layout fixes and the pending manual worksheet.
+
+Setup also provides responsive paired previews, collapsible controls and a
+calibration collection count separate from fit validation. Explicit live manual
+focus runs in a supervised worker, with zoom, keyboard target selection and
+relative turn guidance. Stale or unusable images discard prior comparisons;
+scores do not grant readiness. Native gain uses device units, and confirmed
+unsupported focus controls can establish autofocus absence. Discovery retains
+reported serial identities; frozen entrypoints include the dynamically imported
+DirectShow dependencies. These changes still require target-rig and installed
+application qualification; see [guided setup](GUIDED_SETUP.md).
 
 The older desktop/setup/pipeline paths are retired under
 `archive/retired/2026-10-13`. Guided setup is the default for launcher, direct

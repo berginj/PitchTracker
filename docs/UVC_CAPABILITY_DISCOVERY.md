@@ -1,5 +1,7 @@
 # UVC Capability Evidence
 
+Current reference. Last reviewed: 2026-10-19.
+
 PitchTracker records what each selected camera and backend actually report. A
 capability observation is setup evidence, not proof of image quality or tracking
 accuracy.
@@ -11,6 +13,32 @@ DirectShow query for camera controls and advertised stream modes. If the
 optional native provider is unavailable or a query fails, validated OpenCV
 DirectShow readback supplies only the facts it can verify. Discovery never
 changes a control merely to learn whether it exists.
+
+Stable UVC assignments bind the selected PnP instance identity to the actual
+DirectShow `DevicePath` before opening its numeric capture index. PnP list order
+and matching model names cannot establish that binding. Missing or ambiguous
+paths reject the open with refresh/install guidance. The optional Windows-native
+dependencies below are required for this stable identity path; explicit numeric
+assignments remain available but must be rechecked after device-list changes.
+PnP metadata properties are queried in one batch within the existing bounded,
+cancellable discovery operation. Installed PowerShell 7 is preferred, with
+Windows PowerShell retained as the fallback.
+
+Saved camera configuration accepts `MJPG` for the backend's existing MJPEG
+capture path. Choose a pixel format supported at the intended resolution/FPS
+on both devices, then verify negotiated mode and achieved cadence separately.
+
+For the pinned OpenCV DirectShow backend, FPS changes rebuild the stream, so the
+requested FourCC is reapplied afterward. Exposure writes use integer log2-second
+steps, focus readback uses DirectShow manual/auto flags, and white balance uses
+the backend's supported property. Current native exposure flags are queried
+after writes. A native unsupported-focus result can establish autofocus absence
+for a manual lens when OpenCV reports no autofocus state; failed or unavailable
+queries remain unverified. Gain uses device units rather than an assumed dB
+range, and its requested value must match readback. Missing exposure flags keep
+setup unverified. Mode checks accept at most
+0.001 FPS of frame-interval rounding and retain the raw readback. Different
+nominal frame rates, format mismatches and cadence failures remain rejected.
 
 Every standard control has one status:
 
@@ -25,6 +53,14 @@ Every standard control has one status:
 Zero, `-1`, NaN, an invalid FOURCC, and a successful write without matching
 readback are not treated as proof of support. Requested and negotiated modes
 remain separate in the setup snapshot.
+
+Saved `camera.wb` is a positive integer temperature in Kelvin, or `null` for
+sample-and-lock. Guided Setup can pin the verified observed value; this saves
+the value and requires fresh image checks before readiness can be granted.
+
+Guided image checks compute capture skew from timestamp pairs within the
+configured tolerance. Unmatched frames stay in the qualification denominator;
+equal frame counts alone do not establish pairing or exposure synchronization.
 
 Source installations can add the native provider with:
 

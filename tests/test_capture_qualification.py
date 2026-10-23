@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import pytest
+
 from app.monitoring.error_budget import ErrorBudget, MetricLimit
 from calib.capture_qualification import qualify_capture
-from contracts import QUALITY_DEGRADED, QUALITY_ESTIMATED
+from contracts import QUALITY_DEGRADED, QUALITY_ESTIMATED, QUALITY_REJECTED
 
 
 def _budget() -> ErrorBudget:
@@ -51,3 +53,16 @@ def test_capture_qualification_degrades_unverified_controls() -> None:
         qualification_id="q2",
     )
     assert result.assessment.status == QUALITY_DEGRADED
+
+
+@pytest.mark.parametrize("fps,matched", [
+    (60.00024000096, True), (59.94, False), (30, False), (float("nan"), False), (float("inf"), False),
+])
+def test_nominal_mode_accepts_only_driver_rounding_and_retains_raw_fps(fps, matched):
+    timestamps = [0, 16_666_667, 33_333_334]
+    result = qualify_capture(timestamps, timestamps, [0] * 3,
+                             requested_mode={"fps": 60, "pixfmt": "MJPG"},
+                             negotiated_mode={"fps": fps, "pixfmt": "MJPG"},
+                             expected_frames=3, controls_verified=True, budget=_budget(), qualification_id="rounding")
+    assert result.assessment.status == (QUALITY_ESTIMATED if matched else QUALITY_REJECTED)
+    assert result.negotiated_mode["fps"] is fps

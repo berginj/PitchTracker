@@ -33,6 +33,10 @@ datas = [
     ('assets', 'assets'),
     ('README_LAUNCHER.md', '.'),
     ('LICENSE', '.'),
+    ('docs/OPERATOR_RUNBOOK.md', 'docs'),
+    ('docs/GUIDED_SETUP.md', 'docs'),
+    ('docs/MEASUREMENT_RESEARCH.md', 'docs'),
+    ('docs/user/TROUBLESHOOTING.md', 'docs/user'),
 ]
 
 # Hidden imports (needed but not auto-detected)
@@ -45,6 +49,11 @@ hiddenimports = [
     'yaml',
     'loguru',
     'jsonschema',
+    # Stable camera identity and native controls use dynamic COM imports.
+    'comtypes',
+    'comtypes.persist',
+    'pygrabber.dshow_graph',
+    'pygrabber.dshow_ids',
 ]
 if find_spec('_pitchtracker_native') is not None:
     hiddenimports.append('_pitchtracker_native')
@@ -147,6 +156,7 @@ worker_analysis = Analysis(
     hiddenimports=hiddenimports + [
         'app.camera_probe_worker',
         'app.services.capture.setup_worker_main',
+        'app.services.capture.focus_worker',
         'app.services.tooling.worker_main',
         'app.trajectory_worker',
         'app.trajectory_persistent_worker',

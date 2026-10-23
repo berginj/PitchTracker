@@ -1,4 +1,4 @@
-# PitchTracker Agent Specification
+# Runtime service and agent contracts
 
 ## Overview
 
@@ -6,7 +6,7 @@
 
 PitchTracker uses agents as bounded, message-driven workers around the camera, detection, tracking, trajectory, recording, analysis, tooling, and UI workflows. The agent system exists to keep responsibilities explicit, make automation testable, and prevent future LLM or service integrations from bypassing safety-critical pipeline boundaries.
 
-This document is the authoritative specification for agents in this repository. If code, prompts, or docs disagree with this file, update the implementation or update this file in the same change.
+This document owns runtime service responsibilities, event contracts and ownership constraints. Maintenance workflow is defined in [AGENTS.md](../../AGENTS.md). Update these contracts and their implementation together; requirements here are not evidence that every release has satisfied them.
 
 ### Architecture
 
@@ -52,7 +52,7 @@ pauses during capture. Video replay requires explicit calibration, ROI, field
 transform and verified frame-to-timestamp mappings. CPU is the compute default;
 Auto GPU admission requires implementation/hardware-bound numerical parity and
 at least 1.5x end-to-end throughput qualification. See
-[compute acceleration](docs/COMPUTE_ACCELERATION.md) for platform release gates.
+[compute acceleration](../COMPUTE_ACCELERATION.md) for platform release gates.
 
 Optional detector research is owned by AnalysisAgent's pipeline-comparison
 service. It reuses DetectionAgent's candidate processing and records all
@@ -65,7 +65,7 @@ without publishing into primary analysis. Live model selection requires bound
 held-out and actual-capture operational evidence, is saved through
 SetupWorkflowService, and never grants physical accuracy approval. Monocular
 BaseballCV image-zone results are offline research, not stereo fallbacks. See
-[optional detector comparison](docs/BASEBALLCV_COMPARISON.md).
+[optional detector comparison](../BASEBALLCV_COMPARISON.md).
 
 Agents communicate through typed dataclasses, service interfaces, or explicit callbacks. Agents must not reach into another agent's private state except in tests.
 
@@ -181,15 +181,7 @@ Agents communicate through typed dataclasses, service interfaces, or explicit ca
 
 ### MaintenanceAgent
 
-| Field | Specification |
-|---|---|
-| Mission | Help developers and future LLMs modify the repository safely, with tests and clear boundaries. |
-| Inputs | Developer requests, source files, tests, configs, logs, issue/PR context. |
-| Outputs | Code changes, tests, docs, analysis notes, review findings. |
-| Tools/APIs | Shell, pytest, `rg`, `apply_patch`, GitHub connector when explicitly needed, repo scripts. |
-| Constraints | Must preserve unrelated user changes. Must read existing code before editing. Must prefer focused patches and existing patterns. |
-| Escalation | Ask for human decision when requirements conflict, destructive operations are requested, credentials are needed, or hardware-only validation is required. |
-| Example Prompt | `Add a new trajectory comparison mode and update tests without changing default behavior.` |
+Repository maintenance follows [AGENTS.md](../../AGENTS.md) and applicable scoped instructions. It is a developer role, not a separate runtime worker.
 
 ## Interaction Protocols
 
@@ -296,7 +288,17 @@ working configuration, generations, quality checks and publication. UI stages
 issue explicit commands; camera acquisition stays in supervised capture workers
 and full calibration stays in tooling workers. Completed rig revisions include
 their effective configuration, metric calibration, per-camera regions and target
-evidence. Runtime admission checks pending edits independently of UI controls.
+evidence. Manual focus uses the versioned `focus_preview.v1` transient protocol:
+a dedicated supervised worker owns continuous diagnostic setup acquisition, with
+reconnection disabled, a startup deadline, per-side stale-frame detection and a
+ten-minute session limit. The Qt adapter polls bounded latest-frame snapshots;
+it never queues historical preview frames or publishes them as setup checks.
+Admission remains held until the worker is reaped after stop, cancellation or
+failure. Relative turn guidance uses an operator-selected patch and explicitly
+reported turn direction; it cannot grant calibration or accuracy approval.
+Black frames remain visible in this diagnostic stream and yield unavailable
+focus guidance. Runtime frame validation and recording admission are unchanged.
+Runtime admission checks pending edits independently of UI controls.
 
 ### Testing
 
@@ -329,48 +331,3 @@ To add an agent:
 7. Preserve backward compatibility or document the migration path.
 
 New agents must have one primary owner for state. If an agent needs another agent's data, it should request it through a typed message, service interface, callback, or event.
-
-## Cross-experience UX maintenance
-
-These instructions apply to launcher, UI, service-contract and documentation
-changes that affect the operator experience. They extend UIAgent and
-MaintenanceAgent responsibilities; they do not create new runtime agents or
-authorize automatic delegation.
-
-- Follow the [UX workspace plan](docs/UX_WORKSPACE_PLAN.md) and
-  [shared UI instructions](ui/AGENTS.md). Scoped UI instructions add local
-  requirements; they do not override the ownership and safety rules here.
-- Use [Roadmap](docs/ROADMAP.md) for delivery status. The unified workspace is
-  delivered incrementally under UX-01 through UX-08. UX-02 delivers the shell
-  and UX-03 adds responsive session commands with shared progress and recovery.
-  UX-04 delivers live feedback and UX-05 connects completed-session/pitch review;
-  UX-06 aligns saved setup state, Players and pitch-boundary attribution;
-  later setup/player alignment, secondary surfaces and qualification remain open.
-- Preserve PySide6, PipelineOrchestrator, QtPipelineService and
-  SetupWorkflowService ownership. Add narrow public typed interfaces where
-  screens need context; do not connect screens through private service state.
-- Keep page navigation separate from camera acquisition, recording commands,
-  rig edits and shutdown. Changing pages must not implicitly start or stop
-  capture/recording, finalize artifacts, or grant measurement approval.
-- Maintain one session lifecycle owner and a workspace-wide recording status.
-  Preserve cancellation, accepted-work draining and worker cleanup when moving
-  behavior out of existing window close handlers.
-- Preserve active CLI routes and their backend/config arguments during migration.
-  Archived entry points are not workspace fallbacks.
-- Keep measurement source, validity and unavailable states consistent across
-  live, review, analytics and exports. New presentation must not strengthen
-  physical claims or silently change historical data.
-- Review cross-screen journeys, keyboard access, viewport reachability and
-  error recovery alongside focused tests. Use synthetic screenshots; record
-  manual display and hardware evidence separately from automated checks.
-- For each UX change, identify the work-package ID, applicable instruction
-  files, changed public contracts, tests and remaining manual checks. Update
-  roadmap status only when the package's acceptance criteria have evidence.
-
-## Maintenance Checklist
-
-- Default trajectory mode remains `stereo_3d` unless a release decision changes it.
-- Ray modes remain comparison-first until validated with field recordings.
-- UI code must not absorb pipeline logic.
-- Recording artifacts must remain replayable without in-memory state.
-- Hardware-dependent changes need simulator tests plus an explicit manual validation note.

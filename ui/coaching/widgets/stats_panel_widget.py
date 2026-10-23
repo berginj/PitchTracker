@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from math import isclose, isfinite
+from math import isfinite
 from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtWidgets
 
 from app.contracts import measurement_is_usable
+from ui.measurement_presentation import speed_provenance
 from ui.themes import get_style_manager
 
 if TYPE_CHECKING:
@@ -70,18 +71,7 @@ class StatsPanelWidget(QtWidgets.QWidget):
         self._title.setText(f"Latest Pitch · {pitch.pitch_id}")
         speed = self._speed(pitch)
         self._speed_label.setText(f"Speed: {speed}")
-        source = getattr(pitch, "speed_source", None)
-        measurements = [value for value in (getattr(pitch, "external_speed", None), getattr(pitch, "vision_speed", None))
-                        if value and pitch.speed_mph is not None and isclose(value.speed_mph, pitch.speed_mph, abs_tol=1e-6)
-                        and (not source or value.source == source)]
-        if len(measurements) == 1:
-            measurement = measurements[0]
-            reference = measurement.reference.replace("_", " ")
-            if measurement.reference_z_ft is not None:
-                reference += f" · z {measurement.reference_z_ft:g} ft"
-            provenance = f"{measurement.source.replace('_', ' ')} · {reference}"
-        else:
-            provenance = f"{source.replace('_', ' ') if source else 'Source not recorded'} · reference unavailable"
+        provenance = speed_provenance(pitch)
         self._source_label.setText(provenance)
         self._speed_label.setToolTip(provenance)
         call_available = usable and getattr(pitch, "strike_call_available", True)

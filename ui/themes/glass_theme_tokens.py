@@ -26,6 +26,7 @@ class GlassThemeTokens:
     border_glass: str = "#D7E0EA"
     border_glass_hover: str = "#BAC7D6"
     border_glass_accent: str = "#93B4F2"
+    control_border: str = "#7A889B"
 
     accent_primary: str = "#2563EB"
     accent_primary_dim: str = "#E8F0FF"

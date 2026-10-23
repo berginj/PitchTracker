@@ -80,13 +80,18 @@ def synthetic_image():
     return image
 
 
-def capture(app, widget, page, state, output, records, *, theme_mode=None):
+def capture(app, widget, page, state, output, records, *, theme_mode=None, reveal_widget=None):
     get_style_manager().set_mode(theme_mode or ("setup" if page.startswith("setup") else "production"))
     for width, height in SIZES:
         widget.resize(width, height)
         widget.show()
         for _ in range(3):
             QtWidgets.QApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
+            app.processEvents()
+        if reveal_widget is not None:
+            for area in widget.findChildren(QtWidgets.QScrollArea):
+                if area.widget() is not None and area.widget().isAncestorOf(reveal_widget):
+                    area.ensureWidgetVisible(reveal_widget)
             app.processEvents()
         filename = f"{page}-{state}-{width}x{height}.png"
         if not widget.grab().save(str(output / filename)):

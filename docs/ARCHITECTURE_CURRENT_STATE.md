@@ -1,6 +1,6 @@
 # Current Architecture: Service-Oriented Event Pipeline
 
-**Last Updated:** 2026-10-13
+**Last Updated:** 2026-10-23
 **Applies To:** v2.0.0-stereo
 **Primary Entry Point:** `app.services.orchestrator.PipelineOrchestrator`
 
@@ -13,7 +13,7 @@ PitchTracker now uses a service-oriented runtime coordinated by
 InProcessPipelineService, MainWindow and setup registries are archived under
 `archive/retired/2026-10-13`. Guided setup owns the only supported setup workflow.
 
-The current architecture matches the agent boundaries in `agents.md`:
+The current architecture matches the [runtime agent contracts](architecture/agent-contracts.md):
 
 | Runtime Role | Current Implementation | Owns |
 | --- | --- | --- |
@@ -136,18 +136,18 @@ not reach through another service's private fields.
 Setup/calibration runs outside the runtime orchestrator in a dedicated, tested
 wizard under `ui/setup/` (see `ui/setup/README.md` for full detail):
 
-- The launcher uses the five-stage guided workflow backed by
-  SetupWorkflowService; configuration saves immediately and admission blocks
-  pending edits. The earlier registry is retained for compatibility.
-- `state_machine.py` defines the compatibility 10-step flow (`SetupStep` +
-  `DEFAULT_SETUP_SPEC`) on a Qt-free `SetupStateMachine`.
-- `stereo_steps.py` builds a registry of ten genuine, provider-driven step
-  widgets; `stereo_setup_window.py` hosts them; `providers.py` supplies live
-  UVC-discovery and camera-backed preview adapters via
-  `build_live_stereo_step_widgets()`.
-- Each step keeps verdict logic in a Qt-free view-model with an injectable
-  provider, so the whole flow is testable with synthetic snapshots and the
-  `SimulatedCamera` backend.
+- `guided_steps.py` builds the five stages hosted by `stereo_setup_window.py`
+  using the Qt-free `SetupStateMachine` and `GUIDED_SETUP_SPEC`.
+- SetupWorkflowService owns saved configuration, generations, checks and
+  publication; service admission blocks competing capture and pending edits.
+- Explicit setup capture runs in disposable supervised workers. Manual focus
+  uses FocusPreviewService and the transient `focus_preview.v1` protocol;
+  FocusPreviewController polls one latest frame per camera for the Qt view.
+  Cancellation and failure retain admission until the camera worker is reaped.
+- Relative focus guidance stays in `calib/focus_guidance.py`. Display frames
+  and scores never become calibration evidence or grant recording readiness.
+  Simulator message-flow tests exercise this ownership without physical cameras.
+- Earlier setup registries are archived source, not runtime fallbacks.
 
 This keeps calibration/setup in setup/tooling paths; the runtime orchestrator
 only starts from a validated rig profile (see Current Known Gaps #1).
@@ -203,4 +203,5 @@ threading, recording, and scipy-backed trajectory logic.
 - Keep UI logic behind `QtPipelineService` or narrow controller APIs.
 - Add or update typed contracts before changing durable data.
 - Do not let comparison trajectory failures erase primary stereo metrics.
-- Update this file and `agents.md` together when service boundaries change.
+- Update this file and [runtime agent contracts](architecture/agent-contracts.md)
+  together when service boundaries change. [AGENTS.md](../AGENTS.md) owns maintenance workflow.

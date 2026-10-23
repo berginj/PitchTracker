@@ -255,11 +255,11 @@ class TestSetupViewportAndAccessibility:
         assert window.size().width() <= 800, (
             f"Setup forced width {window.size().width()} > 800"
         )
-        # Content scroll and step-indicator scroll exist
-        scrolls = window.findChildren(QtWidgets.QScrollArea)
-        assert len(scrolls) >= 2, (
-            f"Expected >=2 scroll areas at 800x600, found {len(scrolls)}"
-        )
+        # The stage rail stays fixed; expanded tuning scrolls within the content.
+        window._current_widget().camera_controls.toggle.setChecked(True)
+        qtbot.wait(10)
+        assert window._content_scroll.verticalScrollBar().maximum() > 0
+        assert _is_within_viewport(window._next_button, window)
 
     @requires_pytest_qt
     def test_nav_buttons_tab_reachable(self, qtbot: "QtBot", tmp_path) -> None:

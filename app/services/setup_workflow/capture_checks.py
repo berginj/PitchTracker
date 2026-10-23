@@ -16,7 +16,7 @@ from calib.stereo_setup.focus_lock import (
 )
 from calib.stereo_setup.overlap import validate_overlap
 from calib.stereo_setup.rectify import coarse_rectify
-from calib.sync_check import check_frame_sync
+from calib.sync_check import check_frame_sync, pair_timestamps
 from contracts.setup_capture import SetupCapturePurpose, SetupCaptureResult
 from contracts.capability_observation import CapabilityObservation
 from contracts.types import Frame
@@ -122,9 +122,11 @@ def evaluate_images(
             mode["pixfmt"] = "YUYV"
     modes_agree = modes.get("left") == modes.get("right")
     verified = modes_agree and all(result.controls.get(side, {}).get("readback_verified") for side in frames)
+    left_timestamps = [frame.t_capture_monotonic_ns for frame in left]
+    right_timestamps = [frame.t_capture_monotonic_ns for frame in right]
+    pair_skews, _ = pair_timestamps(left_timestamps, right_timestamps, int(tolerance * 1e6))
     qualification = qualify_capture(
-        [frame.t_capture_monotonic_ns for frame in left], [frame.t_capture_monotonic_ns for frame in right],
-        [abs(a.t_capture_monotonic_ns - b.t_capture_monotonic_ns) for a, b in zip(left, right)],
+        left_timestamps, right_timestamps, pair_skews,
         requested_mode=requested, negotiated_mode=modes.get("left", {}) if modes_agree else modes,
         expected_frames=result.requested_frames_per_camera, controls_verified=verified, budget=budget,
         qualification_id=result.correlation_id,

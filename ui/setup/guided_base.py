@@ -22,6 +22,8 @@ class WorkflowStep(BaseStep):
 
     def __init__(self, workflow: SetupWorkflowService, title: str):
         super().__init__()
+        self.setObjectName("SetupStage")
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_StyledBackground, True)
         self.workflow = workflow
         self.title = title
         self.operation: SetupCaptureOperation | None = None
@@ -76,7 +78,7 @@ class WorkflowStep(BaseStep):
 
     def show_saved(self) -> None:
         message = "Saved — needs checks" if self.workflow.state["changed"] else "Saved settings"
-        style_status_label(self.status, "info", message)
+        style_status_label(self.status, "pending", message)
 
     def action(self, callback: Callable[[], Any], *, edit: bool = False) -> Any:
         try:
@@ -138,11 +140,17 @@ class WorkflowStep(BaseStep):
         self.cancel_pending()
 
 
-def display_image(label: QtWidgets.QLabel, image: Any) -> None:
+def display_image(label: QtWidgets.QLabel, image: Any, *, keep_aspect: bool = False) -> None:
     import cv2
     rgb = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB if image.ndim == 2 else cv2.COLOR_BGR2RGB)
     height, width = rgb.shape[:2]
     qimage = QtGui.QImage(rgb.data, width, height, int(rgb.strides[0]), QtGui.QImage.Format.Format_RGB888).copy()
+    from ui.setup.instrument_widgets import PreviewLabel
+    if isinstance(label, PreviewLabel):
+        label.set_source_pixmap(QtGui.QPixmap.fromImage(qimage))
+        return
     label.setPixmap(QtGui.QPixmap.fromImage(qimage).scaled(
-        label.size(), QtCore.Qt.AspectRatioMode.IgnoreAspectRatio, QtCore.Qt.TransformationMode.SmoothTransformation,
+        label.size(),
+        QtCore.Qt.AspectRatioMode.KeepAspectRatio if keep_aspect else QtCore.Qt.AspectRatioMode.IgnoreAspectRatio,
+        QtCore.Qt.TransformationMode.SmoothTransformation,
     ))
