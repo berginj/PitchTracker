@@ -85,8 +85,10 @@ class FocusImageView(QtWidgets.QGraphicsView):
     def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
         """Provide the same target selection without requiring a pointing device."""
         bounds = self.image_item.boundingRect()
-        moves = {QtCore.Qt.Key.Key_Left: (-0.02, 0), QtCore.Qt.Key.Key_Right: (0.02, 0),
-                 QtCore.Qt.Key.Key_Up: (0, -0.02), QtCore.Qt.Key.Key_Down: (0, 0.02)}
+        moves: dict[int, tuple[float, float]] = {
+            QtCore.Qt.Key.Key_Left: (-0.02, 0), QtCore.Qt.Key.Key_Right: (0.02, 0),
+            QtCore.Qt.Key.Key_Up: (0, -0.02), QtCore.Qt.Key.Key_Down: (0, 0.02),
+        }
         if not bounds.isEmpty() and event.key() in (*moves, QtCore.Qt.Key.Key_Return, QtCore.Qt.Key.Key_Enter):
             centre = self.mapToScene(self.viewport().rect().center())
             x, y = self.target or (centre.x() / max(1, bounds.width() - 1),
