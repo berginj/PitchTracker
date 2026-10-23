@@ -27,7 +27,8 @@ CONFIG_SCHEMA = {
                 "fps": {"type": "integer", "minimum": 30, "maximum": 120},
                 "pixfmt": {"type": "string", "enum": ["GRAY8", "RGB24", "YUYV", "MJPG"]},
                 "exposure_us": {"type": "integer", "minimum": 100, "maximum": 33000},
-                "gain": {"type": "number", "minimum": 0.0, "maximum": 30.0},
+                # DirectShow gain is in device units, not a universal dB scale.
+                "gain": {"type": "number", "minimum": 0.0, "maximum": 65535.0},
                 "wb_mode": {"type": ["string", "null"]},
                 "wb": {"type": ["integer", "null"], "minimum": 1},
                 "queue_depth": {"type": "integer", "minimum": 1, "maximum": 30},

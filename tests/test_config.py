@@ -49,3 +49,24 @@ def test_reject_unknown_trajectory_mode(tmp_path: Path) -> None:
 
     with pytest.raises(ConfigValidationError):
         load_config(path)
+
+
+@pytest.mark.parametrize("gain", [168.0, 1600.0])
+def test_load_native_camera_gain(tmp_path: Path, gain: float) -> None:
+    data = yaml.safe_load(Path("configs/default.yaml").read_text())
+    data["camera"]["gain"] = gain
+    path = tmp_path / "config.yaml"
+    path.write_text(yaml.safe_dump(data))
+
+    assert load_config(path).camera.gain == gain
+
+
+@pytest.mark.parametrize("gain", [-1.0, 65536.0])
+def test_reject_out_of_bounds_camera_gain(tmp_path: Path, gain: float) -> None:
+    data = yaml.safe_load(Path("configs/default.yaml").read_text())
+    data["camera"]["gain"] = gain
+    path = tmp_path / "config.yaml"
+    path.write_text(yaml.safe_dump(data))
+
+    with pytest.raises(ConfigValidationError):
+        load_config(path)

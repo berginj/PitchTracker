@@ -14,6 +14,24 @@ physical qualification and independent reference collection into discrete steps.
    explicitly use a distinct left/right pair, and set the capture mode and
    controls. Preview is an explicit action. If color capture samples white
    balance, use the observed locked value and rerun image checks.
+   Gain uses the camera's native device units, which may exceed 30; use its
+   reported range and check readback. The configuration accepts 0–65535, but
+   that does not establish which values the connected camera supports.
+   A native query confirming that focus control is unsupported can establish
+   autofocus absence for a manual lens. A failed or unavailable query cannot;
+   image sharpness must still pass separately.
+   For manual lenses, choose **Focus cameras in large view**. Select one camera,
+   use Fit or 100%–400% zoom, and drag to inspect the board. **Start live preview**
+   opens the cameras once. Double-click the board to select the measured patch.
+   Looking at the front of the lens, select **Test clockwise** or
+   **Test counterclockwise** before a small turn, then hold still for a second.
+   Relative feedback reports sharper, softer/reverse, or no clear change; it
+   cannot infer an absolute turn direction from a still image. Washed-out/dark
+   patches and stale frames do not establish a useful comparison. The stream
+   retains only the latest display frames and saves no calibration evidence.
+   Stop or close drains the supervised worker; stalls and the ten-minute limit
+   require an explicit restart. Scores do not pass calibration. After moving either lens,
+   select **I adjusted the lens / focus**, then rerun the affected checks.
 2. **Image checks:** keep the rig fixed and run the combined checks. Review
    pairing/cadence, focus, controls, overlap, and coarse alignment. Details
    retain negotiated modes, timing tails, denominators, and recommendations.

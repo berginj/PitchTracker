@@ -288,7 +288,17 @@ working configuration, generations, quality checks and publication. UI stages
 issue explicit commands; camera acquisition stays in supervised capture workers
 and full calibration stays in tooling workers. Completed rig revisions include
 their effective configuration, metric calibration, per-camera regions and target
-evidence. Runtime admission checks pending edits independently of UI controls.
+evidence. Manual focus uses the versioned `focus_preview.v1` transient protocol:
+a dedicated supervised worker owns continuous diagnostic setup acquisition, with
+reconnection disabled, a startup deadline, per-side stale-frame detection and a
+ten-minute session limit. The Qt adapter polls bounded latest-frame snapshots;
+it never queues historical preview frames or publishes them as setup checks.
+Admission remains held until the worker is reaped after stop, cancellation or
+failure. Relative turn guidance uses an operator-selected patch and explicitly
+reported turn direction; it cannot grant calibration or accuracy approval.
+Black frames remain visible in this diagnostic stream and yield unavailable
+focus guidance. Runtime frame validation and recording admission are unchanged.
+Runtime admission checks pending edits independently of UI controls.
 
 ### Testing
 

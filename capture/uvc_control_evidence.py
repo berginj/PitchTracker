@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 import cv2
 
-from contracts.capability_observation import CONTROL_EXPOSURE, ControlQueryResult, ControlQueryStatus
+from contracts.capability_observation import CONTROL_EXPOSURE, CONTROL_FOCUS, ControlQueryResult, ControlQueryStatus
 from log_config.logger import get_logger
 from .uvc_probe import ProbeEvidence, load_native_probe
 
@@ -142,7 +142,10 @@ def read_controls(
     exposure_flags = exposure_state.get("current_flags") if isinstance(exposure_state, Mapping) else None
     auto_exposure_disabled = exposure_flags == 2 and bool(state.get("auto_exposure_set"))
     auto_wb_disabled = auto_wb_raw is not None and abs(auto_wb_raw) <= 0.1
-    autofocus_disabled = autofocus_raw == 2
+    native_focus = (native_results or {}).get(CONTROL_FOCUS)
+    focus_absent = bool(native_focus and native_focus.status == ControlQueryStatus.UNSUPPORTED
+                        and autofocus_raw in (None, -1.0))
+    autofocus_disabled = autofocus_raw == 2 or focus_absent
     exposure_ok = exposure_readback_us is not None and bool(state.get("exposure_set")) and _relative_close(
         exposure_readback_us, float(requested.get("exposure_us") or 0.0), 0.25
     )
@@ -197,6 +200,8 @@ def read_controls(
         "auto_white_balance_disabled": auto_wb_disabled,
         "autofocus_disable_write_succeeded": bool(state.get("autofocus_set")),
         "autofocus_disabled": autofocus_disabled,
+        "autofocus_absent": focus_absent,
+        "autofocus_flags_source": "native_directshow_unsupported" if focus_absent else "opencv_directshow",
         "exposure_readback_verified": exposure_ok,
         "gain_readback_verified": gain_ok,
         "color_white_balance_verified": wb_ok if color_capture else None,

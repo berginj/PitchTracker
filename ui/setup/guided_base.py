@@ -138,11 +138,13 @@ class WorkflowStep(BaseStep):
         self.cancel_pending()
 
 
-def display_image(label: QtWidgets.QLabel, image: Any) -> None:
+def display_image(label: QtWidgets.QLabel, image: Any, *, keep_aspect: bool = False) -> None:
     import cv2
     rgb = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB if image.ndim == 2 else cv2.COLOR_BGR2RGB)
     height, width = rgb.shape[:2]
     qimage = QtGui.QImage(rgb.data, width, height, int(rgb.strides[0]), QtGui.QImage.Format.Format_RGB888).copy()
     label.setPixmap(QtGui.QPixmap.fromImage(qimage).scaled(
-        label.size(), QtCore.Qt.AspectRatioMode.IgnoreAspectRatio, QtCore.Qt.TransformationMode.SmoothTransformation,
+        label.size(),
+        QtCore.Qt.AspectRatioMode.KeepAspectRatio if keep_aspect else QtCore.Qt.AspectRatioMode.IgnoreAspectRatio,
+        QtCore.Qt.TransformationMode.SmoothTransformation,
     ))

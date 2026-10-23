@@ -32,7 +32,11 @@ For the pinned OpenCV DirectShow backend, FPS changes rebuild the stream, so the
 requested FourCC is reapplied afterward. Exposure writes use integer log2-second
 steps, focus readback uses DirectShow manual/auto flags, and white balance uses
 the backend's supported property. Current native exposure flags are queried
-after writes; missing flags keep setup unverified. Mode checks accept at most
+after writes. A native unsupported-focus result can establish autofocus absence
+for a manual lens when OpenCV reports no autofocus state; failed or unavailable
+queries remain unverified. Gain uses device units rather than an assumed dB
+range, and its requested value must match readback. Missing exposure flags keep
+setup unverified. Mode checks accept at most
 0.001 FPS of frame-interval rounding and retain the raw readback. Different
 nominal frame rates, format mismatches and cadence failures remain rejected.
 

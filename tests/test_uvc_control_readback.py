@@ -10,6 +10,7 @@ from capture.uvc_backend import UvcCamera
 from capture.uvc_probe import ProbeEvidence
 from contracts.capability_observation import (
     CONTROL_EXPOSURE,
+    CONTROL_FOCUS,
     CONTROL_FPS,
     CONTROL_RESOLUTION,
     ControlQueryStatus,
@@ -234,3 +235,35 @@ def test_current_native_flags_replace_prewrite_automatic_state():
     assert _read_controls(camera)["auto_exposure_disabled"] is False
     capture.exposure_flags = 2
     assert _read_controls(camera)["auto_exposure_disabled"] is True
+
+
+@pytest.mark.parametrize("status", list(ControlQueryStatus))
+def test_fixed_lens_requires_native_absent_focus_evidence(status):
+    camera = UvcCamera()
+    capture = _FakeCapture()
+    _attach_capture(camera, capture)
+    camera.set_controls(488, 168, None, 4500)
+    capture.values[cv2.CAP_PROP_AUTOFOCUS] = -1
+    evidence = ProbeEvidence(provider="native_directshow", results={
+        CONTROL_EXPOSURE: ControlQueryResult(CONTROL_EXPOSURE, ControlQueryStatus.SUPPORTED,
+                                             observed_value={"current_flags": 2}),
+        CONTROL_FOCUS: ControlQueryResult(CONTROL_FOCUS, status),
+    })
+    with patch("capture.uvc_backend.refresh_native_controls", return_value=evidence):
+        controls = camera.get_controls()
+    assert controls is not None
+    absent = status == ControlQueryStatus.UNSUPPORTED
+    assert controls["autofocus_absent"] is absent
+    assert controls["autofocus_disabled"] is absent
+    assert controls["readback_verified"] is absent
+    assert controls["gain_readback_verified"]
+
+
+def test_native_absent_focus_cannot_override_enabled_autofocus():
+    from capture.uvc_control_evidence import read_controls
+    capture = _FakeCapture()
+    capture.values[cv2.CAP_PROP_AUTOFOCUS] = 1
+    evidence = {CONTROL_FOCUS: ControlQueryResult(CONTROL_FOCUS, ControlQueryStatus.UNSUPPORTED)}
+    controls = read_controls(cast(cv2.VideoCapture, capture), "YUYV", {}, evidence)
+    assert controls["autofocus_disabled"] is False
+    assert controls["autofocus_absent"] is False

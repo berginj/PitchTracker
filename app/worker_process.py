@@ -6,6 +6,7 @@ import sys
 WORKER_MODULES = {
     "camera_probe": "app.camera_probe_worker",
     "setup_capture": "app.services.capture.setup_worker_main",
+    "focus_preview": "app.services.capture.focus_worker",
     "tooling": "app.services.tooling.worker_main",
     "trajectory_fit": "app.trajectory_worker",
     "trajectory_fit_persistent": "app.trajectory_persistent_worker",

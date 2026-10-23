@@ -10,6 +10,8 @@ from PySide6 import QtWidgets
 from app.services.setup_workflow import SetupWorkflowService
 from capture.device_discovery import list_uvc_devices
 from contracts.setup_capture import SetupCapturePurpose
+from ui.setup.focus_assistant import FocusAssistantDialog
+from ui.setup.focus_preview_controller import FocusPreviewController
 from ui.setup.guided_base import WorkflowStep, display_image
 from ui.setup.providers.discovery import discover_camera_selection
 
@@ -19,6 +21,8 @@ class CamerasStage(WorkflowStep):
         super().__init__(workflow, "Cameras")
         self.catalog = catalog
         self.snapshot = None
+        self._focus_dialog: FocusAssistantDialog | None = None
+        self._focus_preview: FocusPreviewController | None = None
         self.backend_label = QtWidgets.QLabel()
         self.layout_box.addWidget(self.backend_label)
         form = QtWidgets.QFormLayout()
@@ -53,9 +57,9 @@ class CamerasStage(WorkflowStep):
             self.widgets[key] = widget
             widget.editingFinished.connect(lambda key=key, widget=widget: self.save(key, widget.value()))
         gain = QtWidgets.QDoubleSpinBox()
-        gain.setRange(0, 100)
+        gain.setRange(0, 65535)
         gain.setKeyboardTracking(False)
-        form.addRow("Gain", gain)
+        form.addRow("Gain (device units)", gain)
         self.widgets["gain"] = gain
         gain.editingFinished.connect(lambda: self.save("gain", gain.value()))
         self.color = QtWidgets.QCheckBox("Color capture")
@@ -89,6 +93,9 @@ class CamerasStage(WorkflowStep):
         preview = QtWidgets.QPushButton("Preview selected cameras")
         preview.clicked.connect(lambda: self.capture(SetupCapturePurpose.PREVIEW, self.preview_ready))
         self.layout_box.addWidget(preview)
+        focus = QtWidgets.QPushButton("Focus cameras in large view")
+        focus.clicked.connect(self.open_focus_assistant)
+        self.layout_box.insertWidget(3, focus)
         self.footer()
 
     def refresh(self) -> None:
@@ -178,8 +185,51 @@ class CamerasStage(WorkflowStep):
 
     def preview_ready(self, _payload: Any) -> None:
         for side, label in zip(("left", "right"), self.previews):
-            display_image(label, self.workflow.images[side])
+            display_image(label, self.workflow.images[side], keep_aspect=True)
         self.show_saved()
+
+    def open_focus_assistant(self) -> None:
+        """Open a viewer; explicit Start live preview acquires cameras."""
+        if self.is_busy():
+            return
+        if self._focus_dialog is not None:
+            self._focus_dialog.raise_()
+            self._focus_dialog.activateWindow()
+            return
+        dialog = FocusAssistantDialog(self.window())
+        self._focus_dialog = dialog
+        preview = FocusPreviewController(self.workflow, self)
+        self._focus_preview = preview
+        dialog.capture_requested.connect(preview.start)
+        dialog.cancel_requested.connect(preview.stop)
+        preview.frame_ready.connect(dialog.accept_frame)
+        preview.busy_changed.connect(self.set_busy)
+        preview.busy_changed.connect(dialog.set_busy)
+        preview.failed.connect(dialog.show_failure)
+        if self.workflow.images:
+            dialog.set_images(self.workflow.images)
+        dialog.finished.connect(self.focus_closed)
+        dialog.showMaximized()
+
+    def focus_closed(self) -> None:
+        dialog = self._focus_dialog
+        if dialog is not None:
+            dialog.deleteLater()
+            self._focus_dialog = None
+        if self._focus_preview is not None:
+            self._focus_preview.deleteLater()
+            self._focus_preview = None
+
+    def cancel_pending(self) -> bool:
+        if self._focus_preview is not None and self._focus_preview.timer.isActive():
+            self._focus_preview.stop()
+            return True
+        return super().cancel_pending()
+
+    def capture_failed(self, terminal) -> None:
+        super().capture_failed(terminal)
+        if self._focus_dialog is not None and self._focus_dialog.isVisible():
+            self._focus_dialog.show_failure(terminal.message)
 
     def validate(self) -> tuple[bool, str]:
         ids = self.workflow.state["camera_ids"]

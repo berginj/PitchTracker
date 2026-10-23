@@ -151,6 +151,7 @@ worker_analysis = Analysis(
     hiddenimports=hiddenimports + [
         'app.camera_probe_worker',
         'app.services.capture.setup_worker_main',
+        'app.services.capture.focus_worker',
         'app.services.tooling.worker_main',
         'app.trajectory_worker',
         'app.trajectory_persistent_worker',

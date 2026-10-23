@@ -21,7 +21,7 @@ def test_frozen_workers_use_dedicated_executable(tmp_path, monkeypatch):
     worker.touch()
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "executable", str(gui))
-    for task in ("camera_probe", "setup_capture", "tooling", "trajectory_fit"):
+    for task in ("camera_probe", "setup_capture", "focus_preview", "tooling", "trajectory_fit"):
         assert worker_command(task) == [str(worker), task]
     worker.unlink()
     with pytest.raises(FileNotFoundError, match="reinstall"):
