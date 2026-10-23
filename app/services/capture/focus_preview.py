@@ -17,9 +17,7 @@ import numpy as np
 
 from app.worker_process import worker_command
 from contracts.focus_preview import FOCUS_PREVIEW_SCHEMA, FocusPreviewFrame
-from contracts.setup_capture import (
-    SetupCaptureFailureCode, SetupCaptureRequest, SetupCaptureState, SetupCaptureTerminal,
-)
+from contracts.setup_capture import SetupCaptureFailureCode, SetupCaptureRequest, SetupCaptureState, SetupCaptureTerminal
 from contracts.timing import TimestampEvidence
 from log_config.logger import get_logger
 
@@ -80,16 +78,21 @@ class FocusPreviewService:
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
+        except OSError:
+            logger.exception("Unable to launch focus preview correlation={}", request.correlation_id)
+            self._done.set()
+            raise
+        try:
             assert self._process.stdin is not None
             self._process.stdin.write(json.dumps({"schema_version": FOCUS_PREVIEW_SCHEMA,
                                                  "request": request.to_payload()}) + "\n")
             self._process.stdin.flush()
-        except Exception:
-            if self._process is not None:
-                self._process.kill()
-                self._process.wait(timeout=3)
-            self._done.set()
-            raise
+        except (OSError, ValueError):
+            logger.exception("Unable to send focus preview request correlation={}", request.correlation_id)
+            self._fail(request, "Unable to send the focus preview request; restart preview.",
+                       SetupCaptureFailureCode.WORKER_CRASHED)
+            self._force_killed = True
+            self._process.kill()
         threading.Thread(target=self._drain_errors, daemon=True).start()
         threading.Thread(target=self._read, args=(request,), daemon=True).start()
         threading.Thread(target=self._watch, args=(request,), daemon=True).start()
@@ -111,9 +114,10 @@ class FocusPreviewService:
     def _drain_errors(self) -> None:
         process = self._process
         assert process is not None and process.stderr is not None
-        for line in process.stderr:
-            with self._lock:
-                self._errors.append(line[-1000:].rstrip())
+        with process.stderr:
+            for line in process.stderr:
+                with self._lock:
+                    self._errors.append(line[-1000:].rstrip())
 
     def _read(self, request: SetupCaptureRequest) -> None:
         process = self._process
@@ -129,8 +133,14 @@ class FocusPreviewService:
             self._fail(request, str(exc), SetupCaptureFailureCode.INVALID_RESULT)
             self._force_killed = True
             process.kill()
-            process.wait(timeout=3)
         finally:
+            # Admission must remain held even if the OS is slow to reap a killed worker.
+            while process.poll() is None:
+                try:
+                    process.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    logger.warning("Waiting for focus preview worker to exit pid={}", process.pid)
+                    process.kill()
             with self._lock:
                 if self._terminal is None:
                     cancelled = self._stop_at is not None
@@ -143,6 +153,9 @@ class FocusPreviewService:
                 elif self._force_killed:
                     self._terminal = replace(self._terminal, force_killed=True)
             self._done.set()
+            process.stdout.close()
+            if process.stdin is not None and not process.stdin.closed:
+                process.stdin.close()
             logger.info("Focus preview worker reaped pid={} exit={}", process.pid, process.returncode)
 
     def _accept(self, payload: dict[str, Any], request: SetupCaptureRequest) -> None:
@@ -152,6 +165,8 @@ class FocusPreviewService:
             raise RuntimeError(str(payload.get("message", "Focus capture failed")))
         if payload.get("kind") == "ready":
             with self._lock:
+                if self._ready:
+                    raise ValueError("Duplicate focus preview readiness message")
                 self._ready = True
                 self._received = {side: time.monotonic() for side in ("left", "right")}
             return
@@ -161,12 +176,19 @@ class FocusPreviewService:
         expected = request.left_camera_id if side == "left" else request.right_camera_id
         if payload.get("camera_id") != expected:
             raise ValueError("Focus frame belongs to a different camera")
+        index, stamp = payload.get("frame_index"), payload.get("t_capture_monotonic_ns")
+        if type(index) is not int or index < 0 or type(stamp) is not int or stamp <= 0:
+            raise ValueError("Invalid focus frame sequence or timestamp")
+        with self._lock:
+            previous = self._latest.get(side)
+            if not self._ready or (previous is not None and
+                                   (index <= previous.frame_index or stamp <= previous.t_capture_monotonic_ns)):
+                raise ValueError("Focus frame arrived before readiness or repeated an earlier frame")
         encoded = base64.b64decode(payload["jpeg"], validate=True)
         image = cv2.imdecode(np.frombuffer(encoded, dtype=np.uint8), cv2.IMREAD_COLOR)
         if image is None or min(image.shape[:2]) < 1 or max(image.shape[:2]) > 4096:
             raise ValueError("Invalid focus image")
-        frame = FocusPreviewFrame(side, expected, int(payload["frame_index"]),
-                                  int(payload["t_capture_monotonic_ns"]), image,
+        frame = FocusPreviewFrame(side, expected, index, stamp, image,
                                   TimestampEvidence.from_payload(payload.get("timing")))
         with self._lock:
             self._latest[side] = frame

@@ -72,3 +72,31 @@ def test_wrong_camera_or_schema_cannot_replace_the_display_frame(tmp_path):
         assert service.latest() == {}
     finally:
         workflow.release_capture()
+
+
+def test_repeated_ready_or_out_of_order_frames_cannot_hide_a_stall(tmp_path):
+    import base64
+    import cv2
+    import numpy as np
+
+    workflow, request = request_for(tmp_path)
+    service = FocusPreviewService()
+    ready = {"schema_version": "focus_preview.v1", "kind": "ready"}
+    ok, encoded = cv2.imencode(".jpg", np.full((64, 64), 30, dtype=np.uint8))
+    assert ok
+    payload = {"schema_version": "focus_preview.v1", "kind": "frame", "side": "left",
+               "camera_id": request.left_camera_id, "frame_index": 1, "t_capture_monotonic_ns": 1,
+               "jpeg": base64.b64encode(encoded).decode("ascii")}
+    try:
+        with pytest.raises(ValueError, match="before readiness"):
+            service._accept(payload, request)
+        service._accept(ready, request)
+        service._accept(payload, request)
+        first = service.latest()["left"]
+        with pytest.raises(ValueError, match="Duplicate"):
+            service._accept(ready, request)
+        with pytest.raises(ValueError, match="repeated"):
+            service._accept(payload, request)
+        assert service.latest()["left"] is first
+    finally:
+        workflow.release_capture()

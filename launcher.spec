@@ -49,6 +49,11 @@ hiddenimports = [
     'yaml',
     'loguru',
     'jsonschema',
+    # Stable camera identity and native controls use dynamic COM imports.
+    'comtypes',
+    'comtypes.persist',
+    'pygrabber.dshow_graph',
+    'pygrabber.dshow_ids',
 ]
 if find_spec('_pitchtracker_native') is not None:
     hiddenimports.append('_pitchtracker_native')

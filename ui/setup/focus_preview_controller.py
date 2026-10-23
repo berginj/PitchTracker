@@ -7,6 +7,9 @@ from PySide6 import QtCore
 from app.services.capture.focus_preview import FocusPreviewService
 from app.services.setup_workflow import SetupWorkflowService
 from contracts.setup_capture import SetupCapturePurpose, SetupCaptureState
+from log_config.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class FocusPreviewController(QtCore.QObject):
@@ -36,6 +39,7 @@ class FocusPreviewController(QtCore.QObject):
             self.service = FocusPreviewService()
             self.service.start(request)
         except Exception as exc:  # UI isolation; failed start releases reserved admission
+            logger.exception("Focus preview start failed")
             if reserved:
                 self.workflow.release_capture()
             self.failed.emit(str(exc))

@@ -86,3 +86,15 @@ def test_small_noise_changes_do_not_force_a_direction_reversal():
     guide.begin_turn("clockwise", now=0)
     advice = settle(guide, target(1))
     assert "No clear change" in advice.message
+
+
+def test_unusable_light_discards_the_previous_best_and_turn():
+    guide = FocusGuide()
+    guide.select_target(0.5, 0.5)
+    settle(guide, target(0.5))
+    assert guide.begin_turn("clockwise", now=0)
+    guide.observe(np.zeros((256, 256), dtype=np.uint8))
+    advice = settle(guide, target(3))
+    assert advice.best == advice.score
+    assert advice.change_percent is None
+    assert "Choose Test" in advice.message

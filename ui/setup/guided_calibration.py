@@ -9,20 +9,44 @@ from app.services.setup_workflow import SetupWorkflowService
 from app.services.tooling import get_tooling_service
 from contracts.setup_capture import SetupCapturePurpose
 from ui.setup.guided_base import WorkflowStep, display_image
-from ui.themes import style_status_label
+from ui.setup.instrument_widgets import Disclosure, PairedViews, ResponsiveActions, setup_button, stage_heading
+from ui.themes import get_style_manager, style_status_label
 
 
 class CalibrationStage(WorkflowStep):
     def __init__(self, workflow: SetupWorkflowService):
         super().__init__(workflow, "Calibration")
-        note = QtWidgets.QLabel(
-            "Reuse a compatible full calibration or capture at least 10 board poses. "
-            "Measure the printed square size; vary position, angle, and depth."
+        stage_heading(
+            self, "Calibrate the stereo pair",
+            "Measure the printed board, then capture varied positions, angles and depths. A full metric fit is required.",
         )
-        note.setWordWrap(True)
-        self.layout_box.addWidget(note)
-        form = QtWidgets.QFormLayout()
-        self.layout_box.addLayout(form)
+        self.camera_views = PairedViews()
+        self.previews = self.camera_views.previews
+        for preview in self.previews:
+            preview.setText("Capture a board pair to inspect this view")
+            preview.setWordWrap(True)
+        self.layout_box.addWidget(self.camera_views)
+        self.collection = QtWidgets.QFrame()
+        self.collection.setObjectName("SetupCollection")
+        collection_layout = QtWidgets.QVBoxLayout(self.collection)
+        collection_layout.setContentsMargins(16, 14, 16, 14)
+        self.count = QtWidgets.QLabel()
+        get_style_manager().style_label(self.count, "sectionTitle")
+        collection_layout.addWidget(self.count)
+        self.pair_progress = QtWidgets.QProgressBar()
+        self.pair_progress.setObjectName("SetupPairProgress")
+        self.pair_progress.setRange(0, 10)
+        self.pair_progress.setTextVisible(False)
+        self.pair_progress.setAccessibleName("Saved calibration board pairs; ten pairs minimum")
+        collection_layout.addWidget(self.pair_progress)
+        self.collection_note = QtWidgets.QLabel("Collection progress is separate from calibration quality. Fit results still need validation.")
+        self.collection_note.setWordWrap(True)
+        get_style_manager().style_label(self.collection_note, "muted")
+        collection_layout.addWidget(self.collection_note)
+        self.layout_box.addWidget(self.collection)
+        self.board_settings = Disclosure("Measured board dimensions")
+        self.board_settings.toggle.setChecked(True)
+        form = self.board_settings.form
         self.columns, self.rows = QtWidgets.QSpinBox(), QtWidgets.QSpinBox()
         for widget in (self.columns, self.rows):
             widget.setRange(3, 30)
@@ -36,22 +60,19 @@ class CalibrationStage(WorkflowStep):
         form.addRow("ChArUco columns", self.columns)
         form.addRow("ChArUco rows", self.rows)
         form.addRow("Measured square size (mm)", self.square)
-        self.count = QtWidgets.QLabel()
-        self.layout_box.addWidget(self.count)
-        preview_layout = QtWidgets.QHBoxLayout()
-        self.previews = [QtWidgets.QLabel(), QtWidgets.QLabel()]
-        for preview in self.previews:
-            preview.setMinimumSize(180, 120)
-            preview_layout.addWidget(preview)
-        self.layout_box.addLayout(preview_layout)
-        for label, callback in (
-            ("Check saved calibration", self.check), ("Import calibration NPZ", self.import_calibration),
-            ("Capture board pair", self.capture_pair), ("Run full calibration", self.run_calibration),
-            ("Cancel", self.cancel_pending),
-        ):
-            button = QtWidgets.QPushButton(label)
-            button.clicked.connect(callback)
-            self.layout_box.addWidget(button)
+        self.capture_button = setup_button("Capture board pair", self.capture_pair, primary=True)
+        self.fit_button = setup_button("Run full calibration", self.run_calibration)
+        self.cancel_button = setup_button("Cancel", self.cancel_pending)
+        self.cancel_button.hide()
+        self.action_panel = ResponsiveActions((self.capture_button, self.fit_button, self.cancel_button))
+        self.layout_box.addWidget(self.action_panel)
+        self.layout_box.addWidget(self.board_settings)
+        self.saved_calibration = Disclosure("Use an existing full calibration")
+        self.check_button = setup_button("Check saved calibration", self.check)
+        self.import_button = setup_button("Import calibration NPZ", self.import_calibration)
+        self.saved_calibration.form.addRow(self.check_button)
+        self.saved_calibration.form.addRow(self.import_button)
+        self.layout_box.addWidget(self.saved_calibration)
         self.footer()
 
     def refresh(self) -> None:
@@ -61,8 +82,40 @@ class CalibrationStage(WorkflowStep):
             widget.blockSignals(True)
             widget.setValue(value)
             widget.blockSignals(False)
-        self.count.setText(f"Saved board pairs: {len(self.workflow.state['captures'])}")
+        count = len(self.workflow.state["captures"])
+        if not count:
+            for preview in self.previews:
+                preview.clear_source("Capture a board pair to inspect this view")
+        self.count.setText(f"{count} saved board pairs · 10 minimum for a full fit")
+        self.pair_progress.setValue(min(count, 10))
         self.show_saved()
+        self.refresh_actions()
+
+    def refresh_actions(self) -> None:
+        if self.is_busy():
+            return
+        state = self.workflow.state
+        enough_pairs = len(state["captures"]) >= 10
+        self.fit_button.setEnabled(enough_pairs)
+        self.fit_button.setToolTip("" if enough_pairs else "Capture at least ten distinct board pairs before fitting.")
+        self.check_button.setEnabled(bool(state["artifacts"].get("calibration")))
+        self.check_button.setToolTip("" if state["artifacts"].get("calibration") else "Import or create a full calibration first.")
+        sm = get_style_manager()
+        sm.style_button(self.capture_button, "default" if enough_pairs else "primary")
+        sm.style_button(self.fit_button, "primary" if enough_pairs else "default")
+        if state["artifacts"].get("calibration") and not self.validate()[0]:
+            self.saved_calibration.toggle.setChecked(True)
+
+    def show_saved(self) -> None:
+        super().show_saved()
+        if self.validate()[0]:
+            style_status_label(self.status, "success", "Metric calibration matches the saved rig")
+
+    def set_busy(self, busy: bool) -> None:
+        super().set_busy(busy)
+        self.cancel_button.setVisible(busy)
+        if not busy:
+            self.refresh_actions()
 
     def board_changed(self) -> None:
         self.action(lambda: self.workflow.update_board(
@@ -76,12 +129,14 @@ class CalibrationStage(WorkflowStep):
         self.set_details(check)
         if check.get("passed"):
             style_status_label(self.status, "success", "Metric calibration matches the saved rig")
+        self.refresh_actions()
 
     def import_calibration(self) -> None:
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Import full stereo calibration", "", "Calibration (*.npz)")
         if path:
             self.action(lambda: self.workflow.accept_calibration(Path(path)), edit=True)
             self.set_details(self.workflow.state["checks"].get("calibration", {}))
+            self.refresh_actions()
 
     def capture_pair(self) -> None:
         self.capture(SetupCapturePurpose.CALIBRATION_PAIR, self.pair_ready)
@@ -108,6 +163,7 @@ class CalibrationStage(WorkflowStep):
             self.set_details(result.to_payload())
             style_status_label(self.status, "success", "Full metric calibration saved")
         self.action(run)
+        self.refresh_actions()
 
     def validate(self) -> tuple[bool, str]:
         check = self.workflow.state["checks"].get("calibration", {})

@@ -119,3 +119,16 @@ def test_pnp_discovery_prefers_installed_powershell7_and_keeps_legacy_fallback(i
         with patch("capture.device_discovery.subprocess.Popen", return_value=process) as popen:
             assert device_discovery._query_pnp_devices("Camera") == []
     assert popen.call_args.args[0][0] == expected
+
+
+def test_batched_pnp_query_preserves_reported_serial_identity():
+    process = Mock()
+    process.poll.return_value = 0
+    process.returncode = 0
+    process.communicate.return_value = ('[{"Serial":"saved-serial","InstanceId":"USB\\\\VID_1234\\\\different-tail"}]', '')
+    with patch("capture.device_discovery.subprocess.Popen", return_value=process) as popen:
+        result = device_discovery._query_pnp_devices("Camera")
+    command = popen.call_args.args[0][-1]
+    requested_keys = command.split("-KeyName ", 1)[1].split(" -ErrorAction", 1)[0].split(",")
+    assert "DEVPKEY_Device_SerialNumber" in requested_keys
+    assert result[0]["Serial"] == "saved-serial"

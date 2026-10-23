@@ -27,7 +27,9 @@ class FocusImageView(QtWidgets.QGraphicsView):
         self.scene().addItem(self.image_item)
         self.setDragMode(QtWidgets.QGraphicsView.DragMode.ScrollHandDrag)
         self.setMinimumSize(160, 120)
-        self.setAccessibleName("Manual focus image; drag to pan when zoomed")
+        self.setAccessibleName("Manual focus image")
+        self.setAccessibleDescription("Enter selects the visible centre; arrow keys move the target. Drag to pan when zoomed.")
+        self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
         self.zoom_factor = 0.0
         self.target: tuple[float, float] | None = None
         self.target_item = QtWidgets.QGraphicsRectItem()
@@ -44,9 +46,11 @@ class FocusImageView(QtWidgets.QGraphicsView):
         qimage = QtGui.QImage(
             rgb.data, width, height, int(rgb.strides[0]), QtGui.QImage.Format.Format_RGB888,
         ).copy()
+        previous_size = self.image_item.pixmap().size()
         self.image_item.setPixmap(QtGui.QPixmap.fromImage(qimage))
         self.scene().setSceneRect(self.image_item.boundingRect())
-        self.set_zoom(self.zoom_factor)
+        if self.zoom_factor == 0 or previous_size != self.image_item.pixmap().size():
+            self.set_zoom(self.zoom_factor)
         self.set_target(self.target)
 
     def set_target(self, target: tuple[float, float] | None) -> None:
@@ -77,6 +81,21 @@ class FocusImageView(QtWidgets.QGraphicsView):
         else:
             self.resetTransform()
             self.scale(factor, factor)
+
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
+        """Provide the same target selection without requiring a pointing device."""
+        bounds = self.image_item.boundingRect()
+        moves = {QtCore.Qt.Key.Key_Left: (-0.02, 0), QtCore.Qt.Key.Key_Right: (0.02, 0),
+                 QtCore.Qt.Key.Key_Up: (0, -0.02), QtCore.Qt.Key.Key_Down: (0, 0.02)}
+        if not bounds.isEmpty() and event.key() in (*moves, QtCore.Qt.Key.Key_Return, QtCore.Qt.Key.Key_Enter):
+            centre = self.mapToScene(self.viewport().rect().center())
+            x, y = self.target or (centre.x() / max(1, bounds.width() - 1),
+                                   centre.y() / max(1, bounds.height() - 1))
+            dx, dy = moves.get(event.key(), (0, 0))
+            self.target_selected.emit(min(1, max(0, x + dx)), min(1, max(0, y + dy)))
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
         super().resizeEvent(event)
@@ -114,6 +133,7 @@ class FocusAssistantDialog(QtWidgets.QDialog):
         guide = QtWidgets.QLabel(
             "Double-click the printed board to select the focus target. Looking at the front of the lens, "
             "choose a test direction BEFORE a small turn, then hold still for a second. "
+            "Focus the image and press Enter to select its visible centre; arrow keys move the target. "
             "Drag to pan; use 200% to inspect edges. After focusing, mark the lens adjustment in Cameras."
         )
         guide.setWordWrap(True)
@@ -174,9 +194,12 @@ class FocusAssistantDialog(QtWidgets.QDialog):
         self._images[frame.side] = frame.image
         self._black[frame.side] = not bool(np.any(frame.image))
         self._arrivals[frame.side].append(time.monotonic())
-        self._source_stale[frame.side] = time.monotonic_ns() - frame.t_capture_monotonic_ns > 1_000_000_000
+        age_ns = time.monotonic_ns() - frame.t_capture_monotonic_ns
+        self._source_stale[frame.side] = not 0 <= age_ns <= 1_000_000_000
         if not self._source_stale[frame.side]:
             self._guides[frame.side].observe(frame.image)
+        else:
+            self._guides[frame.side].invalidate("Waiting for fresh frames — pause lens adjustments.")
         if frame.side == self.side.currentData():
             self.show_selected()
         self.show_health()
@@ -186,6 +209,8 @@ class FocusAssistantDialog(QtWidgets.QDialog):
         image = self._images.get(str(self.side.currentData()))
         if image is None:
             self.view.image_item.setPixmap(QtGui.QPixmap())
+            self.view.set_target(None)
+            self.advice.setText("Start live preview and select a target for this camera.")
             self.sharpness.setText("Sharpness unavailable; start live preview.")
             return
         self.view.set_image(image)
@@ -204,7 +229,10 @@ class FocusAssistantDialog(QtWidgets.QDialog):
 
     def test_turn(self, direction: TurnDirection) -> None:
         """Direction is reported by the operator, never guessed from a still frame."""
-        if not self._busy or not self._guides[str(self.side.currentData())].begin_turn(direction):
+        side = str(self.side.currentData())
+        arrivals = self._arrivals[side]
+        fresh = bool(arrivals and time.monotonic() - arrivals[-1] <= 1 and not self._source_stale.get(side, True))
+        if not self._busy or self._failed or not fresh or not self._guides[side].begin_turn(direction):
             style_status_label(self.advice, "info", "Start live preview, select the board, then hold still for a second.")
             return
         self.show_selected()
@@ -229,6 +257,10 @@ class FocusAssistantDialog(QtWidgets.QDialog):
     def set_busy(self, busy: bool) -> None:
         """Retain closure until the camera-owning worker has stopped."""
         self._busy = busy
+        if not busy:
+            for guide in self._guides.values():
+                guide.invalidate("Live preview stopped. Restart and let target sharpness settle.")
+            self.show_selected()
         self.refresh.setText("Stop live preview (F5)" if busy else "Start live preview (F5)")
         if busy:
             self._arrivals = {side: deque(maxlen=20) for side in ("left", "right")}
@@ -248,6 +280,8 @@ class FocusAssistantDialog(QtWidgets.QDialog):
         if not arrivals:
             return
         if time.monotonic() - arrivals[-1] > 1 or self._source_stale.get(str(self.side.currentData()), False):
+            self._guides[str(self.side.currentData())].invalidate("Waiting for fresh frames — pause lens adjustments.")
+            self.show_selected()
             style_status_label(self.status, "warning", "Waiting for fresh frames — pause lens adjustments.")
             return
         fps = (len(arrivals) - 1) / max(0.001, arrivals[-1] - arrivals[0])

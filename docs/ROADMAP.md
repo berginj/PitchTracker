@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-10-16
+**Last reviewed:** 2026-10-23
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -50,6 +50,11 @@ physical qualification or release gates.
   navigation and real-service simulator recording. The operator confirmed
   readability at Windows 125%/150%/200%, keyboard page navigation and Narrator
   control labels; remaining manual coverage is listed in the qualification record.
+  The October 23 integration adds responsive setup previews and supervised
+  manual focus, including keyboard target selection and stale-frame recovery.
+  Manual lens direction, disconnect recovery, actual display scaling and frozen
+  serial-based camera capture remain qualification gates; no physical approval
+  follows from synthetic focus scores or collection progress.
 
 Execute in ID order. Each package must pass its focused checks before the next
 starts; carry pending hardware evidence explicitly without claiming it passed.

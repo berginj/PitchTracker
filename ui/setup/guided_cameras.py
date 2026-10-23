@@ -13,7 +13,9 @@ from contracts.setup_capture import SetupCapturePurpose
 from ui.setup.focus_assistant import FocusAssistantDialog
 from ui.setup.focus_preview_controller import FocusPreviewController
 from ui.setup.guided_base import WorkflowStep, display_image
+from ui.setup.instrument_widgets import Disclosure, PairedViews, ResponsiveActions, setup_button, stage_heading
 from ui.setup.providers.discovery import discover_camera_selection
+from ui.themes import get_style_manager
 
 
 class CamerasStage(WorkflowStep):
@@ -23,28 +25,35 @@ class CamerasStage(WorkflowStep):
         self.snapshot = None
         self._focus_dialog: FocusAssistantDialog | None = None
         self._focus_preview: FocusPreviewController | None = None
+        stage_heading(self, "Pair your cameras", "Assign the physical left and right views, then preview their shared field of view.")
         self.backend_label = QtWidgets.QLabel()
-        self.layout_box.addWidget(self.backend_label)
-        form = QtWidgets.QFormLayout()
-        self.layout_box.addLayout(form)
+        get_style_manager().style_label(self.backend_label, "muted")
+        self.saved_setup = Disclosure("Rig and saved setup")
         self.rig = QtWidgets.QComboBox()
         self.rig.addItem("New rig / unfinished setup", None)
         for path in sorted(workflow.rigs.base_dir.glob("*/rig_profile.json")):
             self.rig.addItem(path.parent.name, path.parent.name)
         self.rig.setCurrentIndex(max(0, self.rig.findData(workflow.state["base_profile_id"])))
-        form.addRow("Saved rig", self.rig)
+        self.saved_setup.form.addRow("Saved rig", self.rig)
+        self.saved_setup.form.addRow(self.backend_label)
         self.rig.currentIndexChanged.connect(self.select_rig)
         self.left = QtWidgets.QComboBox()
         self.right = QtWidgets.QComboBox()
         for side, combo in (("Left", self.left), ("Right", self.right)):
-            form.addRow(f"{side} camera", combo)
+            combo.addItem("Choose a device", "")
             combo.setAccessibleName(f"{side} camera identity")
-        discover = QtWidgets.QPushButton("Discover cameras")
-        discover.clicked.connect(self.discover)
-        self.layout_box.insertWidget(2, discover)
-        legacy = QtWidgets.QPushButton("Import existing local setup")
-        legacy.clicked.connect(lambda: self.action(self.workflow.import_legacy, edit=True))
-        self.layout_box.addWidget(legacy)
+        self.camera_views = PairedViews((self.left, self.right))
+        self.previews = self.camera_views.previews
+        self.configuration_changed.connect(self.clear_previews)
+        self.layout_box.addWidget(self.camera_views)
+        self.mode_summary = QtWidgets.QLabel()
+        self.mode_summary.setObjectName("SetupModeSummary")
+        self.mode_summary.setWordWrap(True)
+        self.layout_box.addWidget(self.mode_summary)
+        self.camera_controls = Disclosure("Capture mode and camera controls")
+        form = self.camera_controls.form
+        legacy = setup_button("Import existing local setup", lambda: self.action(self.workflow.import_legacy, edit=True))
+        self.saved_setup.form.addRow(legacy)
         self.widgets: dict[str, QtWidgets.QWidget] = {}
         for key, label, minimum, maximum in (
             ("width", "Width (px)", 64, 8192), ("height", "Height (px)", 64, 8192),
@@ -71,11 +80,9 @@ class CamerasStage(WorkflowStep):
         self.wb.setKeyboardTracking(False)
         form.addRow("White balance (K)", self.wb)
         self.wb.editingFinished.connect(lambda: self.save("wb", self.wb.value() or None))
-        pin_wb = QtWidgets.QPushButton("Use observed locked white balance")
-        pin_wb.clicked.connect(self.pin_white_balance)
+        pin_wb = setup_button("Lock observed white balance", self.pin_white_balance)
         form.addRow(pin_wb)
-        lens = QtWidgets.QPushButton("I adjusted the lens / focus")
-        lens.clicked.connect(lambda: self.action(self.workflow.mark_focus_adjusted, edit=True))
+        lens = setup_button("I adjusted the lens / focus", lambda: self.action(self.workflow.mark_focus_adjusted, edit=True))
         form.addRow(lens)
         for key, label in (("flip_left", "Flip left 180°"), ("flip_right", "Flip right 180°")):
             checkbox = QtWidgets.QCheckBox(label)
@@ -84,18 +91,21 @@ class CamerasStage(WorkflowStep):
             checkbox.toggled.connect(lambda value, key=key: self.save(key, value))
         self.left.currentIndexChanged.connect(self.assign)
         self.right.currentIndexChanged.connect(self.assign)
-        self.previews = [QtWidgets.QLabel(), QtWidgets.QLabel()]
-        preview_layout = QtWidgets.QHBoxLayout()
-        for preview_label in self.previews:
-            preview_label.setMinimumSize(160, 100)
-            preview_layout.addWidget(preview_label)
-        self.layout_box.addLayout(preview_layout)
-        preview = QtWidgets.QPushButton("Preview selected cameras")
-        preview.clicked.connect(lambda: self.capture(SetupCapturePurpose.PREVIEW, self.preview_ready))
-        self.layout_box.addWidget(preview)
-        focus = QtWidgets.QPushButton("Focus cameras in large view")
-        focus.clicked.connect(self.open_focus_assistant)
-        self.layout_box.insertWidget(3, focus)
+        self.discover_button = setup_button("Discover cameras", self.discover, primary=True)
+        self.apply_button = setup_button("Use selected camera pair", self.assign)
+        self.apply_button.hide()
+        self.preview_button = setup_button(
+            "Preview selected cameras", lambda: self.capture(SetupCapturePurpose.PREVIEW, self.preview_ready),
+        )
+        self.preview_button.setEnabled(False)
+        self.cancel_button = setup_button("Cancel", self.cancel_pending)
+        self.cancel_button.hide()
+        self.focus_button = setup_button("Focus cameras in large view", self.open_focus_assistant)
+        self.action_panel = ResponsiveActions((self.discover_button, self.apply_button, self.preview_button,
+                                              self.focus_button, self.cancel_button))
+        self.layout_box.addWidget(self.action_panel)
+        self.layout_box.addWidget(self.camera_controls)
+        self.layout_box.addWidget(self.saved_setup)
         self.footer()
 
     def refresh(self) -> None:
@@ -120,9 +130,35 @@ class CamerasStage(WorkflowStep):
             combo.blockSignals(True)
             if ids.get(side) and combo.findData(ids[side]) < 0:
                 combo.addItem(ids[side], ids[side])
-            combo.setCurrentIndex(combo.findData(ids.get(side)))
+            combo.setCurrentIndex(combo.findData(ids.get(side) or ""))
             combo.blockSignals(False)
         self.show_saved()
+        self.refresh_actions()
+
+    def refresh_actions(self) -> None:
+        if self.is_busy():
+            return
+        assigned, _ = self.validate()
+        camera = self.workflow.config.camera
+        self.mode_summary.setText(f"Requested: {camera.width} × {camera.height} · {camera.fps} fps\nVerify hardware readbacks in Image checks.")
+        self.preview_button.setEnabled(assigned)
+        self.focus_button.setEnabled(assigned)
+        reason = "" if assigned else "Select and apply two distinct cameras first."
+        self.preview_button.setToolTip(reason)
+        self.focus_button.setToolTip(reason)
+        sm = get_style_manager()
+        sm.style_button(self.discover_button, "default" if assigned else "primary")
+        sm.style_button(self.preview_button, "primary" if assigned else "default")
+
+    def clear_previews(self) -> None:
+        for preview in self.previews:
+            preview.clear_source()
+
+    def set_busy(self, busy: bool) -> None:
+        super().set_busy(busy)
+        self.cancel_button.setVisible(busy)
+        if not busy:
+            self.refresh_actions()
 
     def discover(self) -> None:
         def load(cancel):
@@ -153,11 +189,8 @@ class CamerasStage(WorkflowStep):
             combo.blockSignals(False)
         # Recommendations are visible; applying an assignment is explicit.
         self.set_details(asdict(result))
-        apply = getattr(self, "apply_button", None)
-        if apply is None:
-            self.apply_button = QtWidgets.QPushButton("Use selected camera pair")
-            self.apply_button.clicked.connect(self.assign)
-            self.layout_box.insertWidget(3, self.apply_button)
+        self.apply_button.show()
+        self.refresh_actions()
 
     def assign(self, *_args: Any) -> None:
         left, right = str(self.left.currentData() or ""), str(self.right.currentData() or "")
@@ -170,6 +203,7 @@ class CamerasStage(WorkflowStep):
                 side: asdict(by_id[identity]) for side, identity in self.workflow.state["camera_ids"].items()
                 if identity in by_id
             })
+        self.refresh_actions()
 
     def select_rig(self, *_args: Any) -> None:
         self.action(lambda: self.workflow.select_rig(self.rig.currentData()))
@@ -178,6 +212,7 @@ class CamerasStage(WorkflowStep):
 
     def save(self, key: str, value: Any) -> None:
         self.action(lambda: self.workflow.update_settings("camera", {key: value}), edit=True)
+        self.refresh_actions()
 
     def pin_white_balance(self) -> None:
         self.action(self.workflow.use_observed_white_balance, edit=True)

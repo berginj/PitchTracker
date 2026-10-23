@@ -122,7 +122,7 @@ def _query_pnp_devices(
         + " | Where-Object { $_.Present -eq $true -and ($_.Status -eq 'OK' -or $_.Status -eq $null) }); "
         + "if ($devices.Count -eq 0) { '[]'; exit }; "
         + "$allProps = @(Get-PnpDeviceProperty -InstanceId $devices.InstanceId -KeyName "
-        + "DEVPKEY_Device_Manufacturer,DEVPKEY_Device_DeviceDesc,"
+        + "DEVPKEY_Device_SerialNumber,DEVPKEY_Device_Manufacturer,DEVPKEY_Device_DeviceDesc,"
         + "DEVPKEY_Device_HardwareIds,DEVPKEY_Device_DriverVersion,DEVPKEY_Device_DriverProvider,"
         + "DEVPKEY_Device_LocationPaths,DEVPKEY_Device_Parent -ErrorAction SilentlyContinue); "
         + "$byDevice = @{}; if ($allProps.Count) { $byDevice = $allProps | Group-Object -Property InstanceId -AsHashTable }; "

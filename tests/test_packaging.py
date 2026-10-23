@@ -1,6 +1,7 @@
 """Packaging guardrails for release artifacts."""
 
 import re
+import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -66,3 +67,17 @@ def test_gui_does_not_exclude_its_eager_matplotlib_dependency():
     spec_text = (ROOT / "launcher.spec").read_text(encoding="utf-8")
     assert "'matplotlib'," not in spec_text
     assert "'defaults/configs'" in spec_text
+
+
+def test_dynamic_directshow_imports_are_available_to_both_frozen_entrypoints():
+    tree = ast.parse((ROOT / "launcher.spec").read_text(encoding="utf-8"))
+    hidden = next(node.value for node in tree.body if isinstance(node, ast.Assign)
+                  and any(isinstance(target, ast.Name) and target.id == "hiddenimports" for target in node.targets))
+    assert {"comtypes", "comtypes.persist", "pygrabber.dshow_graph", "pygrabber.dshow_ids"} <= set(ast.literal_eval(hidden))
+    analyses = [node.value for node in tree.body if isinstance(node, ast.Assign)
+                and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name)
+                and node.value.func.id == "Analysis"]
+    assert len(analyses) == 2
+    for analysis in analyses:
+        imports = next(keyword.value for keyword in analysis.keywords if keyword.arg == "hiddenimports")
+        assert any(isinstance(node, ast.Name) and node.id == "hiddenimports" for node in ast.walk(imports))

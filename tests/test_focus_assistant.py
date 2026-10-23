@@ -11,6 +11,10 @@ from ui.setup.guided_base import display_image
 from ui.setup.guided_cameras import CamerasStage
 from ui.setup.focus_preview_controller import FocusPreviewController
 from contracts.setup_capture import SetupCapturePurpose
+from contracts.focus_preview import FocusPreviewFrame
+from contracts.timing import TimestampEvidence
+from tests.test_focus_guidance import target
+import time
 
 
 @pytest.fixture
@@ -129,3 +133,44 @@ def test_failed_live_start_preserves_an_existing_setup_capture(qtbot, tmp_path):
         assert not controller.timer.isActive()
     finally:
         workflow.release_capture()
+
+
+def test_keyboard_selects_and_moves_focus_target(qtbot, dialog):
+    dialog.set_images({"left": target(1)})
+    dialog.show()
+    dialog.view.setFocus()
+    qtbot.keyClick(dialog.view, QtCore.Qt.Key.Key_Return)
+    initial = dialog._guides["left"].target
+    assert initial is not None
+    qtbot.keyClick(dialog.view, QtCore.Qt.Key.Key_Right)
+    assert dialog._guides["left"].target[0] == pytest.approx(initial[0] + 0.02)
+
+
+def test_stale_frame_discards_turn_comparisons_and_cannot_start_another(dialog):
+    dialog.set_busy(True)
+    dialog.select_target(0.5, 0.5)
+    for index in range(8):
+        dialog.accept_frame(FocusPreviewFrame(
+            "left", "sim-left", index, time.monotonic_ns(), target(1), TimestampEvidence(),
+        ))
+    dialog.test_turn("clockwise")
+    assert dialog._guides["left"].advice.score is not None
+    dialog.accept_frame(FocusPreviewFrame(
+        "left", "sim-left", 9, time.monotonic_ns() - 2_000_000_000, target(1), TimestampEvidence(),
+    ))
+    assert dialog._guides["left"].advice.score is None
+    dialog.test_turn("counterclockwise")
+    assert dialog._guides["left"].advice.score is None
+    dialog.set_busy(False)
+
+
+def test_live_frames_preserve_zoomed_pan_position(qtbot, dialog):
+    dialog.resize(800, 600)
+    dialog.set_images({"left": np.zeros((600, 960, 3), dtype=np.uint8)})
+    dialog.show()
+    dialog.zoom.setCurrentIndex(3)
+    dialog.view.centerOn(750, 400)
+    before = dialog.view.mapToScene(dialog.view.viewport().rect().center())
+    dialog.view.set_image(np.full((600, 960, 3), 20, dtype=np.uint8))
+    after = dialog.view.mapToScene(dialog.view.viewport().rect().center())
+    assert after == before

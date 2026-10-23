@@ -12,12 +12,12 @@ from ui.setup.state_machine import GUIDED_SETUP_SPEC, SetupStateMachine, StepSpe
 from ui.setup.steps.base_step import BaseStep
 from ui.themes import (
     GlassButton,
-    apply_standard_layout,
     ask_confirmation,
     get_style_manager,
     show_message_dialog,
-    style_message_panel,
 )
+from ui.setup.instrument_style import instrument_stylesheet
+from ui.setup.instrument_widgets import StageStack
 
 
 class StereoSetupWindow(QtWidgets.QMainWindow):
@@ -39,6 +39,7 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
     ):
         super().__init__(parent)
         self.setWindowTitle("PitchTracker Stereo Setup")
+        self.setMinimumSize(640, 480)
         self.resize(1200, 800)
 
         self._style_manager = get_style_manager()
@@ -104,13 +105,16 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         self._header = header
         self._step_indicator = self._build_step_indicator()
 
-        self._content_stack = QtWidgets.QStackedWidget()
+        self._content_stack = StageStack()
+        self._content_stack.setObjectName("SetupStageStack")
         self._content_stack.setMinimumSize(0, 0)
         self._content_stack.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Preferred)
         for step in self._steps:
             self._content_stack.addWidget(step)
 
         self._content_scroll = QtWidgets.QScrollArea()
+        self._content_scroll.setObjectName("SetupScroll")
+        self._content_scroll.viewport().setObjectName("SetupViewport")
         self._content_scroll.setWidgetResizable(True)
         self._content_scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
         self._content_scroll.setSizeAdjustPolicy(
@@ -121,68 +125,68 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
 
         self._nav_layout = self._build_navigation()
 
-        layout = QtWidgets.QVBoxLayout()
-        apply_standard_layout(layout)
-        layout.addWidget(header)
-        layout.addWidget(self._step_indicator)
-        layout.addWidget(self._content_scroll, 1)
-        layout.addLayout(self._nav_layout)
-
+        self._body_layout = QtWidgets.QHBoxLayout()
+        self._body_layout.setContentsMargins(0, 0, 0, 0)
+        self._body_layout.setSpacing(0)
+        self._body_layout.addWidget(self._step_indicator)
+        content_layout = QtWidgets.QVBoxLayout()
+        content_layout.setContentsMargins(24, 22, 24, 18)
+        content_layout.setSpacing(16)
+        content_layout.addWidget(self._content_scroll, 1)
+        content_layout.addLayout(self._nav_layout)
+        self._body_layout.addLayout(content_layout, 1)
         container = QtWidgets.QWidget()
         container.setObjectName("StereoWizardShell")
-        container.setLayout(layout)
+        layout = QtWidgets.QVBoxLayout(container)
+        layout.setSizeConstraint(QtWidgets.QLayout.SizeConstraint.SetNoConstraint)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(header)
+        layout.addLayout(self._body_layout, 1)
         self.setCentralWidget(container)
+        self.setStyleSheet(instrument_stylesheet())
+        self._resize_rail()
 
     def _build_header(self) -> QtWidgets.QWidget:
         """Build the stereo setup header."""
         header = QtWidgets.QFrame()
-        self._style_manager.style_panel(header, "normal")
-
-        layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(16, 12, 16, 12)
-
-        title = QtWidgets.QLabel("Set up the rig")
-        self._style_manager.style_label(title, "pageTitle")
+        header.setObjectName("SetupChrome")
+        layout = QtWidgets.QHBoxLayout(header)
+        layout.setContentsMargins(24, 16, 24, 16)
+        title = QtWidgets.QLabel("PitchTracker")
+        title.setObjectName("SetupBrand")
         layout.addWidget(title)
-
-        subtitle = QtWidgets.QLabel(
-            "Changes save immediately. Complete each stage to check the saved rig."
-        )
-        subtitle.setWordWrap(True)
-        self._style_manager.style_label(subtitle, "muted")
-        layout.addWidget(subtitle)
-
-        header.setLayout(layout)
+        context = QtWidgets.QLabel("RIG SETUP")
+        context.setObjectName("SetupContext")
+        layout.addWidget(context)
+        layout.addStretch()
         return header
 
     def _build_step_indicator(self) -> QtWidgets.QWidget:
-        """Build the horizontal step indicator."""
-        indicator_layout = QtWidgets.QHBoxLayout()
-        indicator_layout.setContentsMargins(0, 0, 0, 0)
-
+        """Build the persistent stage rail; it does not bypass validation."""
+        indicator_widget = QtWidgets.QWidget()
+        indicator_widget.setObjectName("SetupRail")
+        indicator_widget.setFixedWidth(174)
+        indicator_layout = QtWidgets.QVBoxLayout(indicator_widget)
+        indicator_layout.setContentsMargins(12, 24, 12, 18)
+        indicator_layout.setSpacing(8)
+        self._rail_title = QtWidgets.QLabel("YOUR RIG")
+        self._style_manager.style_label(self._rail_title, "eyebrow")
+        indicator_layout.addWidget(self._rail_title)
         self._step_labels: List[QtWidgets.QLabel] = []
         for index, step in enumerate(self._machine.steps):
             label = QtWidgets.QLabel(self._machine.title_for(step))
-            label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-            label.setMinimumHeight(40)
+            label.setWordWrap(True)
+            label.setMinimumHeight(48)
             self._apply_step_style(label, index == 0)
             self._step_labels.append(label)
             indicator_layout.addWidget(label)
-
-        indicator_widget = QtWidgets.QWidget()
-        indicator_widget.setProperty("surface", "toolbar")
-        self._style_manager.polish(indicator_widget)
-        indicator_widget.setLayout(indicator_layout)
-
-        indicator_scroll = QtWidgets.QScrollArea()
-        indicator_scroll.setWidgetResizable(True)
-        indicator_scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
-        indicator_scroll.setVerticalScrollBarPolicy(
-            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        indicator_scroll.setFixedHeight(52)
-        indicator_scroll.setWidget(indicator_widget)
-        return indicator_scroll
+        indicator_layout.addStretch()
+        self._rail_note = QtWidgets.QLabel("Research setup\nAccuracy approval is separate")
+        self._rail_note.setWordWrap(True)
+        self._style_manager.style_label(self._rail_note, "muted")
+        indicator_layout.addWidget(self._rail_note)
+        return indicator_widget
 
     def _apply_step_style(
         self,
@@ -191,16 +195,10 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         is_complete: bool = False,
     ) -> None:
         """Apply themed styling to a step indicator label."""
-        label.setProperty("role", "panelMessage")
-        if is_current:
-            style_message_panel(label, "success")
-        elif is_complete:
-            style_message_panel(label, "info")
-        else:
-            style_message_panel(label, "neutral")
-        font = label.font()
-        font.setBold(is_current or is_complete)
-        label.setFont(font)
+        label.setProperty("role", "setupStage")
+        label.setProperty("stepState", "current" if is_current else "complete" if is_complete else "pending")
+        label.setAccessibleDescription("Current stage" if is_current else "Completed stage" if is_complete else "Pending stage")
+        self._style_manager.polish(label)
 
     def _build_navigation(self) -> QtWidgets.QHBoxLayout:
         """Build wizard navigation buttons."""
@@ -214,7 +212,7 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         self._skip_button.setMinimumWidth(100)
         self._skip_button.clicked.connect(self._skip_step)
 
-        self._next_button = GlassButton("Next >", variant="primary")
+        self._next_button = GlassButton("Check & continue >", variant="default")
         self._next_button.setAccessibleName("Go to next step")
         self._next_button.setMinimumWidth(100)
         self._next_button.clicked.connect(self._go_next)
@@ -230,10 +228,31 @@ class StereoSetupWindow(QtWidgets.QMainWindow):
         nav_layout.setContentsMargins(0, 0, 0, 0)
         nav_layout.addWidget(self._back_button)
         nav_layout.addStretch()
+        self._save_note = QtWidgets.QLabel("Changes save immediately")
+        self._style_manager.style_label(self._save_note, "muted")
+        nav_layout.addWidget(self._save_note)
         nav_layout.addWidget(self._skip_button)
         nav_layout.addWidget(self._next_button)
         nav_layout.addWidget(self._finish_button)
         return nav_layout
+
+    def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "_step_indicator"):
+            self._resize_rail()
+
+    def _resize_rail(self) -> None:
+        compact = self.width() < 900
+        self._step_indicator.setFixedWidth(64 if compact else 174)
+        self._rail_title.setVisible(not compact)
+        self._rail_note.setVisible(not compact)
+        self._save_note.setVisible(not compact)
+        for index, label in enumerate(self._step_labels):
+            title = self._machine.title_for(self._machine.steps[index])
+            label.setText(str(index + 1) if compact else f"{index + 1}  {title}")
+            label.setToolTip(title)
+            label.setAccessibleName(f"Step {index + 1}: {title}")
+            label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter if compact else QtCore.Qt.AlignmentFlag.AlignVCenter)
 
     def _current_widget(self) -> BaseStep:
         """Return the widget for the machine's current step."""

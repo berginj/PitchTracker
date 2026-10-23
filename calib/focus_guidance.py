@@ -42,13 +42,17 @@ class FocusGuide:
         """Store normalized coordinates and discard comparisons from another scene."""
         if not (0 <= x <= 1 and 0 <= y <= 1):
             raise ValueError("Focus target must be inside the image")
+        self.target = (x, y)
+        self.invalidate("Hold still while the target sharpness settles…")
+
+    def invalidate(self, message: str) -> None:
+        """Discard comparisons when the source or lighting stops being usable."""
         self._scores.clear()
         self._best = 0.0
         self._baseline = None
         self._direction = None
         self._turn_time = 0.0
-        self.advice = FocusAdvice("Hold still while the target sharpness settles…")
-        self.target = (x, y)
+        self.advice = FocusAdvice(message)
 
     def begin_turn(self, direction: TurnDirection, *, now: float | None = None) -> bool:
         """Record the stationary baseline before the operator turns the ring."""
@@ -74,10 +78,10 @@ class FocusGuide:
         gray = cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY) if patch.ndim == 3 else patch
         if float(np.mean(gray >= 250)) > 0.6 or float(np.mean(gray)) < 8:
             bright = float(np.mean(gray)) >= 8
-            self._scores.clear()
-            self._baseline = None
-            self.advice = FocusAdvice("Target is washed out — shade the board or reduce exposure." if bright else
-                                      "Target is too dark — add light or check the selected area.", tone="warning")
+            message = ("Target is washed out — shade the board or reduce exposure." if bright else
+                       "Target is too dark — add light or check the selected area.")
+            self.invalidate(message)
+            self.advice = FocusAdvice(message, tone="warning")
             return self.advice
         self._scores.append(compute_focus_score(patch))
         score = float(np.median(self._scores))

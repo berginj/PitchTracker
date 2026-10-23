@@ -22,7 +22,9 @@ physical qualification and independent reference collection into discrete steps.
    image sharpness must still pass separately.
    For manual lenses, choose **Focus cameras in large view**. Select one camera,
    use Fit or 100%–400% zoom, and drag to inspect the board. **Start live preview**
-   opens the cameras once. Double-click the board to select the measured patch.
+   opens the cameras once. Double-click the board to select the measured patch,
+   or focus the image and press Enter to select its visible centre, then use
+   arrow keys to move the target.
    Looking at the front of the lens, select **Test clockwise** or
    **Test counterclockwise** before a small turn, then hold still for a second.
    Relative feedback reports sharper, softer/reverse, or no clear change; it
@@ -50,6 +52,13 @@ physical qualification and independent reference collection into discrete steps.
 
 Use Details for full evidence. Going backward displays saved state without
 opening cameras again. Cancellation and closure wait for workers to exit.
+
+The setup window keeps its five-stage progress rail and navigation visible.
+Cameras and Calibration use paired previews that preserve image proportions;
+the views and actions stack in a compact window. Capture mode, camera controls
+and saved-rig options expand when needed. Calibration shows collection progress
+separately from fit validation, with measured board dimensions available below
+the capture actions. Setup uses the shared light appearance throughout the workspace.
 
 ## Saved configuration and recovery
 

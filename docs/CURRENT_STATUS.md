@@ -1,6 +1,6 @@
 # PitchTracker Current Status
 
-**Last updated:** 2026-10-16
+**Last updated:** 2026-10-23
 **Published release:** `v2.0.0` / internal app version `2.0.0`
 **Development status:** the October consolidation/remediation batch is implemented
 and validated in software. The October 5 software follow-ups have implementations
@@ -92,6 +92,16 @@ See the [UX-07 implementation record](review/ux/UX_07_IMPLEMENTATION.md).
 Complete journey and manual display/accessibility qualification remains in UX-08.
 Its [qualification record](review/ux/UX_08_QUALIFICATION.md) now includes a complete
 workspace simulator journey, recovery-layout fixes and the pending manual worksheet.
+
+Setup also provides responsive paired previews, collapsible controls and a
+calibration collection count separate from fit validation. Explicit live manual
+focus runs in a supervised worker, with zoom, keyboard target selection and
+relative turn guidance. Stale or unusable images discard prior comparisons;
+scores do not grant readiness. Native gain uses device units, and confirmed
+unsupported focus controls can establish autofocus absence. Discovery retains
+reported serial identities; frozen entrypoints include the dynamically imported
+DirectShow dependencies. These changes still require target-rig and installed
+application qualification; see [guided setup](GUIDED_SETUP.md).
 
 The older desktop/setup/pipeline paths are retired under
 `archive/retired/2026-10-13`. Guided setup is the default for launcher, direct
