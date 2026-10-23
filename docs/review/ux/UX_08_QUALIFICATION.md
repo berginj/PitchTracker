@@ -209,3 +209,40 @@ Applicable instructions: [root](../../../AGENTS.md), [shared UI](../../../ui/AGE
 [Players](../../../ui/team/AGENTS.md) and [themes](../../../ui/themes/AGENTS.md).
 Public service and durable artifact contracts are unchanged; the simulator
 background correction affects generated pixels only.
+
+## October 23 integration review
+
+PR [#52](https://github.com/berginj/PitchTracker/pull/52) combines the earlier
+documentation/workspace changes with the saved manual-focus work and the useful
+setup-layout changes. It retains the shared light theme. Review corrected missing
+frozen DirectShow imports, a dropped discovery serial property, stale focus
+comparisons, zoomed-pan resets and a launcher test double missing the new palette
+method. The transient focus-worker contract and ownership are documented in
+[runtime contracts](../../architecture/agent-contracts.md).
+
+Source `d21cbb7` synthetic native Windows captures use a requested logical
+1024x768 window: [Cameras, unassigned](ux08/integration-2026-10-23/cameras-light.png),
+[Calibration, no saved pairs](ux08/integration-2026-10-23/calibration-light.png),
+and [Focus, retained generated image](ux08/integration-2026-10-23/focus-retained.png).
+The earlier [Cameras baseline](baseline/setup-cameras-unchecked-1024x768.png)
+is historical comparison evidence, not an identical fixture. All new images use
+disposable synthetic setup state; no physical devices or private frames were
+opened. Offscreen captures lacked usable font glyphs and were excluded; native
+captures were inspected. This does not qualify the Windows scaling matrix.
+
+Focused Python 3.13 checks passed 74 tests, followed by 76 combined setup,
+focus, discovery, packaging and accessibility tests. These are overlapping
+groups. Python 3.14 passed five focus/layout checks and two native rendering
+checks. Canonical mypy passed 895 source files; clean-source lint, file length,
+schema, documentation and typing-policy gates passed. The resolved Python 3.13
+runtime dependency audit reported no known vulnerabilities.
+
+The first full Python 3.13 run at `c7cddc5` had 2,040 passes, 37 skips and the two
+launcher-double failures described above. Skips included offscreen codec probes,
+unconfigured packaged/numerical-worker and video fixtures, missing ONNX, symlink
+privileges, opt-in soak tests and deferred TAG integrations. After updating the
+double, 26 launcher, palette and supervised-focus checks passed on native Windows.
+Final full-suite and
+security results belong to the integration PR's required Python 3.13/3.14 CI.
+Target-rig focus/disconnect recovery, frozen serial-based camera capture,
+complete keyboard/Narrator journeys and physical accuracy remain manual gates.
