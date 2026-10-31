@@ -1,6 +1,6 @@
 # PitchTracker Roadmap
 
-**Last reviewed:** 2026-10-23
+**Last reviewed:** 2026-10-29
 **Source of truth for open work:** this document and linked GitHub issues
 
 This roadmap separates completed software work from physical evidence that
@@ -55,6 +55,9 @@ physical qualification or release gates.
   Manual lens direction, disconnect recovery, actual display scaling and frozen
   serial-based camera capture remain qualification gates; no physical approval
   follows from synthetic focus scores or collection progress.
+  The October 29 history follow-up adds session-name search, keyboard review and
+  retained context after failed handoffs. Complete operator journeys and manual
+  accessibility qualification remain open.
 
 Execute in ID order. Each package must pass its focused checks before the next
 starts; carry pending hardware evidence explicitly without claiming it passed.
