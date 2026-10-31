@@ -1,6 +1,6 @@
 # Operator Daily-Session Runbook
 
-**Last reviewed:** 2026-10-14
+**Last reviewed:** 2026-10-29
 **Applies to:** v2.0.0 and current `main`
 
 This runbook covers the repeatable steps for each coaching session. It assumes
@@ -90,10 +90,17 @@ Previously recorded pitch labels are retained after roster edits.
 
 1. Choose **Review Session** after confirmed completion, or browse **Sessions**
    and open a completed recording. Historical selection is separate from runtime recording.
-2. Step through each pitch and confirm the evidence indicators (track length,
+2. Use **Search sessions** to filter local history by any part of a session name.
+   Matching ignores capitalization. Choose a result and **Review**, or press Enter
+   in the search field. **Clear search** restores the list; **Refresh** discovers
+   newly completed recordings while keeping your search. Searching leaves the
+   loaded review and active recording unchanged. **Open Local…** opens a session
+   outside the configured recording folder. If history is unavailable, check the
+   recording folder and choose **Refresh**; an already loaded review stays open.
+3. Step through each pitch and confirm the evidence indicators (track length,
    confidence, stereo quality, correction flags) are within expected ranges.
-3. Use the available local export action for the selected session if needed.
-4. Retain unavailable and rejected pitches in your review denominator. Source,
+4. Use the available local export action for the selected session if needed.
+5. Retain unavailable and rejected pitches in your review denominator. Source,
    reference and recorded status qualify speed values; unavailable is not zero
    or a normal ball call. Movement remains unavailable without validation.
 

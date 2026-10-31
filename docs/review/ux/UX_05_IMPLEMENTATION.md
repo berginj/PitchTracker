@@ -120,3 +120,35 @@ same-session and different-session stale IDs, retained service state, and
 independent history with known or unavailable startup directory identity.
 The existing synthetic gallery remains the layout reference; the manual codec,
 display, accessibility and physical-rig qualification gates above still apply.
+
+## Session history follow-up — 2026-10-29
+
+Based on main `718df19`, the session-history change adds case-insensitive name
+search with result counts, an explicit Clear search action and Enter-to-review.
+Typing filters cached service-admitted paths without rescanning recordings or
+loading another session. Refresh retains the query and remembered selection;
+recorded-player filtering remains independent of runtime pitcher attribution.
+
+Successful direct handoffs align the picker with the requested session and clear
+only a conflicting name search. Failed handoffs preserve the previous review,
+search, player filter and picker selection. An unavailable recording folder
+disables history review and explains Refresh/Open Local recovery while keeping
+the loaded review. Active-directory changes refresh the service-admitted choices,
+including removal during recording/finalization and restoration after completion.
+No public service interface, durable artifact or measurement algorithm changed.
+
+The combined Python 3.13 history, session-review, handoff-recovery, Players,
+workspace-navigation, camera-free, shortcut and real-service simulator-journey
+group passed 72 tests with no skips. The new cases include no-match recovery,
+relative/absolute path selection, failed folder access, active-path transitions,
+keyboard review and reachable controls at 1366x768, 1024x768 and 800x600.
+
+Synthetic actual-widget captures compare the
+[original history at 1024x768](ux05/history-2026-10-29/before-history-1024x768.png)
+with [matching results at 1024x768](ux05/history-2026-10-29/after-match-1024x768.png)
+and [no-match recovery at 800x600](ux05/history-2026-10-29/after-no-match-800x600.png).
+The baseline uses the original main layout; after captures use this working
+change. Both use offscreen PySide6 with installed Windows fonts, disposable
+session artifacts and an in-memory decoder. No private recordings or cameras
+were opened. Actual Windows scaling, complete keyboard/Narrator journeys,
+packaged codecs and physical-rig evidence remain separate manual gates.
